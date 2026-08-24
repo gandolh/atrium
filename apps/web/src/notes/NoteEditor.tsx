@@ -1,5 +1,6 @@
 import { getStroke } from "perfect-freehand";
 import { usePinch } from "@use-gesture/react";
+import { EASE_PAPER_CSS, usePrefersReducedMotion } from "../lib/motion";
 import {
   useCallback,
   useEffect,
@@ -380,6 +381,10 @@ function NoteSheet({
   // Enables a CSS transition only for the "reset zoom" tween, never during a
   // live pinch (which would lag a frame behind the fingers).
   const [animating, setAnimating] = useState(false);
+  // design.md "Motion degrades": the reset tween is the one animation on this
+  // surface, so it needs a reduced-motion path. Under `reduce` the sheet snaps
+  // back to its resting transform instead of gliding.
+  const reducedMotion = usePrefersReducedMotion();
 
   // Keep the panned sheet from drifting entirely off its own footprint.
   const clampPan = useCallback(
@@ -561,7 +566,8 @@ function NoteSheet({
         cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
         transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
         transformOrigin: "0 0",
-        transition: animating ? "transform 0.18s ease-out" : "none",
+        transition:
+          animating && !reducedMotion ? `transform 180ms ${EASE_PAPER_CSS}` : "none",
         willChange: "transform",
       }}
       onPointerDown={onPointerDown}
@@ -780,7 +786,7 @@ function Toolbar({
               aria-label={t.label}
               title={t.label}
               onClick={() => setTool(t.value)}
-              className={`grid h-9 w-10 place-items-center rounded-[3px] text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
+              className={`grid h-9 w-10 place-items-center rounded-card text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
                 active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
               }`}
             >
@@ -815,7 +821,7 @@ function Toolbar({
             aria-checked={thickness === i}
             aria-label={`Thickness ${i + 1}`}
             onClick={() => setThickness(i)}
-            className={`grid h-9 w-9 place-items-center rounded-[3px] transition focus-visible:outline-2 focus-visible:outline-accent ${
+            className={`grid h-9 w-9 place-items-center rounded-card transition focus-visible:outline-2 focus-visible:outline-accent ${
               thickness === i ? "bg-paper-raised shadow-sm" : "hover:bg-paper-container"
             }`}
           >
@@ -838,7 +844,7 @@ function Toolbar({
               aria-label={label}
               title={label}
               onClick={() => setTemplate(value)}
-              className={`grid h-9 w-9 place-items-center rounded-[3px] text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
+              className={`grid h-9 w-9 place-items-center rounded-card text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
                 active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
               }`}
             >
@@ -851,7 +857,7 @@ function Toolbar({
       {/* Page indicator — tabular figures (design.md "Numbers line up"), same
           cluster shape as the reader's page nav. Pushed to the far end on wide
           toolbars, wraps onto its own line on narrow ones. */}
-      <div className="ml-auto flex items-center gap-0.5 rounded-full bg-paper-low px-1.5 py-1 font-ui text-xs text-ink-variant">
+      <div className="ml-auto flex items-center gap-0.5 rounded-chip bg-paper-low px-1.5 py-1 font-ui text-xs text-ink-variant">
         <button
           type="button"
           disabled={pageIndex === 0}

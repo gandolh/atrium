@@ -105,7 +105,7 @@ payload *reduction*.
 | Radius default | `4px` | Cards, tiles, buttons, inputs |
 | Radius cover | `2px` | All artwork — structural, bound |
 | Radius chip | `20px` | Filter chips **only** — the single pill in the system |
-| Radius scrub | `full` (pill) | `ScrubTrack`'s rail + handle **only** — the shape a circular scrub affordance needs; not a fourth general radius |
+| Radius round | `full` | **Genuinely circular affordances only** — the `ScrubTrack` rail + handle, the note editor's ink swatches and nib-size dots. These are dots and tracks, not cards; a square colour swatch reads as a tile. Not a fourth general radius, and never on a container. |
 | Elevation L1 | 1px `line` + `0 4px 10px -5px` | Cards at rest |
 | Elevation lift | `translateY(-4px)` + `0 14px 30px -18px` | Card hover only |
 | Progress | `3px` | Cover bars and the reader rail |
@@ -156,8 +156,9 @@ Any `apps/web` change must, before it's considered done:
       sizes outside the scale above.
 - [ ] **Numbers are tabular** — every reported figure.
 - [ ] **Accent means state** — never a button fill, never decoration.
-- [ ] **Radii hold** — 4px default, 2px artwork, 20px chips, full on the scrub
-      track/handle only, nothing else.
+- [ ] **Radii hold** — 4px default, 2px artwork, 20px chips, `full` only on
+      genuinely circular affordances (scrub track/handle, ink swatches, nib
+      dots), nothing else.
 - [ ] **Three themes checked** — light, sepia, dark, *including artwork*.
 - [ ] **Motion degrades** — a `prefers-reduced-motion` path exists.
 - [ ] **Kind reads without labels** — strip every badge and the tinted grid is

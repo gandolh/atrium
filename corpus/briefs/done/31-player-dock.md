@@ -41,3 +41,26 @@ currently dies on navigation. Borrowed from the rejected *Vault* direction
 - Progress persists including the final flush; resume returns to the right spot.
 - Video audio routes correctly with no double playback.
 - Dock hidden when idle; mobile layout intact; three themes; typecheck + build clean.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `f69fb73`. Playback lives above the route in its own store;
+the shell owns the single `<audio>`; audio survives navigation.
+
+The **no-double-audio guarantee is structural**, which is better than the brief
+asked for: the dock's `<audio>` is not rendered at all while the full-surface
+`<video>` owns the output, rather than being muted by a flag two components
+have to keep in sync. Verified in a browser — zero `<audio>` elements in the
+DOM while a video plays.
+
+Two defects the review pass caught, both fixed in `4a77b51`:
+- **a new video inherited the previous track's position.** The handoff seed was
+  read during render, before the `load()` effect swapped the item, so opening a
+  video after a track at 1:27 started the video at 1:27 — overriding its own
+  saved resume locator.
+- the dock **covered the reader's progress rail.** Readers are `fixed inset-0`
+  and so ignored the shell's bottom padding; the rail, the reader's only scrub
+  control, sat underneath and could not be clicked while anything played.
+
+Brief 23's throttled progress PATCH and its final flush both survive. Known and
+accepted: closing the dock while the video surface is mounted leaves the
+`<video>` in the tree with no store item.

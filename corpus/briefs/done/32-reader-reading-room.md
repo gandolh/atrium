@@ -42,3 +42,25 @@ Reworks the reading surface and its chrome onto the new system. Depends on
 - Chrome fades and returns; rail scrubs and commits one seek; no raster staleness.
 - Aa panel drives theme/face/size correctly and persists as before.
 - Reduced motion disables the transition and the rail preview. Typecheck + build clean.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `c16cca9`, built on **sonnet** rather than opus: once this
+brief enumerated its own traps (raster staleness, one-seek-per-drag, D31
+locators) it was well-gated executor work.
+
+Both hard-won fixes held. The rail's drag preview moved onto an anime.js
+timeline writing fill/knob imperatively, and was verified to still commit
+**exactly one** seek on release (instrumented counter, real pointer sequence).
+No opacity landed on an EPUB iframe ancestor — the whole ancestor chain was
+walked with `getComputedStyle` during a jump.
+
+Real `@font-face` rules had to be injected into the epub.js section iframe via
+`?url` imports: the parent document's `@fontsource` CSS does not cascade in.
+The first pass registered **weight 400 only**, which made bold headings and
+`<strong>` synthesise where the browser's own serif had previously supplied a
+real bold cut — a regression in the primary reading surface, caught by review
+and fixed in `4a77b51` by adding Newsreader 500/600 and Archivo 600/700.
+
+The cover → reader transition needed review work too: as first built the
+`layoutId` was absent until hydration resolved and the first commit rendered a
+node without one, so the morph could never fire.

@@ -5,34 +5,34 @@ updated: 2026-08-24
 
 # Status — 2026-08-24
 
-**Latest (2026-08-24):** 🎨 **UI/UX rework locked — "Reading Room" (D33),
-briefs 27–33 filed, none built yet.** The owner rejected the current surface;
-three costed directions were mocked and *Reading Room* chosen. It reverses
-brief 25's per-type routes (kind becomes a filter chip again), makes Continue
-the hero, adds a persistent player dock, retires Playfair/Source Serif 4/Inter
-for **Newsreader + Archivo**, warms the dark theme, keeps Notes as its own
-destination, and **removes brief 21's Shelves ⇄ Stacks grouping**. Nothing is
-implemented — everything below still describes the *shipped* app, which is the
-pre-rework surface. See [design.md](design.md), D33, and `briefs/todo/27`–`33`.
+**Latest (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
+built, reviewed and committed on `reading-room-rework` (not merged; owner
+controls git).** Seven briefs in four waves via plan-split-dispatch, then a
+three-finder review pass and two fix rounds. **27:** Reading Room tokens, the
+Newsreader + Archivo type stack (retiring Playfair/Source Serif 4/Inter), kind
+tints, motion primitives; precache 3101.92 → 2815.40 KiB after dropping the dead
+`.woff` fallbacks from the glob. **28:** one home — kind became a filter chip
+again, per-type routes kept as redirects, Shelves ⇄ Stacks removed. **32:** the
+reader at a 620px measure in Newsreader, chrome fade, the rail's drag preview on
+an anime.js timeline. **29:** tinted tiles with badges dropped, the Continue
+strip in time-remaining, the dropzone confined to the empty state. **33:** Notes
+as its own destination. **31:** a player dock that survives navigation — the one
+new *capability* in the rework, with no-double-audio guaranteed structurally.
+**30:** cross-library search, client-side and offline-capable.
 
+Review found **14 findings**, all fixed: two Critical (a new video inheriting the
+previous track's position; the wordmark in synthetic bold), nine Important
+(including the dock covering the reader's only scrub control, the search field
+eating a typed space, and synthesised bold inside EPUBs), three Minor. Gates are
+typecheck + build only — **this repo still has no test suite**, which is the
+main reason the review pass carried so much weight.
 
-**Latest (2026-07-20):** ✅ **The app is now "Atrium" — briefs 24–26 shipped
-(uncommitted — owner controls).** A rebrand + a new Notes subsystem, built via
-orchestrate and live-audited across monitor/laptop/tablet/mobile. **24:**
-identity swap to **Atrium** (wordmark, title, PWA manifest, favicon arch mark,
-neutral theme glyph, design-system header) — internal `@ebook-reader/*` npm
-scope kept by decision. **25:** per-type IA — `/books` `/music` `/videos`
-routes + nav tabs + shared `LibraryArea`, retiring the in-header media-type
-filter; per-media card shapes (book 2:3 / music square / video 16:9) + per-kind
-fallback glyphs + per-area grids. **26:** a **Notes** tab — paged notebook with
-perfect-freehand vector ink (pen/highlighter/eraser), movable typed text boxes,
-undo/redo, per-user server storage, debounced autosave, mobile/stylus. The
-audit caught + fixed 3 real Notes bugs (tool bar below the fold; strokes not
-committing via empty `getCoalescedEvents()`; giant-blob ink from
-normalized-coord degeneracy) + a redundant empty-area dropzone. Typecheck +
-build clean; [TP-06-RESULTS](../test-plans/TP-06-RESULTS.md) = PASS. Not
-exercised: populated music/video cards + playback (no sample media). See the
-2026-07-20 log entry + briefs 24–26.
+**Known and accepted, not fixed:** Notes is a row list rather than the comp's
+master-detail split (an architectural change, deliberately deferred — worth
+revisiting); `library:groupBy`/`library:groupView` are orphaned in existing
+users' `localStorage`; three unused exports remain in `grouping.ts`; closing the
+dock while the video surface is mounted leaves an orphaned `<video>`; glyph SVGs
+are duplicated between `PlayerDock` and `CoverFallback`.
 
 **Earlier (2026-07-16 eve):** ✅ **Brief 23 shipped — media library
 (uncommitted — owner controls)**. One gallery now holds books + music (mp3) +

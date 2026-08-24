@@ -31,3 +31,20 @@ so nothing can find anything across the collection. Depends on **brief 28**.
 - `/` focuses; typing filters the grid live; `?q` round-trips; `Esc` clears.
 - Query and kind chip compose correctly; counts stay accurate.
 - Works offline. Reduced-motion respected. Typecheck + build clean.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `606aadb`. Client-side, offline-capable, no new endpoint.
+Diacritic-folded token-prefix matching with terms ANDed; `?q` written with
+`replace: true` so a search doesn't spam history (brief 22's bug).
+
+Two defects the review pass caught, both fixed in `4a77b51`:
+- the `?q` resync effect echoed the **trimmed** query back into the field, so a
+  typed trailing space vanished — `the ` + `hobbit` became `thehobbit` and
+  matched nothing. Normal typing rhythm reproduced it.
+- an unguarded spread of the optional `subjects` field crashed search against a
+  pre-brief-21 offline row — the one read path that isn't zod-validated, and
+  precisely the offline case this brief required.
+
+Controller ruling: chip counts now follow the active query. As first built they
+reported whole-library numbers during a search, so a chip could advertise 8 and
+land on "No matches".

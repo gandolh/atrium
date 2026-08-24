@@ -38,3 +38,25 @@ reached from the header, with its editor restyled onto Reading Room. Depends on
   tool-bar placement.
 - Dark theme gives a usable writing surface; ink stays visible.
 - Typecheck + build clean; design.md conformance.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `4c29fc0`. Notes is reached only from the header and appears
+in neither the grid nor the chips. The ink pipeline was not touched; strokes,
+undo/redo and autosave were all re-verified in a browser.
+
+Found and fixed a real bug in lane: `NoteEditor` never called
+`useApplyTheme()`, unlike every sibling surface. Since that hook's cleanup
+restores a captured `data-theme` on unmount, entering a note could freeze its
+chrome on a stale theme — directly undermining this brief's dark-theme
+acceptance.
+
+**Deviation, accepted:** the list is a single-column row list, not a persistent
+master-detail split with the editor docked beside it. The comp implies the
+split, but that is an architectural change to how `/notes` renders rather than a
+restyle, and the implementing agent had no access to the comp to confirm intent.
+"Active row" is satisfied as a real hover/focus state following `TocSidebar`'s
+existing idiom. **Worth revisiting** if the split view was the point.
+
+Page-template rules deliberately keep `--note-sheet-rule` rather than the
+theme-remapped `--line-soft`: the sheet is a fixed-light surface in every theme,
+so a remapped rule would vanish in dark.

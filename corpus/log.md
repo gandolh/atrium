@@ -1,5 +1,80 @@
 # Log
 
+## [2026-08-24] done | Briefs 27–33 — the Reading Room rework shipped
+
+Built via `plan-split-dispatch` in four waves on branch `reading-room-rework`,
+one commit per brief, then a three-finder review pass and two fix rounds.
+Wave plan: `27 → 28‖32 → 29‖33 → 31‖30`. **Not merged — owner controls git.**
+
+**What shipped.** 27 tokens + the Newsreader/Archivo type stack + motion
+primitives; 28 one home with kind as a filter chip (reversing brief 25's
+per-type routes, kept as redirects) and the Shelves ⇄ Stacks UI removed; 32 the
+reader at a 620px measure with the rail's drag preview on an anime.js timeline;
+29 tinted tiles, badges dropped, the Continue strip in time-remaining, the
+dropzone confined to the empty state; 33 Notes as its own destination; 31 a
+player dock that survives navigation; 30 cross-library search. Per-brief
+outcomes are appended to each brief in `briefs/done/`.
+
+**Review found 14 findings, all fixed.** Two Critical: a new video inherited the
+*previous* track's position (the handoff seed read the store during render,
+before the load effect swapped the item), and the wordmark rendered in synthetic
+bold (Newsreader 700 requested, only 400/500/600 self-hosted). Nine Important,
+the sharpest being: the dock covered the reader's progress rail — its only
+scrub control — because `fixed` readers ignore the shell's padding; the search
+field ate a typed trailing space, so `the ` + `hobbit` became `thehobbit` and
+matched nothing; and bold text inside EPUBs synthesised because the injected
+iframe `@font-face` set registered weight 400 only, where the browser's own
+serif had previously supplied a real bold cut.
+
+**Gates were typecheck + build only — this repo has no test suite.** That is why
+the review pass carried so much weight, and it is the single biggest reason to
+be cautious about this branch. Three scoped finders (one opus on integration,
+two sonnet on conformance and dead code) caught things no single generalist pass
+would have; the parallel-lane build made seam bugs the dominant failure mode,
+exactly as expected.
+
+### Rulings
+- [wave 2] first attempt died on a session quota mid-flight; only `router.tsx`
+  had been written (brief 28, partial but correct) — kept, not discarded.
+- [waves] batched at 2 agents after that, not 3, to bound what a quota kill loses.
+- [brief 32] re-tiered opus → sonnet once the brief enumerated its own traps
+  (raster staleness, one-seek-per-drag, D31 locators). It completed DONE with
+  live browser verification — the reference-pattern rule working as intended.
+- [brief 32] edited `routes/read.tsx`, outside its declared lane but claimed by
+  nobody — accepted, because it flagged it rather than hiding it.
+- [brief 27] the brief's own acceptance criterion ("payload down") was **wrong**:
+  three families → two is still five faces → seven. The real waste was dead
+  `.woff` fallbacks in the PWA glob; dropping them gave the reduction.
+- [brief 28] `lib/library-prefs.ts` deleted rather than emptied; its two
+  localStorage keys are orphaned in existing browsers and logged, not migrated.
+- [brief 29] mixed-aspect baseline resolved by normalizing the tile *shell*
+  (2:3 single-column, 4:3 across two) rather than accepting staggered captions.
+- [brief 30] **controller ruling reversing an earlier instruction of mine**: chip
+  counts now follow the active query. As first specified they reported
+  whole-library numbers during a search, so a chip could advertise 8 and land on
+  "No matches".
+- [brief 33] deviation accepted: the notes list is a row list, not the comp's
+  master-detail split — an architectural change, deliberately deferred.
+- [review] my own check of the sepia `tint-book` collision was against `--paper`
+  and passed; the finder compared against `--paper-container` and found ~5 RGB
+  units. The finder was right.
+- [briefs 25/28 + one todo] links to files brief 28 deleted were converted to
+  code spans. Briefs stay immutable as *specs*; a dead link is not spec content.
+- [reader.md] was straddling at 205 body lines. Fixed by reducing its "entry:
+  library home" section to a pointer — the home is not the reader — rather than
+  shaving padding to sneak under the cap.
+- [process] agents left orphaned vite/API watchers three separate times. Cleaned
+  up each time; worth a standing instruction in future dispatch prompts.
+
+**Known and accepted, not fixed:** the Notes master-detail split; orphaned
+`library:groupBy`/`library:groupView` localStorage keys; three unused exports in
+`grouping.ts`; closing the dock while the video surface is mounted leaves an
+orphaned `<video>`; glyph SVGs duplicated between `PlayerDock` and
+`CoverFallback`; `AudioPlayer`'s coverless state shows bare text where the
+library tile shows a kind glyph.
+
+`bash corpus/lint.sh` passes. Typecheck + build green at every wave gate.
+
 ## [2026-08-24] decision | UI/UX rework locked — "Reading Room" (D33), briefs 27–33 filed
 
 The owner rejected the current surface ("the main idea is good, I just don't like

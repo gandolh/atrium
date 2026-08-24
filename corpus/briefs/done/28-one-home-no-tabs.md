@@ -17,7 +17,7 @@ into a single home where `kind` is a filter chip with a count, and removes brief
    existing links, browser history and the **installed PWA's start_url** keep
    working (do not just delete them). `/notes`, `/read`, `/discover` unchanged.
 2. **Home component** — refactor
-   [LibraryArea.tsx](../../../apps/web/src/library/LibraryArea.tsx) into a single
+   `LibraryArea.tsx` into a single
    `LibraryHome`: no `kind` parameter, no per-area config table, no per-area
    heading/empty/upload variants. Kind filter comes from `?kind` (absent = all).
 3. **Chips** — a `KindChips` control above the grid: All / Books / Music / Video
@@ -28,11 +28,11 @@ into a single home where `kind` is a filter chip with a count, and removes brief
    delete `NavTabs` entirely. Header becomes wordmark · search slot (brief 30) ·
    **Notes** link · Add button · avatar/theme. Two clusters, one row.
 5. **Remove grouping** — delete
-   [GroupedGallery.tsx](../../../apps/web/src/library/GroupedGallery.tsx),
-   [ShelfView.tsx](../../../apps/web/src/library/ShelfView.tsx),
-   [StackIndex.tsx](../../../apps/web/src/library/StackIndex.tsx) and the
+   `GroupedGallery.tsx`,
+   `ShelfView.tsx`,
+   `StackIndex.tsx` and the
    `?g` drill-in; drop `groupBy`/`groupView` from
-   [library-prefs.ts](../../../apps/web/src/lib/library-prefs.ts). **Keep**
+   `library-prefs.ts`. **Keep**
    [grouping.ts](../../../apps/web/src/library/grouping.ts)'s metadata
    accessors — brief 30 reuses them. Sort survives as a single control.
 6. **Grid** — one responsive grid holding mixed aspect ratios (book 2:3, music
@@ -53,3 +53,21 @@ into a single home where `kind` is a filter chip with a count, and removes brief
   launches; no dead nav.
 - No grouping UI anywhere; no orphaned imports or prefs; `grouping.ts` retained.
 - Typecheck + build clean; all three themes; design.md conformance.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `dce2f15`. `/` is the home; `/books` `/music` `/videos`
+redirect; the grouping UI is gone with `grouping.ts`'s accessors retained.
+
+Found and fixed on the way: every chip targets `/`, so TanStack's path-only
+active test marked **All** current alongside the real active chip — two
+elements announcing `aria-current="page"`. Needed `exact` + `includeSearch`.
+
+`lib/library-prefs.ts` was deleted rather than emptied (its only contents were
+the two grouping prefs). Its `library:groupBy` / `library:groupView`
+localStorage keys are now orphaned in existing users' browsers — harmless, and
+logged rather than migrated.
+
+A review finder corrected this brief's stated premise: `vite.config.ts` sets
+`start_url: base`, so an installed PWA never launched at `/books`. The
+redirects are still right for bookmarks and history, just not for the reason
+given here.

@@ -19,7 +19,7 @@ into per-type areas and gives each media type its native card shape.
    active-state styling, keyboard-operable, quiet (Inter label-ui, accent only
    on the active tab). Mobile: wraps/collapses cleanly.
 3. **`LibraryArea`** — refactor the old `routes/home.tsx` (now removed) into a
-   reusable [LibraryArea.tsx](../../../apps/web/src/library/LibraryArea.tsx)
+   reusable `LibraryArea.tsx`
    parameterized by `kind`: it filters the library list to
    that kind, keeps grouping/sort where sensible (Books: author/series/subject;
    Music: artist/album via the existing column mapping; Video: sort only), its

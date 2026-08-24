@@ -130,7 +130,7 @@ mature apps get right that we don't yet: **per-media card shapes** and
   "Continue" strip? — see open questions).
 - **The type filter becomes navigation:** `TypeFilterControl`
   ([LibraryHeader.tsx](../../apps/web/src/library/LibraryHeader.tsx)) and the
-  `typeFilter` pref ([library-prefs.ts](../../apps/web/src/lib/library-prefs.ts))
+  `typeFilter` pref (`library-prefs.ts`)
   are replaced by (or repurposed as) route-driven navigation. `home.tsx`
   (`filteredBooks`, `TYPE_FILTER_NOUNS`, per-filter empty states) gets
   restructured per area.

@@ -1,6 +1,6 @@
 ---
 summary: What Atrium is in a paragraph — a personal, per-user-account media gallery (books, music, video) + a Notes tab; the orientation page.
-updated: 2026-07-20
+updated: 2026-08-24
 ---
 
 # Overview
@@ -10,12 +10,16 @@ updated: 2026-07-20
 library** — books (PDF/EPUB), music (MP3), and video (MP4/WebM), plus a
 **Notes** tab for drawing and writing.
 
-Since brief 25 the home is split into per-type areas (`/books`, `/music`,
-`/videos`, `/notes`) via nav tabs rather than one unified gallery; each media
-type renders in its native card shape (book 2:3, music square, video 16:9).
-Notes (brief 26) are per-user paged notebooks with vector ink + typed text
-boxes, stored server-side. The name/design evolved but the internal npm scope
-`@ebook-reader/*` and the `books`/`library` code nouns were kept (see
+Since the **Reading Room** rework (briefs 27–33, D33) there is **one home** at
+`/`: media kind is a filter chip with a live count, not a destination — which
+reverses brief 25's per-type routes (`/books` `/music` `/videos` survive as
+redirects). Each kind keeps its native card shape (book 2:3, music square,
+video 16:9) and now carries a **paper tint** that signals kind without a badge.
+A **Continue** strip leads the page in *time remaining*, a **player dock** at
+the foot survives navigation, and a `/`-focused field searches the whole
+library. **Notes** (brief 26) stays its own destination, outside the grid — a
+notebook is authored, not collected. The name/design evolved but the internal
+npm scope `@ebook-reader/*` and the `books`/`library` code nouns were kept (see
 [decisions.md](decisions.md) D32).
 
 The original reader core is unchanged below:

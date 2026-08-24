@@ -1,6 +1,6 @@
 ---
 summary: The PWA layer (briefs 19–20) — installable shell via vite-plugin-pwa/generateSW with prompt-mode updates, cover-only runtime caching, and offline reading via a three-store IndexedDB (metadata/blobs/progress) with explicit per-book downloads and last-write-wins progress sync.
-updated: 2026-07-16
+updated: 2026-08-24
 ---
 
 # PWA & offline reading
@@ -19,7 +19,11 @@ zero connectivity.
 - Manifest colors are the one allowed raw-hex site (`#fcf9f8` = `--paper`).
   Icons in `apps/web/public/` (192/512/maskable/apple-touch).
 - Precache includes the pdf.js worker (`mjs` in globPatterns — the reader must
-  work offline); ~3 MB, 34 entries.
+  work offline). **35 entries / ~3047 KiB** as of the Reading Room rework.
+- **`woff` is deliberately absent from `globPatterns`** (D33 work): `@fontsource`
+  ships a `.woff` fallback beside every `.woff2`, and precaching both spent
+  ~299 KiB on a format no browser that can run this app will request. The files
+  are still built and served, just not precached.
 - **Updates are prompt-mode**: `registerType: "prompt"`, `injectRegister:
   false`, [UpdateToast.tsx](../../apps/web/src/pwa/UpdateToast.tsx)
   (`useRegisterSW`) mounted in the root layout outside the auth gate. Never add

@@ -42,3 +42,17 @@ The **surface layer** of the home. Depends on **briefs 27 + 28**.
 - A mixed grid reads by kind **with every badge removed** (the design.md tint test).
 - Populated home has no dashed box; drag-anywhere works; empty state still guides.
 - Reduced-motion disables lift + stagger. Three themes. Typecheck + build clean.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `a584d38`. Tints carry kind, badges are gone, the Continue
+strip leads the page, and the dashed dropzone survives only in the empty state.
+
+Resolved the baseline question brief 28 deferred by **normalizing the tile
+shell**: 2:3 for single-column kinds, 4:3 for the two-column video span, which
+renders the same height at the same column width, so a mixed row's captions
+align while artwork keeps its native shape inside the box.
+
+Book time-remaining is **estimated from `sizeBytes`** (~2000 bytes/page,
+~250 wpm, clamped to 20h): `LibraryBook` carries no page count on the wire and
+adding one is a contract change. The assumption is stated in
+`ContinueReading.tsx`.

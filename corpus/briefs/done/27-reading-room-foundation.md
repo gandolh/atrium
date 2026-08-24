@@ -56,3 +56,22 @@ reset in the new faces*, not rearranged.
 - Zero raw hex in `apps/web/src` outside `globals.css` (+ the manifest).
 - Typecheck + build clean. design.md conformance passes on the *unchanged*
   screens.
+
+## Outcome (2026-08-24) — DONE
+Landed as committed `5c561f0`. Tokens, the two-family type stack, and the
+motion primitives (`lib/motion.ts`, `lib/tokens.ts`) all in place with no
+structural change, as scoped.
+
+**The acceptance criterion "payload down" initially FAILED** — this brief's
+premise was wrong. Three families → two is still **five faces → seven**
+(Newsreader 400/500/600 + italic, Archivo 500/600/700), so the font payload
+rose 12 KiB. The real waste was elsewhere and pre-existing: `@fontsource`
+ships a `.woff` fallback beside every `.woff2` and the PWA glob precached
+both. Dropping `woff` from `globPatterns` took the precache from
+**37 entries / 3101.92 KiB → 31 / 2815.40 KiB**.
+
+Accepted deviations: `@theme static inline` (plain `inline` tree-shakes tokens
+only referenced from inline styles); `tabular-nums` on `body` rather than a
+per-call-site sweep; a sepia-specific `--tint-book` (the light value is nearly
+invisible on sepia's ground — it would have failed the tint test in one of
+three themes).

@@ -1,6 +1,6 @@
 ---
 summary: The reader experience — PDF + EPUB renderers sharing one Kindle-style frame: nav, TOC, search, themes, progress rail, resume, a paged⇄scroll mode toggle, and a shared running header.
-updated: 2026-07-13
+updated: 2026-08-24
 ---
 
 # Reader
@@ -8,44 +8,42 @@ updated: 2026-07-13
 The heart of the app. Two renderers (PDF, EPUB) sharing one **Kindle-style
 chrome**. 100% client-side.
 
-## Entry: library home (2026-07-07)
-The home page (`/`) is a **persistent library** (D24), styled per
-[design.md](design.md) ("Quiet Paper"). Layout (see
-`design/stitch_extracted/screen.png`): header (theme toggle + icons), a dashed
-**"Add to Library"** dropzone (upload → `POST /library`), then a **cover-card
-gallery** (`GET /library`) with EPUB/PDF badges, title/author, and a 2px blue
-progress bar. Missing cover → typographic fallback tile. Empty state reinforces
-upload. Opening a card navigates to `/read` **instantly**; the route's hydrate
-hook streams `GET /library/:id/file` behind an opening screen (cover + title +
-determinate download bar, error state with retry — brief 10); reading progress
-`PATCH`es back. Delete via a per-card overflow control.
+## Entry: the library home
+The home (`/`) is not part of the reader — see [overview.md](overview.md) for
+its shape and [design.md](design.md) for the Reading Room rules it follows.
+What matters here: opening a card navigates to `/read` **instantly**, and the
+route's hydrate hook streams `GET /library/:id/file` behind an opening screen
+(cover + title + a determinate download bar, with a retry on error — brief 10)
+while reading progress `PATCH`es back. Detection is still by extension/MIME
+(D13), and **both formats open the reader directly** — EPUB→PDF export is a
+secondary "Download as PDF" action in the EPUB toolbar (see
+[conversion.md](conversion.md)).
 
-Detection still by extension/MIME (D13). **Both formats open the reader
-directly.** EPUB→PDF export lives in the EPUB reader's toolbar as a secondary
-"Download as PDF" button (see conversion.md).
-
-> Superseded: the old *one-step uploader* (drop → straight to `/read`, no
-> persistence) is replaced by this library. The dropzone UX survives inside the
-> library home.
-
-## The "quiet paper" reading surface (2026-07-02 redesign)
+## The reading surface
 The page is the interface (PRODUCT.md). EPUB renders as a **single centered,
 measure-capped column** (`spread: none`). Orientation lives at the edges and
-fades with the chrome: running header (book title / current chapter), footer
-"chapter · %" button (opens TOC at the current chapter), and a **scrubbable
-progress rail** along the bottom edge (chapter ticks in locations-space, hover
-tooltip, click / **drag** / arrow-key seek — dragging previews the fill +
-tooltip live and commits one seek on release; brief 08). Since brief 08 the
-rail is shared chrome and the PDF reader mounts it too. Settings is a Kindle-style **"Aa" panel**:
-theme swatches drawn as miniature pages, font specimens, A−/A+ steppers.
-Loading is a skeleton page; TOC/search jumps crossfade via an overlay veil
-(never opacity on the iframe's ancestors — Chromium raster staleness).
+fades with the chrome: running header (title / chapter), a footer "chapter · %"
+button that opens the TOC at the current chapter, and the shared **progress
+rail** (chapter ticks in locations-space, hover tooltip, click / drag / arrow
+seek — one seek committed on release; brief 08, both readers mount it).
+Loading is a skeleton page; TOC/search jumps crossfade via an overlay **veil** —
+never opacity on the iframe's ancestors, which triggers Chromium raster
+staleness.
 
 ## Renderers
 - **PDF** — `react-pdf` (PDF.js): lazy per-page rendering, text layer for
   selection/search. Fixed-layout.
 - **EPUB** — `react-reader` (epub.js): reflowable text, native. Reflow is the
   Kindle magic.
+
+Both cap the column at **620px** (`max-w-measure`) and set body text in
+**Newsreader** at 18/1.78. The section iframe needs its own injected
+`@font-face` rules (Newsreader 400/500/600, Archivo 400/600/700, roman +
+italic, via `?url`) — the parent document's `@fontsource` CSS does not cascade
+into it, and registering only weight 400 makes every bold heading synthesise.
+The Aa panel's family list is now a two-way **Newsreader / Archivo** face
+toggle. The progress rail's drag preview runs on an **anime.js** timeline (the
+one sanctioned use) and still commits exactly one seek on release.
 
 ## v1 feature set
 

@@ -43,7 +43,7 @@ export function AppHeader({
       <div className="flex flex-col gap-1">
         <Link
           to="/"
-          className="w-fit rounded font-display text-2xl font-bold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
+          className="w-fit rounded font-display text-2xl font-semibold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
           Atrium
         </Link>

@@ -31,7 +31,7 @@ export function NotesList() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
+    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
       <AppHeader
         actions={
           <button
@@ -52,10 +52,10 @@ export function NotesList() {
           <div className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70" aria-hidden>
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-9 w-9 shrink-0 animate-pulse rounded-cover bg-paper-container" />
+                <div className="h-9 w-9 shrink-0 motion-safe:animate-pulse rounded-cover bg-paper-container" />
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <div className="h-3.5 w-1/3 animate-pulse rounded-card bg-paper-container" />
-                  <div className="h-3 w-1/4 animate-pulse rounded-card bg-paper-container" />
+                  <div className="h-3.5 w-1/3 motion-safe:animate-pulse rounded-card bg-paper-container" />
+                  <div className="h-3 w-1/4 motion-safe:animate-pulse rounded-card bg-paper-container" />
                 </div>
               </div>
             ))}

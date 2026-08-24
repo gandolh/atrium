@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Format, LibraryBook, MediaKind } from "@ebook-reader/shared";
 
 import { useReaderStore } from "../store/reader-store";
@@ -49,12 +49,36 @@ function resumeLocation(locator: string | null, format: LibraryBook["format"]): 
   return locator;
 }
 
+/**
+ * The row for `bookId` from ANY already-cached library list.
+ *
+ * The query below fetches `["library", "recent"]`, but the home fetches
+ * `["library", <active sort>]` — so opening a book with Sort = Title or Author
+ * left this hook with a cold cache and no row until its own fetch landed. The
+ * opening screen needs the row on its FIRST commit: that is where the cover →
+ * reader shared-layout morph lands (`routes/read.tsx`), and a null row there
+ * means morphing the library cover into an empty tile.
+ *
+ * A non-reactive cache read is the right shape for exactly that: every
+ * `["library", *]` entry holds the same `LibraryBook[]`, only ordered
+ * differently, and the live query result below still wins as soon as it
+ * arrives.
+ */
+function cachedLibraryRow(client: QueryClient, bookId: string): LibraryBook | null {
+  for (const [, data] of client.getQueriesData<LibraryBook[]>({ queryKey: ["library"] })) {
+    const found = data?.find((b) => b.id === bookId);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "book"): HydrateState {
   // Media (brief 23) doesn't hydrate an in-memory `File`: the player streams
   // straight from the authenticated file URL. So for audio/video this hook
   // resolves the library ROW only (title/cover/locator/duration) and skips the
   // reader-specific machinery — the offline blob store and the byte download.
   const isMedia = kind !== "book";
+  const queryClient = useQueryClient();
   const loadedFile = useReaderStore((s) => s.loadedFile);
   const loadedBookId = useReaderStore((s) => s.loadedBookId);
   const setLoadedBook = useReaderStore((s) => s.setLoadedBook);
@@ -90,14 +114,20 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
   }, [bookId]);
 
   // Prefer the live row; fall back to the offline snapshot when the list is
-  // unreachable (book opened with no connectivity). Guard the snapshot by id so a
-  // not-yet-cleared snapshot can never stand in for a different book.
-  const book = useMemo(
-    () =>
-      library.data?.find((b) => b.id === bookId) ??
-      (offlineBook && offlineBook.id === bookId ? offlineBook : null),
-    [library.data, bookId, offlineBook],
-  );
+  // unreachable (book opened with no connectivity), then to any already-cached
+  // library list (`cachedLibraryRow` — that's what gives the opening screen a
+  // cover on its first commit). Guard the snapshot by id so a not-yet-cleared
+  // snapshot can never stand in for a different book.
+  const book = useMemo(() => {
+    const live = library.data?.find((b) => b.id === bookId);
+    if (live) return live;
+    if (offlineBook && offlineBook.id === bookId) return offlineBook;
+    // Only until the live list answers: once it has, a row missing from it is
+    // authoritatively gone ("removed from your library"), and a stale entry
+    // under another sort key must not resurrect it.
+    if (!library.data && bookId) return cachedLibraryRow(queryClient, bookId);
+    return null;
+  }, [library.data, bookId, offlineBook, queryClient]);
 
   useEffect(() => {
     if (!needsHydrate || !bookId) {

@@ -24,7 +24,10 @@ export function MediaFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen flex-col bg-reader-bg text-reader-fg">
+    // Height stops short of the player dock (`--dock-height`, published by the
+    // shell): a bare `min-h-screen` inside the shell's dock-sized bottom padding
+    // makes the page taller than the viewport by exactly the dock.
+    <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] flex-col bg-reader-bg text-reader-fg">
       <header className="flex items-center gap-4 border-b border-reader-border/60 px-5 py-3">
         <Link
           to="/"

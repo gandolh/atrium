@@ -89,9 +89,20 @@ export function LibraryHome() {
   // debounce is what actually writes `?q` (and so re-filters the grid).
   const [searchInput, setSearchInput] = useState(query);
 
+  // The last `?q` value this component itself wrote, so the resync below can
+  // tell an OUTSIDE change (back/forward nav, a shared link, "Show everything")
+  // from the echo of our own debounced write. Without that distinction the
+  // resync clobbered what the user was mid-way through typing: we write the
+  // TRIMMED query, so typing "the " and pausing snapped the field back to
+  // "the", and the next keystrokes produced "thehobbit" — a multi-word search
+  // could never be typed.
+  const lastWrittenQuery = useRef(query);
+
   // Resync when `?q` changes for a reason other than our own debounced write
   // — back/forward nav, a shared link, or the "Show everything" action below.
   useEffect(() => {
+    if (query === lastWrittenQuery.current) return;
+    lastWrittenQuery.current = query;
     setSearchInput(query);
   }, [query]);
 
@@ -99,6 +110,7 @@ export function LibraryHome() {
     const trimmed = searchInput.trim();
     if (trimmed === query) return;
     const id = window.setTimeout(() => {
+      lastWrittenQuery.current = trimmed;
       void navigate({
         to: "/",
         search: (prev) => ({ ...prev, q: trimmed || undefined }),
@@ -120,27 +132,33 @@ export function LibraryHome() {
   const uploadHandle = useRef<UploadZoneHandle | null>(null);
   const reduced = usePrefersReducedMotion();
 
-  // Chip counts come from the **loaded list**, not from a separate query, so a
-  // chip can never disagree with the grid it filters. `kind` is defensively
-  // defaulted for any pre-brief-23 cached row that predates the field.
+  // The trimmed `query` is what actually filters; `searchInput` is only the
+  // field's (undebounced) display text.
+  const trimmedQuery = query.trim();
+
+  // Chip counts come from the **query-filtered** set when a query is active,
+  // so a chip that says N actually yields N — with no query, they describe
+  // the whole library (round 2 fix: a chip used to advertise whole-library
+  // counts while the grid was already narrowed by an active search, so
+  // clicking a nonzero chip could still land on "No matches"). `kind` is
+  // defensively defaulted for any pre-brief-23 cached row that predates the
+  // field.
   const chips = useMemo<KindChoice[]>(() => {
+    const scoped = trimmedQuery ? books.filter((b) => matchesQuery(b, trimmedQuery)) : books;
     const byKind = new Map<MediaKind, number>(MEDIA_KINDS.map((k) => [k, 0]));
-    for (const book of books) {
+    for (const book of scoped) {
       const bookKind = book.kind ?? "book";
       byKind.set(bookKind, (byKind.get(bookKind) ?? 0) + 1);
     }
     return [
-      { kind: undefined, label: "All", count: books.length },
+      { kind: undefined, label: "All", count: scoped.length },
       ...MEDIA_KINDS.map((k) => ({ kind: k, label: KIND_LABELS[k], count: byKind.get(k) ?? 0 })),
     ];
-  }, [books]);
+  }, [books, trimmedQuery]);
 
-  // Chip counts (above) read `books` directly, so they always describe the
-  // whole library; `visible` is what the grid actually shows — kind AND
-  // query, both narrowing the same list (brief 30 item 6). The trimmed
-  // `query` is what actually filters; `searchInput` is only the field's
-  // (undebounced) display text.
-  const trimmedQuery = query.trim();
+  // `visible` is what the grid actually shows — kind AND query, both
+  // narrowing the same list (brief 30 item 6), same scoping the chips above
+  // now share.
   const visible = useMemo(() => {
     const byKind = kind ? books.filter((b) => (b.kind ?? "book") === kind) : books;
     return trimmedQuery ? byKind.filter((b) => matchesQuery(b, trimmedQuery)) : byKind;
@@ -188,7 +206,7 @@ export function LibraryHome() {
   const browse = () => uploadHandle.current?.browse();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-page py-8 text-ink">
+    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-page py-8 text-ink">
       <AppHeader
         caption={
           <StorageCaption
@@ -428,9 +446,9 @@ function GallerySkeleton() {
     <div className={GRID} aria-hidden>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
-          <div className="aspect-[2/3] w-full animate-pulse rounded-cover bg-paper-container" />
-          <div className="h-4 w-3/4 animate-pulse rounded-card bg-paper-container" />
-          <div className="h-3 w-1/2 animate-pulse rounded-card bg-paper-container" />
+          <div className="aspect-[2/3] w-full motion-safe:animate-pulse rounded-cover bg-paper-container" />
+          <div className="h-4 w-3/4 motion-safe:animate-pulse rounded-card bg-paper-container" />
+          <div className="h-3 w-1/2 motion-safe:animate-pulse rounded-card bg-paper-container" />
         </div>
       ))}
     </div>

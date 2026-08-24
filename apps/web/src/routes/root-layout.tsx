@@ -27,8 +27,12 @@ import { usePlaybackStore } from "../store/playback-store";
  * The shell also makes room for its own dock rather than asking pages to pad
  * themselves: `--dock-height` (0px when nothing is loaded) is published here and
  * consumed as the shell's bottom padding, so no page's last row can end up
- * underneath the bar. Surfaces that size themselves to the viewport read the
- * same variable (see `player/MediaFrame`).
+ * underneath the bar. That padding is invisible to a `fixed` child, so surfaces
+ * that take themselves out of flow or size themselves to the viewport read the
+ * variable directly instead: both readers end their `fixed` frame at
+ * `bottom: var(--dock-height)` (otherwise the dock covers the progress rail —
+ * the reader's only scrub control) and `player/MediaFrame` subtracts it from its
+ * min-height.
  */
 export function RootLayout() {
   const dockVisible = usePlaybackStore((s) => s.item !== null);

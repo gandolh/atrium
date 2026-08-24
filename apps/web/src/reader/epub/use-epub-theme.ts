@@ -12,18 +12,30 @@ import { fontStackFor } from "./EpubSettings";
 // literal @font-face rules, sourced from the SAME bundled font files via
 // Vite's `?url` (the identical pattern `reader/pdf/pdf-worker.ts` uses for the
 // PDF.js worker) — the browser reuses the already-fetched bytes from cache
-// rather than downloading a second copy. Only the roman 400 weight (+ italic,
-// for <em>/<i>) is loaded for each face: that's the reading pane's only used
-// weight, and it's what makes react-reader's `srcdoc` iframe (same base URL as
-// the app, so root-relative asset paths resolve) worth exploiting here.
+// rather than downloading a second copy. The roman 400 weight (+ italic, for
+// <em>/<i>) plus the bold weights the parent document also loads (main.tsx:
+// Newsreader 500/600, Archivo 600/700) are registered for each face — without
+// a real bold cut in the iframe, a section's own <b>/<strong> or a bold
+// heading requests a weight that doesn't exist and the browser faux-bolds it.
+// Same `?url` pattern, same bundled files main.tsx's `@fontsource/*` CSS
+// imports already pull in, so Vite resolves these to the SAME emitted assets
+// rather than fetching a second copy.
 import nrLatin400 from "@fontsource/newsreader/files/newsreader-latin-400-normal.woff2?url";
 import nrLatinExt400 from "@fontsource/newsreader/files/newsreader-latin-ext-400-normal.woff2?url";
 import nrLatin400Italic from "@fontsource/newsreader/files/newsreader-latin-400-italic.woff2?url";
 import nrLatinExt400Italic from "@fontsource/newsreader/files/newsreader-latin-ext-400-italic.woff2?url";
+import nrLatin500 from "@fontsource/newsreader/files/newsreader-latin-500-normal.woff2?url";
+import nrLatinExt500 from "@fontsource/newsreader/files/newsreader-latin-ext-500-normal.woff2?url";
+import nrLatin600 from "@fontsource/newsreader/files/newsreader-latin-600-normal.woff2?url";
+import nrLatinExt600 from "@fontsource/newsreader/files/newsreader-latin-ext-600-normal.woff2?url";
 import arLatin400 from "@fontsource/archivo/files/archivo-latin-400-normal.woff2?url";
 import arLatinExt400 from "@fontsource/archivo/files/archivo-latin-ext-400-normal.woff2?url";
 import arLatin400Italic from "@fontsource/archivo/files/archivo-latin-400-italic.woff2?url";
 import arLatinExt400Italic from "@fontsource/archivo/files/archivo-latin-ext-400-italic.woff2?url";
+import arLatin600 from "@fontsource/archivo/files/archivo-latin-600-normal.woff2?url";
+import arLatinExt600 from "@fontsource/archivo/files/archivo-latin-ext-600-normal.woff2?url";
+import arLatin700 from "@fontsource/archivo/files/archivo-latin-700-normal.woff2?url";
+import arLatinExt700 from "@fontsource/archivo/files/archivo-latin-ext-700-normal.woff2?url";
 
 // `Contents.addStylesheetRules` (epub.js) inserts each key as a CSS rule via
 // `CSSStyleSheet.insertRule`, which accepts at-rules — so `"@font-face"` works
@@ -37,10 +49,18 @@ const EPUB_FONT_FACE_RULES = {
     { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "400", src: `url(${nrLatinExt400}) format('woff2')` },
     { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatin400Italic}) format('woff2')` },
     { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatinExt400Italic}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "500", src: `url(${nrLatin500}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "500", src: `url(${nrLatinExt500}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "600", src: `url(${nrLatin600}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "600", src: `url(${nrLatinExt600}) format('woff2')` },
     { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatin400}) format('woff2')` },
     { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatinExt400}) format('woff2')` },
     { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatin400Italic}) format('woff2')` },
     { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatinExt400Italic}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "600", src: `url(${arLatin600}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "600", src: `url(${arLatinExt600}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "700", src: `url(${arLatin700}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "700", src: `url(${arLatinExt700}) format('woff2')` },
   ],
 };
 

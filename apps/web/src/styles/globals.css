@@ -168,10 +168,16 @@
   --ink-fill: #3b2f1e;
   --on-ink-fill: #f4ecd8;
   /* Sepia inherits the light tints — music/video/note all separate cleanly from
-     its warm-yellow ground. Only `tint-book` collides (it is nearly the sepia
-     paper itself), so it deepens into parchment. Derived here, not in
-     design.md, which tabulates light + dark only. */
-  --tint-book: #e7ddc6;
+     its warm-yellow ground. Only `tint-book` collided (it sat only ~6 units
+     from `--paper-container` by Euclidean RGB distance, failing the tint
+     test), so it deepens further into parchment: ~34 units clear of
+     `--paper-container` (#ece0c8), ~44 clear of `--paper-low` (#efe6d0), ~55
+     clear of `--paper` (#f4ecd8) and ~72 clear of `--paper-raised` (#faf4e6)
+     — in the same range as music/video/note's own separation from the ground
+     (~33–43). `--ink` (#3b2f1e) keeps an ~8.5:1 contrast ratio on it, well
+     past WCAG AA. Derived here, not in design.md, which tabulates light +
+     dark only. */
+  --tint-book: #ddcfaf;
 }
 
 [data-theme="dark"] {

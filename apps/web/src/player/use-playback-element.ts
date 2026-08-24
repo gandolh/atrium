@@ -25,6 +25,10 @@ import { useMediaProgress } from "./use-media-progress";
  * done (`canPlay`). When there is nothing to hand off (`handoffAt` ≈ 0 — a fresh
  * open) the gate is open from the start and `useMediaProgress`'s stored-locator
  * resume is what positions the element, unchanged from brief 23.
+ *
+ * There is only something to hand off when the store is ALREADY on this item
+ * (see `handoffPositionFor`) — otherwise a fresh open would inherit the
+ * outgoing track's position.
  */
 export interface PlaybackElementBinding<T extends HTMLMediaElement> {
   /** Attach to the media element. */
@@ -39,6 +43,24 @@ export interface PlaybackElementBinding<T extends HTMLMediaElement> {
     onEnded: () => void;
     onError: () => void;
   };
+}
+
+/**
+ * The position a freshly mounted element should be handed: the store's live
+ * `currentTime`, but ONLY when the store already describes this same item.
+ *
+ * The guard matters because an element owner can render BEFORE its own
+ * `load()` lands — `VideoPlayer`'s `VideoSurface` calls `usePlaybackElement`
+ * during render and calls `load(item, …)` in an effect afterwards — so at seed
+ * time the store can still hold the PREVIOUS item and its position. Without the
+ * id check, opening a video while a track played at 1:27 started the video at
+ * 1:27, overriding both "start at 0" and the row's own saved resume locator.
+ * (`load()` on the item that is already loaded deliberately KEEPS `currentTime`,
+ * so a genuine dock↔surface hand-off still reads a real position here.)
+ */
+function handoffPositionFor(item: PlaybackItem): number {
+  const state = usePlaybackStore.getState();
+  return state.item?.id === item.id ? state.currentTime : 0;
 }
 
 export function usePlaybackElement<T extends HTMLMediaElement>(
@@ -62,7 +84,7 @@ export function usePlaybackElement<T extends HTMLMediaElement>(
 
   // Read ONCE, at mount: from here on the element is the authority on its own
   // position, and re-reading the store would fight it.
-  const handoffAt = useRef(usePlaybackStore.getState().currentTime);
+  const handoffAt = useRef(handoffPositionFor(item));
   const [canPlay, setCanPlay] = useState(() => handoffAt.current <= 0.5);
 
   const report = useCallback(() => {

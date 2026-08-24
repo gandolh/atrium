@@ -36,7 +36,11 @@ function tokenize(value: string): string[] {
 
 /** The searchable text fields for one book, unfolded (folding happens in `tokenize`). */
 function searchableFields(book: LibraryBook): string[] {
-  const fields = [book.title, book.format, ...book.subjects];
+  // `subjects` is defensively optional-chained for the same reason `grouping.ts`
+  // does it: the IndexedDB snapshot path is not zod-parsed on read, so a row
+  // cached by a pre-brief-21 build can reach here without the field at all —
+  // and spreading `undefined` would throw on the first keystroke, offline.
+  const fields = [book.title, book.format, ...(book.subjects ?? [])];
   const author = groupValueOf(book, "author");
   const series = groupValueOf(book, "series");
   if (author) fields.push(author);

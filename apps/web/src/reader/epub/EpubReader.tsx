@@ -885,7 +885,12 @@ export function EpubReader({ file }: { file: File }) {
     // the text. The pane is the positioning context for the chrome overlays
     // (header/nav/rail/toolbar are `absolute` within it), which keeps them
     // clear of the sidebar without any transform on the epub iframe's ancestor.
-    <div className="fixed inset-0 top-0 flex bg-reader-bg">
+    // `bottom` stops at the player dock instead of the viewport floor: the shell
+    // publishes `--dock-height` (0px when nothing is loaded, see
+    // `routes/root-layout.tsx`) and a `fixed` child cannot inherit the shell's
+    // bottom padding. Without this the dock painted over the progress rail —
+    // the reader's only scrub control — whenever a track was playing.
+    <div className="fixed inset-x-0 top-0 bottom-[var(--dock-height,0px)] flex bg-reader-bg">
       <TocSidebar
         open={tocSidebarOpen}
         entries={tocEntries}

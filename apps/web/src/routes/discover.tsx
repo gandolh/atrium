@@ -117,7 +117,7 @@ export function Discover() {
   const heading = isLanding ? "Popular on Project Gutenberg" : "Catalog results";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
+    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
       {/* The shared app shell (wordmark home link + theme toggle) persists here
           — /discover used to drop it entirely, stranding the user without nav
           or the theme control. */}
@@ -304,9 +304,9 @@ function CatalogSkeleton() {
     <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5" aria-hidden>
       {Array.from({ length: 10 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
-          <div className="aspect-[2/3] w-full animate-pulse rounded-(--radius-cover) bg-paper-container" />
-          <div className="h-4 w-3/4 animate-pulse rounded bg-paper-container" />
-          <div className="h-3 w-1/2 animate-pulse rounded bg-paper-container" />
+          <div className="aspect-[2/3] w-full motion-safe:animate-pulse rounded-(--radius-cover) bg-paper-container" />
+          <div className="h-4 w-3/4 motion-safe:animate-pulse rounded bg-paper-container" />
+          <div className="h-3 w-1/2 motion-safe:animate-pulse rounded bg-paper-container" />
         </div>
       ))}
     </div>

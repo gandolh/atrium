@@ -107,11 +107,17 @@ function BookReader() {
     loadedFormat ?? format ?? (devFile ? (devWantsEpub ? "epub" : "pdf") : null);
 
   if (!file) {
-    if (hydrate.status === "loading") {
-      return <OpeningState book={hydrate.book} progress={hydrate.progress} />;
+    // Having a `?book=` to open IS the opening state. `hydrate.status` is still
+    // "idle" on the FIRST commit — it only becomes "loading" inside the hydrate
+    // effect — so keying the opening screen on "loading" alone flashed the "No
+    // book open" screen for a frame AND killed the cover → reader morph: a
+    // shared-layout animation can only fire on the commit where the library
+    // tile unmounts, and on that commit there was no `motion.div` here at all.
+    if (hydrate.status === "loading" || (book && hydrate.status === "idle")) {
+      return <OpeningState book={hydrate.book} bookId={book} progress={hydrate.progress} />;
     }
     if (hydrate.status === "error") {
-      return <OpeningErrorState book={hydrate.book} onRetry={hydrate.retry} />;
+      return <OpeningErrorState book={hydrate.book} bookId={book} onRetry={hydrate.retry} />;
     }
     return <NoFileState format={effectiveFormat} notFound={hydrate.status === "not-found"} />;
   }
@@ -126,6 +132,7 @@ function BookReader() {
   const chunkErrorFallback = (retry: () => void) => (
     <OpeningErrorState
       book={hydrate.book}
+      bookId={book}
       onRetry={retry}
       detail="Couldn't load the reader — the app may have updated. Reload to try again."
     />
@@ -134,7 +141,7 @@ function BookReader() {
   if (effectiveFormat === "pdf") {
     return (
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
-        <Suspense fallback={<OpeningState book={hydrate.book} progress={null} />}>
+        <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
           <PdfReader file={file} />
         </Suspense>
       </ReaderChunkErrorBoundary>
@@ -145,7 +152,7 @@ function BookReader() {
     // Brief 07: the EPUB reader (react-reader) reuses this brief's shared chrome.
     return (
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
-        <Suspense fallback={<OpeningState book={hydrate.book} progress={null} />}>
+        <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
           <EpubReader file={file} />
         </Suspense>
       </ReaderChunkErrorBoundary>
@@ -223,12 +230,21 @@ function NoFileState({ format, notFound }: { format: string | null; notFound?: b
  * determinate accent bar tracks the download (the transfer is the wait — a
  * 24MB EPUB on a slow link is tens of seconds). Indeterminate → pulsing bar.
  */
-function OpeningState({ book, progress }: { book: LibraryBook | null; progress: number | null }) {
+function OpeningState({
+  book,
+  bookId,
+  progress,
+}: {
+  book: LibraryBook | null;
+  /** The `?book=` id — the morph's identity even before the row resolves. */
+  bookId?: string;
+  progress: number | null;
+}) {
   const pct = progress !== null ? Math.round(progress * 100) : null;
   return (
-    <main className="grid min-h-screen place-items-center bg-reader-bg px-4">
+    <main className="grid min-h-[calc(100vh-var(--dock-height,0px))] place-items-center bg-reader-bg px-4">
       <div className="flex w-full max-w-xs flex-col items-center gap-6 text-center">
-        <BookCoverTile book={book} />
+        <BookCoverTile book={book} bookId={bookId} />
         <div className="flex w-full flex-col gap-3">
           <h1 className="font-display text-xl leading-snug font-semibold text-reader-fg">
             {book ? book.title : "Opening your book…"}
@@ -247,7 +263,7 @@ function OpeningState({ book, progress }: { book: LibraryBook | null; progress: 
                 style={{ width: `${pct}%` }}
               />
             ) : (
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-reader-accent" />
+              <div className="h-full w-1/3 motion-safe:animate-pulse rounded-full bg-reader-accent" />
             )}
           </div>
           <p className="text-sm text-reader-fg/60">
@@ -264,17 +280,20 @@ function OpeningState({ book, progress }: { book: LibraryBook | null; progress: 
  * Today's silent failure becomes an explicit state with a retry. */
 function OpeningErrorState({
   book,
+  bookId,
   onRetry,
   detail = "The download didn't finish — the connection may have dropped.",
 }: {
   book: LibraryBook | null;
+  /** See `OpeningState`. */
+  bookId?: string;
   onRetry: () => void;
   detail?: string;
 }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-reader-bg px-4">
+    <main className="grid min-h-[calc(100vh-var(--dock-height,0px))] place-items-center bg-reader-bg px-4">
       <div className="flex w-full max-w-xs flex-col items-center gap-5 text-center">
-        <BookCoverTile book={book} dimmed />
+        <BookCoverTile book={book} bookId={bookId} dimmed />
         <div className="flex flex-col gap-2">
           <h1 className="font-display text-xl leading-snug font-semibold text-reader-fg">
             Couldn't open {book ? `“${book.title}”` : "your book"}
@@ -318,16 +337,35 @@ function OpeningErrorState({
  * matching `motion.div layoutId` on the library side (`library/CoverCard.tsx`,
  * brief 29 — see this brief's handoff) is what makes the FLIP fire; without
  * it this is just an ordinary div and the navigation looks exactly as it does
- * today. `useMotionTransition("expand")` already collapses to a 0ms jump
+ * today.
+ *
+ * Two things have to line up for that, and both were wrong at first: this tile
+ * must be mounted on the SAME commit that unmounts the library tile (hence the
+ * "idle" branch in `BookReader` — Motion pairs a removed `layoutId` node with a
+ * newly added one, so a one-frame `NoFileState` in between loses the pairing),
+ * and the id must not depend on the library row having resolved (hence
+ * `bookId`). `useMotionTransition("expand")` already collapses to a 0ms jump
  * under `prefers-reduced-motion` (lib/motion.ts) — no separate reduced-motion
  * branch needed here.
  */
-function BookCoverTile({ book, dimmed }: { book: LibraryBook | null; dimmed?: boolean }) {
+function BookCoverTile({
+  book,
+  bookId,
+  dimmed,
+}: {
+  book: LibraryBook | null;
+  bookId?: string;
+  dimmed?: boolean;
+}) {
   const [imgFailed, setImgFailed] = useState(false);
   const transition = useMotionTransition("expand");
+  // The id comes from the URL when the row hasn't resolved yet: the morph has
+  // to be wired on the very first commit of this route, which is exactly when
+  // the library row may still be a cache miss.
+  const layoutId = book?.id ?? bookId;
   return (
     <motion.div
-      layoutId={book ? coverLayoutId(book.id) : undefined}
+      layoutId={layoutId ? coverLayoutId(layoutId) : undefined}
       layout
       transition={transition}
       className={`aspect-[2/3] w-28 overflow-hidden rounded-sm bg-reader-surface shadow-[0_8px_16px_-6px_rgba(28,27,27,0.25)] ring-1 ring-reader-border/50 ${

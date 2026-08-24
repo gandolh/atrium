@@ -489,7 +489,12 @@ export function PdfReader({ file }: { file: File }) {
     // 3-row grid — running header / content / toolbar. Wrapped in the same
     // `flex bg-reader-bg` shell so both formats share background + framing;
     // only the page content differs (fixed-layout canvas vs reflowed column).
-    <div className="fixed inset-0 top-0 flex bg-reader-bg">
+    // `bottom` stops at the player dock instead of the viewport floor: the shell
+    // publishes `--dock-height` (0px when nothing is loaded, see
+    // `routes/root-layout.tsx`) and a `fixed` child cannot inherit the shell's
+    // bottom padding. Without this the dock painted over the progress rail —
+    // the reader's only scrub control — whenever a track was playing.
+    <div className="fixed inset-x-0 top-0 bottom-[var(--dock-height,0px)] flex bg-reader-bg">
       <div className="relative grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] overflow-hidden">
         {/* Row 1: running orientation (title / section). Shared component; fades
             with the chrome exactly like EPUB's, keeping its row so the content

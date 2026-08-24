@@ -246,7 +246,7 @@ export function NoteEditor({ id }: { id: string }) {
 
   if (query.isLoading || !loaded) {
     return (
-      <main className="grid min-h-screen place-items-center bg-reader-bg text-ink">
+      <main className="grid min-h-[calc(100vh-var(--dock-height,0px))] place-items-center bg-reader-bg text-ink">
         <p className="text-ink-variant">Opening note…</p>
       </main>
     );
@@ -267,7 +267,7 @@ export function NoteEditor({ id }: { id: string }) {
   void histTick;
 
   return (
-    <div className="flex min-h-screen flex-col bg-reader-bg text-ink">
+    <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] flex-col bg-reader-bg text-ink">
       {/* Header + tool bar are one sticky block pinned to the top of the
           scroll container — not a fixed-bottom overlay. A page sheet taller
           than the viewport can never push either below the fold (brief 26's

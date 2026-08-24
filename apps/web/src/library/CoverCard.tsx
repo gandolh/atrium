@@ -5,6 +5,7 @@ import type { LibraryBook, MediaKind } from "@ebook-reader/shared";
 import { coverUrl } from "../lib/library-api";
 import { coverLayoutId } from "../lib/cover-layout-id";
 import { useMotionTransition } from "../lib/motion";
+import { formatTime } from "../player/format-time";
 import type { OfflineDownloadStatus } from "../lib/use-library";
 import { CoverFallback } from "./CoverFallback";
 import { OfflineToggle } from "./OfflineToggle";
@@ -54,9 +55,11 @@ const TINT_CLASS: Record<MediaKind, string> = {
  * regardless of what the caller passed.
  *
  * Brief 32's cover → reader shared-layout transition lands here: the media
- * box carries `layoutId={coverLayoutId(book.id)}` so it FLIPs into the
- * reader's opening-screen tile (`routes/read.tsx`'s `BookCoverTile`) instead
- * of the navigation just cutting.
+ * box carries `layoutId={coverLayoutId(book.id)}` for books so it FLIPs into
+ * the reader's opening-screen tile (`routes/read.tsx`'s `BookCoverTile`)
+ * instead of the navigation just cutting. Audio/video open into `MediaRoute`
+ * instead, which has no matching element, so those kinds get no `layoutId`
+ * (round 2 fix — dead wiring shouldn't ship).
  */
 export function CoverCard({
   book,
@@ -75,7 +78,10 @@ export function CoverCard({
   const [imgFailed, setImgFailed] = useState(false);
   const kind = book.kind ?? "book";
   const progressPct = Math.round(book.progress * 100);
-  const durationLabel = book.durationSeconds != null ? formatDuration(book.durationSeconds) : null;
+  // `player/format-time` is the one duration formatter in the app. A private
+  // copy used to live at the foot of this file and ROUNDED where the dock
+  // floors, so a 125.6s file read 2:06 on its tile and 2:05 in the dock.
+  const durationLabel = book.durationSeconds != null ? formatTime(book.durationSeconds) : null;
   const expandTransition = useMotionTransition("expand");
 
   // Mixed-row baseline fix (flagged by brief 28, resolved here): a bare 2:3 /
@@ -104,9 +110,12 @@ export function CoverCard({
           className="absolute inset-0 text-left focus-visible:outline-2 focus-visible:outline-accent"
         >
           {/* The shared-layout target for the cover → reader morph (brief 32) —
-              matched on the reader side by the identical `coverLayoutId`. */}
+              matched on the reader side by the identical `coverLayoutId`. Book-
+              only: audio/video open into `MediaRoute`, which has no matching
+              element, so a `layoutId` there would never pair with anything —
+              dead wiring rather than a real transition (round 2 fix). */}
           <motion.div
-            layoutId={coverLayoutId(book.id)}
+            layoutId={kind === "book" ? coverLayoutId(book.id) : undefined}
             layout
             transition={expandTransition}
             className="h-full w-full overflow-hidden rounded-cover"
@@ -119,7 +128,7 @@ export function CoverCard({
               offline toggle (top-left) or the reading-progress bar (bottom
               edge). */}
           {durationLabel && (
-            <span className="absolute bottom-2 left-2 rounded-cover bg-ink/55 px-2 py-1 font-ui text-[11px] leading-none text-white backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-cover bg-ink/55 px-2 py-1 font-ui text-[11px] leading-none text-on-ink-fill backdrop-blur-sm">
               {durationLabel}
             </span>
           )}
@@ -258,22 +267,6 @@ export function CoverArt({
   ) : (
     <CoverFallback title={book.title} kind={kind} />
   );
-}
-
-/**
- * Format a playback duration in seconds as `m:ss` (e.g. `3:07`), or `h:mm:ss`
- * once it reaches an hour (e.g. `1:04:12`) — the audio/video sibling of a page
- * count.
- */
-function formatDuration(totalSeconds: number): string {
-  const s = Math.max(0, Math.round(totalSeconds));
-  const hours = Math.floor(s / 3600);
-  const minutes = Math.floor((s % 3600) / 60);
-  const seconds = s % 60;
-  if (hours >= 1) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function DotsGlyph({ className }: { className?: string }) {

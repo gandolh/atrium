@@ -20,7 +20,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (status === "checking") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-paper">
+      <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] items-center justify-center bg-paper">
         <p className="font-ui text-sm text-ink-variant">Loading…</p>
       </div>
     );
@@ -54,10 +54,10 @@ function LockScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-5">
+    <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] items-center justify-center bg-paper px-5">
       <div className="w-full max-w-sm rounded-lg border border-line-soft/60 bg-paper-raised p-8 shadow-sm">
         <div className="flex flex-col gap-1 text-center">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-accent">Atrium</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-accent">Atrium</h1>
           <p className="font-ui text-sm text-ink-variant">Sign in to continue</p>
         </div>
 

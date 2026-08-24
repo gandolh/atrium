@@ -17,7 +17,7 @@ import { AppHeader } from "../components/AppHeader";
 import { QuietSelect } from "../components/QuietSelect";
 import { KindChips, StorageCaption, type KindChoice } from "./LibraryHeader";
 import { UploadZone, type UploadZoneHandle } from "./UploadZone";
-import { ContinueReading, pickResumeBook } from "./ContinueReading";
+import { ContinueReading, pickResumeBooks } from "./ContinueReading";
 import { CoverCard } from "./CoverCard";
 import { OfflineBanner } from "./OfflineBanner";
 
@@ -113,7 +113,7 @@ export function LibraryHome() {
 
   // Resume follows the active filter — filtering to Music and being offered a
   // book to resume would be the filter lying.
-  const resumeBook = useMemo(() => pickResumeBook(visible), [visible]);
+  const resumeBooks = useMemo(() => pickResumeBooks(visible), [visible]);
 
   // Navigate immediately — /read's hydrate hook does the download + progress UI.
   const openBook = useCallback(
@@ -186,17 +186,21 @@ export function LibraryHome() {
 
       {isOffline && <OfflineBanner />}
 
-      {/* Ambient uploader: the header "Add" button and the whole-window drag
-          target handle uploads, and an empty library shows its own empty state
-          below (with its own Add button) — no redundant giant dropzone
-          competing with it. */}
-      <UploadZone
-        onFile={(file) => upload.mutate(file)}
-        busy={upload.isPending}
-        disabled={isOffline}
-        variant="ambient"
-        browseRef={uploadHandle}
-      />
+      {/* Ambient uploader (populated library only, brief 29): the header "Add"
+          button and the whole-window drag target handle uploads with no
+          visible box competing with the grid. An empty library mounts its own
+          `variant="hero"` UploadZone below instead — never both at once, since
+          each instance runs its own window-level drag listener and a
+          simultaneous second one would double-fire a single drop. */}
+      {!libraryEmpty && (
+        <UploadZone
+          onFile={(file) => upload.mutate(file)}
+          busy={upload.isPending}
+          disabled={isOffline}
+          variant="ambient"
+          browseRef={uploadHandle}
+        />
+      )}
 
       {upload.isError && (
         <p role="alert" className="-mt-4 rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger">
@@ -204,7 +208,7 @@ export function LibraryHome() {
         </p>
       )}
 
-      {resumeBook && <ContinueReading book={resumeBook} onOpen={openBook} />}
+      <ContinueReading books={resumeBooks} onOpen={openBook} />
 
       <section aria-label="Library" className="flex flex-col gap-5">
         <h1 className="font-display text-4xl leading-[1.05] font-medium tracking-[-0.03em] text-ink md:text-[2.75rem]">
@@ -241,28 +245,36 @@ export function LibraryHome() {
             }
           />
         ) : libraryEmpty ? (
-          <EmptyState
-            title="Nothing here yet"
-            body="Add a book, a track or a video and it shows up here as a cover — or import a free classic from a catalog."
-            action={
-              <div className="flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={browse}
-                  disabled={isOffline}
-                  className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
-                >
-                  Add a file
-                </button>
-                <Link
-                  to="/discover"
-                  className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-                >
-                  Browse free classics
-                </Link>
-              </div>
-            }
-          />
+          // The ONLY place the dashed dropzone still lives (brief 29's "a
+          // dropzone that leaves") — everywhere else, upload is the header
+          // Add button plus window-level drag-and-drop (the `UploadZone
+          // variant="ambient"` above). The greeting sits above it; "Browse
+          // Gutenberg" is the secondary way in for someone with nothing to
+          // drag yet.
+          <div className="flex flex-col items-center gap-5 py-4 text-center">
+            <div className="flex flex-col gap-1.5">
+              <p className="font-display text-2xl font-medium text-ink">Nothing here yet</p>
+              <p className="max-w-md text-ink-variant">
+                Add a book, a track or a video and it shows up here as a cover — or import a free
+                classic from Project Gutenberg.
+              </p>
+            </div>
+            <div className="w-full max-w-xl">
+              <UploadZone
+                onFile={(file) => upload.mutate(file)}
+                busy={upload.isPending}
+                disabled={isOffline}
+                variant="hero"
+                browseRef={uploadHandle}
+              />
+            </div>
+            <Link
+              to="/discover"
+              className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Browse Gutenberg
+            </Link>
+          </div>
         ) : !hasItems ? (
           // The library has things in it, just none of this kind — a filter
           // result, not an empty library, so the way out is "show everything".
@@ -315,11 +327,12 @@ export function LibraryHome() {
 }
 
 /**
- * The one empty state (no per-area variants). Brief 29 owns its visuals — this
- * is brief 28's markup carried over from `LibraryArea` unchanged, so that brief
- * has one place to restyle. It renders for three cases, all inside the
- * `aria-label="Library"` section below the chips: load error, an empty library,
- * and a filter that matches nothing.
+ * The compact empty state, used for two of the three cases inside the
+ * `aria-label="Library"` section below the chips: a load error, and a filter
+ * that matches nothing. The THIRD case — an empty library — is bespoke markup
+ * in `LibraryHome` instead (brief 29): it's the one place the dashed dropzone
+ * still lives, and reusing this title/body/action shape for it would either
+ * bury the dropzone in an `action` slot or duplicate the greeting.
  */
 function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (

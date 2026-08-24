@@ -1,17 +1,21 @@
 import type { MediaKind } from "@ebook-reader/shared";
 
 /**
- * The typographic fallback tile for a missing cover: a tinted `paper-container`
- * ground with the title set in Newsreader. Extracted from `CoverCard` (brief 22)
- * so `/discover` cards reuse the identical treatment; brief 25 makes the glyph
- * media-aware (music note / play / book) so a coverless music or video tile no
- * longer shows a book icon.
+ * The typographic fallback tile for a missing cover: title set in Newsreader
+ * over whatever ground is behind it. Deliberately paints no background of its
+ * own (brief 29) — the caller supplies the ground, which for `CoverCard` is
+ * the tile's `bg-tint-{kind}` (design.md "Kind tints"), so a coverless tile
+ * still reads by kind once every badge is stripped. `/discover`'s
+ * `CatalogResultCard` (not a tinted tile) supplies its own neutral ground
+ * instead. Extracted from `CoverCard` (brief 22); brief 25 makes the glyph
+ * media-aware (music note / play / book) so a coverless music or video tile
+ * no longer shows a book icon.
  */
 export function CoverFallback({ title, kind = "book" }: { title: string; kind?: MediaKind }) {
   const Glyph = kind === "audio" ? NoteGlyph : kind === "video" ? PlayGlyph : BookGlyph;
   return (
     <span className="flex h-full w-full flex-col items-center justify-center gap-3 px-4 text-center">
-      <Glyph className="h-8 w-8 text-ink-variant/50" />
+      <Glyph className="h-8 w-8 text-ink-variant/60" />
       <span className="font-display text-lg leading-tight font-semibold text-ink">{title}</span>
     </span>
   );

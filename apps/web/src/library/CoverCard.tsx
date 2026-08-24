@@ -1,7 +1,10 @@
 import { useState } from "react";
-import type { LibraryBook } from "@ebook-reader/shared";
+import { motion } from "motion/react";
+import type { LibraryBook, MediaKind } from "@ebook-reader/shared";
 
 import { coverUrl } from "../lib/library-api";
+import { coverLayoutId } from "../lib/cover-layout-id";
+import { useMotionTransition } from "../lib/motion";
 import type { OfflineDownloadStatus } from "../lib/use-library";
 import { CoverFallback } from "./CoverFallback";
 import { OfflineToggle } from "./OfflineToggle";
@@ -17,23 +20,43 @@ export interface CoverOfflineProps {
 }
 
 /**
- * A single book in the library gallery (wiki/design.md "Cards (Book Covers)").
- * 2:3 portrait, 2px radius, bottom-heavy shadow so the book "stands on a
- * shelf". Format badge top-right; a thin blue progress bar along the bottom for
- * started books. Missing cover → a tinted tile with the title set in Newsreader.
+ * Kind → tint class (design.md "Kind tints"), spelled out as full static
+ * class names rather than built with a template literal — Tailwind's
+ * compiler only picks up class names it can see literally in source, so
+ * `` `bg-tint-${kind}` `` would silently ship unstyled.
+ */
+const TINT_CLASS: Record<MediaKind, string> = {
+  book: "bg-tint-book",
+  audio: "bg-tint-music",
+  video: "bg-tint-video",
+};
+
+/**
+ * A single book in the library gallery (wiki/design.md "Components" → Tiles).
+ * Brief 29 rework: the whole card is now a tinted tile — `bg-tint-{kind}`
+ * ground, 1px `line-soft`, 4px radius — with the artwork inset at 2px radius.
+ * The tint (plus the format line below the title) carries the kind signal
+ * now, so the old top-right EPUB/MUSIC/VIDEO corner badge is gone; see the
+ * design.md "tint test" this satisfies (strip every badge, the grid still
+ * reads by kind). The duration caption (bottom-left, audio/video) stays — it
+ * reports a fact (length), it doesn't badge the kind.
  *
  * Brief 20 adds the offline toggle top-left (`offline`, omitted entirely when
  * IndexedDB isn't supported) and gates the "Remove" library action behind
  * `deleteDisabled` while offline (removing is an API call, not a local op).
  *
- * Brief 23c renders per `book.kind` inside the same unchanged 2:3 footprint:
- * `audio` centers the (optional) square embedded-art image on the paper tile;
- * `video` always uses the typographic fallback tile (no frame extraction, D-
- * per brief 23's grilled decision); both add a duration caption. The top-right
- * badge shows MUSIC/VIDEO for media in place of the format (books keep
- * EPUB/PDF). The offline toggle is book-only — media is excluded from offline
- * v1 (brief 23's grilled decision), so it's simply not rendered for `kind !==
- * "book"` regardless of whether the caller passed `offline`.
+ * Brief 23c renders per `book.kind` inside the media box: `audio` centers the
+ * (optional) square embedded-art image, or the typographic fallback when
+ * absent; `video` always uses the typographic fallback (no frame extraction,
+ * D- per brief 23's grilled decision); both add a duration caption. The
+ * offline toggle is book-only — media is excluded from offline v1 (brief 23's
+ * grilled decision), so it's simply not rendered for `kind !== "book"`
+ * regardless of what the caller passed.
+ *
+ * Brief 32's cover → reader shared-layout transition lands here: the media
+ * box carries `layoutId={coverLayoutId(book.id)}` so it FLIPs into the
+ * reader's opening-screen tile (`routes/read.tsx`'s `BookCoverTile`) instead
+ * of the navigation just cutting.
  */
 export function CoverCard({
   book,
@@ -53,50 +76,59 @@ export function CoverCard({
   const kind = book.kind ?? "book";
   const progressPct = Math.round(book.progress * 100);
   const durationLabel = book.durationSeconds != null ? formatDuration(book.durationSeconds) : null;
+  const expandTransition = useMotionTransition("expand");
 
-  // Per-media card shape (brief 25): books 2:3 portrait, music square (album
-  // art), video 16:9 landscape — each media type in its native aspect instead
-  // of everything squeezed into a book footprint.
-  const aspect = kind === "audio" ? "aspect-square" : kind === "video" ? "aspect-video" : "aspect-[2/3]";
+  // Mixed-row baseline fix (flagged by brief 28, resolved here): a bare 2:3 /
+  // 1:1 / 16:9 mix means three different tile heights in the same row once
+  // video spans two grid columns. Rather than force every kind into one
+  // shape, the OUTER media box gets a fixed aspect per column-span instead:
+  // single-span kinds (book, audio) use 2:3, and video's 4:3 box — rendered
+  // at DOUBLE the column width via `cellSpan()` in LibraryHome — algebraically
+  // lands at the same height (`width * 1.5` either way: 1.5w for a 2:3 box of
+  // width w, and 1.5w for a 4:3 box of width 2w). Artwork keeps its native
+  // shape inside that box (see `CoverArt`), so a mixed row's captions start
+  // at the same y-offset without stretching a square or a landscape frame.
+  const mediaAspect = kind === "video" ? "aspect-[4/3]" : "aspect-[2/3]";
+  const tintClass = TINT_CLASS[kind];
+  const formatLabel = book.format.toUpperCase();
 
   return (
-    <div className="group flex flex-col gap-3">
-      {/* Wrapper carries the hover lift so the cover art AND the offline
-          toggle move together; the toggle is a sibling (not nested inside
-          the open-book button) to keep the DOM free of nested interactive
-          elements. */}
-      <div className={`relative ${aspect} w-full transition duration-200 group-hover:-translate-y-1`}>
+    <div
+      className={`group flex flex-col gap-2 rounded-card border border-line-soft ${tintClass} p-2 shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift`}
+    >
+      <div className={`relative ${mediaAspect} w-full`}>
         <button
           type="button"
           onClick={() => onOpen(book)}
           aria-label={`Open ${book.title}`}
-          className="absolute inset-0 overflow-hidden rounded-(--radius-cover) bg-paper-container text-left shadow-[0_8px_16px_-6px_rgba(28,27,27,0.18)] ring-1 ring-line-soft/40 transition duration-200 group-hover:shadow-[0_14px_24px_-8px_rgba(28,27,27,0.28)] focus-visible:outline-2 focus-visible:outline-accent"
+          className="absolute inset-0 text-left focus-visible:outline-2 focus-visible:outline-accent"
         >
-          <CoverArt book={book} imgFailed={imgFailed} onImgError={() => setImgFailed(true)} />
-
-
-          {/* Kind/format badge (design.md chips: label-caps, subtle scrim, no
-              border) — MUSIC/VIDEO replaces the format for media. */}
-          <span className="absolute top-2.5 right-2.5 rounded-(--radius-cover) bg-ink/55 px-2 py-1 text-[11px] leading-none font-semibold tracking-[0.08em] text-white uppercase backdrop-blur-sm">
-            {kind === "audio" ? "Music" : kind === "video" ? "Video" : book.format}
-          </span>
+          {/* The shared-layout target for the cover → reader morph (brief 32) —
+              matched on the reader side by the identical `coverLayoutId`. */}
+          <motion.div
+            layoutId={coverLayoutId(book.id)}
+            layout
+            transition={expandTransition}
+            className="h-full w-full overflow-hidden rounded-cover"
+          >
+            <CoverArt book={book} imgFailed={imgFailed} onImgError={() => setImgFailed(true)} />
+          </motion.div>
 
           {/* Duration caption (audio/video only) — the m:ss / h:mm:ss sibling
               of a page count, bottom-left so it never collides with the
-              kind/format badge. */}
+              offline toggle (top-left) or the reading-progress bar (bottom
+              edge). */}
           {durationLabel && (
-            <span className="absolute bottom-2.5 left-2.5 rounded-(--radius-cover) bg-ink/55 px-2 py-1 font-ui text-[11px] leading-none text-white backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-cover bg-ink/55 px-2 py-1 font-ui text-[11px] leading-none text-white backdrop-blur-sm">
               {durationLabel}
             </span>
           )}
 
-          {/* Reading progress: thin 2px blue bar at the bottom edge. */}
+          {/* Reading progress: 3px accent bar at the bottom edge (design.md
+              "Structure": Progress = 3px). */}
           {progressPct > 0 && (
-            <span className="absolute inset-x-0 bottom-0 h-0.5 bg-ink/10">
-              <span
-                className="block h-full bg-accent"
-                style={{ width: `${progressPct}%` }}
-              />
+            <span className="absolute inset-x-0 bottom-0 h-[3px] bg-ink/10">
+              <span className="block h-full bg-accent" style={{ width: `${progressPct}%` }} />
             </span>
           )}
         </button>
@@ -116,21 +148,23 @@ export function CoverCard({
         )}
       </div>
 
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 px-0.5 pb-0.5">
         <div className="min-w-0">
-          {/* Two-line clamp, not a single-line ellipsis — a book app that cuts
-              titles to "The Apot…" undermines its one job. */}
+          {/* Card title role (design.md "Typography"): Archivo 600, not the
+              reading-pane Newsreader — "card + row titles" are interface
+              chrome even though the words themselves came from the book. */}
           <p
             title={book.title}
-            className="line-clamp-2 font-display text-base leading-snug font-semibold text-ink"
+            className="line-clamp-2 font-ui text-sm leading-snug font-semibold tracking-[-0.01em] text-ink"
           >
             {book.title}
           </p>
-          {book.author && (
-            <p title={book.author} className="truncate text-sm text-ink-variant">
-              {book.author}
-            </p>
-          )}
+          {/* Source line, `ink-variant` (design.md "Components" → Tiles): the
+              format label rides along here instead of a corner badge — this
+              plus the tint is what now carries kind. */}
+          <p className="truncate text-sm text-ink-variant">
+            {book.author ? `${book.author} · ${formatLabel}` : formatLabel}
+          </p>
         </div>
 
         {/* Per-card overflow → delete (design.md: quiet, appears on hover/focus). */}
@@ -141,12 +175,12 @@ export function CoverCard({
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
             onBlur={() => setMenuOpen(false)}
-            className="grid h-9 w-9 place-items-center rounded text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-low focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
+            className="grid h-9 w-9 place-items-center rounded-card text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-raised/60 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
           >
             <DotsGlyph className="h-4 w-4" />
           </button>
           {menuOpen && (
-            <div className="absolute top-8 right-0 z-10 w-40 overflow-hidden rounded border border-line-soft bg-paper-raised shadow-lg">
+            <div className="absolute top-8 right-0 z-10 w-40 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift">
               <button
                 type="button"
                 disabled={deleteDisabled}
@@ -172,12 +206,17 @@ export function CoverCard({
 }
 
 /**
- * The per-kind cover-art fill for a 2:3 tile, shared by `CoverCard` and the
- * stacks index so both branch on `book.kind` identically (rather than one of
- * them copying the markup): `audio` centers its square embedded art on the
- * paper ground (mp3 art is 400×400 — cropping to 2:3 would distort it), or the
- * typographic fallback when absent; `video` always uses the fallback (no frame
- * extraction, brief 23); books fill with their full-bleed cover image. The
+ * The per-kind cover-art fill, shared by `CoverCard` and the reader's opening
+ * screen (`routes/read.tsx`) via the shared-layout box, and by the stacks
+ * index so both branch on `book.kind` identically (rather than one of them
+ * copying the markup): `audio` centers its square embedded art — the box
+ * around it is now taller than it is wide (2:3, see `mediaAspect` above), so
+ * the art is centered and letterboxed by the tile's own tint rather than
+ * cropped (mp3 art is 400×400; distorting or cropping it would fight the
+ * "no distortion" rule) — or the typographic fallback when absent; `video`
+ * always uses the typographic fallback (no frame extraction, brief 23), which
+ * simply fills its box since it's a decorative glyph tile, not a photo; books
+ * fill with their full-bleed cover image (already ~2:3, no letterboxing). The
  * caller owns the `imgFailed` state so it can also key other UI off it.
  */
 export function CoverArt({
@@ -195,16 +234,15 @@ export function CoverArt({
   const showImage = kind !== "video" && book.hasCover && !imgFailed;
 
   if (kind === "audio") {
-    // The card itself is now square (brief 25), so album art fills it edge to
-    // edge (it's a 400×400 square — no distortion) rather than floating small
-    // on a paper ground.
     return showImage ? (
-      <img
-        src={coverUrl(book.id)}
-        alt=""
-        onError={onImgError}
-        className="h-full w-full object-cover"
-      />
+      <div className="flex h-full w-full items-center justify-center">
+        <img
+          src={coverUrl(book.id)}
+          alt=""
+          onError={onImgError}
+          className="aspect-square max-h-full max-w-full object-cover"
+        />
+      </div>
     ) : (
       <CoverFallback title={book.title} kind="audio" />
     );

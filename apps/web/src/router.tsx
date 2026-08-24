@@ -25,6 +25,10 @@ const rootRoute = createRootRoute({
 // falls back to "all" rather than rendering an empty grid.
 const homeSearchSchema = z.object({
   kind: mediaKindSchema.optional().catch(undefined),
+  // Cross-library search text (brief 30), so Back / refresh / share round-trip
+  // it the same way `?kind` already does. One-line schema addition — brief 30's
+  // file lane excludes this file, but the field has to live somewhere.
+  q: z.string().optional().catch(undefined),
 });
 
 const indexRoute = createRoute({

@@ -53,7 +53,11 @@ export function KindChips({
           <Link
             key={choice.kind ?? "all"}
             to="/"
-            search={{ kind: choice.kind }}
+            // A function updater (not a static object) so switching kind
+            // preserves whatever else is in the search state — chiefly `?q`
+            // (brief 30): a chip click must never silently drop the active
+            // library-wide search.
+            search={(prev) => ({ ...prev, kind: choice.kind })}
             // Without this every chip points at `/`, so TanStack's path-only
             // active test marks **All** current on `/?kind=video` too — two
             // chips announcing `aria-current="page"` at once. `includeSearch`

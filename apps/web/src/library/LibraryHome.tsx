@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   LIBRARY_SORTS,
   MEDIA_KINDS,
@@ -16,6 +16,8 @@ import { STAGGER_MS, motionTransition, usePrefersReducedMotion } from "../lib/mo
 import { AppHeader } from "../components/AppHeader";
 import { QuietSelect } from "../components/QuietSelect";
 import { KindChips, StorageCaption, type KindChoice } from "./LibraryHeader";
+import { LibrarySearchField } from "./LibrarySearchField";
+import { matchesQuery } from "./search";
 import { UploadZone, type UploadZoneHandle } from "./UploadZone";
 import { ContinueReading, pickResumeBooks } from "./ContinueReading";
 import { CoverCard } from "./CoverCard";
@@ -68,6 +70,9 @@ function cellSpan(book: LibraryBook): string | undefined {
   return (book.kind ?? "book") === "video" ? "col-span-2" : undefined;
 }
 
+/** Brief 30 item 4: debounce keystrokes before writing `?q` (mirrors `/discover`'s own 300ms box, just snappier). */
+const SEARCH_DEBOUNCE_MS = 120;
+
 export function LibraryHome() {
   // The home themes with the shared reader theme (header toggle drives it).
   useApplyTheme();
@@ -75,7 +80,34 @@ export function LibraryHome() {
   const navigate = useNavigate();
   // The kind filter is a URL concern (brief 28): `?kind`, validated in
   // router.tsx against the shared `mediaKindSchema`, absent = every kind.
-  const { kind } = useSearch({ from: "/" });
+  // `q` (brief 30) is the cross-library search text, same treatment.
+  const { kind, q } = useSearch({ from: "/" });
+  const query = q ?? "";
+
+  // The field's own (undebounced) text, mirroring `/discover`'s search box:
+  // typing updates this immediately for a responsive field, and a short
+  // debounce is what actually writes `?q` (and so re-filters the grid).
+  const [searchInput, setSearchInput] = useState(query);
+
+  // Resync when `?q` changes for a reason other than our own debounced write
+  // — back/forward nav, a shared link, or the "Show everything" action below.
+  useEffect(() => {
+    setSearchInput(query);
+  }, [query]);
+
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed === query) return;
+    const id = window.setTimeout(() => {
+      void navigate({
+        to: "/",
+        search: (prev) => ({ ...prev, q: trimmed || undefined }),
+        replace: true,
+      });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   const [sort, setSort] = useState<LibrarySort>("recent");
 
@@ -103,10 +135,16 @@ export function LibraryHome() {
     ];
   }, [books]);
 
-  const visible = useMemo(
-    () => (kind ? books.filter((b) => (b.kind ?? "book") === kind) : books),
-    [books, kind],
-  );
+  // Chip counts (above) read `books` directly, so they always describe the
+  // whole library; `visible` is what the grid actually shows — kind AND
+  // query, both narrowing the same list (brief 30 item 6). The trimmed
+  // `query` is what actually filters; `searchInput` is only the field's
+  // (undebounced) display text.
+  const trimmedQuery = query.trim();
+  const visible = useMemo(() => {
+    const byKind = kind ? books.filter((b) => (b.kind ?? "book") === kind) : books;
+    return trimmedQuery ? byKind.filter((b) => matchesQuery(b, trimmedQuery)) : byKind;
+  }, [books, kind, trimmedQuery]);
 
   const libraryEmpty = books.length === 0;
   const hasItems = visible.length > 0;
@@ -157,6 +195,19 @@ export function LibraryHome() {
             storage={offlineDownload.storage}
             downloadedCount={offlineDownload.downloaded.length}
           />
+        }
+        search={
+          // No point offering search over an empty library — mirrors the
+          // header Add button and the ambient uploader, both gated the same way.
+          !libraryEmpty && (
+            <LibrarySearchField
+              value={searchInput}
+              onChange={setSearchInput}
+              resultsSummary={
+                trimmedQuery ? `${visible.length} ${visible.length === 1 ? "result" : "results"} for ${trimmedQuery}` : undefined
+              }
+            />
+          )
         }
         actions={
           <>
@@ -228,6 +279,24 @@ export function LibraryHome() {
           )}
         </div>
 
+        {/* Count + clear (brief 30 item 3): only while a search is active — the
+            kind chips already carry their own counts, so this line is purely
+            about the query on top of them. */}
+        {trimmedQuery && !isLoading && !isError && (
+          <div className="-mt-2 flex items-center justify-between gap-3">
+            <p className="font-ui text-sm text-ink-variant">
+              {visible.length} {visible.length === 1 ? "result" : "results"} for “{trimmedQuery}”
+            </p>
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              className="rounded font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              Clear search
+            </button>
+          </div>
+        )}
+
         {isLoading ? (
           <GallerySkeleton />
         ) : isError ? (
@@ -276,15 +345,25 @@ export function LibraryHome() {
             </Link>
           </div>
         ) : !hasItems ? (
-          // The library has things in it, just none of this kind — a filter
-          // result, not an empty library, so the way out is "show everything".
+          // The library has things in it, just none matching the active
+          // filter(s) — a filter result, not an empty library, so the way out
+          // is "show everything". Brief 30: a search names what it searched
+          // rather than reusing the bare kind-only copy.
           <EmptyState
-            title={kind ? `No ${KIND_LABELS[kind].toLowerCase()} yet` : "Nothing here yet"}
-            body="Nothing in your library matches this filter."
+            title={trimmedQuery ? "No matches" : kind ? `No ${KIND_LABELS[kind].toLowerCase()} yet` : "Nothing here yet"}
+            body={
+              trimmedQuery
+                ? `Nothing in your library matches “${trimmedQuery}”${kind ? ` in ${KIND_LABELS[kind].toLowerCase()}` : ""}.`
+                : "Nothing in your library matches this filter."
+            }
             action={
               <Link
                 to="/"
-                search={{ kind: undefined }}
+                // Clears BOTH filters explicitly (not just kind): with a query
+                // active, dropping only kind could still leave zero results,
+                // and this is the one action guaranteed to show something
+                // (the library itself isn't empty, per the branch above).
+                search={{ kind: undefined, q: undefined }}
                 className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
               >
                 Show everything

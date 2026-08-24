@@ -1,80 +1,77 @@
-import { useRef, type KeyboardEvent } from "react";
-
-import type { GroupView } from "../lib/library-prefs";
+import { Link } from "@tanstack/react-router";
+import type { MediaKind } from "@ebook-reader/shared";
 
 /**
- * Library-scoped controls. The app shell itself (wordmark + nav + theme toggle)
- * lives in `components/AppHeader.tsx`; what remains here is the Shelves⇄Stacks
- * view toggle, which renders beside a `LibraryArea` heading as a peer of Group
- * by / Sort by. The old media-type filter was retired in brief 25 — the media
- * type is now the nav (Books / Music / Videos), not an in-grid control.
+ * Library-scoped controls. The app shell itself (wordmark + search slot + Notes
+ * + theme toggle) lives in `components/AppHeader.tsx`; what lives here is the
+ * home's own chrome: the **kind filter chips** and the storage caption.
  *
- * `StorageCaption` (brief 20 item 2) also lives here: an area passes it into
+ * Brief 28 (D33 move 1) replaced this file's Shelves⇄Stacks `ViewToggle` — and
+ * with it the whole grouping UI — with `KindChips`. Media kind went from being
+ * an address (`/books`, brief 25) to being a filter with a count.
+ *
+ * `StorageCaption` (brief 20 item 2) also lives here: the home passes it into
  * `AppHeader`'s caption slot.
  */
 
-const VIEWS: { value: GroupView; label: string }[] = [
-  { value: "shelves", label: "Shelves" },
-  { value: "stacks", label: "Stacks" },
-];
+/** One chip: a kind to filter by, or `undefined` for "All". */
+export interface KindChoice {
+  kind?: MediaKind;
+  label: string;
+  count: number;
+}
 
 /**
- * The Shelves⇄Stacks view toggle (brief 21 step 5). A two-segment Reading Room
- * control: Archivo `label-caps`, hairline border, 4px radius, active fill
- * `paper-container-high` — deliberately **no accent** on the control itself
- * (accent is reserved for active values/links; the only accent here is the
- * focus ring). A11y: `radiogroup` semantics + roving tabindex, arrow keys move
- * and select, visible primary focus ring.
+ * The kind filter chips (design.md "Components" → Filter chips): 20px radius —
+ * the single pill in the system — a `line` border on `paper-raised`, and the
+ * **active chip inverts to `ink-fill`**. The count sets in Archivo tabular at
+ * 55% opacity (`body` already carries `tabular-nums`).
+ *
+ * Each chip is a real `<Link>` to `/` with its own `?kind`, not a button: the
+ * filter lives in the URL, so Back / refresh / share / middle-click-into-a-new-
+ * tab all round-trip, and the browser gives us prefetch + "open in new tab" for
+ * free. The active state reaches assistive tech as the `aria-current="page"`
+ * that TanStack's `Link` emits for the matching chip (these are links, so
+ * `radiogroup` semantics would be a lie) — see `activeOptions` below.
+ *
+ * A chip with a zero count still renders — a filter set that shrinks and grows
+ * as you upload would be its own small confusion, and "Music 0" is honest
+ * information about the library.
  */
-export function ViewToggle({
-  view,
-  onViewChange,
+export function KindChips({
+  active,
+  choices,
 }: {
-  view: GroupView;
-  onViewChange: (view: GroupView) => void;
+  active?: MediaKind;
+  choices: KindChoice[];
 }) {
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    const forward = e.key === "ArrowRight" || e.key === "ArrowDown";
-    const back = e.key === "ArrowLeft" || e.key === "ArrowUp";
-    if (!forward && !back) return;
-    e.preventDefault();
-    const current = VIEWS.findIndex((v) => v.value === view);
-    const next = (current + (forward ? 1 : VIEWS.length - 1)) % VIEWS.length;
-    onViewChange(VIEWS[next].value);
-    refs.current[next]?.focus();
-  }
-
   return (
-    <div
-      role="radiogroup"
-      aria-label="View"
-      onKeyDown={onKeyDown}
-      className="flex items-center rounded border border-line-soft/60 bg-paper-low p-0.5"
-    >
-      {VIEWS.map((v, i) => {
-        const active = view === v.value;
+    <nav aria-label="Filter by kind" className="flex flex-wrap items-center gap-2">
+      {choices.map((choice) => {
+        const isActive = choice.kind === active;
         return (
-          <button
-            key={v.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            tabIndex={active ? 0 : -1}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            onClick={() => onViewChange(v.value)}
-            className={`rounded-[3px] px-3 py-1.5 font-ui text-xs font-semibold tracking-[0.08em] uppercase transition focus-visible:outline-2 focus-visible:outline-accent ${
-              active ? "bg-paper-raised text-ink shadow-sm" : "text-ink-variant hover:text-ink"
+          <Link
+            key={choice.kind ?? "all"}
+            to="/"
+            search={{ kind: choice.kind }}
+            // Without this every chip points at `/`, so TanStack's path-only
+            // active test marks **All** current on `/?kind=video` too — two
+            // chips announcing `aria-current="page"` at once. `includeSearch`
+            // makes its activeness (and therefore the `aria-current` it emits)
+            // agree with `isActive` below.
+            activeOptions={{ exact: true, includeSearch: true }}
+            className={`flex items-center gap-1.5 rounded-chip border px-3.5 py-1.5 font-ui text-sm font-medium transition-colors duration-200 ease-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+              isActive
+                ? "border-ink-fill bg-ink-fill text-on-ink-fill"
+                : "border-line bg-paper-raised text-ink-variant hover:text-ink"
             }`}
           >
-            {v.label}
-          </button>
+            {choice.label}
+            <span className="font-ui text-xs font-medium opacity-55">{choice.count}</span>
+          </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }
 

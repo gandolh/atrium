@@ -1,9 +1,9 @@
 import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
 import { z } from "zod";
-import { fileTypeSchema } from "@ebook-reader/shared";
+import { fileTypeSchema, mediaKindSchema } from "@ebook-reader/shared";
 
 import { RootLayout } from "./routes/root-layout";
-import { BooksArea, MusicArea, VideosArea } from "./routes/areas";
+import { LibraryHome } from "./library/LibraryHome";
 import { Read } from "./routes/read";
 import { Discover } from "./routes/discover";
 import { Notes } from "./routes/notes";
@@ -18,44 +18,41 @@ const rootRoute = createRootRoute({
   component: RootLayout,
 });
 
-// `/` redirects to the default area (Books). Atrium's home is the per-type
-// areas, not a single unified gallery (brief 25).
+// `/` is **the** home (brief 28, D33 move 1): one gallery of the whole
+// library, with media kind demoted from an address to a filter chip. `?kind`
+// carries that filter so Back / refresh / share round-trip; absent = all kinds.
+// Validated against the shared `mediaKindSchema`, so a hand-typed `?kind=junk`
+// falls back to "all" rather than rendering an empty grid.
+const homeSearchSchema = z.object({
+  kind: mediaKindSchema.optional().catch(undefined),
+});
+
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  beforeLoad: () => {
-    throw redirect({ to: "/books" });
-  },
+  validateSearch: homeSearchSchema,
+  component: LibraryHome,
 });
 
-// The gallery's Stacks drill-in (brief 21): the focused group's key rides in
-// the URL (not component state) so browser Back returns to the stack index, a
-// refresh restores the drilled page, and the offline fallback can render it.
-// All three area routes share this schema (a Zod-validated optional string).
-const areaSearchSchema = z.object({
-  g: z.string().optional(),
-});
+// The brief-25 per-type areas survive as **redirects**, not deletions. Real
+// users have `/books` bookmarked, in browser history, and — because a PWA's
+// `start_url` is whatever page was open at install time — baked into the
+// installed app's launch URL. Each maps onto the equivalent home filter.
+const AREA_REDIRECTS = [
+  { path: "/books", kind: "book" },
+  { path: "/music", kind: "audio" },
+  { path: "/videos", kind: "video" },
+] as const;
 
-const booksRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/books",
-  validateSearch: areaSearchSchema,
-  component: BooksArea,
-});
-
-const musicRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/music",
-  validateSearch: areaSearchSchema,
-  component: MusicArea,
-});
-
-const videosRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/videos",
-  validateSearch: areaSearchSchema,
-  component: VideosArea,
-});
+const [booksRoute, musicRoute, videosRoute] = AREA_REDIRECTS.map((area) =>
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: area.path,
+    beforeLoad: () => {
+      throw redirect({ to: "/", search: { kind: area.kind } });
+    },
+  }),
+);
 
 // `/notes` (brief 26) — one route, two views: the list, or the editor when
 // `?note=<id>` is present (mirrors `/read?book=`).

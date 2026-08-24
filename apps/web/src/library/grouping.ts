@@ -1,22 +1,30 @@
 import type { LibraryBook, LibraryGroup } from "@ebook-reader/shared";
 
 /**
- * Grouping logic shared by both grouped views (brief 21 step 5). A `BookGroup`
- * is one shelf / one fanned stack: a stable `key` (also the `?g` drill-in
- * param), a display `label`, and the group's books in render order.
+ * Library **metadata accessors** over the backfilled `author` / `series` /
+ * `subjects` columns.
  *
- * Rules (identical for Shelves and Stacks, so the two views can never disagree
- * on membership or order):
- * - Group key = the **first** value: `author` (single-valued), `series`, or the
- *   first `subjects[]` entry. A missing/blank value → the "Unknown" group.
+ * Brief 28 (D33h) removed the grouping *UI* — Shelves ⇄ Stacks, the fanned
+ * stack index and the `?g` drill-in are gone, and the home is one flat grid
+ * filtered by kind. This module deliberately **survives** the deletion: the
+ * columns stay populated, and brief 30 reuses these accessors to build search
+ * facets over the same values the shelves used to bucket by. Nothing renders
+ * them today, so treat them as a library, not as dead code.
+ *
+ * A `BookGroup` is one bucket of the library: a stable case-folded `key`, a
+ * display `label`, and the bucket's books in render order.
+ *
+ * Rules:
+ * - Bucket key = the **first** value: `author` (single-valued), `series`, or the
+ *   first `subjects[]` entry. A missing/blank value → the "Unknown" bucket.
  * - Bucketing is on a trimmed + case-folded key, so "Science Fiction" and
- *   "science fiction" (or a trailing-space variant) land in the same group;
- *   the group's `label` is the first-encountered original spelling.
- * - The "Unknown" group always sorts **last**; all other groups are alphabetical
- *   (case-insensitive, locale-aware).
- * - Within a **series** group, books order by `seriesIndex` ascending with nulls
- *   last; every other group preserves the incoming order (the list is already
- *   sorted server-side by the active sort, so those groups "follow the sort").
+ *   "science fiction" (or a trailing-space variant) land together; the bucket's
+ *   `label` is the first-encountered original spelling.
+ * - The "Unknown" bucket always sorts **last**; all other buckets are
+ *   alphabetical (case-insensitive, locale-aware).
+ * - Within a **series** bucket, books order by `seriesIndex` ascending with
+ *   nulls last; every other bucket preserves the incoming order (the list is
+ *   already sorted server-side by the active sort).
  *
  * Tolerant of pre-brief-21 cached rows (offline fallback) whose `series` /
  * `subjects` fields predate the contract: absent values read as "Unknown".
@@ -31,11 +39,16 @@ export interface BookGroup {
   books: LibraryBook[];
 }
 
-/** The catch-all group's key/label for books missing the grouped value. */
+/** The catch-all bucket's key/label for books missing the value. */
 export const UNKNOWN_GROUP = "Unknown";
 
-/** The first non-empty grouping value for a book, or null when it has none. */
-function groupValueOf(book: LibraryBook, groupBy: Exclude<LibraryGroup, "none">): string | null {
+/**
+ * The first non-empty value of one metadata field for a book, or null when it
+ * has none. Exported for brief 30: this is the single definition of "what value
+ * does this book have for author / series / subject", so search facets and the
+ * bucketing below can never disagree.
+ */
+export function groupValueOf(book: LibraryBook, groupBy: Exclude<LibraryGroup, "none">): string | null {
   if (groupBy === "author") {
     const author = book.author?.trim();
     return author ? author : null;
@@ -50,10 +63,10 @@ function groupValueOf(book: LibraryBook, groupBy: Exclude<LibraryGroup, "none">)
 }
 
 /**
- * Group `books` (already sorted by the active sort) by `groupBy`. Returns the
- * groups in render order. `groupBy === "none"` yields a single un-labelled group
- * of all books — callers branch on "none" before this and render the flat
- * gallery, so this is just a defensive identity.
+ * Bucket `books` (already sorted by the active sort) by `groupBy`. Returns the
+ * buckets in render order. `groupBy === "none"` yields a single un-labelled
+ * bucket of all books — a defensive identity for callers that pass the field
+ * through without branching.
  */
 export function groupBooks(books: LibraryBook[], groupBy: LibraryGroup): BookGroup[] {
   if (groupBy === "none") {
@@ -61,10 +74,10 @@ export function groupBooks(books: LibraryBook[], groupBy: LibraryGroup): BookGro
   }
 
   // Bucket on a trimmed + case-folded key so e.g. "Science Fiction" and
-  // "science fiction " land in the same group; the group keeps the
-  // first-encountered original spelling as its display label (and as the
-  // `key`/`?g` identity — GroupedGallery's lookup and StackIndex's `onOpen`
-  // both key off this same normalized string, so the round-trip stays coherent).
+  // "science fiction " land in the same bucket; the bucket keeps the
+  // first-encountered original spelling as its display label. `key` is the
+  // stable identity a caller can round-trip through a URL or a facet id (it was
+  // the `?g` drill-in param before brief 28 removed the grouping UI).
   const byKey = new Map<string, { label: string; books: LibraryBook[] }>();
   for (const book of books) {
     const raw = groupValueOf(book, groupBy);

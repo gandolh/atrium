@@ -5,77 +5,80 @@ import type { Theme } from "../store/reader-store";
 import { useReaderStore } from "../store/reader-store";
 
 /**
- * The persistent app header, shared by every non-reader page (`/`, `/discover`)
- * so navigation and the theme control never disappear when the page changes
- * (previously /discover dropped the shell entirely — no brand, no theme
- * toggle). Wordmark in Newsreader on the left (a link home), page-supplied
- * `actions` + the segmented light/sepia/dark toggle on the right.
+ * The persistent app header, shared by every non-reader page (`/`, `/discover`,
+ * `/notes`) so the wordmark, search, Notes and the theme control never
+ * disappear when the page changes.
  *
- * Content-scoped controls (the All/Books/Music/Videos filter, Shelves⇄Stacks)
- * deliberately do NOT live here anymore — they scope the library shelf, so
- * they sit next to it (see routes/home.tsx), leaving the header with app-level
- * concerns only. That also fixes the mobile wrap: two clusters instead of five.
+ * **Brief 28 (D33 move 1) removed `NavTabs`.** Media kind is no longer an
+ * address — `/books` `/music` `/videos` collapsed into `/` where kind is a
+ * filter chip (see `library/LibraryHeader`'s `KindChips`), so the header carries
+ * no per-kind navigation at all. What remains is app-level only, in **two
+ * clusters on one row**:
+ *
+ *   wordmark · [search slot] ‖ Notes · {actions} · theme
+ *
+ * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
+ * is a link here rather than a chip in the grid.
  */
 export function AppHeader({
   caption,
+  search,
   actions,
 }: {
-  /** Optional quiet caption under the wordmark (home's storage usage). */
+  /** Optional quiet caption under the wordmark (the home's storage usage). */
   caption?: ReactNode;
-  /** Page-level actions, rendered before the theme toggle. */
+  /**
+   * SEARCH SLOT — **brief 30 fills this**. Rendered between the two clusters in
+   * a `flex-1` box that is `min-w-0` and caps at `sm:max-w-sm`, so whatever goes
+   * in can be a full-width input on a phone and a compact field on a desktop.
+   * Left empty the box collapses (no reserved gap), so every current caller
+   * renders exactly as before.
+   */
+  search?: ReactNode;
+  /** Page-level actions, rendered between the Notes link and the theme toggle. */
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 border-b border-line-soft/50 pb-4">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="flex flex-col gap-1">
-          <Link
-            to="/books"
-            className="w-fit rounded font-display text-2xl font-bold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
-          >
-            Atrium
-          </Link>
-          {caption}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {actions}
-          <ThemeToggle />
-        </div>
+    <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line-soft/50 pb-4">
+      <div className="flex flex-col gap-1">
+        <Link
+          to="/"
+          className="w-fit rounded font-display text-2xl font-bold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Atrium
+        </Link>
+        {caption}
       </div>
 
-      <NavTabs />
+      {/* ── SEARCH SLOT (brief 30) ─────────────────────────────────────────── */}
+      {search && <div className="min-w-0 flex-1 sm:max-w-sm">{search}</div>}
+
+      <div className="ml-auto flex flex-wrap items-center gap-3">
+        <NotesLink />
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
 
-const NAV_TABS = [
-  { to: "/books", label: "Books" },
-  { to: "/music", label: "Music" },
-  { to: "/videos", label: "Videos" },
-  { to: "/notes", label: "Notes" },
-] as const;
-
 /**
- * Primary area navigation (Atrium IA, brief 25) — Books · Music · Videos as
- * peer destinations. The old in-header All/Books/Music/Videos *filter* is now
- * these tabs. Quiet: Archivo label, accent reserved for the active tab's text +
- * underline; horizontally scrollable if it ever overflows on a narrow phone.
+ * The one navigational link left in the header: **Notes** as its own
+ * destination (D33g), reached from here rather than from a filter chip.
+ *
+ * Brief 33 owns its **active state** — it styles `activeProps`; the base style
+ * here is a quiet Archivo `label-ui` link. Kept as a separate component (rather
+ * than inlined) so that brief 33 has one place to edit.
  */
-function NavTabs() {
+function NotesLink() {
   return (
-    <nav aria-label="Library" className="-mb-4 flex items-center gap-1 overflow-x-auto">
-      {NAV_TABS.map((tab) => (
-        <Link
-          key={tab.to}
-          to={tab.to}
-          className="rounded-t border-b-2 border-transparent px-3 py-2 font-ui text-sm font-medium whitespace-nowrap text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-          activeProps={{ className: "border-accent text-ink font-semibold" }}
-        >
-          {tab.label}
-        </Link>
-      ))}
-    </nav>
+    <Link
+      to="/notes"
+      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      activeProps={{ className: "text-ink font-semibold" }}
+    >
+      Notes
+    </Link>
   );
 }
 

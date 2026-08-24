@@ -20,6 +20,7 @@ import {
   type TextBox,
 } from "@ebook-reader/shared";
 
+import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { cssToken } from "../lib/tokens";
 import { useNote, useSaveNote } from "./use-notes";
 
@@ -133,6 +134,13 @@ function PageBackground({ template }: { template: PageTemplate }) {
 }
 
 export function NoteEditor({ id }: { id: string }) {
+  // Same mechanism as every other page-level component (NotesList,
+  // LibraryHome, Discover) — without it, `data-theme` freezes at whatever
+  // NotesList's cleanup left behind when it unmounts on navigation into the
+  // editor, so switching to dark right before opening a note could leave the
+  // editor chrome light. `NoteEditor` itself is the theme-application site
+  // here, so it needs the hook too, not just its siblings.
+  useApplyTheme();
   const navigate = useNavigate();
   const query = useNote(id);
   const save = useSaveNote(id);
@@ -260,69 +268,57 @@ export function NoteEditor({ id }: { id: string }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-reader-bg text-ink">
-      {/* Top bar: back, title, page nav, undo/redo */}
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line-soft/50 bg-paper/90 px-4 py-2.5 backdrop-blur-sm">
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/notes" })}
-          className="rounded px-2 py-1 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-          aria-label="Back to notes"
-        >
-          ← Notes
-        </button>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          aria-label="Note title"
-          className="min-w-0 flex-1 rounded bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
-          placeholder="Untitled note"
-        />
-        {/* Page navigation lives in the always-visible header (the page sheet
-            is taller than the viewport, so an in-flow strip would fall below
-            the fold on desktop). */}
-        <div className="flex items-center gap-0.5 rounded-full bg-paper-low px-1.5 py-1 font-ui text-xs text-ink-variant">
+      {/* Header + tool bar are one sticky block pinned to the top of the
+          scroll container — not a fixed-bottom overlay. A page sheet taller
+          than the viewport can never push either below the fold (brief 26's
+          live-audit fix), and the tool bar now sits visually above the sheet
+          per design.md, not floating over it. */}
+      <div className="sticky top-0 z-20 flex flex-col border-b border-line-soft/50 bg-paper/95 backdrop-blur-sm">
+        <header className="flex items-center gap-3 px-4 py-2.5">
           <button
             type="button"
-            disabled={pageIndex === 0}
-            onClick={() => setPageIndex((i) => Math.max(0, i - 1))}
-            className="px-1.5 text-base disabled:opacity-30"
-            aria-label="Previous page"
+            onClick={() => navigate({ to: "/notes" })}
+            className="rounded px-2 py-1 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            aria-label="Back to notes"
           >
-            ‹
+            ← Notes
           </button>
-          <span className="tabular-nums" aria-label={`Page ${pageIndex + 1} of ${pages.length}`}>
-            {pageIndex + 1}/{pages.length}
-          </span>
-          <button
-            type="button"
-            disabled={pageIndex === pages.length - 1}
-            onClick={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))}
-            className="px-1.5 text-base disabled:opacity-30"
-            aria-label="Next page"
-          >
-            ›
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              snapshot();
-              setPages((prev) => [...prev, structuredClone(BLANK_PAGE)]);
-              setPageIndex(pages.length);
-            }}
-            className="ml-1 border-l border-line-soft/50 pl-1.5 text-accent"
-            aria-label="Add page"
-          >
-            + Page
-          </button>
-        </div>
-        <div className="flex items-center gap-1">
-          <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>↶</IconBtn>
-          <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>↷</IconBtn>
-        </div>
-      </header>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            aria-label="Note title"
+            className="min-w-0 flex-1 rounded bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
+            placeholder="Untitled note"
+          />
+          <div className="flex items-center gap-1">
+            <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>↶</IconBtn>
+            <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>↷</IconBtn>
+          </div>
+        </header>
 
-      {/* Page sheet — bottom padding clears the fixed tool bar. */}
-      <div className="flex flex-1 justify-center overflow-auto px-4 pt-6 pb-28">
+        <Toolbar
+          tool={tool}
+          setTool={setTool}
+          color={color}
+          setColor={setColor}
+          thickness={thickness}
+          setThickness={setThickness}
+          template={page.template}
+          setTemplate={setPageTemplate}
+          pageIndex={pageIndex}
+          pageCount={pages.length}
+          onPrevPage={() => setPageIndex((i) => Math.max(0, i - 1))}
+          onNextPage={() => setPageIndex((i) => Math.min(pages.length - 1, i + 1))}
+          onAddPage={() => {
+            snapshot();
+            setPages((prev) => [...prev, structuredClone(BLANK_PAGE)]);
+            setPageIndex(pages.length);
+          }}
+        />
+      </div>
+
+      {/* Sheet ground — paper-low, the L1 card treatment lives on the sheet itself. */}
+      <div className="flex flex-1 justify-center overflow-auto bg-paper-low px-4 py-6">
         <NoteSheet
           page={page}
           tool={tool}
@@ -332,18 +328,6 @@ export function NoteEditor({ id }: { id: string }) {
           onMutatePage={mutatePage}
         />
       </div>
-
-      {/* Tool bar — bottom sheet on mobile, static bar on desktop */}
-      <Toolbar
-        tool={tool}
-        setTool={setTool}
-        color={color}
-        setColor={setColor}
-        thickness={thickness}
-        setThickness={setThickness}
-        template={page.template}
-        setTemplate={setPageTemplate}
-      />
     </div>
   );
 }
@@ -486,7 +470,7 @@ function NoteSheet({
   return (
     <div
       ref={ref}
-      className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-md shadow-[0_4px_20px_-6px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+      className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-card border border-line-soft shadow-l1"
       style={{
         height,
         // The sheet is a fixed light paper in every theme (see the header note),
@@ -643,6 +627,11 @@ function Toolbar({
   setThickness,
   template,
   setTemplate,
+  pageIndex,
+  pageCount,
+  onPrevPage,
+  onNextPage,
+  onAddPage,
 }: {
   tool: Tool;
   setTool: (t: Tool) => void;
@@ -652,6 +641,13 @@ function Toolbar({
   setThickness: (t: number) => void;
   template: PageTemplate;
   setTemplate: (t: PageTemplate) => void;
+  /** Page indicator, in tabular figures (design.md "Numbers line up") — lives in
+   * the tool bar itself now, not split into a separate header cluster. */
+  pageIndex: number;
+  pageCount: number;
+  onPrevPage: () => void;
+  onNextPage: () => void;
+  onAddPage: () => void;
 }) {
   const tools: { value: Tool; label: string; glyph: string }[] = [
     { value: "pen", label: "Pen", glyph: "✎" },
@@ -668,7 +664,7 @@ function Toolbar({
     grid: { label: "Grid page", glyph: "▦" },
   };
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 flex flex-wrap items-center justify-center gap-3 border-t border-line-soft/50 bg-paper/95 px-4 py-2.5 backdrop-blur-sm">
+    <div className="flex flex-wrap items-center gap-3 border-t border-line-soft/50 px-4 py-2.5">
       <div role="radiogroup" aria-label="Tool" className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5">
         {tools.map((t) => {
           const active = tool === t.value;
@@ -747,6 +743,41 @@ function Toolbar({
             </button>
           );
         })}
+      </div>
+
+      {/* Page indicator — tabular figures (design.md "Numbers line up"), same
+          cluster shape as the reader's page nav. Pushed to the far end on wide
+          toolbars, wraps onto its own line on narrow ones. */}
+      <div className="ml-auto flex items-center gap-0.5 rounded-full bg-paper-low px-1.5 py-1 font-ui text-xs text-ink-variant">
+        <button
+          type="button"
+          disabled={pageIndex === 0}
+          onClick={onPrevPage}
+          className="px-1.5 text-base disabled:opacity-30"
+          aria-label="Previous page"
+        >
+          ‹
+        </button>
+        <span className="tabular-nums" aria-label={`Page ${pageIndex + 1} of ${pageCount}`}>
+          {pageIndex + 1}/{pageCount}
+        </span>
+        <button
+          type="button"
+          disabled={pageIndex === pageCount - 1}
+          onClick={onNextPage}
+          className="px-1.5 text-base disabled:opacity-30"
+          aria-label="Next page"
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          onClick={onAddPage}
+          className="ml-1 border-l border-line-soft/50 pl-1.5 text-accent"
+          aria-label="Add page"
+        >
+          + Page
+        </button>
       </div>
     </div>
   );

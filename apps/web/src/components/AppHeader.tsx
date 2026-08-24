@@ -66,16 +66,17 @@ export function AppHeader({
  * The one navigational link left in the header: **Notes** as its own
  * destination (D33g), reached from here rather than from a filter chip.
  *
- * Brief 33 owns its **active state** — it styles `activeProps`; the base style
- * here is a quiet Archivo `label-ui` link. Kept as a separate component (rather
- * than inlined) so that brief 33 has one place to edit.
+ * Brief 33 owns its **active state** — accent, not ink, since accent "means
+ * state only" (design.md) and being on `/notes` is exactly that: a state, not
+ * decoration. The base style is a quiet Archivo `label-ui` link. Kept as a
+ * separate component (rather than inlined) so brief 33 has one place to edit.
  */
 function NotesLink() {
   return (
     <Link
       to="/notes"
       className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      activeProps={{ className: "text-ink font-semibold" }}
+      activeProps={{ className: "text-accent font-semibold" }}
     >
       Notes
     </Link>

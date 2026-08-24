@@ -1,4 +1,5 @@
 import { getStroke } from "perfect-freehand";
+import { usePinch } from "@use-gesture/react";
 import {
   useCallback,
   useEffect,
@@ -60,6 +61,10 @@ const ERASE_RADIUS = 0.02;
 // So compute stroke geometry in a scaled-up viewBox space (points ×VB, size
 // ×VB) while storage stays normalized. The SVG uses the same viewBox.
 const STROKE_VB = 1000;
+
+// Pinch-to-zoom bounds for the page sheet (mobile). 1 = fit-to-column (the
+// resting layout); the sheet never zooms out past that.
+const MAX_ZOOM = 4;
 
 const BLANK_PAGE: NotePage = { strokes: [], texts: [], template: "blank" };
 
@@ -361,6 +366,79 @@ function NoteSheet({
   const drawing = useRef(false);
   const activePointer = useRef<number | null>(null);
 
+  // --- Pinch-to-zoom (mobile) ----------------------------------------------
+  // The zoom/pan transform is applied to the sheet element itself. Because
+  // `toNorm` derives normalized coords from getBoundingClientRect() (which
+  // reflects CSS transforms) divided by the transformed width, drawing stays
+  // pixel-accurate at any zoom — no changes to the ink math are needed.
+  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
+  // True while a two-finger gesture is in flight, so pointer handlers stand
+  // down (the first finger must not leave a stray stroke behind).
+  const gesturing = useRef(false);
+  // Enables a CSS transition only for the "reset zoom" tween, never during a
+  // live pinch (which would lag a frame behind the fingers).
+  const [animating, setAnimating] = useState(false);
+
+  // Keep the panned sheet from drifting entirely off its own footprint.
+  const clampPan = useCallback(
+    (scale: number, x: number, y: number) => {
+      if (scale <= 1) return { x: 0, y: 0 };
+      const h = width * PAGE_ASPECT;
+      return {
+        x: Math.min(0, Math.max(-(scale - 1) * width, x)),
+        y: Math.min(0, Math.max(-(scale - 1) * h, y)),
+      };
+    },
+    [width],
+  );
+
+  usePinch(
+    ({ origin: [ox, oy], offset: [scale], first, last, memo }) => {
+      if (first) {
+        // A pinch just began — discard any stroke the first finger started.
+        drawing.current = false;
+        activePointer.current = null;
+        pointsRef.current = [];
+        setLive(null);
+        gesturing.current = true;
+        setAnimating(false);
+        const rect = ref.current!.getBoundingClientRect();
+        const cur = transformRef.current;
+        // transform-origin is the top-left corner, so scaling never moves
+        // left/top — only our translate does. Recover the untransformed
+        // origin, then the sheet-local point (0..width) under the fingers.
+        memo = {
+          layoutLeft: rect.left - cur.x,
+          layoutTop: rect.top - cur.y,
+          lx: (ox - rect.left) / cur.scale,
+          ly: (oy - rect.top) / cur.scale,
+        };
+      }
+      const m = memo as { layoutLeft: number; layoutTop: number; lx: number; ly: number };
+      // Solve for the translate that keeps point (lx, ly) pinned under the
+      // (moving) finger midpoint — this yields zoom-about-fingers plus
+      // two-finger panning in one step.
+      const { x, y } = clampPan(scale, ox - m.layoutLeft - scale * m.lx, oy - m.layoutTop - scale * m.ly);
+      setTransform({ scale, x, y });
+      if (last) gesturing.current = false;
+      return memo;
+    },
+    {
+      target: ref,
+      eventOptions: { passive: false },
+      scaleBounds: { min: 1, max: MAX_ZOOM },
+      from: () => [transformRef.current.scale, 0],
+    },
+  );
+
+  const resetZoom = useCallback(() => {
+    setAnimating(true);
+    setTransform({ scale: 1, x: 0, y: 0 });
+    setTimeout(() => setAnimating(false), 180);
+  }, []);
+
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -389,6 +467,8 @@ function NoteSheet({
   );
 
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    // A two-finger zoom/pan is underway — don't treat touches as ink.
+    if (gesturing.current) return;
     // Single active pointer → basic palm rejection (a resting palm's touch is
     // ignored while another pointer is drawing).
     if (activePointer.current !== null) return;
@@ -466,8 +546,10 @@ function NoteSheet({
   }
 
   const height = width * PAGE_ASPECT;
+  const zoomed = transform.scale > 1.01;
 
   return (
+    <>
     <div
       ref={ref}
       className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-card border border-line-soft shadow-l1"
@@ -477,6 +559,10 @@ function NoteSheet({
         // so this token is deliberately not remapped by `data-theme`.
         background: "var(--note-sheet)",
         cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
+        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+        transformOrigin: "0 0",
+        transition: animating ? "transform 0.18s ease-out" : "none",
+        willChange: "transform",
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -534,6 +620,23 @@ function NoteSheet({
         />
       ))}
     </div>
+
+    {/* Reset-zoom affordance — only while pinched in. It used to sit at
+        `bottom-28` to clear a fixed bottom tool bar; brief 33 moved that bar
+        into the sticky block above the sheet, so the offset now only has to
+        clear the player dock (brief 31), which may or may not be present. */}
+    {zoomed && (
+      <button
+        type="button"
+        onClick={resetZoom}
+        style={{ bottom: "calc(1rem + var(--dock-height, 0px))" }}
+        className="fixed right-4 z-30 flex items-center gap-1.5 rounded-chip border border-line-soft/60 bg-paper/95 px-3 py-1.5 font-ui text-xs font-medium text-ink-variant shadow-l1 backdrop-blur-sm transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        aria-label="Reset zoom"
+      >
+        <span aria-hidden="true">⤢</span> {Math.round(transform.scale * 100)}%
+      </button>
+    )}
+    </>
   );
 }
 

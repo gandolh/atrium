@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import { useChromeHold } from "./use-auto-hide-chrome";
+import { MOTION_MS } from "../../lib/motion";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
@@ -56,9 +57,12 @@ export function ReaderToolbar({
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusWithin(false);
       }}
-      className={`pointer-events-none relative z-30 w-full shrink-0 transition-opacity duration-300 motion-reduce:transition-none ${
+      className={`pointer-events-none relative z-30 w-full shrink-0 transition-opacity ease-paper motion-reduce:transition-none ${
         visible ? "opacity-100" : "opacity-0"
       }`}
+      // design.md "Motion": 600ms out / 150ms in, same asymmetric fade as
+      // `ReaderHeader`/`ProgressRail` (all three chrome pieces move together).
+      style={{ transitionDuration: `${visible ? MOTION_MS.chromeIn : MOTION_MS.chromeOut}ms` }}
     >
       {/* Single-line pill laid out as a 3-track grid — NOT `justify-between`.
           `justify-between` only keeps the middle cluster centred when the two
@@ -77,7 +81,7 @@ export function ReaderToolbar({
           shrinks instead; `overflow-hidden` clips any residual rather than
           letting it spill over the centre. */}
       <div
-        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-2xl border border-reader-border/80 bg-reader-surface/95 px-2 py-2 shadow-xl shadow-black/5 backdrop-blur sm:gap-3 sm:px-3 ${
+        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-card border border-reader-border/80 bg-reader-surface/95 px-2 py-2 shadow-l1 backdrop-blur sm:gap-3 sm:px-3 ${
           visible ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -121,7 +125,7 @@ export function ToolbarButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-reader-fg/80 transition hover:bg-reader-bg disabled:opacity-30 ${
+      className={`grid h-9 min-w-9 place-items-center rounded-card px-2 text-reader-fg/80 transition hover:bg-reader-bg disabled:opacity-30 ${
         active ? "bg-reader-accent/15 text-reader-accent" : ""
       }`}
     >

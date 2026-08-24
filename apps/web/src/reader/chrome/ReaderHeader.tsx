@@ -1,3 +1,5 @@
+import { MOTION_MS } from "../../lib/motion";
+
 /**
  * Running orientation header — the top row of BOTH readers' 3-row grid
  * (wiki/reader.md: "orientation lives at the edges"). Extracted from the EPUB
@@ -23,9 +25,15 @@ export function ReaderHeader({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none flex items-baseline justify-between gap-6 px-6 py-2.5 text-xs text-reader-fg/60 transition-opacity duration-300 motion-reduce:transition-none ${
+      className={`pointer-events-none flex items-baseline justify-between gap-6 px-6 py-2.5 text-xs text-reader-fg/60 transition-opacity ease-paper motion-reduce:transition-none ${
         visible ? "opacity-100" : "opacity-0"
       }`}
+      // design.md "Motion": chrome fades 600ms out / 150ms in — asymmetric, so
+      // it lingers on the way out (giving a beat to react) but snaps back the
+      // instant the reader asks for it. `motion-reduce:transition-none` above
+      // still wins under reduced motion (Tailwind's `transition-none` there
+      // disables the transition outright, regardless of this duration).
+      style={{ transitionDuration: `${visible ? MOTION_MS.chromeIn : MOTION_MS.chromeOut}ms` }}
     >
       <span className="min-w-0 truncate">{title ?? ""}</span>
       <span className="min-w-0 truncate text-right">{detail ?? ""}</span>

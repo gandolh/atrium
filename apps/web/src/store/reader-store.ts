@@ -24,11 +24,20 @@ export type Theme = "light" | "sepia" | "dark";
  */
 export type PageMode = "paged" | "scroll";
 
+/**
+ * The reading pane's type face (brief 32, replacing the old serif/sans/mono
+ * family list per design.md's "Newsreader wrote it, Archivo says it" rule):
+ * `"reading"` is Newsreader (the system's reading face), `"ui"` is Archivo
+ * (the system's interface face, offered as the sans alternative). See
+ * `reader/epub/EpubSettings.tsx`'s `FONT_FACES` + `fontStackFor`.
+ */
+export type FontFace = "reading" | "ui";
+
 export interface FontSettings {
   /** Font size in px. */
   size: number;
-  family: string;
-  /** Line spacing multiplier, e.g. 1.5. */
+  family: FontFace;
+  /** Line spacing multiplier, e.g. 1.78. */
   lineSpacing: number;
   /** Horizontal margin in px. */
   margins: number;
@@ -126,10 +135,12 @@ export interface ReaderState {
   reset: () => void;
 }
 
+// design.md "Typography": the reading pane defaults to Newsreader at 18/1.78
+// (brief 32).
 const DEFAULT_FONT_SETTINGS: FontSettings = {
   size: 18,
-  family: "serif",
-  lineSpacing: 1.5,
+  family: "reading",
+  lineSpacing: 1.78,
   margins: 24,
 };
 

@@ -40,11 +40,14 @@ export function ThemePicker() {
               role="radio"
               aria-checked={selected}
               onClick={() => setTheme(t.value)}
-              className={`flex flex-1 flex-col items-center gap-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent`}
+              className={`flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent`}
             >
               <span
                 aria-hidden="true"
-                className={`grid h-11 w-full place-items-center rounded-lg border text-base transition-shadow ${
+                // A theme swatch is a miniature PAGE (design.md "Aa panel"), so
+                // it takes the artwork radius (2px), not the general card
+                // radius (4px) — the same distinction the library covers draw.
+                className={`grid h-11 w-full place-items-center rounded-cover border text-base transition-shadow ${
                   selected ? "ring-2 ring-reader-accent" : ""
                 }`}
                 style={{

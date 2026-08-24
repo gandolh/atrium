@@ -105,13 +105,14 @@ export function SearchPanel({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-        <Dialog.Popup className="fixed inset-y-0 right-0 z-50 flex w-[85vw] max-w-sm flex-col border-l border-reader-border bg-reader-bg text-reader-fg shadow-xl transition-transform data-[starting-style]:translate-x-full data-[ending-style]:translate-x-full">
+        {/* design.md "Depth is tonal": modals keep a 12px backdrop blur. */}
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+        <Dialog.Popup className="fixed inset-y-0 right-0 z-50 flex w-[85vw] max-w-sm flex-col border-l border-reader-border bg-reader-bg text-reader-fg shadow-l1 transition-transform data-[starting-style]:translate-x-full data-[ending-style]:translate-x-full">
           <div className="flex items-center justify-between border-b border-reader-border px-4 py-3">
             <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
             <Dialog.Close
               aria-label="Close search"
-              className="grid h-8 w-8 place-items-center rounded-md text-reader-fg/70 hover:bg-reader-surface"
+              className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
             >
               <CloseIcon />
             </Dialog.Close>
@@ -125,12 +126,15 @@ export function SearchPanel({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search in book…"
-                className="min-w-0 flex-1 rounded-md border border-reader-border bg-reader-surface px-3 py-1.5 text-sm text-reader-fg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
+                className="min-w-0 flex-1 rounded-card border border-reader-border bg-reader-surface px-3 py-1.5 text-sm text-reader-fg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
               />
+              {/* design.md "accent means state only, never a button fill":
+                  ink-filled primary, not accent-filled (brief 27 conformance
+                  gap, fixed here alongside the OpeningErrorState instance). */}
               <button
                 type="submit"
                 disabled={searching || query.trim().length === 0}
-                className="shrink-0 rounded-md bg-reader-accent px-3 py-1.5 text-sm font-medium text-white transition disabled:opacity-40"
+                className="shrink-0 rounded-card bg-ink-fill px-3 py-1.5 text-sm font-medium text-on-ink-fill transition disabled:opacity-40"
               >
                 {searching ? "…" : "Go"}
               </button>
@@ -174,7 +178,7 @@ export function SearchPanel({
                         <button
                           type="button"
                           onClick={() => onSelect(match)}
-                          className="block w-full rounded-md px-2 py-2 text-left text-sm text-reader-fg/85 hover:bg-reader-surface"
+                          className="block w-full rounded-card px-2 py-2 text-left text-sm text-reader-fg/85 hover:bg-reader-surface"
                         >
                           <span className="line-clamp-3 text-reader-fg/85">
                             {emphasizeQuery(match.excerpt, executedQueryRef.current)}

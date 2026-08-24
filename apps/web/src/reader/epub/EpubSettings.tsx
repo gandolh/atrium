@@ -1,5 +1,6 @@
 import { SliderControl, ThemePicker } from "../chrome";
-import { useReaderStore } from "../../store/reader-store";
+import { useReaderStore, type FontFace } from "../../store/reader-store";
+import { cssToken } from "../../lib/tokens";
 
 /**
  * EPUB settings body (the "Aa" panel) — the font/theme controls that make EPUB
@@ -13,15 +14,31 @@ import { useReaderStore } from "../../store/reader-store";
  * size slider.
  */
 
-/** Font family options mapped to concrete CSS stacks epub.js can apply. */
-export const FONT_FAMILIES: { label: string; value: string; stack: string }[] = [
-  { label: "Serif", value: "serif", stack: "Georgia, 'Times New Roman', serif" },
-  { label: "Sans", value: "sans", stack: "system-ui, -apple-system, Helvetica, Arial, sans-serif" },
-  { label: "Mono", value: "mono", stack: "'SFMono-Regular', Consolas, 'Liberation Mono', monospace" },
+// Literal fallbacks for `cssToken` running outside a DOM (tests/SSR) — must
+// match `--font-reading` / `--font-ui` in globals.css exactly.
+const FALLBACK_READING_STACK = "'Newsreader', Georgia, serif";
+const FALLBACK_UI_STACK = "'Archivo', system-ui, sans-serif";
+
+/**
+ * The reading pane's two-way face toggle (design.md "one rule decides every
+ * type choice": Newsreader wrote it, Archivo says it). Replaces the old
+ * serif/sans/mono family list — brief 32.
+ */
+export const FONT_FACES: { label: string; value: FontFace }[] = [
+  { label: "Newsreader", value: "reading" },
+  { label: "Archivo", value: "ui" },
 ];
 
-export function fontStackFor(value: string): string {
-  return FONT_FAMILIES.find((f) => f.value === value)?.stack ?? FONT_FAMILIES[0].stack;
+/**
+ * Resolve a face to the literal CSS stack epub.js needs (its `rendition.themes
+ * .font()` call and the `themeRules` body rule both take a literal string, not
+ * a custom property — see `lib/tokens.ts`). Reads the SAME `--font-reading` /
+ * `--font-ui` tokens the rest of the app uses, so the EPUB body always matches
+ * whatever the design system currently defines for that role.
+ */
+export function fontStackFor(face: FontFace): string {
+  if (face === "ui") return cssToken("--font-ui") || FALLBACK_UI_STACK;
+  return cssToken("--font-reading") || FALLBACK_READING_STACK;
 }
 
 // Bounds shared with the reader's theme application.
@@ -45,7 +62,7 @@ export function EpubSettings() {
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-reader-fg/70">Font</span>
         <div role="radiogroup" aria-label="Font" className="flex gap-2">
-          {FONT_FAMILIES.map((f) => {
+          {FONT_FACES.map((f) => {
             const selected = fontSettings.family === f.value;
             return (
               <button
@@ -54,14 +71,14 @@ export function EpubSettings() {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setFontSettings({ family: f.value })}
-                className="flex flex-1 flex-col items-center gap-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
+                className="flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
               >
                 <span
                   aria-hidden="true"
-                  className={`grid h-11 w-full place-items-center rounded-lg border border-reader-border bg-reader-surface text-base text-reader-fg transition-shadow ${
+                  className={`grid h-11 w-full place-items-center rounded-card border border-reader-border bg-reader-surface text-base text-reader-fg transition-shadow ${
                     selected ? "ring-2 ring-reader-accent" : ""
                   }`}
-                  style={{ fontFamily: f.stack }}
+                  style={{ fontFamily: fontStackFor(f.value) }}
                 >
                   Aa
                 </span>

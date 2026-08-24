@@ -5,6 +5,45 @@ import { useReaderStore, type Theme } from "../../store/reader-store";
 import { themePalette } from "../../lib/tokens";
 import { fontStackFor } from "./EpubSettings";
 
+// The EPUB section iframe is a separate document — @font-face declared on the
+// PARENT page (main.tsx's `@fontsource/*` imports) does not cascade into it,
+// the same reason `lib/tokens.ts` exists for colour. So the two reading faces
+// (design.md "Newsreader wrote it, Archivo says it") are re-declared here as
+// literal @font-face rules, sourced from the SAME bundled font files via
+// Vite's `?url` (the identical pattern `reader/pdf/pdf-worker.ts` uses for the
+// PDF.js worker) — the browser reuses the already-fetched bytes from cache
+// rather than downloading a second copy. Only the roman 400 weight (+ italic,
+// for <em>/<i>) is loaded for each face: that's the reading pane's only used
+// weight, and it's what makes react-reader's `srcdoc` iframe (same base URL as
+// the app, so root-relative asset paths resolve) worth exploiting here.
+import nrLatin400 from "@fontsource/newsreader/files/newsreader-latin-400-normal.woff2?url";
+import nrLatinExt400 from "@fontsource/newsreader/files/newsreader-latin-ext-400-normal.woff2?url";
+import nrLatin400Italic from "@fontsource/newsreader/files/newsreader-latin-400-italic.woff2?url";
+import nrLatinExt400Italic from "@fontsource/newsreader/files/newsreader-latin-ext-400-italic.woff2?url";
+import arLatin400 from "@fontsource/archivo/files/archivo-latin-400-normal.woff2?url";
+import arLatinExt400 from "@fontsource/archivo/files/archivo-latin-ext-400-normal.woff2?url";
+import arLatin400Italic from "@fontsource/archivo/files/archivo-latin-400-italic.woff2?url";
+import arLatinExt400Italic from "@fontsource/archivo/files/archivo-latin-ext-400-italic.woff2?url";
+
+// `Contents.addStylesheetRules` (epub.js) inserts each key as a CSS rule via
+// `CSSStyleSheet.insertRule`, which accepts at-rules — so `"@font-face"` works
+// as a rules-object key exactly like any selector, and an array value inserts
+// one rule per array entry (the SAME mechanism `themes.registerRules` uses for
+// every other selector below). Built once at module scope; merged into every
+// theme's rule set (harmless to redeclare — the browser just reuses the cache).
+const EPUB_FONT_FACE_RULES = {
+  "@font-face": [
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "400", src: `url(${nrLatin400}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "400", src: `url(${nrLatinExt400}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatin400Italic}) format('woff2')` },
+    { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatinExt400Italic}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatin400}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatinExt400}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatin400Italic}) format('woff2')` },
+    { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatinExt400Italic}) format('woff2')` },
+  ],
+};
+
 /**
  * Applies the active theme + font settings to the epub.js `rendition` (brief 07
  * step 2). Unlike the fixed-layout PDF (which can only invert), EPUB is
@@ -33,6 +72,7 @@ export function themeRules(
   // iframes, so the values have to travel as literal strings (lib/tokens.ts).
   const c = themePalette(theme);
   return {
+    ...EPUB_FONT_FACE_RULES,
     // iOS Safari auto-inflates text sized against a block's width. epub.js lays
     // every page out as columns inside ONE very wide iframe (thousands of px),
     // so iOS massively inflates the font → lines overflow the visible column

@@ -47,10 +47,11 @@ export function TocSidebar({
     <>
       {/* Mobile scrim — tap to dismiss the overlay. Desktop docking needs none. */}
       {open && (
+        // design.md "Depth is tonal": modals keep a 12px backdrop blur.
         <div
           aria-hidden="true"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md md:hidden"
         />
       )}
 
@@ -65,7 +66,7 @@ export function TocSidebar({
           "h-full overflow-hidden border-reader-border bg-reader-bg",
           "md:relative md:shrink-0 md:border-r md:transition-[width] md:duration-200 md:motion-reduce:transition-none",
           open ? "md:w-72" : "md:w-0 md:border-r-0",
-          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[86vw] max-md:max-w-80 max-md:border-r max-md:shadow-2xl max-md:transition-transform max-md:duration-200 max-md:motion-reduce:transition-none",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[86vw] max-md:max-w-80 max-md:border-r max-md:shadow-l1 max-md:transition-transform max-md:duration-200 max-md:motion-reduce:transition-none",
           open ? "max-md:translate-x-0" : "max-md:-translate-x-full",
         ].join(" ")}
       >
@@ -79,7 +80,7 @@ export function TocSidebar({
             onClick={onClose}
             aria-label="Hide contents"
             title="Hide contents"
-            className="grid h-8 w-8 place-items-center rounded-md text-reader-fg/70 hover:bg-reader-surface"
+            className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
           >
             <CollapseIcon />
           </button>
@@ -106,7 +107,7 @@ export function TocSidebar({
                       }}
                       aria-current={isCurrent ? "true" : undefined}
                       style={{ paddingLeft: `${0.5 + entry.depth * 0.75}rem` }}
-                      className={`relative block w-full rounded-md py-1.5 pr-2 text-left text-sm transition-colors ${
+                      className={`relative block w-full rounded-card py-1.5 pr-2 text-left text-sm transition-colors ${
                         isCurrent
                           ? "bg-reader-surface font-medium text-reader-fg"
                           : "text-reader-fg/85 hover:bg-reader-surface"

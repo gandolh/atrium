@@ -915,7 +915,7 @@ export function EpubReader({ file }: { file: File }) {
             full-width container. A wide cap + minimal padding lets the page
             fill the space (epub's own margins still keep the text readable). */}
         <div
-          className="relative mx-auto h-full w-full max-w-4xl px-2 py-5"
+          className="relative mx-auto h-full w-full max-w-measure px-2 py-5"
           // Drives the scroll-mode horizontal-clip rule in globals.css (kills the
           // scrollbar-induced stray horizontal scrollbar epub.js leaves in
           // scrolled-doc). Paged mode needs epub.js's horizontal columns, so it
@@ -1118,7 +1118,7 @@ function SkeletonPage() {
     <div
       role="status"
       aria-label="Loading book"
-      className="mx-auto flex h-full w-full max-w-2xl flex-col gap-3.5 px-10 pt-20"
+      className="mx-auto flex h-full w-full max-w-measure flex-col gap-3.5 px-10 pt-20"
     >
       {widths.map((w, i) =>
         w === "" ? (

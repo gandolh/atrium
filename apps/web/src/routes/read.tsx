@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { getRouteApi, Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
 import { kindForFormat, type FileType, type LibraryBook, type MediaKind } from "@ebook-reader/shared";
 
 import { useReaderStore } from "../store/reader-store";
@@ -9,6 +10,8 @@ import { useHydrateBook } from "../lib/use-hydrate-book";
 import { useDevSampleFile } from "../reader/pdf/dev/use-dev-sample-file";
 import { useDevSampleEpub } from "../reader/epub/dev/use-dev-sample-epub";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
+import { useMotionTransition } from "../lib/motion";
+import { coverLayoutId } from "../lib/cover-layout-id";
 
 const routeApi = getRouteApi("/read");
 
@@ -279,10 +282,13 @@ function OpeningErrorState({
           <p className="text-sm text-reader-fg/60">{detail}</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* design.md "accent means state only, never a button fill": this
+              was accent-filled (a brief 27 conformance gap) — ink-filled
+              primary, matching the system's one solid-button style. */}
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-md bg-reader-accent px-4 py-2 text-sm font-medium text-white"
+            className="rounded-card bg-ink-fill px-4 py-2 text-sm font-medium text-on-ink-fill"
           >
             Try again
           </button>
@@ -298,13 +304,32 @@ function OpeningErrorState({
   );
 }
 
-/** Small 2:3 cover for the opening/error screens; typographic fallback tile
+/**
+ * Small 2:3 cover for the opening/error screens; typographic fallback tile
  * when the book has no cover, its cover fails to load (API down), or the row
- * isn't known yet. */
+ * isn't known yet.
+ *
+ * This is the READER-side landing target for the cover → reader shared-layout
+ * transition (design.md "Motion": "Cover expands into the page", 420ms —
+ * brief 32 step 5). It's the first thing this route paints — the tile flips
+ * to `/read` instantly (wiki/reader.md "Opening from library home") and the
+ * actual PDF/EPUB bytes can take tens of seconds to land, so the morph has to
+ * resolve HERE, not at the eventual `PdfReader`/`EpubReader` mount. The
+ * matching `motion.div layoutId` on the library side (`library/CoverCard.tsx`,
+ * brief 29 — see this brief's handoff) is what makes the FLIP fire; without
+ * it this is just an ordinary div and the navigation looks exactly as it does
+ * today. `useMotionTransition("expand")` already collapses to a 0ms jump
+ * under `prefers-reduced-motion` (lib/motion.ts) — no separate reduced-motion
+ * branch needed here.
+ */
 function BookCoverTile({ book, dimmed }: { book: LibraryBook | null; dimmed?: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const transition = useMotionTransition("expand");
   return (
-    <div
+    <motion.div
+      layoutId={book ? coverLayoutId(book.id) : undefined}
+      layout
+      transition={transition}
       className={`aspect-[2/3] w-28 overflow-hidden rounded-sm bg-reader-surface shadow-[0_8px_16px_-6px_rgba(28,27,27,0.25)] ring-1 ring-reader-border/50 ${
         dimmed ? "opacity-60" : ""
       }`}
@@ -321,6 +346,6 @@ function BookCoverTile({ book, dimmed }: { book: LibraryBook | null; dimmed?: bo
           {book?.title ?? ""}
         </span>
       )}
-    </div>
+    </motion.div>
   );
 }

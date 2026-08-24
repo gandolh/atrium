@@ -37,7 +37,7 @@ export function SettingsPopover({
       <Popover.Trigger render={trigger} aria-label={title} />
       <Popover.Portal>
         <Popover.Positioner side="top" sideOffset={8} className="z-50">
-          <Popover.Popup className="w-72 rounded-xl border border-reader-border bg-reader-bg p-4 text-reader-fg shadow-xl shadow-black/10 transition data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 motion-reduce:transition-none">
+          <Popover.Popup className="w-72 rounded-card border border-reader-border bg-reader-bg p-4 text-reader-fg shadow-l1 transition data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 motion-reduce:transition-none">
             <Popover.Title className="mb-3 text-sm font-semibold">{title}</Popover.Title>
             <div className="flex flex-col gap-4">{children}</div>
           </Popover.Popup>

@@ -63,13 +63,14 @@ export function TocDrawer({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-        <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-sm flex-col border-r border-reader-border bg-reader-bg text-reader-fg shadow-xl transition-transform data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full">
+        {/* design.md "Depth is tonal": modals keep a 12px backdrop blur. */}
+        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+        <Dialog.Popup className="fixed inset-y-0 left-0 z-50 flex w-[85vw] max-w-sm flex-col border-r border-reader-border bg-reader-bg text-reader-fg shadow-l1 transition-transform data-[starting-style]:-translate-x-full data-[ending-style]:-translate-x-full">
           <div className="flex items-center justify-between border-b border-reader-border px-4 py-3">
             <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
             <Dialog.Close
               aria-label="Close contents"
-              className="grid h-8 w-8 place-items-center rounded-md text-reader-fg/70 hover:bg-reader-surface"
+              className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
             >
               <CloseIcon />
             </Dialog.Close>
@@ -91,7 +92,7 @@ export function TocDrawer({
                         onClick={() => onNavigate(entry)}
                         aria-current={isCurrent ? "true" : undefined}
                         style={{ paddingLeft: `${0.5 + entry.depth * 0.75}rem` }}
-                        className={`relative block w-full rounded-md py-1.5 pr-2 text-left text-sm transition-colors ${
+                        className={`relative block w-full rounded-card py-1.5 pr-2 text-left text-sm transition-colors ${
                           isCurrent
                             ? "bg-reader-surface font-medium text-reader-fg"
                             : "text-reader-fg/85 hover:bg-reader-surface"

@@ -507,11 +507,12 @@ export function PdfReader({ file }: { file: File }) {
           onClick={onContentClick}
         >
           {/* One centered, measure-capped column — identical framing to EPUB
-              (max-w-4xl, px-2 py-5). The scroll container lives INSIDE the cap so
+              (max-w-measure, px-2 py-5 — design.md's 620px reading measure).
+              The scroll container lives INSIDE the cap so
               zoom/overflow pans within the column rather than widening the pane.
               `containerRef` measures this capped box, so fit-width sizes the page
               to the same column the EPUB text fills. */}
-          <div className="relative mx-auto h-full w-full max-w-4xl px-2 py-5">
+          <div className="relative mx-auto h-full w-full max-w-measure px-2 py-5">
             <div
               ref={containerRef}
               // Scroll mode: only vertical scrolling (pages are fit-to-width, so

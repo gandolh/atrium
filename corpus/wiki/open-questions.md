@@ -1,11 +1,23 @@
 ---
 summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
-updated: 2026-07-20
+updated: 2026-08-24
 ---
 
 # Open Questions
 
 Only genuinely unresolved threads. Delete each the moment it's answered.
+
+- **One concept, two names: `progress` vs `fraction`.** Found 2026-08-24 while
+  writing [glossary.md](glossary.md). The per-user 0..1 "how far in" is `progress`
+  in the wire contract ([library-book.ts](../../packages/shared/src/library-book.ts),
+  `PATCH /library/:id/progress`) but `fraction` in the offline IndexedDB record
+  ([offline-store.ts](../../apps/web/src/lib/offline-store.ts) — `{fraction,
+  locator, updatedAt, syncedAt}`). Same quantity, two names, and the sync path
+  translates between them. The glossary names `progress` canonical; the store was
+  not changed, because renaming a persisted field means an IndexedDB migration
+  (the DB is already at v2) for a purely cosmetic gain. **Open call:** fold the
+  rename into the next offline-store migration, or record it as a deliberate
+  boundary translation in `decisions.md`.
 
 - **Library DB stores absolute file paths → dead rows after a checkout move.**
   Found 2026-07-07 (brief 08 verification): rows created under the old

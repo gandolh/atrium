@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# corpus/lint.sh — health check for the ebook-reader corpus (see CLAUDE.md).
+# corpus/lint.sh — health check for the Atrium corpus (see CLAUDE.md).
 #
 #   bash corpus/lint.sh          # check: frontmatter, links, page size; exit != 0 on failure
 #   bash corpus/lint.sh --index  # regenerate the wiki catalog block in index.md

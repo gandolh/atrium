@@ -1,5 +1,102 @@
 # Log
 
+## [2026-08-24] decision | UI/UX rework locked — "Reading Room" (D33), briefs 27–33 filed
+
+The owner rejected the current surface ("the main idea is good, I just don't like
+the UI/UX"). Read the corpus + the shipped components, diagnosed the current home
+from the code rather than from the July screenshots (which all predate the
+library *and* the rebrand, so they were useless as evidence), then mocked **three
+complete directions** as working screens rather than descriptions:
+
+- **A · Reading Room** — Notion-calibrated; borrowed move: tinted content cards.
+- **B · Vault** — Spotify-calibrated; borrowed move: content-first darkness.
+- **C · Index** — Vercel-calibrated; borrowed move: hairline density, mono as a
+  UI voice, with a live ⌘K palette.
+
+Design study: <https://claude.ai/code/artifact/d4f543af-8e05-4a1e-850f-b14c924cf31e>
+
+**Five faults the diagnosis named:** type became navigation (brief 25 promoted a
+filter to an address); three rows of chrome before content; the dashed dropzone
+squatting on prime real estate forever; a book-shaped design system worn by music
+and film; and nothing that searches the library.
+
+**Owner picked A.** Four scope questions were then settled: full sweep *including*
+the notes editor; adopt Newsreader + Archivo **fully**; Notes stays its **own
+destination**; Shelves ⇄ Stacks grouping is **dropped**. B's persistent player
+dock was folded into A — it was the one genuinely new *capability* in the set
+rather than paint, and nothing about A prevented it.
+
+**Recorded as D33**, which revises **D27** (Quiet Paper as enforced system) and
+D32's "evolved not pivoted" clause. `wiki/design.md` was rewritten end-to-end as
+the Reading Room system — warm neutrals, four kind tints, the Newsreader/Archivo
+split, a warm dark ground (`#141310`, so cover art stops reading sour), motion
+rules, and a new conformance checklist including the **tint test** (strip every
+badge; the grid must still read by kind). Full comps for home, reader, notes,
+phone and empty state:
+<https://claude.ai/code/artifact/3c194acd-f8fd-431b-964e-f74edb85a8d3>
+
+**Vocabulary moved with it** (`glossary.md`): *Area* retired — kind is a filter
+again, so **Chip**, **Tint** and **Dock** are the new terms; *Quiet Paper* →
+**Reading Room**; *Shelves / Stacks* kept only as a retired-name entry so old
+briefs stay readable. Also fixed a naming drift this surfaced: `globals.css` has
+called the system "Quiet Gallery" since the rebrand while `design.md` still said
+"Quiet Paper" — both names now retire together.
+
+**Briefs 27–33 filed in `todo/`** (foundation → IA → surface → search → dock →
+reader → notes), with dependencies stated per brief; 27 gates the rest, 32 can
+run in parallel with 28–31. Motion idiom is **Motion Primitives**, with
+**anime.js** confined to the progress rail; **SmoothUI was evaluated and
+rejected** as a near-total overlap — two motion idioms in one app read as two apps.
+
+**Nothing is implemented.** `status.md` says so explicitly, and every other wiki
+page still describes the shipped pre-rework app, which is correct until the code
+changes. `bash corpus/lint.sh` passes. **Uncommitted — owner controls git.**
+
+## [2026-08-24] maintenance | Corpus synced to personal-skills v0.29.0 conventions
+
+The project moved from personal-skills v0.23.0 to **v0.29.0**; this folds the
+skill changes that have a corpus-side artifact into the corpus itself.
+
+**`corpus-flow` §9 (domain modeling) — the headline change.** Added
+[wiki/glossary.md](wiki/glossary.md): ~28 project-specific terms across content,
+reading state, access, offline, notes and design, each with the `_Avoid_`
+synonyms it displaces. Only terms Atrium uses in a particular way — general
+programming vocabulary was deliberately left out. Grounded in the shared contract
+and the wiki rather than invented, so `kind` vs `format`, `progress` vs
+`locator`, and *download* vs *runtime cache* now have one name each.
+
+**Writing the glossary surfaced one real vocabulary drift**, filed in
+[wiki/open-questions.md](wiki/open-questions.md): the per-user 0..1 value is
+`progress` in the wire contract but `fraction` in the offline IndexedDB record.
+Glossary names `progress` canonical; the persisted field was **not** renamed
+(that needs an IndexedDB migration past v2 for a cosmetic gain), so the call —
+migrate, or record it as a deliberate boundary translation — is left open rather
+than silently settled.
+
+**`decisions.md`** gained the v0.29.0 recording bar (hard to reverse · surprising
+without context · a genuine trade-off) and the "record the *why*" rule. Audited
+D1–D32 against it: **no undefended entries** — every row already carries its
+rationale, so nothing needed reconstructing.
+
+**`CLAUDE.md`** — glossary + decisions added to the layout; two conventions added
+(glossary as naming authority, and the decision bar). Also refreshed the stale
+**project one-liner**, which still described "a personal ebook reader" three
+briefs after D32 made it a media gallery + Notes.
+
+**`routing.md`** — rebuilt against the v0.29.0 `orchestrate` intent table: new
+rows for *audit* (`improve`), *design* (`impeccable` / `design-md-library`),
+*docs* (`writing-guidelines`, `diagram-design`), *domain* (corpus-flow §9) and
+strict review (`thermo-nuclear-review`); the retired `web-research` /
+`performance-analysis` routes are gone (research is now inline and gated). Added
+the **knowledge-routing table** (§0b), which this corpus never had, and noted
+that no `codegraph` project skill is bootstrapped here. READ/SKIP/SKILLS gained a
+notes row and routes glossary terms into dispatched chunks.
+
+Corpus headings and the lint header renamed ebook-reader → Atrium. Stale
+`performance-analysis` mentions in `log.md` and `briefs/done/18` were **left
+alone** — both are immutable historical records. `bash corpus/lint.sh` passes
+(11 wiki pages); catalog regenerated. **Uncommitted — owner controls git.**
+
 ## [2026-07-20] follow-ups | Cover reconcile + /atrium deploy rename + Notes page templates
 
 Continued the [HANDOFF](HANDOFF.md) — picked up three of its open follow-ups.

@@ -1,9 +1,20 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-07-16
+updated: 2026-08-24
 ---
 
-# Status — 2026-07-20
+# Status — 2026-08-24
+
+**Latest (2026-08-24):** 🎨 **UI/UX rework locked — "Reading Room" (D33),
+briefs 27–33 filed, none built yet.** The owner rejected the current surface;
+three costed directions were mocked and *Reading Room* chosen. It reverses
+brief 25's per-type routes (kind becomes a filter chip again), makes Continue
+the hero, adds a persistent player dock, retires Playfair/Source Serif 4/Inter
+for **Newsreader + Archivo**, warms the dark theme, keeps Notes as its own
+destination, and **removes brief 21's Shelves ⇄ Stacks grouping**. Nothing is
+implemented — everything below still describes the *shipped* app, which is the
+pre-rework surface. See [design.md](design.md), D33, and `briefs/todo/27`–`33`.
+
 
 **Latest (2026-07-20):** ✅ **The app is now "Atrium" — briefs 24–26 shipped
 (uncommitted — owner controls).** A rebrand + a new Notes subsystem, built via

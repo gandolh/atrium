@@ -1,4 +1,4 @@
-# Corpus — ebook-reader
+# Corpus — Atrium
 
 This `corpus/` is the project's LLM-maintained wiki + work tracker. **Read
 `index.md` first.** The human curates sources and asks questions; the LLM curates
@@ -16,6 +16,8 @@ corpus/
   todos/         captured ideas (prose, pre-spec)
   briefs/        immutable work specs — todo/ done/ superseded/
   wiki/          curated synthesis pages (LLM owns these) — each opens with frontmatter
+    glossary.md  the project's vocabulary — one canonical name per concept
+    decisions.md the locked calls, each with the *why* that lets it be revisited
   test-plans/    plain-text browser test plans + latest RESULTS (see ui-test-plans)
 ```
 
@@ -44,24 +46,46 @@ corpus/
   3. `decisions.md` > `status.md` for locked tech choices
   Verify any path/function a page names before acting on it — pages drift.
 - **LLM owns `wiki/`; briefs are immutable; index/log are navigation.**
+- **`wiki/glossary.md` is the naming authority.** One canonical term per concept,
+  each listing the synonyms it displaces (`_Avoid_:`). Definitions only — the
+  moment an entry explains mechanism it belongs on a concept page. Only
+  project-specific terms; "cache"/"retry" do not qualify. Write a term down the
+  moment it's settled (usually mid-`grill-me`), not in a batch later. **A term
+  used against its definition is a finding, not a typo** — fix one side rather
+  than quietly adding a second sense; two live meanings is two terms.
+- **Bar for a new `decisions.md` entry — all three must hold:** hard to reverse ·
+  surprising without context · a genuine trade-off with rejected alternatives.
+  Record the call, the date, what was rejected, and **the reason** — the reason is
+  load-bearing, since a decision with no *why* can only be obeyed or broken, never
+  revisited intelligently. Otherwise the page fills with obvious choices and stops
+  being read.
 - **Never commit** corpus changes unless the user explicitly asks.
 
 ## Project one-liner
 
-Personal ebook reader with **per-user accounts** and a **shared persistent
-library**. Upload a PDF or EPUB → it's saved (server-side SQLite) and shows as a
-cover card → reopen and read anytime. Reads PDF (react-pdf) and EPUB
-(react-reader/epub.js) 100% client-side; the Fastify backend owns the library
-(CRUD + file/cover storage), auth (operator-seeded accounts, opaque sessions,
-scrypt — D30), per-user reading progress + resume position (D31), and still
-converts EPUB→PDF via Calibre. Auth is always on; accounts come from
-`apps/api/scripts/seed.ts` (no self-registration). See `wiki/overview.md`.
+**Atrium** — a personal **media gallery** with **per-user accounts** and a
+**shared persistent library**: books (PDF/EPUB), music (MP3) and video
+(MP4/WebM), plus a **Notes** tab of per-user paged notebooks (D32, briefs 24–26).
+Upload an item → it's saved (server-side SQLite) with a server-extracted cover →
+reopen from its per-kind area (`/books` `/music` `/videos` `/notes`) any time.
+Books read 100% client-side (react-pdf, react-reader/epub.js); the Fastify
+backend owns the library (CRUD + file/cover storage), auth (operator-seeded
+accounts, opaque sessions, scrypt — D30), per-user progress + resume locator
+(D31), a Gutenberg discover proxy, and EPUB→PDF export via Calibre. Auth is
+always on; accounts come from `apps/api/scripts/seed.ts` (no self-registration).
+The internal npm scope `@ebook-reader/*` and the `books`/`library` code nouns are
+deliberately kept (D32) — see `wiki/glossary.md`. Start at `wiki/overview.md`.
 
 ## Design enforcement (load-bearing)
 
-**`wiki/design.md` ("Quiet Paper") is the enforced design system (D27).** Every
+**`wiki/design.md` ("Reading Room") is the enforced design system (D33).** Every
 `apps/web` change MUST conform. Before treating any frontend work as done, run
 its **conformance checklist** (bottom of `design.md`): theme tokens only (no raw
-hex in components), the Playfair / Source Serif 4 / Inter type roles, the radii
-+ elevation + spacing rules, sparing accent use, and a visual check against
-`design/stitch_extracted/screen.png` for the library home.
+hex in components), the Newsreader/Archivo split, tabular numerals, accent for
+state only, the radii + elevation + spacing rules, all three themes checked
+including artwork, a `prefers-reduced-motion` path, and the tint test (strip
+every badge — the grid must still read by kind).
+
+Reading Room replaced **Quiet Paper / Quiet Gallery** on 2026-08-24; the old
+`design/stitch_extracted/screen.png` reference is superseded by the comps linked
+from `design.md`.

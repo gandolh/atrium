@@ -1,37 +1,59 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LibraryBook } from "@ebook-reader/shared";
 
 import { coverUrl } from "../lib/library-api";
+import { playbackItemFromBook, usePlaybackStore } from "../store/playback-store";
 import { MediaFrame } from "./MediaFrame";
-import { mediaFileUrl } from "./media-url";
-import { useMediaProgress } from "./use-media-progress";
+import { PlayPauseButton, ScrubTrack, SkipButton, TimeReadout } from "./transport";
 
 /**
- * Audio player (brief 23): the square embedded cover art (or the typographic
- * fallback tile) above native `<audio>` controls, inside the Reading Room frame.
- * Streams from the authenticated file URL (`?token=`); resumes at, and PATCHes,
- * the per-user position via `useMediaProgress`.
+ * The full-surface audio view: the square embedded cover art (or the typographic
+ * fallback tile) above the transport, inside the Reading Room frame.
+ *
+ * **Brief 31 removed this component's `<audio>` element.** It owns no element at
+ * all now — it is a large remote control for the one the app shell owns
+ * (`player/PlaybackHost`), driven entirely through the playback store. That is
+ * what makes leaving this route harmless: the sound is not here to lose. It also
+ * means there is only ever one audio element in the document, so this surface
+ * cannot double up with the dock.
+ *
+ * Mounting hands the row to the store and starts it (`autoplay`) — opening a
+ * track from the library is an explicit "play this". Re-loading the item that is
+ * already loaded is a no-op for position and play state (see the store), so
+ * arriving here from the dock title returns to a paused track still paused, and
+ * to a playing one without restarting it. When the browser refuses an
+ * unprompted `play()` (a refresh, with no user gesture) the store is corrected
+ * back to paused and the play button is simply waiting to be pressed.
+ *
+ * Resume + the throttled progress PATCH (including the final flush) stay with
+ * whichever element is mounted — here, the shell's, via `usePlaybackElement`.
  */
 export function AudioPlayer({ book }: { book: LibraryBook }) {
-  const { mediaRef, onLoadedMetadata, onTimeUpdate, onPause } =
-    useMediaProgress<HTMLAudioElement>(book.id, book.locator);
+  const load = usePlaybackStore((s) => s.load);
+  const item = useMemo(() => playbackItemFromBook(book), [book]);
+  const isCurrent = usePlaybackStore((s) => s.item?.id === book.id);
+
+  useEffect(() => {
+    if (item) load(item, { autoplay: true });
+  }, [item, load]);
 
   return (
     <MediaFrame title={book.title} subtitle={book.author}>
       <div className="flex w-full max-w-sm flex-col items-center gap-8">
         <AudioArt book={book} />
-        <audio
-          ref={mediaRef}
-          src={mediaFileUrl(book.id)}
-          controls
-          preload="metadata"
-          onLoadedMetadata={onLoadedMetadata}
-          onTimeUpdate={onTimeUpdate}
-          onPause={onPause}
-          className="w-full"
-        >
-          Your browser doesn't support audio playback.
-        </audio>
+        {isCurrent ? (
+          <div className="flex w-full flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <ScrubTrack />
+              <TimeReadout split />
+            </div>
+            <div className="flex items-center justify-center gap-5">
+              <SkipButton direction="back" />
+              <PlayPauseButton size="lg" />
+              <SkipButton direction="forward" />
+            </div>
+          </div>
+        ) : null}
       </div>
     </MediaFrame>
   );
@@ -44,7 +66,7 @@ function AudioArt({ book }: { book: LibraryBook }) {
   const [imgFailed, setImgFailed] = useState(false);
   const showArt = book.hasCover && !imgFailed;
   return (
-    <div className="aspect-square w-full max-w-xs overflow-hidden rounded-sm bg-reader-surface shadow-[0_8px_16px_-6px_rgba(28,27,27,0.25)] ring-1 ring-reader-border/50">
+    <div className="aspect-square w-full max-w-xs overflow-hidden rounded-cover border border-line-soft bg-tint-music shadow-l1">
       {showArt ? (
         <img
           src={coverUrl(book.id)}
@@ -53,7 +75,7 @@ function AudioArt({ book }: { book: LibraryBook }) {
           className="h-full w-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center px-4 text-center font-display text-lg leading-tight font-semibold text-reader-fg/70">
+        <span className="flex h-full w-full items-center justify-center px-4 text-center font-display text-lg leading-tight font-semibold text-ink">
           {book.title}
         </span>
       )}

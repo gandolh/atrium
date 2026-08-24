@@ -80,12 +80,15 @@ export default defineConfig(({ mode }) => {
           scope: base,
           start_url: base,
           orientation: "portrait",
-          // Raw hex is sanctioned in manifest JSON only (design.md / D27). Both
-          // are the Quiet Paper "paper" surface (--paper #fcf9f8): the app is
+          // Raw hex is sanctioned in manifest JSON only (design.md / D33) — the
+          // manifest is emitted before any stylesheet exists, so it cannot read
+          // a token. Both are Reading Room's `--paper` ground: the app is
           // paper-first and light by default, so browser UI + the splash ground
-          // stay seamless with the page, never glowing.
-          theme_color: "#fcf9f8",
-          background_color: "#fcf9f8",
+          // stay seamless with the page, never glowing. Keep in step with
+          // `--paper` in globals.css, the <meta name="theme-color"> in
+          // index.html, and the icon grounds in public/.
+          theme_color: "#f7f5f2",
+          background_color: "#f7f5f2",
           // Icon `src`s are relative, so they resolve against the manifest URL
           // (itself emitted under `base`) — base-correct without hardcoding it.
           icons: [
@@ -104,7 +107,12 @@ export default defineConfig(({ mode }) => {
           // the pdf.js worker chunk (emitted as ESM) and `woff`/`woff2` the
           // self-hosted @fontsource files — otherwise both are silently left
           // out of the shell.
-          globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,woff,woff2}"],
+          // `woff` is deliberately absent: @fontsource ships a .woff fallback
+          // beside every .woff2, and precaching both doubled the font payload
+          // for a format no browser that can run this app (React 19, Base UI,
+          // service workers) will ever request. The files are still built and
+          // served — they're just not worth a precache slot.
+          globPatterns: ["**/*.{js,mjs,css,html,ico,png,svg,woff2}"],
           // The pdf.js worker chunk is large; lift the precache size ceiling
           // (default 2 MiB) so the shell caches whole rather than partially.
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,

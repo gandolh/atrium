@@ -19,8 +19,8 @@ const VIEWS: { value: GroupView; label: string }[] = [
 ];
 
 /**
- * The Shelves⇄Stacks view toggle (brief 21 step 5). A two-segment Quiet Paper
- * control: Inter `label-caps`, hairline border, 4px radius, active fill
+ * The Shelves⇄Stacks view toggle (brief 21 step 5). A two-segment Reading Room
+ * control: Archivo `label-caps`, hairline border, 4px radius, active fill
  * `paper-container-high` — deliberately **no accent** on the control itself
  * (accent is reserved for active values/links; the only accent here is the
  * focus ring). A11y: `radiogroup` semantics + roving tabindex, arrow keys move

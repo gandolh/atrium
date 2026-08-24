@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Rendition } from "epubjs";
 
 import { useReaderStore, type Theme } from "../../store/reader-store";
+import { themePalette } from "../../lib/tokens";
 import { fontStackFor } from "./EpubSettings";
 
 /**
@@ -11,20 +12,9 @@ import { fontStackFor } from "./EpubSettings";
  * injected into each rendered section, and re-typeset via `themes.fontSize`,
  * `themes.font`, and line-height/margin overrides.
  *
- * These map the SAME `--reader-*` palette the chrome uses (globals.css) so the
- * page and its chrome stay visually consistent across light/sepia/dark.
+ * These map the SAME palette the chrome uses (globals.css) so the page and its
+ * chrome stay visually consistent across light/sepia/dark.
  */
-
-// Text/background palette per theme (mirrors globals.css `--reader-*` tokens).
-// Light = Quiet Paper's retuned values (design.md "Colors" merge change: bg
-// #ffffff→#fcf9f8, link #2563eb→#30568b) so the rendered page matches the
-// chrome around it instead of floating a whiter rectangle on the paper shell.
-const THEME_COLORS: Record<Theme, { bg: string; fg: string; link: string }> = {
-  light: { bg: "#fcf9f8", fg: "#1c1b1b", link: "#30568b" },
-  sepia: { bg: "#f4ecd8", fg: "#3b2f1e", link: "#92400e" },
-  dark: { bg: "#181818", fg: "#e8e8e8", link: "#60a5fa" },
-};
-
 export function themeRules(
   theme: Theme,
   lineSpacing: number,
@@ -37,7 +27,11 @@ export function themeRules(
   // left-align override below. Defaults to wide.
   isNarrow = false,
 ) {
-  const c = THEME_COLORS[theme];
+  // Resolved from the `--theme-<name>-*` constants in globals.css rather than
+  // inlined here: the rendered page must sit on exactly the ground its chrome
+  // does, and CSS custom properties do not cascade into epub.js's section
+  // iframes, so the values have to travel as literal strings (lib/tokens.ts).
+  const c = themePalette(theme);
   return {
     // iOS Safari auto-inflates text sized against a block's width. epub.js lays
     // every page out as columns inside ONE very wide iframe (thousands of px),
@@ -60,7 +54,7 @@ export function themeRules(
       "line-height": `${lineSpacing} !important`,
       "padding-left": `${margins}px !important`,
       "padding-right": `${margins}px !important`,
-      // Quiet-paper typesetting: let the browser hyphenate long lines instead
+      // Reading Room typesetting: let the browser hyphenate long lines instead
       // of leaving gappy rag/justification holes. Publisher CSS still wins on
       // alignment; we only enable the capability.
       "-webkit-hyphens": "auto",
@@ -82,7 +76,7 @@ export function themeRules(
           },
         }
       : {}),
-    a: { color: `${c.link} !important` },
+    a: { color: `${c.accent} !important` },
     // Covers and full-page illustrations: fit the viewport column and sit
     // centered instead of rendering at natural size in the top-left.
     //

@@ -38,6 +38,7 @@ import {
 import { EpubNavControls, EpubViewControls } from "./EpubControls";
 import { EpubSettings, fontStackFor } from "./EpubSettings";
 import { useEpubToc } from "./use-epub-toc";
+import { cssToken } from "../../lib/tokens";
 import { useEpubTheme, themeRules } from "./use-epub-theme";
 import { createEpubSearchProvider } from "./epub-search";
 import { resolveSpineHref } from "./resolve-spine-href";
@@ -50,8 +51,9 @@ import {
 } from "./epub-page-map";
 
 /**
- * EPUB reader (brief 07 + "quiet paper" redesign). Wraps `react-reader`
- * (epub.js) inside the SAME shared Kindle-style chrome the PDF reader uses.
+ * EPUB reader (brief 07 + the redesign that became Reading Room). Wraps
+ * `react-reader` (epub.js) inside the SAME shared Kindle-style chrome the PDF
+ * reader uses.
  *
  * Design intent (PRODUCT.md): the page is the interface. One centered, measure-
  * capped column (`spread: none`); orientation lives at the edges — a running
@@ -692,7 +694,10 @@ export function EpubReader({ file }: { file: File }) {
         jumpTo(cfiTarget, () => {
           try {
             rendition.annotations.highlight(cfiTarget, {}, undefined, "search-highlight", {
-              fill: "#facc15",
+              // Literal, not `var(--highlight-search)`: this is an SVG `fill`
+              // attribute inside epub.js's section iframe, where the parent
+              // document's custom properties don't cascade (lib/tokens.ts).
+              fill: cssToken("--highlight-search"),
               "fill-opacity": "0.4",
               "mix-blend-mode": "multiply",
             });

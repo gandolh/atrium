@@ -7,7 +7,7 @@ import type { BookGroup } from "./grouping";
 /**
  * Stacks index (brief 21 step 5): the gallery becomes an index of fanned cover
  * stacks — each group's **first** cover with offset paper-edge layers behind it
- * (`paper-container-high` + hairline, 2px radius), the group name in Playfair
+ * (`paper-container-high` + hairline, 2px radius), the group name in Newsreader
  * and a `label-caps` count beneath. Stacks are real `<button>`s; activating one
  * routes to the drilled `GroupDetail` page (via `onOpen`, which sets `?g`).
  */

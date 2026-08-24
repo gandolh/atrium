@@ -12,8 +12,8 @@ import { useRegisterSW } from "virtual:pwa-register/react";
  * In dev / any context without a service worker the hook is a no-op and
  * `needRefresh` stays false, so this renders nothing.
  *
- * Styling is Quiet Paper (design.md): theme tokens only (they remap per
- * `data-theme`, so the toast themes with the reader in light/sepia/dark), Inter
+ * Styling is Reading Room (design.md): theme tokens only (they remap per
+ * `data-theme`, so the toast themes with the reader in light/sepia/dark), Archivo
  * UI role, 4px radius, a soft single-border card (L1 elevation), and the Ink
  * button for the primary action. Accent stays unused — reserved for
  * active/progress/links.

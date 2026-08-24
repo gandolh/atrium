@@ -1,13 +1,16 @@
 import { useReaderStore, type Theme } from "../../store/reader-store";
 
 /**
- * Theme swatches per theme, mirroring the `--reader-*` tokens (globals.css) so
- * each swatch is a truthful miniature of the page it produces.
+ * Theme swatches, drawn from the `--theme-<name>-*` constants in globals.css so
+ * each swatch is a truthful miniature of the page it produces. Those constants
+ * are deliberately NOT remapped by `data-theme` — a picker has to paint all
+ * three grounds at once, whichever one is currently active, which is exactly
+ * why they exist separately from the `--reader-*` layer they feed.
  */
-const THEMES: { value: Theme; label: string; bg: string; fg: string; border: string }[] = [
-  { value: "light", label: "Light", bg: "#ffffff", fg: "#1a1a1a", border: "#e2e2e2" },
-  { value: "sepia", label: "Sepia", bg: "#f4ecd8", fg: "#3b2f1e", border: "#d9c9a3" },
-  { value: "dark", label: "Dark", bg: "#181818", fg: "#e8e8e8", border: "#3a3a3a" },
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "light", label: "Light" },
+  { value: "sepia", label: "Sepia" },
+  { value: "dark", label: "Dark" },
 ];
 
 /**
@@ -45,10 +48,10 @@ export function ThemePicker() {
                   selected ? "ring-2 ring-reader-accent" : ""
                 }`}
                 style={{
-                  backgroundColor: t.bg,
-                  color: t.fg,
-                  borderColor: t.border,
-                  fontFamily: "Georgia, 'Times New Roman', serif",
+                  backgroundColor: `var(--theme-${t.value}-bg)`,
+                  color: `var(--theme-${t.value}-fg)`,
+                  borderColor: `var(--theme-${t.value}-border)`,
+                  fontFamily: "var(--font-reading)",
                 }}
               >
                 Aa

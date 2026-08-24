@@ -1,76 +1,156 @@
 @import "tailwindcss";
 
 /*
- * ── "Quiet Gallery" design system (Atrium — corpus/wiki/design.md, D27) ──────
+ * ── "Reading Room" design system (Atrium — corpus/wiki/design.md, D33) ───────
  *
  * The visual language for Atrium, a personal media gallery (books, music,
- * video, notes). Evolved from the original book-reader "Quiet Paper" system:
- * the calm, warm, typographic feel is kept; the book-only metaphors are not.
- * The `--surface`/`--paper*` token IDENTIFIERS are retained (renaming them
- * would churn every component className) but read as neutral gallery surfaces,
- * not "paper".
+ * video, notes). Adopted 2026-08-24 (D33); replaces "Quiet Paper / Quiet
+ * Gallery" (D27), the book-shaped system the product outgrew.
  *
- * Two token layers, intentionally distinct:
+ * Reading Room revalues the palette onto a warm axis (a warm off-white ground
+ * with a faint grey cast; a *warm* dark so cover art reads true in both), adds
+ * four kind tints, and swaps three type families for two — Newsreader for
+ * anything a person wrote, Archivo for anything the interface says.
  *
- * 1. --reader-* : the three THEMES (light/warm/dark) applied to the reading/
+ * The token IDENTIFIERS (`--paper*`, `--ink*`, `--line*`, `--accent`,
+ * `--font-*`) are deliberately KEPT — renaming them would churn every component
+ * className (D32's no-churn principle). Only their values changed.
+ *
+ * Three token layers:
+ *
+ * 1. THEME CONSTANTS (--theme-<name>-*) : each reading theme's fixed palette,
+ *    defined once and never remapped. They are the single source of truth for
+ *    the --reader-* layer below, for the theme-picker swatches (which must
+ *    paint all three themes at once) and for the EPUB iframe (where the parent
+ *    document's custom properties do not cascade — see lib/tokens.ts).
+ *
+ * 2. --reader-* : the three THEMES (light/sepia/dark) applied to the reading/
  *    playback surface + chrome via `data-theme`. Zustand's `theme` field drives
- *    which is active. Load-bearing; predates the design system.
+ *    which is active. Load-bearing; predates the design system. Unchanged as
+ *    ARCHITECTURE — Reading Room only revalues light + dark onto the warm axis.
  *
- * 2. --color-* gallery palette : the LIBRARY + chrome design tokens (warm
- *    off-white surfaces, ink text, faded-ink primary). Theme-independent base;
- *    used across the gallery areas. Exposed to Tailwind via `@theme inline`.
+ * 3. --color-* gallery palette : the LIBRARY + chrome design tokens (warm
+ *    off-white surfaces, ink text, faded-ink accent, four kind tints) plus the
+ *    structure/motion tokens. Exposed to Tailwind via `@theme static inline`:
+ *    `inline` so opacity modifiers (`bg-paper/70`) resolve against the themed
+ *    var, `static` so every token is emitted to :root whether or not a utility
+ *    happens to use it — components reach them as `var(--token)` from inline
+ *    styles too, and Tailwind cannot see those.
  */
+
+/* ── 1. Theme constants (design.md "Colours") ────────────────────────────────
+   Fixed per-theme palettes. NEVER remapped under [data-theme] — code that must
+   render a theme other than the active one (ThemePicker's miniature pages) and
+   code that must ship a colour as a literal string into a context CSS variables
+   cannot reach (the EPUB section iframes) resolves these instead of inlining
+   hex. Light/dark are Reading Room's warm axis; sepia is unchanged (it was
+   already warm). */
+:root {
+  --theme-light-bg: #f7f5f2;
+  --theme-light-fg: #1a1917;
+  --theme-light-surface: #f1eee9;
+  --theme-light-border: #ddd7cc;
+  --theme-light-accent: #2f5486;
+
+  --theme-sepia-bg: #f4ecd8;
+  --theme-sepia-fg: #3b2f1e;
+  --theme-sepia-surface: #ece0c8;
+  --theme-sepia-border: #d9c9a3;
+  --theme-sepia-accent: #92400e;
+
+  --theme-dark-bg: #141310;
+  --theme-dark-fg: #ece7de;
+  --theme-dark-surface: #1c1a17;
+  --theme-dark-border: #302c26;
+  --theme-dark-accent: #8fb3dd;
+
+  /* EPUB search hit. Injected as an SVG `fill` INSIDE the section iframe, so it
+     has to travel as a literal string (see EpubReader's onJumpToMatch); this is
+     its single definition. Blend-mode multiply keeps it legible on all three
+     grounds, so it does not vary by theme. */
+  --highlight-search: #facc15;
+
+  /* The note sheet is deliberately a fixed light paper in EVERY theme (a sheet
+     of paper looks the same; the desk around it changes — see notes/NoteEditor)
+     so dark ink stays legible in dark mode. These three are therefore theme-
+     independent by design, not by oversight. */
+  --note-sheet: #fdfcfa;
+  --note-sheet-ink: #1a1917;
+  --note-sheet-rule: #d9d3c4;
+
+  /* Pen colours for the note editor. A stroke's colour is persisted into the
+     note, so it is resolved to a literal at pick time — but the palette itself
+     lives here, not in the component. Theme-independent for the same reason the
+     sheet is. */
+  --note-ink-default: #1a1917;
+  --note-ink-blue: #2f5486;
+  --note-ink-red: #ba1a1a;
+  --note-ink-green: #2f7d4f;
+  --note-ink-amber: #e8a72c;
+}
+
+/* ── 2. Reading themes ───────────────────────────────────────────────────── */
 :root,
 [data-theme="light"] {
-  --reader-bg: #fcf9f8; /* Quiet Paper "paper" (was #ffffff) */
-  --reader-fg: #1c1b1b;
-  --reader-surface: #f6f3f2;
-  --reader-border: #e2e2e2;
-  --reader-accent: #30568b; /* faded ink-blue (was #2563eb) */
+  --reader-bg: var(--theme-light-bg);
+  --reader-fg: var(--theme-light-fg);
+  --reader-surface: var(--theme-light-surface);
+  --reader-border: var(--theme-light-border);
+  --reader-accent: var(--theme-light-accent);
 }
 
 [data-theme="sepia"] {
-  --reader-bg: #f4ecd8;
-  --reader-fg: #3b2f1e;
-  --reader-surface: #ece0c8;
-  --reader-border: #d9c9a3;
-  --reader-accent: #92400e;
+  --reader-bg: var(--theme-sepia-bg);
+  --reader-fg: var(--theme-sepia-fg);
+  --reader-surface: var(--theme-sepia-surface);
+  --reader-border: var(--theme-sepia-border);
+  --reader-accent: var(--theme-sepia-accent);
 }
 
 [data-theme="dark"] {
-  --reader-bg: #181818;
-  --reader-fg: #e8e8e8;
-  --reader-surface: #242424;
-  --reader-border: #3a3a3a;
-  --reader-accent: #60a5fa;
+  --reader-bg: var(--theme-dark-bg);
+  --reader-fg: var(--theme-dark-fg);
+  --reader-surface: var(--theme-dark-surface);
+  --reader-border: var(--theme-dark-border);
+  --reader-accent: var(--theme-dark-accent);
 }
 
-/* Quiet Paper palette (library + chrome). See design.md "Colors". */
+/* ── 3. Gallery palette (library + chrome). design.md "Colours" — Light. ──── */
 :root {
-  --paper: #fcf9f8;
-  --paper-raised: #ffffff;
-  --paper-low: #f6f3f2;
-  --paper-container: #f0eded;
-  --paper-container-high: #eae7e7;
-  --ink: #1c1b1b;
-  --ink-variant: #43474f;
-  --line: #737780;
-  --line-soft: #c3c6d1;
-  --accent: #30568b;
+  --paper: #f7f5f2;
+  --paper-raised: #fffefd;
+  --paper-low: #f1eee9;
+  --paper-container: #e9e4dc;
+  /* Not in design.md's table — one step past `paper-container` for the rare
+     double-recessed fill (checked select option, active shelf chip). */
+  --paper-container-high: #ded8ce;
+  --ink: #1a1917;
+  --ink-variant: #6c665e;
+  --line: #ddd7cc;
+  --line-soft: #e9e4dc;
+  /* Accent means STATE only (progress, active, focus, links) — never a button
+     fill, never decoration. The solid button is ink. */
+  --accent: #2f5486;
   --accent-soft: #4a6fa5;
-  --on-accent: #ffffff;
-  --ink-fill: #313030; /* solid "Ink" button */
-  --on-ink-fill: #f3f0ef;
+  --on-accent: #faf8f5;
+  --ink-fill: #2b2926; /* solid "Ink" button */
+  --on-ink-fill: #faf8f5;
   --danger: #ba1a1a;
-  --danger-soft: #ffdad6;
+  --danger-soft: #f6ddd7;
+
+  /* Kind tints — the one decorative move (design.md "Kind tints"). A mixed
+     grid must read by kind with every badge stripped. */
+  --tint-book: #efe9dd;
+  --tint-music: #f1e6e8;
+  --tint-video: #e4ebf1;
+  --tint-note: #e4eee7;
 }
 
 /*
- * Quiet Paper's canonical look is the light theme (above). Sepia + dark are
- * *variants* (design.md "Colors" — Variants): remap the paper/ink/accent tokens
- * onto the corresponding reading-theme palette so the library themes with the
- * reader (the header toggle drives `data-theme`). Structural tokens (radii,
- * fonts, danger) stay constant.
+ * Light is canonical (above). Sepia + dark are variants: remap the paper/ink/
+ * accent tokens onto the corresponding reading-theme palette so the library
+ * themes with the reader (the header toggle drives `data-theme`). Structural
+ * tokens (radii, fonts, motion) stay constant.
  */
 [data-theme="sepia"] {
   --paper: #f4ecd8;
@@ -87,26 +167,51 @@
   --on-accent: #fff8ee;
   --ink-fill: #3b2f1e;
   --on-ink-fill: #f4ecd8;
+  /* Sepia inherits the light tints — music/video/note all separate cleanly from
+     its warm-yellow ground. Only `tint-book` collides (it is nearly the sepia
+     paper itself), so it deepens into parchment. Derived here, not in
+     design.md, which tabulates light + dark only. */
+  --tint-book: #e7ddc6;
 }
 
 [data-theme="dark"] {
-  --paper: #181818;
-  --paper-raised: #202020;
-  --paper-low: #1f1f1f;
-  --paper-container: #262626;
-  --paper-container-high: #303030;
-  --ink: #e8e8e8;
-  --ink-variant: #a8a8a8;
-  --line: #4a4a4a;
-  --line-soft: #3a3a3a;
-  --accent: #60a5fa;
-  --accent-soft: #7cb3fb;
-  --on-accent: #0b1a2e;
-  --ink-fill: #e8e8e8;
-  --on-ink-fill: #181818;
+  --paper: #141310;
+  --paper-raised: #1c1a17;
+  --paper-low: #100f0d;
+  --paper-container: #24211d;
+  --paper-container-high: #2f2b25;
+  --ink: #ece7de;
+  --ink-variant: #948d82;
+  --line: #302c26;
+  --line-soft: #262320;
+  --accent: #8fb3dd;
+  --accent-soft: #a9c6e8;
+  --on-accent: #17150f;
+  --ink-fill: #ece7de;
+  --on-ink-fill: #17150f;
+  --danger: #ffb4ab;
+  --danger-soft: #4a1f1b;
+
+  --tint-book: #241f16;
+  --tint-music: #241a1d;
+  --tint-video: #171f28;
+  --tint-note: #16221b;
 }
 
-@theme inline {
+/* ── Structure (design.md "Structure") ───────────────────────────────────────
+   8px grid, 4px micro. Page margin tightens on phones; density is the point. */
+:root {
+  --page-margin: 16px;
+  --gutter: 14px;
+  --measure: 620px;
+}
+@media (min-width: 768px) {
+  :root {
+    --page-margin: 26px;
+  }
+}
+
+@theme static inline {
   /* Reading-theme tokens */
   --color-reader-bg: var(--reader-bg);
   --color-reader-fg: var(--reader-fg);
@@ -114,7 +219,7 @@
   --color-reader-border: var(--reader-border);
   --color-reader-accent: var(--reader-accent);
 
-  /* Quiet Paper tokens */
+  /* Gallery palette */
   --color-paper: var(--paper);
   --color-paper-raised: var(--paper-raised);
   --color-paper-low: var(--paper-low);
@@ -132,13 +237,41 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
 
-  /* Type roles (design.md "Typography"). Families self-hosted in main.tsx. */
-  --font-display: "Playfair Display", Georgia, serif;
-  --font-reading: "Source Serif 4", Georgia, serif;
-  --font-ui: "Inter", system-ui, sans-serif;
+  /* Kind tints → bg-tint-book / border-tint-music / ring-tint-video / … */
+  --color-tint-book: var(--tint-book);
+  --color-tint-music: var(--tint-music);
+  --color-tint-video: var(--tint-video);
+  --color-tint-note: var(--tint-note);
 
-  /* Book covers are 2px radius (design.md "Shapes"). */
+  /* The note sheet's fixed light paper (theme-independent by design). */
+  --color-note-sheet: var(--note-sheet);
+  --color-note-sheet-ink: var(--note-sheet-ink);
+  --color-note-sheet-rule: var(--note-sheet-rule);
+
+  /* Type roles (design.md "Typography"). Families self-hosted in main.tsx.
+     Newsreader wrote it; Archivo says it. The two display/reading roles share a
+     family on purpose — the identifiers are kept so no className churns. */
+  --font-display: "Newsreader", Georgia, serif;
+  --font-reading: "Newsreader", Georgia, serif;
+  --font-ui: "Archivo", system-ui, sans-serif;
+
+  /* Radii: 4px default, 2px artwork, 20px chips — nothing else. */
+  --radius-card: 4px;
   --radius-cover: 2px;
+  --radius-chip: 20px;
+
+  /* Elevation. Depth is tonal — a hairline plus a soft shadow, never a glow. */
+  --shadow-l1: 0 4px 10px -5px rgb(26 25 23 / 0.3);
+  --shadow-lift: 0 14px 30px -18px rgb(26 25 23 / 0.45);
+
+  /* Motion (design.md "Motion"). One curve for the whole system; the JS side of
+     the same numbers lives in lib/motion.ts. */
+  --ease-paper: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* Layout rhythm → gap-gutter / p-page / max-w-measure. */
+  --spacing-gutter: var(--gutter);
+  --spacing-page: var(--page-margin);
+  --container-measure: var(--measure);
 }
 
 /* Native form chrome (select popups, scrollbars) follows the active theme —
@@ -156,8 +289,15 @@ body {
   margin: 0;
   background-color: var(--reader-bg);
   color: var(--reader-fg);
-  /* UI defaults to Inter; the reading pane opts into Source Serif 4. */
+  /* The interface speaks Archivo; the reading pane opts into Newsreader. */
   font-family: var(--font-ui);
+  /* "Numbers line up" (design.md "Typography"): every figure the interface
+     reports — progress, duration, size, page counts — sets tabular figures.
+     Declared once on the base rather than sprinkled per call site so no figure
+     can be missed; the reflowable reading surfaces (EPUB section iframes, the
+     PDF canvas) render outside this tree and are unaffected. Individual
+     elements can still opt out with Tailwind's `proportional-nums`. */
+  font-variant-numeric: tabular-nums;
 }
 
 /* A rightward touch swipe with nothing to scroll horizontally is Chrome's
@@ -193,7 +333,7 @@ body {
  * styled in the component; the popup itself is UA chrome that `color-scheme`
  * can only flip light/dark — in sepia it stays a stark white list with the
  * UA's blue selection. Where `appearance: base-select` is supported (Chromium
- * 135+) we opt in and draw the picker on Quiet Paper tokens: raised sheet,
+ * 135+) we opt in and draw the picker on Reading Room tokens: raised sheet,
  * hairline border, 4px radius, paper-container hover/checked fills, accent
  * checkmark. Elsewhere this block is inert and the native popup remains.
  */
@@ -203,7 +343,7 @@ body {
     appearance: base-select;
   }
   /* base-select draws its own ▼ inside the button — hide it; the component
-     already renders the Quiet Paper chevron (double arrows otherwise). */
+     already renders the Reading Room chevron (double arrows otherwise). */
   select.quiet-select::picker-icon {
     display: none;
   }
@@ -212,7 +352,7 @@ body {
     color: var(--ink);
     border: 1px solid var(--line-soft);
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(28, 27, 27, 0.08);
+    box-shadow: var(--shadow-l1);
     padding: 4px;
     margin-top: 4px;
   }

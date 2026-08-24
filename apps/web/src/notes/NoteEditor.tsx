@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -19,6 +20,7 @@ import {
   type TextBox,
 } from "@ebook-reader/shared";
 
+import { cssToken } from "../lib/tokens";
 import { useNote, useSaveNote } from "./use-notes";
 
 /**
@@ -35,7 +37,19 @@ import { useNote, useSaveNote } from "./use-notes";
 
 type Tool = "pen" | "highlighter" | "eraser" | "text";
 
-const PALETTE = ["#1c1b1b", "#30568b", "#ba1a1a", "#2f7d4f", "#e8a72c"] as const;
+// The pen palette. A stroke's colour is PERSISTED into the note, so it has to
+// be stored as a concrete value rather than a `var()` — but the values still
+// live in globals.css like every other colour, and are resolved at pick time
+// (lib/tokens.ts). Like the sheet itself they hold in every theme: a note is
+// document content, not chrome. The names double as the swatches' accessible
+// labels (the old ones read the raw hex aloud).
+const INKS = [
+  { name: "Ink", token: "--note-ink-default" },
+  { name: "Blue", token: "--note-ink-blue" },
+  { name: "Red", token: "--note-ink-red" },
+  { name: "Green", token: "--note-ink-green" },
+  { name: "Amber", token: "--note-ink-amber" },
+] as const;
 // Nib widths as a fraction of page width (resolution-independent).
 const THICKNESS = [0.004, 0.007, 0.012] as const;
 const HIGHLIGHTER_SCALE = 4;
@@ -50,10 +64,9 @@ const BLANK_PAGE: NotePage = { strokes: [], texts: [], template: "blank" };
 
 // Ruling geometry + color live in the scaled viewBox space (STROKE_VB wide) so
 // lines scale with the sheet. The paper is a fixed light surface in every theme
-// (see the sheet background below), so the ruling uses a fixed quiet warm-gray
-// hex to match — the same deliberate exception to "tokens only" as the ink
-// colors here.
-const RULE_COLOR = "#d9d3c4";
+// (see the sheet background below), so the ruling is a token that is likewise
+// theme-independent by design — `--note-sheet-rule` in globals.css.
+const RULE_COLOR = "var(--note-sheet-rule)";
 const RULE_STEP = STROKE_VB / 24; // line spacing as ~1/24 of the page width
 
 /** Build an SVG path string from a perfect-freehand outline. */
@@ -130,7 +143,7 @@ export function NoteEditor({ id }: { id: string }) {
   const [loaded, setLoaded] = useState(false);
 
   const [tool, setTool] = useState<Tool>("pen");
-  const [color, setColor] = useState<string>(PALETTE[0]);
+  const [color, setColor] = useState<string>(() => cssToken(INKS[0].token));
   const [thickness, setThickness] = useState(1);
 
   // Undo/redo stacks of page snapshots (structural changes only).
@@ -476,7 +489,9 @@ function NoteSheet({
       className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-md shadow-[0_4px_20px_-6px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
       style={{
         height,
-        background: "#fcfbf8",
+        // The sheet is a fixed light paper in every theme (see the header note),
+        // so this token is deliberately not remapped by `data-theme`.
+        background: "var(--note-sheet)",
         cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
       }}
       onPointerDown={onPointerDown}
@@ -612,7 +627,7 @@ function TextBoxView({
         onFocus={onBeginChange}
         rows={1}
         placeholder={editable ? "Type…" : ""}
-        className="w-full resize-none bg-transparent leading-snug text-[#1c1b1b] outline-none"
+        className="w-full resize-none bg-transparent leading-snug text-note-sheet-ink outline-none"
         style={{ fontSize: box.size * width, fontFamily: "var(--font-ui)" }}
       />
     </div>
@@ -644,6 +659,9 @@ function Toolbar({
     { value: "eraser", label: "Eraser", glyph: "⌫" },
     { value: "text", label: "Text", glyph: "T" },
   ];
+  // Resolved once: the ink tokens are theme-independent, so they never change
+  // under the user (and `getComputedStyle` is not worth paying per render).
+  const inks = useMemo(() => INKS.map((i) => ({ ...i, value: cssToken(i.token) })), []);
   const templates: Record<PageTemplate, { label: string; glyph: string }> = {
     blank: { label: "Blank page", glyph: "▢" },
     ruled: { label: "Ruled page", glyph: "≣" },
@@ -674,17 +692,17 @@ function Toolbar({
       </div>
 
       <div className="flex items-center gap-1.5" aria-label="Color">
-        {PALETTE.map((c) => (
+        {inks.map((ink) => (
           <button
-            key={c}
+            key={ink.token}
             type="button"
-            aria-label={`Color ${c}`}
-            aria-pressed={color === c}
-            onClick={() => setColor(c)}
+            aria-label={ink.name}
+            aria-pressed={color === ink.value}
+            onClick={() => setColor(ink.value)}
             className={`h-6 w-6 rounded-full ring-1 ring-black/10 transition ${
-              color === c ? "outline-2 outline-offset-2 outline-accent" : ""
+              color === ink.value ? "outline-2 outline-offset-2 outline-accent" : ""
             }`}
-            style={{ background: c }}
+            style={{ background: `var(${ink.token})` }}
           />
         ))}
       </div>

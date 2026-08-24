@@ -97,18 +97,19 @@ function NoteCard({ note, onOpen, onDelete }: { note: NoteSummary; onOpen: () =>
         type="button"
         onClick={onOpen}
         aria-label={`Open ${note.title}`}
-        className="relative flex aspect-[4/3] w-full flex-col justify-end overflow-hidden rounded-md bg-[#fcfbf8] p-4 text-left shadow-[0_4px_16px_-6px_rgba(0,0,0,0.2)] ring-1 ring-line-soft/40 transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_12px_22px_-8px_rgba(0,0,0,0.3)] focus-visible:outline-2 focus-visible:outline-accent"
+        className="relative flex aspect-[4/3] w-full flex-col justify-end overflow-hidden rounded-md bg-note-sheet p-4 text-left shadow-[0_4px_16px_-6px_rgba(0,0,0,0.2)] ring-1 ring-line-soft/40 transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_12px_22px_-8px_rgba(0,0,0,0.3)] focus-visible:outline-2 focus-visible:outline-accent"
       >
         {/* Faint ruling so an empty note still reads as a page. */}
         <span
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-40"
           style={{
-            backgroundImage: "repeating-linear-gradient(#eceae4 0 1px, transparent 1px 22px)",
+            backgroundImage:
+              "repeating-linear-gradient(var(--note-sheet-rule) 0 1px, transparent 1px 22px)",
             backgroundPositionY: "12px",
           }}
         />
-        <span className="relative font-display text-lg leading-snug font-semibold text-[#1c1b1b] line-clamp-2">
+        <span className="relative font-display text-lg leading-snug font-semibold text-note-sheet-ink line-clamp-2">
           {note.title}
         </span>
       </button>

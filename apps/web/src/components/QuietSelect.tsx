@@ -1,5 +1,5 @@
 /**
- * Quiet Paper–styled native `<select>` (design.md "Inputs": minimalist bottom
+ * Reading Room–styled native `<select>` (design.md "Inputs": minimalist bottom
  * border that turns `primary` on focus). The UA's default closed control never
  * matches the palette — most visibly a white chrome pill floating in the sepia
  * and dark themes — so the closed control is restyled with `appearance-none`

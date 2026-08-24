@@ -6,7 +6,7 @@ import { useMediaProgress } from "./use-media-progress";
 
 /**
  * Video player (brief 23): just the native `<video>` element (no cover art —
- * video covers are always absent) inside the Quiet Paper frame. Streams from the
+ * video covers are always absent) inside the Reading Room frame. Streams from the
  * authenticated file URL (`?token=`); resumes at, and PATCHes, the per-user
  * position via `useMediaProgress`. The server's Range support lets the element
  * seek/scrub without downloading the whole file.

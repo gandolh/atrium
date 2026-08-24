@@ -8,7 +8,7 @@ import { useMediaProgress } from "./use-media-progress";
 
 /**
  * Audio player (brief 23): the square embedded cover art (or the typographic
- * fallback tile) above native `<audio>` controls, inside the Quiet Paper frame.
+ * fallback tile) above native `<audio>` controls, inside the Reading Room frame.
  * Streams from the authenticated file URL (`?token=`); resumes at, and PATCHes,
  * the per-user position via `useMediaProgress`.
  */

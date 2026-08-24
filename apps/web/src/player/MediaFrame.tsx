@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 /**
- * Quiet Paper frame shared by the audio and video players (brief 23). Mirrors
+ * Reading Room frame shared by the audio and video players (brief 23). Mirrors
  * the readers' "orientation lives at the edges" language (wiki/reader.md) — a
  * quiet running header with the title — but, unlike the decorative
  * `ReaderHeader`, it owns the one interactive affordance the players need: a
@@ -10,7 +10,7 @@ import { Link } from "@tanstack/react-router";
  * readers). No custom scrubber; the media element's native controls sit inside.
  *
  * Tokens/type only (design.md): paper surface via `--reader-*` (light theme is
- * tuned to Quiet Paper), Playfair for the title, Inter for the UI label, accent
+ * tuned to Reading Room), Newsreader for the title, Archivo for the UI label, accent
  * used sparingly (the back link's hover/focus only).
  */
 export function MediaFrame({

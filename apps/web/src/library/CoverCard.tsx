@@ -20,7 +20,7 @@ export interface CoverOfflineProps {
  * A single book in the library gallery (wiki/design.md "Cards (Book Covers)").
  * 2:3 portrait, 2px radius, bottom-heavy shadow so the book "stands on a
  * shelf". Format badge top-right; a thin blue progress bar along the bottom for
- * started books. Missing cover → a tinted tile with the title set in Playfair.
+ * started books. Missing cover → a tinted tile with the title set in Newsreader.
  *
  * Brief 20 adds the offline toggle top-left (`offline`, omitted entirely when
  * IndexedDB isn't supported) and gates the "Remove" library action behind

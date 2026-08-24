@@ -25,7 +25,7 @@ import {
  * used to consume half the first viewport even for an established library):
  *
  * - **hero** (empty library / first run): the original full dropzone — dashed
- *   soft border, centered upload glyph, Playfair prompt, Ink button.
+ *   soft border, centered upload glyph, Newsreader prompt, Ink button.
  * - **ambient** (library has content): renders no visible box at all. Upload
  *   lives behind (a) the header's "Add to library" button via `browseRef` and
  *   (b) a WINDOW-level drag target: dragging a file anywhere over the app

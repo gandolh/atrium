@@ -8,7 +8,7 @@ import { useReaderStore } from "../store/reader-store";
  * The persistent app header, shared by every non-reader page (`/`, `/discover`)
  * so navigation and the theme control never disappear when the page changes
  * (previously /discover dropped the shell entirely — no brand, no theme
- * toggle). Wordmark in Playfair on the left (a link home), page-supplied
+ * toggle). Wordmark in Newsreader on the left (a link home), page-supplied
  * `actions` + the segmented light/sepia/dark toggle on the right.
  *
  * Content-scoped controls (the All/Books/Music/Videos filter, Shelves⇄Stacks)
@@ -59,7 +59,7 @@ const NAV_TABS = [
 /**
  * Primary area navigation (Atrium IA, brief 25) — Books · Music · Videos as
  * peer destinations. The old in-header All/Books/Music/Videos *filter* is now
- * these tabs. Quiet: Inter label, accent reserved for the active tab's text +
+ * these tabs. Quiet: Archivo label, accent reserved for the active tab's text +
  * underline; horizontally scrollable if it ever overflows on a narrow phone.
  */
 function NavTabs() {

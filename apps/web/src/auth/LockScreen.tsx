@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useAuthStore } from "../lib/auth";
 
 /**
- * Auth gate (brief 09, wiki/design.md "Quiet Paper"). Wraps everything the
+ * Auth gate (brief 09, wiki/design.md "Reading Room"). Wraps everything the
  * router renders (mounted in `routes/root-layout.tsx`): checks
  * `GET /auth/status` once on load, then renders either a neutral loading
  * state, the lock screen, or `children` once unlocked. Any later 401 (via

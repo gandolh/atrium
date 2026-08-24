@@ -2,7 +2,7 @@ import type { MediaKind } from "@ebook-reader/shared";
 
 /**
  * The typographic fallback tile for a missing cover: a tinted `paper-container`
- * ground with the title set in Playfair. Extracted from `CoverCard` (brief 22)
+ * ground with the title set in Newsreader. Extracted from `CoverCard` (brief 22)
  * so `/discover` cards reuse the identical treatment; brief 25 makes the glyph
  * media-aware (music note / play / book) so a coverless music or video tile no
  * longer shows a book icon.

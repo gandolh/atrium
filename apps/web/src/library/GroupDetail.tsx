@@ -6,7 +6,7 @@ import type { BookGroup } from "./grouping";
 /**
  * The drilled Stacks page (brief 21 step 5): opening a stack shows only that
  * group — a "← All books" way back (a link, so accent is allowed here), the
- * group name as a Playfair heading, `label-caps` meta (count + in-progress),
+ * group name as a Newsreader heading, `label-caps` meta (count + in-progress),
  * and a flat cover grid of just this group, rendered with the same `renderCover`
  * as everywhere else.
  */

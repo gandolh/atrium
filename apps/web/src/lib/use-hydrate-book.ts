@@ -4,7 +4,7 @@ import type { Format, LibraryBook, MediaKind } from "@ebook-reader/shared";
 
 import { useReaderStore } from "../store/reader-store";
 import { useActiveProfileId } from "./auth";
-import { fetchBookFile, fetchLibrary } from "./library-api";
+import { fetchBookById, fetchBookFile, fetchLibrary } from "./library-api";
 import { libraryKey, libraryProfileKey } from "./use-library";
 import { getLocalProgress, getOfflineBook, offlineRecordToFile, resolveOfflineResume } from "./offline-store";
 
@@ -121,6 +121,29 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     enabled: needsHydrate,
   });
 
+  // Genuinely unavoidable edit (brief 34 step 7 — see that brief's handoff for
+  // why): `GET /library` above deliberately excludes CONVERTED books so the
+  // grid shows one card per book (D34) — but that means `library.data` can
+  // NEVER contain one, and this hook otherwise has no other way to resolve a
+  // converted book's row at all. Both "open the format this reader used most
+  // recently" (routes/read.tsx) and any future in-reader format switch
+  // routinely target a converted id — not as an edge case — so without this,
+  // neither could ever actually open one. `GET /library/:id` doesn't apply
+  // that filter (see `fetchBookById`'s own doc comment), so it's the fallback.
+  // Gated on the list having already loaded AND come up empty for this id, so
+  // an ordinary (non-converted) book never pays for a second request. The
+  // query key intentionally matches the shape of `use-library.ts`'s private
+  // (unexported) `bookKey` so this shares its cache with `useConvertingBook`
+  // if that hook's poll is ever mounted on the same book while reading it.
+  const listHasBook = library.data?.some((b) => b.id === bookId) ?? false;
+  const needsDirectFetch = !isMedia && needsHydrate && !library.isPending && !listHasBook;
+  const directBook = useQuery({
+    queryKey: ["library", "book", bookId] as const,
+    queryFn: () => fetchBookById(bookId as string),
+    enabled: Boolean(bookId) && needsDirectFetch,
+    retry: false,
+  });
+
   // Reset the offline snapshot whenever the target book changes. The route stays
   // mounted across `/read?book=…` param changes, so without this the snapshot set
   // for a previously-opened downloaded book would linger and could represent a
@@ -143,8 +166,13 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     // authoritatively gone ("removed from your library"), and a stale entry
     // under another sort key must not resurrect it.
     if (!library.data && bookId) return cachedLibraryRow(queryClient, profileId, bookId);
+    // A converted book never appears in `library.data` at all (see `directBook`
+    // above) — once the list has loaded and missed, this is the only source
+    // for its row: the opening screen's title/cover, and the effect below's
+    // file fetch both need it.
+    if (directBook.data && directBook.data.id === bookId) return directBook.data;
     return null;
-  }, [library.data, bookId, offlineBook, queryClient, profileId]);
+  }, [library.data, bookId, offlineBook, queryClient, profileId, directBook.data]);
 
   useEffect(() => {
     if (!needsHydrate || !bookId) {
@@ -214,7 +242,21 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
         setStatus("error");
         return;
       }
-      const found = library.data?.find((b) => b.id === bookId);
+      let found = library.data?.find((b) => b.id === bookId);
+      if (!found && needsDirectFetch) {
+        // Missing from the list — could be a converted book (`directBook`
+        // above), which the list always excludes. Wait for that fetch to
+        // settle rather than declaring not-found while it's still in flight.
+        if (directBook.isPending || directBook.isFetching) {
+          setStatus("loading");
+          return;
+        }
+        if (directBook.data && directBook.data.id === bookId) {
+          found = directBook.data;
+        }
+        // Otherwise the direct fetch itself 404'd/errored — `found` stays
+        // undefined and falls through to "not-found" below, same as today.
+      }
       if (!found) {
         setStatus("not-found");
         return;
@@ -263,6 +305,12 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     // The offline resume is read for THIS profile, so a switch must re-resolve
     // it rather than keep serving the position resolved for the previous one.
     profileId,
+    // Re-run once the converted-book fallback fetch settles — otherwise a
+    // book found only via `directBook` would sit on "loading" forever.
+    needsDirectFetch,
+    directBook.data,
+    directBook.isPending,
+    directBook.isFetching,
   ]);
 
   const retry = useCallback(() => {

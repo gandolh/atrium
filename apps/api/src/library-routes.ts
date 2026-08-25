@@ -23,6 +23,7 @@ import {
   clearBookCover,
   deleteBook,
   getBook,
+  getConvertedBook,
   getProfile,
   getProfileProgress,
   insertBook,
@@ -30,11 +31,13 @@ import {
   listBooksNeedingMetadata,
   listBooksWithCover,
   listProfileProgress,
+  resetConvert,
   toLibraryBook,
   touchOpened,
   updateBookMetadata,
   upsertProfileProgress,
 } from "./db.js";
+import { cancelConvert, isConverting, startConvert } from "./convert-jobs.js";
 import { extractMeta } from "./extract.js";
 
 /**
@@ -205,6 +208,24 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     );
   });
 
+  // --- GET /library/:id — one book, with both convert link directions --------
+  // Unlike the list, `getById` (behind `getBook`) does NOT filter out derived
+  // rows — a converted book must be individually readable so the reader can
+  // offer the switch from either side of the pair (D34). `toLibraryBook`
+  // resolves `convertedFrom`/`convertedTo`/`convertStatus`/`convertError` off
+  // the same row (no extra query — see `BOOK_COLUMNS` in db.ts).
+  app.get("/library/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+    const profile = request.authProfile;
+    if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
+    const { id } = request.params as { id: string };
+    const row = getBook(id);
+    if (!row) return reply.status(404).send({ error: "Book not found." });
+
+    return reply.send(
+      toLibraryBook(row, getProfileProgress(profile.id, id) ?? { progress: 0, locator: null }),
+    );
+  });
+
   // --- GET /library/:id/file — stream the original for the reader ------------
   app.get("/library/:id/file", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
@@ -336,15 +357,117 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     return reply.send(toLibraryBook(row, getProfileProgress(targetProfileId, id)));
   });
 
+  // --- POST /library/:id/convert — start a conversion (D34, brief 34) --------
+  // `startConvert` makes its whole decision synchronously (single-flight check
+  // + claiming the job happen with nothing awaited in between) — nothing here
+  // may be inserted between the 404 check and the call that introduces an
+  // `await` before it, or two concurrent requests could both pass the guard.
+  app.post("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const row = getBook(id);
+    if (!row) return reply.status(404).send({ error: "Book not found." });
+
+    const query = request.query as { force?: string } | undefined;
+    if (query?.force === "1") {
+      // `?force=1` re-runs even when a conversion already exists. There is a
+      // UNIQUE index on `converted_from` (db.ts), so inserting a fresh
+      // conversion over an existing one throws — the old row and its FILE must
+      // be gone before `startConvert` runs, not cleaned up after.
+      const existing = getConvertedBook(id);
+      if (existing) {
+        await rm(existing.file_path, { force: true });
+        // NEVER touch `existing.cover_path` — a converted book shares its
+        // source's thumbnail file (db.ts's `insertConvertedBook`); this row IS
+        // the source, so deleting that path here would strip its own cover.
+        deleteBook(existing.id);
+      }
+    }
+
+    const result = startConvert(row);
+    switch (result.kind) {
+      case "started":
+        return reply
+          .status(202)
+          .send({ convertedBookId: result.convertedBookId, targetFormat: result.targetFormat });
+      case "busy":
+        return reply.status(409).send({ error: result.message });
+      case "unsupported":
+        return reply.status(400).send({ error: result.message });
+      case "derived":
+        return reply.status(400).send({ error: result.message });
+      case "exists":
+        return reply.status(200).send(toLibraryBook(result.converted));
+    }
+  });
+
+  // --- DELETE /library/:id/convert — cancel a running job, or delete a -------
+  // finished conversion (D34, brief 34). `:id` is always the SOURCE book — the
+  // convert status lives there, and `cancelConvert`/`isConverting` are keyed on
+  // it the same way.
+  app.delete("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const row = getBook(id);
+    if (!row) return reply.status(404).send({ error: "Book not found." });
+
+    if (isConverting(id)) {
+      // Resets the source to `none` synchronously before the child actually
+      // dies, so it's safe to answer immediately (convert-jobs.ts).
+      cancelConvert(id);
+      return reply.status(204).send();
+    }
+
+    const converted = getConvertedBook(id);
+    if (!converted) {
+      return reply.status(404).send({ error: "No conversion to cancel or delete." });
+    }
+
+    await rm(converted.file_path, { force: true });
+    // NEVER remove `converted.cover_path` — it is the SAME file as the
+    // source's cover (copied, never re-extracted, by `insertConvertedBook`).
+    // Deleting it here would strip the cover off the source book, which this
+    // request never touched.
+    deleteBook(converted.id);
+    resetConvert(id);
+    return reply.status(204).send();
+  });
+
   // --- DELETE /library/:id — remove row + file + thumbnail -------------------
   app.delete("/library/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = getBook(id);
     if (!row) return reply.status(404).send({ error: "Book not found." });
 
+    // A converted book shares its source's cover file outright (never its
+    // own) — so resolve the OTHER half of the pair before deleting anything:
+    // - if `row` is a source, its converted book's ROW is `ON DELETE CASCADE`
+    //   (db.ts), so nothing will be left pointing at that FILE afterwards
+    //   unless we grab it now.
+    // - if `row` is itself a converted book, its source stays alive and must
+    //   not lose its `ready`/`poor` status pointing at a conversion that's
+    //   about to stop existing.
+    const linkedConverted = row.converted_from === null ? getConvertedBook(id) : undefined;
+
     deleteBook(id);
     await rm(row.file_path, { force: true });
-    if (row.cover_path) await rm(row.cover_path, { force: true });
+    // Only unlink the cover when this row owns it outright. A converted book's
+    // `cover_path` is the SAME file as its source's (insertConvertedBook copies
+    // it, never re-extracts) — removing it here would strip the cover off a
+    // source book this request never touched.
+    if (row.cover_path && row.converted_from === null) {
+      await rm(row.cover_path, { force: true });
+    }
+
+    if (linkedConverted) {
+      // Its row is already gone via the cascade; only its FILE is still ours
+      // to clean up. Never its cover_path — that's the SAME file as
+      // `row.cover_path`, already handled above.
+      await rm(linkedConverted.file_path, { force: true });
+    } else if (row.converted_from !== null) {
+      // `row` was the converted book: its source is still around and must not
+      // keep claiming a conversion that no longer exists.
+      resetConvert(row.converted_from);
+    }
+
     return reply.status(204).send();
   });
 }

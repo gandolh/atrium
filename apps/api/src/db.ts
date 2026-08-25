@@ -191,6 +191,14 @@ export interface ProfileProgressRow {
   progress: number;
   /** Opaque resume position: PDF page number (string) or EPUB CFI; null if unset. */
   locator: string | null;
+  /**
+   * ISO timestamp of the last write to this row (brief 34 step 7,
+   * pre-authorised addition of `lastReadAt` to the wire): what "which of a
+   * linked pair did this reader use last" compares. Every stored row has one
+   * (`NOT NULL`); a book this profile has never opened simply has no row at
+   * all, which callers represent as `null` rather than by faking a value here.
+   */
+  updated_at: string;
 }
 
 mkdirSync(DATA_DIR, { recursive: true });
@@ -722,10 +730,10 @@ const statements = {
 
   // --- Per-profile reading progress ----------------------------------------
   listProfileProgress: db.prepare<[string]>(
-    "SELECT book_id, progress, locator FROM reading_progress WHERE profile_id = ?",
+    "SELECT book_id, progress, locator, updated_at FROM reading_progress WHERE profile_id = ?",
   ),
   getProfileProgress: db.prepare<[string, string]>(
-    "SELECT book_id, progress, locator FROM reading_progress WHERE profile_id = ? AND book_id = ?",
+    "SELECT book_id, progress, locator, updated_at FROM reading_progress WHERE profile_id = ? AND book_id = ?",
   ),
   // COALESCE keeps a previously-saved locator when a progress-only update sends
   // null, so a bar refresh can't wipe the resume position.
@@ -746,7 +754,10 @@ const statements = {
  */
 export function toLibraryBook(
   row: NewBookRow & Partial<BookConvertFields>,
-  progress: Pick<ProfileProgressRow, "progress" | "locator"> = { progress: 0, locator: null },
+  progress: Pick<ProfileProgressRow, "progress" | "locator"> & { updated_at?: string | null } = {
+    progress: 0,
+    locator: null,
+  },
 ): LibraryBook {
   return {
     id: row.id,
@@ -778,6 +789,12 @@ export function toLibraryBook(
     convertedTo: row.converted_to ?? null,
     convertStatus: row.convert_status ?? "none",
     convertError: row.convert_error ?? null,
+    // The active profile's `reading_progress.updated_at` for this row, or null
+    // when they've never opened it (brief 34 step 7's pre-authorised addition
+    // — the wire previously exposed no progress timestamp at all). Lets the
+    // client compare a linked pair's two rows and reopen whichever this reader
+    // used last, without a second per-book request.
+    lastReadAt: progress.updated_at ?? null,
   };
 }
 

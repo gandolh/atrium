@@ -11,8 +11,10 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 // Import for side effect: configures the PDF.js worker for Vite (see file).
 import "./pdf-worker";
 
+import type { LibraryBook } from "@ebook-reader/shared";
 import { useReaderStore } from "../../store/reader-store";
 import {
+  ConvertControl,
   HomeButton,
   PageNav,
   PageJumpInput,
@@ -67,7 +69,13 @@ const DOCUMENT_OPTIONS = {} as const;
  * Wiring to Zustand: `currentLocation` (page number), `zoom`, `theme`,
  * `chromeVisible`.
  */
-export function PdfReader({ file }: { file: File }) {
+/**
+ * The open row (brief 34), supplied by `read.tsx` which already resolved it.
+ * Rendered as the convert status button / format switch in the format-adaptive
+ * slot below. Passed as DATA, not a node, so `ConvertControl` stays inside this
+ * lazily-loaded reader chunk instead of the entry chunk.
+ */
+export function PdfReader({ file, book }: { file: File; book?: LibraryBook | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const currentLocation = useReaderStore((s) => s.currentLocation);
@@ -686,6 +694,7 @@ export function PdfReader({ file }: { file: File }) {
                 }
               />
               <PageModeToggle />
+              {book ? <ConvertControl book={book} /> : null}
             </>
           }
           rightControls={

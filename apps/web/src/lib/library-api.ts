@@ -1,6 +1,7 @@
 import {
   libraryBookSchema,
   libraryListSchema,
+  type FileType,
   type LibraryBook,
   type LibrarySort,
 } from "@ebook-reader/shared";
@@ -29,6 +30,59 @@ export async function uploadBook(file: File): Promise<LibraryBook> {
 /** `DELETE /library/:id`. */
 export async function deleteBook(id: string): Promise<void> {
   await apiFetch(`/library/${id}`, { method: "DELETE" });
+}
+
+/**
+ * `GET /library/:id` — one book, with BOTH convert link directions resolved
+ * (D34). Unlike `fetchLibrary`, this does not filter out converted books — the
+ * reader's convert status poll (`use-library.ts`'s `useConvertingBook`) and the
+ * format switch both need to read a row the gallery list would hide.
+ */
+export async function fetchBookById(id: string): Promise<LibraryBook> {
+  const res = await apiFetch(`/library/${id}`);
+  return libraryBookSchema.parse(await res.json());
+}
+
+/**
+ * `POST /library/:id/convert` — start a conversion (D34 decisions 4/6). 202
+ * means a job started; 200 means a conversion already existed (no-op) and its
+ * `LibraryBook` comes back instead. Callers don't need to branch on which one
+ * they got — `useStartConvert` (use-library.ts) just invalidates the book's
+ * query afterward and lets the next `GET` be the truth.
+ *
+ * `force` mirrors the route's `?force=1` (re-run over an existing conversion)
+ * but **no call site in this app passes it**: forcing DELETEs the existing
+ * conversion first and only THEN attempts to start a new one, and if a
+ * different book is mid-conversion that second step is refused — leaving the
+ * forced book with nothing until retried (brief 34's documented edge case).
+ * `ConvertControl` never exposes a force-based "convert again" action, which
+ * is what keeps that race from ever happening here. Kept as a param only for
+ * fidelity to the route contract, should a future surface need it (and handle
+ * the race first).
+ */
+export async function startConvert(
+  id: string,
+  opts?: { force?: boolean },
+): Promise<{ convertedBookId: string; targetFormat: FileType } | LibraryBook> {
+  const qs = opts?.force ? "?force=1" : "";
+  const res = await apiFetch(`/library/${id}/convert${qs}`, { method: "POST" });
+  const body: unknown = await res.json();
+  // 200 body is the existing converted LibraryBook; 202 body is the
+  // {convertedBookId, targetFormat} start receipt — status code disambiguates.
+  return res.status === 200
+    ? libraryBookSchema.parse(body)
+    : (body as { convertedBookId: string; targetFormat: FileType });
+}
+
+/**
+ * `DELETE /library/:id/convert` — cancel a running job, from the SOURCE book's
+ * id (D34). The route also deletes a finished conversion from this same verb,
+ * but `ConvertControl` only ever calls this while `convertStatus === "running"`
+ * (its Cancel action) — see the module comment on why a delete-and-redo path
+ * isn't exposed here.
+ */
+export async function cancelConvert(id: string): Promise<void> {
+  await apiFetch(`/library/${id}/convert`, { method: "DELETE" });
 }
 
 /**

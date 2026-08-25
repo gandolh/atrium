@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactReader, ReactReaderStyle, type IReactReaderStyle } from "react-reader";
 import { EpubCFI, type Book, type NavItem, type Rendition } from "epubjs";
 
+import type { LibraryBook } from "@ebook-reader/shared";
 import { useReaderStore } from "../../store/reader-store";
 import {
+  ConvertControl,
   HomeButton,
   PageNav,
   PageJumpInput,
@@ -124,7 +126,13 @@ function hrefMatches(target: unknown, href: string): boolean {
   return t === h || h.endsWith(`/${t}`) || t.endsWith(`/${h}`);
 }
 
-export function EpubReader({ file }: { file: File }) {
+/**
+ * The open row (brief 34), supplied by `read.tsx` which already resolved it.
+ * Rendered as the convert status button / format switch in the format-adaptive
+ * slot below. Passed as DATA, not a node, so `ConvertControl` stays inside this
+ * lazily-loaded reader chunk instead of the entry chunk.
+ */
+export function EpubReader({ file, book }: { file: File; book?: LibraryBook | null }) {
   const setCurrentLocation = useReaderStore((s) => s.setCurrentLocation);
   const currentLocation = useReaderStore((s) => s.currentLocation);
   const chromeVisible = useReaderStore((s) => s.chromeVisible);
@@ -987,6 +995,7 @@ export function EpubReader({ file }: { file: File }) {
                 }
               />
               <PageModeToggle />
+              {book ? <ConvertControl book={book} /> : null}
             </>
           }
           rightControls={

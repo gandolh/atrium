@@ -15,6 +15,7 @@ export { ProgressRail, type RailTick } from "./ProgressRail";
 export { TocDrawer, type TocEntry } from "./TocDrawer";
 export { TocSidebar } from "./TocSidebar";
 export { SettingsPopover } from "./SettingsPopover";
+export { ConvertControl } from "./ConvertControl";
 export { SearchPanel } from "./SearchPanel";
 export { SliderControl } from "./SliderControl";
 export { ThemePicker } from "./ThemePicker";

@@ -117,6 +117,17 @@ export const libraryBookSchema = z.object({
   /** ISO timestamp the book was last opened, or null if never opened. */
   lastOpenedAt: z.string().nullable(),
   /**
+   * The CURRENT profile's `reading_progress.updated_at` for this row, or null
+   * if they've never opened it (brief 34 step 7, pre-authorised addition).
+   * Distinct from `lastOpenedAt` (which just means the file route was hit):
+   * this is what lets the client compare a linked convert pair — the source
+   * and its converted book — and reopen whichever one this reader read most
+   * recently. The wire previously exposed no progress timestamp at all (see
+   * `apps/web/src/lib/offline-store.ts`), which is exactly what made that
+   * comparison impossible before this field existed.
+   */
+  lastReadAt: z.string().nullable(),
+  /**
    * The **source book** this row was converted from, or null when this row is
    * itself a source (D34). Non-null marks a **converted book** — a row the
    * library grid, search, chips and counts never show, reached only by the

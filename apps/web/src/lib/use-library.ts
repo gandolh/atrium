@@ -3,7 +3,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LibraryBook, LibrarySort } from "@ebook-reader/shared";
 
 import { useActiveProfileId } from "./auth";
-import { deleteBook, fetchBookFile, fetchLibrary, uploadBook } from "./library-api";
+import {
+  cancelConvert,
+  deleteBook,
+  fetchBookById,
+  fetchBookFile,
+  fetchLibrary,
+  startConvert,
+  uploadBook,
+} from "./library-api";
 import {
   deleteOfflineBook,
   getStorageEstimate,
@@ -52,6 +60,16 @@ export const libraryKey = (profileId: string | null, sort: LibrarySort) =>
 /** Prefix matching every sort variant of ONE profile's library list. */
 export const libraryProfileKey = (profileId: string | null) => ["library", profileId] as const;
 /**
+ * Query key for ONE book's live row, by id (D34's convert status poll — see
+ * `useConvertingBook` below). Deliberately NOT profile-scoped like `libraryKey`:
+ * `convertStatus`/`convertedFrom`/`convertedTo`/`convertError` are properties
+ * of the BOOK, shared across every profile the same way the library itself is
+ * (D30/D35) — only `progress`/`locator` are per-profile, and this poll doesn't
+ * read either.
+ */
+const bookKey = (id: string) => ["library", "book", id] as const;
+
+/**
  * Query key for the set of downloaded books (metadata only). The DOWNLOADS are
  * device-scoped (decision 7) but each row's `progress`/`locator` is composed
  * from the active profile's progress record (brief 35 fix), so the cached list
@@ -91,6 +109,69 @@ export function useDeleteBook() {
     mutationFn: (book: LibraryBook) => deleteBook(book.id),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["library"] });
+    },
+  });
+}
+
+/**
+ * Live convert status for a SOURCE book (D34 decisions 8/9) — the data layer
+ * behind the reader's `ConvertControl`.
+ *
+ * Polls `GET /library/:id` at a **flat 30s** interval, but ONLY while the last
+ * known status reads `"running"`; every other status disables the interval
+ * outright. This is deliberately driven by the fetched row, never by a
+ * client-side "I started this conversion" flag — decision 9's whole point is
+ * that a tab that started the job, a tab that didn't, a refresh, and a reopen
+ * hours later must all behave identically, because they all just ask the
+ * server "is this still running?" and get the same honest answer. A book
+ * nobody is converting therefore polls zero times, forever, until something
+ * (this tab's own start, or another tab's) flips it to `running` again and a
+ * refetch of THIS query picks that up.
+ *
+ * `seed` is whatever the caller already has (the hydrated book, a library-list
+ * row) so the control never flashes an unknown state on mount — but it is not
+ * trusted as fresh: the query has no `staleTime`, so mounting always fires one
+ * real fetch, which is what lets "closed the app mid-conversion, reopened"
+ * resume polling on its own rather than waiting up to 30s to notice.
+ */
+export function useConvertingBook(seed: LibraryBook) {
+  return useQuery({
+    queryKey: bookKey(seed.id),
+    queryFn: () => fetchBookById(seed.id),
+    initialData: seed,
+    refetchInterval: (query) => (query.state.data?.convertStatus === "running" ? 30_000 : false),
+  });
+}
+
+/**
+ * `POST /library/:id/convert` as a mutation (D34). Always called WITHOUT
+ * `force` — see the module comment on `startConvert` in `library-api.ts` for
+ * why `ConvertControl` never offers a force-based re-run. Invalidates the
+ * book's own query so the next render reflects whatever the server actually
+ * did (started, or the no-op 200), rather than branching on the response body.
+ */
+export function useStartConvert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => startConvert(id),
+    onSuccess: (_result, id) => {
+      void qc.invalidateQueries({ queryKey: bookKey(id) });
+    },
+  });
+}
+
+/**
+ * `DELETE /library/:id/convert` as a mutation — `ConvertControl`'s Cancel
+ * action while `convertStatus === "running"` (D34 decision 5). Invalidates the
+ * book's query; the source resets to `none` synchronously on the server
+ * (convert-jobs.ts), so the very next fetch already reflects it.
+ */
+export function useCancelConvert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => cancelConvert(id),
+    onSuccess: (_result, id) => {
+      void qc.invalidateQueries({ queryKey: bookKey(id) });
     },
   });
 }

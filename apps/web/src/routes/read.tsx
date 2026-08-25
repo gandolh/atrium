@@ -1,10 +1,13 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { getRouteApi, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { kindForFormat, type FileType, type LibraryBook, type MediaKind } from "@ebook-reader/shared";
 
 import { useReaderStore } from "../store/reader-store";
-import { coverUrl } from "../lib/library-api";
+import { coverUrl, fetchBookById, fetchLibrary, updateProgress } from "../lib/library-api";
+import { useActiveProfileId } from "../lib/auth";
+import { libraryKey } from "../lib/use-library";
 import { useProgressSync } from "../lib/use-progress-sync";
 import { useHydrateBook } from "../lib/use-hydrate-book";
 import { useDevSampleFile } from "../reader/pdf/dev/use-dev-sample-file";
@@ -58,6 +61,20 @@ export function Read() {
 }
 
 /**
+ * `true` when `a` is a strictly more recent ISO timestamp than `b` (brief 34
+ * decision 11: "newest wins, null means never opened"). Both are
+ * `reading_progress.updated_at` values, which are always written by the same
+ * server clock as `new Date().toISOString()`, so lexical comparison is exactly
+ * chronological comparison. Neither a `null` vs `null` tie nor an exact-equal
+ * pair counts as "newer" — the caller's own default wins those.
+ */
+function isNewer(a: string | null, b: string | null): boolean {
+  if (!a) return false;
+  if (!b) return true;
+  return a > b;
+}
+
+/**
  * The book (pdf/epub) reading view. Reads the in-memory `File` handed over by the
  * library (Zustand `loadedFile`, set when a cover card is opened) and mounts
  * the matching renderer behind the shared chrome. The `File` lives only in
@@ -74,10 +91,112 @@ function BookReader() {
   const { format, book, dev } = routeApi.useSearch();
   const loadedFile = useReaderStore((s) => s.loadedFile);
   const loadedFormat = useReaderStore((s) => s.loadedFormat);
+  const loadedBookId = useReaderStore((s) => s.loadedBookId);
+
+  // Brief 34 step 7: which of a convert pair's two rows to actually hydrate.
+  // The requested `book` is always a SOURCE id (only source rows ever appear
+  // in the grid, D34), so its own row — and `lastReadAt` — comes straight off
+  // the same list cache the library home and `useHydrateBook` itself already
+  // populate (`libraryKey`): no extra request for the common case of a book
+  // with no conversion at all.
+  const profileId = useActiveProfileId();
+  const libraryQuery = useQuery({
+    queryKey: libraryKey(profileId, "recent"),
+    queryFn: () => fetchLibrary("recent"),
+    enabled: Boolean(book),
+  });
+  const sourceRow = libraryQuery.data?.find((b) => b.id === book) ?? null;
+  const partnerId = sourceRow?.convertedFrom ?? sourceRow?.convertedTo ?? null;
+
+  // The PARTNER, when one exists, is a converted row — `GET /library` above
+  // excludes those on purpose (one card per book), so its `lastReadAt` is
+  // reachable only by asking for it directly. Query key intentionally matches
+  // `use-hydrate-book.ts`'s own by-id fallback (see that file's handoff
+  // comment) so opening straight into this id afterward reuses the same
+  // cache entry instead of double-fetching the row.
+  const partnerRowQuery = useQuery({
+    queryKey: ["library", "book", partnerId] as const,
+    queryFn: () => fetchBookById(partnerId as string),
+    enabled: Boolean(partnerId),
+  });
+
+  // Frozen per requested `book` id: either cache can refetch later (focus,
+  // the touch PATCH below) and re-deriving from newer data must never swap
+  // the open file out from under an already-reading reader — see decision 11
+  // and the "ordering and loops" note on this brief's step 7.
+  //
+  // Deliberately `undefined`, never `book`, while unresolved (proven the hard
+  // way): `useHydrateBook` treats ANY id as a green light to fully hydrate and
+  // MOUNT that format's reader. Handing it the unresolved `book` as a
+  // stand-in "for now" briefly mounted the wrong reader in testing, and that
+  // reader's own `useProgressSync` ran for real — PATCHing a bogus position
+  // onto that row before the resolved id arrived and swapped it out. `book`
+  // is only safe to return once we've confirmed there's no partner to lose a
+  // race against; until then, `undefined` keeps `useHydrateBook` inert (its
+  // `needsHydrate` requires a truthy id) and `BookReader` shows the ordinary
+  // opening screen, exactly as if the fetch simply hadn't landed yet.
+  const resolvedIdRef = useRef<{ requested: string; resolved: string } | null>(null);
+  const resolvedBookId = useMemo(() => {
+    if (!book) return book;
+    if (resolvedIdRef.current?.requested === book) return resolvedIdRef.current.resolved;
+
+    // Not frozen yet and the source list hasn't landed — nothing hydrates
+    // until we at least know whether `book` even HAS a partner to race
+    // against.
+    if (!libraryQuery.data) return undefined;
+
+    if (!partnerId) {
+      resolvedIdRef.current = { requested: book, resolved: book };
+      return book;
+    }
+    // A partner exists but its row hasn't arrived yet — keep waiting rather
+    // than hydrating `book` "provisionally": that's exactly the window that
+    // caused the corruption above.
+    if (!partnerRowQuery.data || partnerRowQuery.data.id !== partnerId) return undefined;
+
+    // If the store already has the OTHER half of this exact pair loaded, this
+    // navigation is the in-reader format switch landing on purpose (it can
+    // only get here by explicitly choosing this id) — not a fresh open from
+    // the library. Resolving anyway would compare timestamps and immediately
+    // bounce the switch back to the format it's trying to leave, since the
+    // just-left format is (until the touch effect below fires) still the
+    // newer of the two.
+    const isExplicitSwitch = loadedBookId === partnerId;
+
+    let winner = book;
+    if (!isExplicitSwitch && isNewer(partnerRowQuery.data.lastReadAt, sourceRow?.lastReadAt ?? null)) {
+      winner = partnerId;
+    }
+    resolvedIdRef.current = { requested: book, resolved: winner };
+    return winner;
+  }, [book, libraryQuery.data, partnerId, partnerRowQuery.data, sourceRow, loadedBookId]);
 
   // Cover-card clicks navigate here immediately (brief 10); this hook is the
   // single download path for both that and refresh / direct visits (D24).
-  const hydrate = useHydrateBook(book);
+  // Hydrates `resolvedBookId`, NOT the raw `book` param — see above. When the
+  // two differ the store's `loadedFormat`/`loadedBookId` (set together by
+  // `setLoadedBook`) become the resolved row's own once the file lands, so
+  // nothing downstream needs to know a substitution happened.
+  const hydrate = useHydrateBook(resolvedBookId);
+
+  // Brief 34 step 7: touch the opened row's `updated_at` so the format choice
+  // sticks even if the reader closes without reading a page — otherwise
+  // switching format and reading nothing would leave the just-opened row's
+  // `lastReadAt` untouched, and the NEXT open would resolve straight back to
+  // the other one. Re-PATCHes the row's OWN current progress/locator
+  // unchanged (controller's ruling) so only the timestamp moves — sending a
+  // placeholder here would overwrite a real resume position. Guarded by
+  // `touchedRowRef` so this fires once per distinct row actually opened, not
+  // on every render, and it never fires for a book with no convert pair at
+  // all (nothing to keep "sticky" there).
+  const touchedRowRef = useRef<string | null>(null);
+  useEffect(() => {
+    const row = hydrate.book;
+    if (!row || (row.convertedFrom === null && row.convertedTo === null)) return;
+    if (touchedRowRef.current === row.id) return;
+    touchedRowRef.current = row.id;
+    void updateProgress(row.id, row.progress, row.locator);
+  }, [hydrate.book]);
 
   // Persist coarse reading progress back to the library when the book came
   // from it (D24). No-op for dev samples / direct visits.
@@ -114,10 +233,10 @@ function BookReader() {
     // shared-layout animation can only fire on the commit where the library
     // tile unmounts, and on that commit there was no `motion.div` here at all.
     if (hydrate.status === "loading" || (book && hydrate.status === "idle")) {
-      return <OpeningState book={hydrate.book} bookId={book} progress={hydrate.progress} />;
+      return <OpeningState book={hydrate.book ?? sourceRow} bookId={book} progress={hydrate.progress} />;
     }
     if (hydrate.status === "error") {
-      return <OpeningErrorState book={hydrate.book} bookId={book} onRetry={hydrate.retry} />;
+      return <OpeningErrorState book={hydrate.book ?? sourceRow} bookId={book} onRetry={hydrate.retry} />;
     }
     return <NoFileState format={effectiveFormat} notFound={hydrate.status === "not-found"} />;
   }
@@ -138,11 +257,19 @@ function BookReader() {
     />
   );
 
+  // Brief 34 (D34, decision 10): the convert trigger and format switch live in
+  // the READER and nowhere else. The resolved row is handed down as DATA rather
+  // than as a rendered node — building the element here would pull the reader
+  // chrome ConvertControl imports into the ENTRY chunk (measured: +41 kB gzip),
+  // undoing brief 15's code-splitting. The readers are already lazy, so letting
+  // each import ConvertControl itself keeps it in the reader chunk where it
+  // belongs. Neither reader gains any convert logic, and no second fetch is
+  // needed for a row this route already holds.
   if (effectiveFormat === "pdf") {
     return (
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
         <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
-          <PdfReader file={file} />
+          <PdfReader file={file} book={hydrate.book} />
         </Suspense>
       </ReaderChunkErrorBoundary>
     );
@@ -153,7 +280,7 @@ function BookReader() {
     return (
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
         <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
-          <EpubReader file={file} />
+          <EpubReader file={file} book={hydrate.book} />
         </Suspense>
       </ReaderChunkErrorBoundary>
     );
@@ -359,10 +486,18 @@ function BookCoverTile({
 }) {
   const [imgFailed, setImgFailed] = useState(false);
   const transition = useMotionTransition("expand");
-  // The id comes from the URL when the row hasn't resolved yet: the morph has
-  // to be wired on the very first commit of this route, which is exactly when
-  // the library row may still be a cache miss.
-  const layoutId = book?.id ?? bookId;
+  // `bookId` (the URL's `?book=`) wins over `book.id` — needed for two
+  // separate reasons that happen to want the same order. First, the row
+  // hasn't resolved yet on the very first commit, which is exactly when the
+  // library row may still be a cache miss: the morph has to be wired then,
+  // from the URL alone. Second, since brief 34 step 7 `hydrate.book` can
+  // resolve to a CONVERTED book that the reader silently opened instead of
+  // the clicked one (decision 11) — but the library grid only ever hands out
+  // a `layoutId` for the SOURCE row (converted rows are hidden from it), so
+  // matching against `book.id` there would break the FLIP by pairing with a
+  // layoutId that was never mounted. `bookId` is always the clicked (source)
+  // id, so it's the one identity that's guaranteed to match the grid.
+  const layoutId = bookId ?? book?.id;
   return (
     <motion.div
       layoutId={layoutId ? coverLayoutId(layoutId) : undefined}

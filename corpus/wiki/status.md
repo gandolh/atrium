@@ -171,9 +171,13 @@ errors on a fresh load. Typecheck clean ×3.
 | 18 | Stand up a live perf benchmark (CWV/trace) | **done (2026-07-13)** |
 | 19 | PWA phase 1: installable app + cached shell | **done (2026-07-16, uncommitted)** |
 | 20 | PWA phase 2: offline reading | **done (2026-07-16, uncommitted)** |
-| 21 | Group library by metadata (author/series/subject) | **todo** |
-| 22 | Gutenberg discover page | **todo** |
+| 21 | Group library by metadata (author/series/subject) | **done (2026-07-16)** |
+| 22 | Gutenberg discover page | **done (2026-07-16)** |
 | 23 | Media library: music + video alongside books | **done (2026-07-16)** |
 | 24 | Atrium rebrand: identity + design-system neutralize | **done (2026-07-20)** |
 | 25 | Per-type IA (Books/Music/Videos) + per-media card shapes | **done (2026-07-20)** |
 | 26 | Notes tab: paged ink + text boxes (perfect-freehand) | **done (2026-07-20)** |
+| 27–33 | Reading Room rework (D33) — tokens, one home, tiles/tints, search, dock, reader, notes | **done (2026-08-24)** |
+| 34 | Convert: the same book in either format (linked rows) | **todo** |
+| 35 | Profiles: several readers behind one account (household model) | **todo** |
+| 36 | LaTeX: write, compile, publish (Tectonic + CodeMirror, D37) | **todo** |

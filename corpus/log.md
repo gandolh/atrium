@@ -1,5 +1,145 @@
 # Log
 
+## [2026-08-24] grill+todo | Brief 36 (LaTeX) grilled and rewritten — D36, D37
+
+Three rounds. **Why it belongs here** reframed the product: owner said LaTeX is in
+Atrium *"for the same thing as notes… like a personal cloud space"* — so D32's
+"media gallery + Notes" framing is superseded by **D36: your stuff, reachable
+from anywhere**, media you collect plus documents you author. Notes was the first
+thing that didn't fit "gallery"; LaTeX is the second, and two is a pattern.
+PRODUCT.md gets rewritten in the brief rather than drifting a third time.
+
+**D37** settles the rest. Engine is **server-side Tectonic**, decided by two
+answers — light phone edits (not authoring) and online-only — which removed every
+reason to run TeX in the browser: SwiftLaTeX/WASM buys offline compile nobody
+asked for, at multiples of the entire 3 MB shell, on the phone, against briefs
+15–17's payload work (the app's whole initial JS is 123 kB gz). Sandboxing is
+spec: shell escape explicitly off, paths confined, short wall-clock timeout,
+capped output. **Draft vs published** is the spine: a draft lives only in
+`/latex` and never appears in the gallery; publishing creates **one** library
+entry that accumulates **versions**, each storing its PDF *and a zip of the whole
+project* so it can be rebuilt. `books.file_path` tracks the newest version so the
+file route, offline download and reader work unchanged. v1 is deliberately three
+features; autocomplete, SyncTeX, collaboration and templates are out. Editor is
+CodeMirror 6 (Monaco is ~10× the entry chunk for one destination).
+
+Three findings made the design cheaper: `PdfReader` takes a **`File`**, so the
+whole preview half already exists unmodified; brief 34's job runner is the
+compile machine; Notes established the per-profile authored-content pattern.
+
+**Glossary split.** Adding the LaTeX terms pushed `glossary.md` past the 200-line
+rule, so it split along D36's own line — collected vocabulary stays in
+[glossary.md](wiki/glossary.md), authored vocabulary (Notes + LaTeX) moves to
+[glossary-authoring.md](wiki/glossary-authoring.md), cross-linked. Same authority,
+two pages.
+
+Order: **35 → 34 → 36**. See [briefs/todo/36-latex-editor.md](briefs/todo/36-latex-editor.md).
+
+## [2026-08-24] grill+todo | Briefs 34 + 35 grilled and rewritten; brief 36 (LaTeX) filed
+
+**Grill (five rounds, owner)** reshaped both briefs and produced **D34** and
+**D35**.
+
+*Brief 34 — Convert.* The architecture changed on the owner's call: a converted
+book is **its own linked `books` row** (`converted_from`), not a sibling file on
+the source's row — which makes per-format resume positions and "which format did
+I last use" fall out of existing `reading_progress` rows for free, needs no
+variant param in the reader, and decouples the brief from 35 entirely. Cost is
+one FK plus a `WHERE` on three list statements; search being client-side means
+search/chips/grouping/counts inherit the hiding, so one book stays one card.
+Owner defined **Convert** as either direction and asked for both to be built, so
+the stateless `/convert` export retires and the EPUB reader's Download-as-PDF is
+reimplemented on top of library conversion — no capability lost. Async job with a
+**24h** ceiling, cancellable, one at a time per account, reaped to `failed` on
+restart; flat 30s polling **driven by row status, not a client flag**, which is
+what makes "start it, refresh, return hours later" behave identically. Renamed
+`34-pdf-reflow.md` → [`34-convert.md`](briefs/todo/34-convert.md).
+
+*Brief 35 — Profiles.* Owner's framing — *"an account is like a household,
+profiles are for different persons from the household, they can change freely"* —
+settled the shape: shared library, free switching, identity boundary and
+explicitly **not** a security one. Preferences move **server-side** into a JSON
+blob on the profile row (theme, font settings, page mode, TOC sidebar), revising
+D9; found in passing that **font settings are not persisted at all today**
+(`setFontSettings` writes only to Zustand), so this makes them durable for the
+first time. Picker returns after **24h** idle, device-side — the fix for
+`sessions` having no expiry, which would otherwise let a household tablet
+attribute everyone's reading to whoever used it last.
+
+*Brief 36 — LaTeX* ([36-latex-editor.md](briefs/todo/36-latex-editor.md)),
+**ungrilled**, filed on request. Three things fall out for free: `PdfReader`
+takes a `File`, so the preview pane needs **no changes**; brief 34's job runner
+is the compile machine; Notes established the per-profile authored-content
+pattern D33 keeps out of the media grid. Engine recommendation is **server-side
+Tectonic** over SwiftLaTeX WASM (single ~75MB binary with on-demand packages, D5
+precedent, and no TeX engine shipped to a phone against briefs 15–17's payload
+work). Brief treats TeX as the code-execution engine it is: shell escape
+explicitly off, every project path confined, hard wall-clock timeout. Six open
+questions listed for a grill, including whether the feature belongs in Atrium at
+all.
+
+Also corrected `status.md` (21/22 shown as todo though both are in `done/`;
+27–33 missing entirely).
+
+## [2026-08-24] todo | Brief 35 filed — Profiles: several readers behind one account
+
+Owner asked for Netflix-style profiles and framed it mid-brief: **an account is a
+household, a profile is a person in it, and switching is free**. That framing
+settles the feature's two usual questions — the library stays shared (a household
+shares its shelves), and free switching makes a profile an **identity** boundary,
+explicitly not a security one (recorded so nobody later mistakes it for a
+permission; housemates needing real separation are a second account). The brief
+answers the "isn't this just more users?" objection head-on: D30 already gives
+multi-account + shared library + per-user progress, so the whole delta is
+friction — one tap vs. a password, a button vs. `scripts/seed.ts` over SSH.
+Blast radius verified as exactly two tables (`reading_progress`, `notes`), ~10
+prepared statements and four route sites; the session carries the active profile
+(`sessions.active_profile_id`) so nothing about request authentication changes.
+Three client-side traps flagged as data bugs rather than polish: identity-free
+query keys, the offline pending-progress queue re-attributing reads after a
+switch, and globally-keyed reader prefs. Migration is the risk — SQLite cannot
+ALTER a composite PK, so `reading_progress` needs a create-copy-drop-rename
+rebuild with row-count verification. Amends D30/D31. Filed as
+[briefs/todo/35-profiles.md](briefs/todo/35-profiles.md).
+
+## [2026-08-24] todo | Brief 34 filed — Convert: the same book in either format
+
+Owner asked for PDF→EPUB conversion with "show EPUB" / "show original" on PDF
+books. Research finding that shapes the brief: `runEbookConvert`
+([calibre.ts](../apps/api/src/calibre.ts)) is **already format-agnostic** —
+Calibre infers both formats from the extensions, so `in.pdf → out.epub` needs no
+change to the spawn wrapper; and `filePathFor(id, format)` already yields a
+free, non-colliding `library/<id>.epub` beside the PDF. What is *not* reusable is
+`/convert` itself — it is stateless (upload → temp workspace → download →
+delete), the exact opposite of a persisted library-attached sibling. **D1 is not
+a blocker:** its rationale ("conversion discards reflow") is direction-specific
+and inverts for PDF→EPUB, which *adds* reflow; only its flat "never a reading
+path" clause needs amending. Calibre's manual calls PDF *"a really, really bad
+format to use as input"* (multi-column interleaves, headers/footers pollute the
+body, no OCR), so the brief makes reflow opt-in, disposable, and quality-gated,
+with "show original" as the designed safety net rather than a convenience. Three
+decisions marked **[CONFIRM]** (async 202 + poll, per-variant locator, the
+"reflow" vs "convert" naming split). Filed as
+[briefs/todo/34-convert.md](briefs/todo/34-convert.md). Also corrected
+`status.md`, which still showed briefs 21/22 as todo and was missing 27–33.
+
+## [2026-08-24] capture | Video covers todo filed — capture a frame client-side
+
+Owner asked for better covers on media files. Investigated: video is the only
+kind with no real cover, and brief 23's blocker was the **ffmpeg binary
+dependency**, not the feature — everything downstream of the frame
+(`toJpegThumbnail` geometry, D25 disk storage, the cover route, `hasCover`, the
+SW cover cache, the missing-file reconcile) is already kind-agnostic. Proposed
+route needs no server binary: the browser already decodes mp4/webm (that is why
+they are accepted formats), so capture the frame there — `<video>` → seek →
+canvas → `POST /library/:id/cover`, with a variance-scored pick across ~3
+candidate timestamps and a player-side backfill for existing items. Two gates
+also hide any cover that does exist: the `format === "mp3"` guard around the
+embedded-picture branch (mp4 `covr` is parsed and discarded) and `CoverArt`'s
+`kind !== "video"`. Filed as [todos/video-covers.md](todos/video-covers.md);
+iOS Safari canvas behavior, the cover-route trust boundary, and whether this
+warrants a decisions.md entry are left for the promote-time grill.
+
 ## [2026-08-24] done | Briefs 27–33 — the Reading Room rework shipped
 
 Built via `plan-split-dispatch` in four waves on branch `reading-room-rework`,

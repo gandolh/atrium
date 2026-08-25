@@ -17,6 +17,7 @@ Catalog generated from each page's `summary:` frontmatter — run
 - [conversion.md](wiki/conversion.md) — The EPUB→PDF export path — the single stateless Fastify /convert route backed by Calibre ebook-convert, with its limits and error shape.
 - [decisions.md](wiki/decisions.md) — Locked tech/design decisions (D1–D33) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
 - [design.md](wiki/design.md) — The enforced "Reading Room" visual language (D33) — warm neutrals, four kind tints, the Newsreader/Archivo type split, motion rules, and the frontend conformance checklist. Replaces Quiet Paper.
+- [glossary-authoring.md](wiki/glossary-authoring.md) — Naming authority for authored content — Notes (note, page, stroke, text box) and LaTeX (project, draft, published document, version); the collected-media half lives in glossary.md.
 - [glossary.md](wiki/glossary.md) — The project's vocabulary — one canonical name per concept Atrium uses in a specific way, with the synonyms it displaces; the page that stops the same thing being called three names.
 - [open-questions.md](wiki/open-questions.md) — The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
 - [overview.md](wiki/overview.md) — What Atrium is in a paragraph — a personal, per-user-account media gallery (books, music, video) + a Notes tab; the orientation page.

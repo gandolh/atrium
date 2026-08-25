@@ -21,10 +21,9 @@ media kinds. Shared across users; only progress and identity are per-user (D31).
 _Avoid_: collection, shelf, gallery, catalog
 
 **Shelves / Stacks** _(retired 2026-08-24, D33)_:
-Brief 21's two grouped-gallery arrangements. The UI is removed; the
-author/series/subject columns it backfilled stay populated and now feed search
-and chips. Kept here so the names are recognised in `log.md` and old briefs
-without being revived.
+Brief 21's two grouped-gallery arrangements; UI removed, its backfilled
+author/series/subject columns now feed search and chips. Listed so the names are
+recognised in old briefs, not revived.
 
 **Library item**:
 One uploaded piece of media in the library, whatever its kind. The code noun is
@@ -77,9 +76,34 @@ _Avoid_: store, search, browse, catalog (that is the shared contract module and
 the upstream data, not the page)
 
 **Convert**:
-The EPUB→PDF export path via Calibre. Strictly an export that ends in a download
-— never a way to read a book (D1). See [conversion.md](conversion.md).
-_Avoid_: transform, render, export-to-read
+Changing a book from one format to another via Calibre — PDF→EPUB or EPUB→PDF,
+one verb for both directions. A conversion produces a **converted book**, which
+is read in-app like any other (D34, revising D1's export-only rule). See
+[conversion.md](conversion.md).
+_Avoid_: transform, render, export, reflow, export-to-read
+
+**Source book**:
+The library item a conversion was made *from*. Keeps its own file, cover, and
+resume position; deleting it deletes its converted book.
+_Avoid_: original, parent, master
+
+**Converted book**:
+The library row produced by a conversion, linked to its source book. Hidden from
+the grid, search, chips, and counts — it is reached only by switching format
+inside the reader, so one book is always one card.
+_Avoid_: variant, sibling, derived row, duplicate
+
+**Profile**:
+A person in the household — the identity that owns reading progress, notes, and
+preferences. Switching between profiles is free (no password, no PIN), so a
+profile is an **identity** boundary and never a security one (D35).
+_Avoid_: user, account, persona, member
+
+**Account**:
+The household — the credential that logs in, and the security boundary
+(D30). Holds up to five profiles and one shared library. People who need real
+separation from each other need separate accounts, not separate profiles.
+_Avoid_: profile, user, tenant, household (use *account* in code and copy)
 
 ## Reading state
 
@@ -138,27 +162,6 @@ thing cached at runtime, and never user-initiated. The opposite end from a
 download.
 _Avoid_: offline storage, download, precache (that is the built shell)
 
-## Notes
-
-**Note**:
-One per-user notebook: an ordered list of note pages, stored server-side
-(brief 26).
-_Avoid_: notebook, document, doc, sketch
-
-**Note page**:
-A single page inside a note, carrying a template (blank / ruled / grid), its
-strokes and its text boxes.
-_Avoid_: canvas, sheet, slide, board
-
-**Stroke**:
-One vector ink mark — sampled points with pressure, rendered via
-perfect-freehand. Coordinates are normalized to page width.
-_Avoid_: path, line, scribble, mark
-
-**Text box**:
-A movable typed-text element placed on a note page.
-_Avoid_: label, annotation, caption, textarea
-
 ## Design
 
 **Reading Room**:
@@ -168,3 +171,8 @@ Newsreader/Archivo split that every `apps/web` change must conform to. See
 _Avoid_: the theme, the style guide, the design language, **Quiet Paper** and
 **Quiet Gallery** (both retired 2026-08-24 — the two names the previous system
 drifted between)
+
+> **Authored content** — Note, Note page, Stroke, Text box, LaTeX project,
+> Draft, Published document, Version — lives in
+> [glossary-authoring.md](glossary-authoring.md). Same authority, split for size
+> along D36's own line: things you collect here, things you author there.

@@ -95,9 +95,24 @@ export const DATA_DIR = process.env.LIBRARY_DATA_DIR
   ? resolve(process.env.LIBRARY_DATA_DIR)
   : resolve(API_ROOT, "data");
 export const DB_PATH = resolve(DATA_DIR, "library.db");
-/** Original uploaded PDF/EPUB files: `library/<id>.<ext>`. */
+/**
+ * Original uploaded PDF/EPUB files: `library/<id>.<ext>`.
+ *
+ * ⚠️ **`LIBRARY_DATA_DIR` does NOT redirect this, or `THUMBNAILS_DIR` below.**
+ * It moves the database only. Pointing the API at a *copied* database while
+ * testing therefore does NOT sandbox the files: the copied rows still carry
+ * absolute paths into the real directories, so any delete/convert run against
+ * them destroys the owner's actual books. Both directories are gitignored and
+ * have no version history, so there is nothing to restore from.
+ *
+ * This has already cost one real book (2026-08-25, recovered only because a
+ * duplicate happened to exist on disk). If you are testing a destructive path,
+ * upload your own throwaway fixture and act on that — never on a row that was
+ * already there. Making these overridable would be a real improvement; see the
+ * open-questions entry.
+ */
 export const LIBRARY_FILES_DIR = resolve(API_ROOT, "library");
-/** Extracted cover thumbnails: `images/thumbnails/<id>.jpg`. */
+/** Extracted cover thumbnails: `images/thumbnails/<id>.jpg`. See the warning above. */
 export const THUMBNAILS_DIR = resolve(API_ROOT, "images", "thumbnails");
 
 /**

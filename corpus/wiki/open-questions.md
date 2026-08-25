@@ -1,6 +1,6 @@
 ---
 summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
-updated: 2026-08-24
+updated: 2026-08-25
 ---
 
 # Open Questions
@@ -33,6 +33,32 @@ Only genuinely unresolved threads. Delete each the moment it's answered.
   card falls back to its per-kind tile. The **`file_path` half is still open**
   (`GET /library/:id/file` returns a clean 404 but the row can't self-heal —
   `file_path` is NOT NULL); the portable-paths fix above remains the real cure.
+
+## Library file paths are not sandboxable for testing (2026-08-25)
+
+`LIBRARY_DATA_DIR` redirects the **database** only. `LIBRARY_FILES_DIR` and
+`THUMBNAILS_DIR` resolve from the API package's own location and have no
+override, so pointing the API at a *copied* database does not sandbox the
+files — the copied rows still carry absolute paths into the real
+`apps/api/library/` and `apps/api/images/thumbnails/`, both gitignored with no
+version history.
+
+This is a live hazard, not a theoretical one: during brief 34's verification an
+agent ran the whole-book-delete route against a pre-existing row and
+**permanently destroyed a real book** (the Interpretable Context Methodology
+PDF). It was recovered only because an orphaned byte-identical duplicate
+happened to be on disk from an earlier deletion. `apps/api/src/config.ts` now
+carries a warning at the definition, and the practice is: to test a destructive
+path, upload a throwaway fixture and act on that, never on a row that was
+already there.
+
+The real fix is to make both directories overridable the way `LIBRARY_DATA_DIR`
+is, so a scratch DB and scratch files move together. Related: the absolute-path
+problem above — deriving paths from `id` + `format` relative to a storage root
+would solve both at once.
+
+A manual backup now exists outside the repo, but nothing automates it.
+
 
 Both former verification gaps closed on 2026-07-02 by the
 full Playwright run + live Calibre conversion (see

@@ -21,9 +21,9 @@ nothing about the wrapper, its timeout, or its
 `ok | failed | timeout | missing` outcome type is direction-specific.
 
 What *is* direction-specific is everything around it.
-[convert-route.ts](../../../apps/api/src/convert-route.ts) is **stateless**: it
+`convert-route.ts` *(deleted by this brief)* is **stateless**: it
 takes a fresh multipart EPUB upload, works in a temp workspace
-([temp-files.ts](../../../apps/api/src/temp-files.ts)), streams a PDF back as a
+(`temp-files.ts` *(deleted by this brief)*), streams a PDF back as a
 download, and deletes both files in a `finally`. This brief needs the opposite —
 an existing library row in, a persisted library row out.
 

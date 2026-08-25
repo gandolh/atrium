@@ -1,11 +1,32 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-08-24
+updated: 2026-08-25
 ---
 
-# Status — 2026-08-24
+# Status — 2026-08-25
 
-**Latest (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
+**Latest (2026-08-25):** ✅ **Brief 35 shipped — profiles.** An account is now
+a household and a **profile** is a person in it (D35): reading progress, notes
+and four reading preferences moved from user scope to profile scope, switching
+is one tap with no credential, and the picker returns after 24h idle. Built via
+orchestrate → plan-split-dispatch in 3 waves (7 chunks, 3 senior / 4 junior).
+The `reading_progress` rebuild — SQLite cannot ALTER a composite PK — landed all
+8 live rows and both notes on the right Default profile with zero loss, proven
+against a copy before the real DB was touched.
+
+Three scoped finders caught **10 findings (3 Critical)**, all fixed but one
+Minor. Every Critical crossed chunk boundaries and none tripped the gates: a
+switch leaving the reader loaded so one profile's page was written to another's
+row; an offline boot hanging forever on the picker gate; and the preferences
+boot cache flashing the wrong theme on exactly the load its fallback existed
+for. Details in [briefs/done/35-profiles.md](../briefs/done/35-profiles.md).
+
+**Known and accepted:** the account's default profile cannot be deleted (rename
+works); a session whose profile is deleted from another device silently reads as
+Default until reload. **This repo still has no test suite**, which is again why
+the review pass carried the weight.
+
+**Earlier (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
 built, reviewed and committed on `reading-room-rework` (not merged; owner
 controls git).** Seven briefs in four waves via plan-split-dispatch, then a
 three-finder review pass and two fix rounds. **27:** Reading Room tokens, the
@@ -179,5 +200,5 @@ errors on a fresh load. Typecheck clean ×3.
 | 26 | Notes tab: paged ink + text boxes (perfect-freehand) | **done (2026-07-20)** |
 | 27–33 | Reading Room rework (D33) — tokens, one home, tiles/tints, search, dock, reader, notes | **done (2026-08-24)** |
 | 34 | Convert: the same book in either format (linked rows) | **todo** |
-| 35 | Profiles: several readers behind one account (household model) | **todo** |
+| 35 | Profiles: several readers behind one account (household model, D35) | **done (2026-08-25)** |
 | 36 | LaTeX: write, compile, publish (Tectonic + CodeMirror, D37) | **todo** |

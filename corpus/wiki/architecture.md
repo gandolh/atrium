@@ -1,6 +1,6 @@
 ---
 summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), layer boundaries, the auth guard, and the upload→store→read data flow.
-updated: 2026-07-16
+updated: 2026-08-25
 ---
 
 # Architecture
@@ -40,7 +40,7 @@ web: file upload ──POST /library──► api: validate (Zod) → store orig
      gallery of cover cards ◄─GET /library─◄ list rows (metadata only)
      cover img ◄──GET /library/:id/cover──◄ stream file from disk
      open to read ◄─GET /library/:id/file─◄ stream original from disk → reader
-     progress saved ──PATCH /library/:id/progress──► UPSERT caller's reading_progress row (D31)
+     progress saved ──PATCH /library/:id/progress──► UPSERT active PROFILE's reading_progress row (D31/D35)
      remove ──DELETE /library/:id──► delete row + file + thumbnail
 ```
 
@@ -63,7 +63,7 @@ works on music unchanged — with embedded art as a square 400×400 cover.
 `GET /library/:id/file` honors **HTTP Range** (206/`Content-Range`, 416,
 `Accept-Ranges: bytes` always) for seek/scrub; `/read` branches on `kind` to
 lazy `AudioPlayer`/`VideoPlayer` (native controls, `?token=` src, per-user
-resume via the same `reading_progress` PATCH). Offline downloads remain
+resume via the same `reading_progress` PATCH, per profile since D35). Offline downloads remain
 books-only; no transcoding/ffmpeg.
 
 **Auth (D30) — an `onRequest` guard in front of everything:**
@@ -89,7 +89,7 @@ web: EPUB multipart ──POST /convert──► api: validate (Zod) → spawn C
 ## Server-side storage (D25)
 ```
 apps/api/
-  data/library.db            SQLite (better-sqlite3) — books, users, sessions, reading_progress
+  data/library.db            SQLite (better-sqlite3) — books, users, profiles, sessions, reading_progress
   library/<id>.<ext>         original uploaded PDF/EPUB files
   images/thumbnails/<id>.jpg extracted cover thumbnails
 ```
@@ -104,8 +104,14 @@ Tables (`db.ts`):
   operator-seeded accounts (D30).
 - `sessions`: `token PK, user_id → users ON DELETE CASCADE, created_at` — opaque
   login sessions (D30).
-- `reading_progress`: `(user_id, book_id) PK` → `progress, locator, updated_at`,
-  both FKs `ON DELETE CASCADE` — per-user progress + resume position (D31).
+- `profiles`: `(user_id, name)` unique → `name, color, is_default, preferences`
+  — the people inside one account (D35). `preferences` is a JSON blob (theme,
+  font settings, page mode, TOC sidebar), which is why D9 no longer holds for
+  those four.
+- `reading_progress`: `(profile_id, book_id) PK` → `progress, locator,
+  updated_at`, both FKs `ON DELETE CASCADE` — progress + resume position, keyed
+  on the **profile** since D35 (was `user_id`; the composite PK meant SQLite
+  could not ALTER it, so brief 35 rebuilt the table).
 
 ## Frontend stack (`apps/web`)
 - **TanStack Router** — routes between views (home/upload ↔ reader).
@@ -126,7 +132,11 @@ Tables (`db.ts`):
 - **Auth** (D30, `auth.ts` + `password.ts`): app-wide `onRequest` guard +
   `POST /auth/login` / `GET /auth/status` / `POST /auth/logout`; scrypt password
   hashing; opaque sessions. Accounts seeded by `scripts/seed.ts` (no
-  self-registration). Per-user reading progress (D31) via `reading_progress`.
+  self-registration). Reading progress (D31) via `reading_progress`, keyed on
+  the active **profile** since D35 — the guard resolves
+  `request.authProfile` alongside `request.authUser`, and a session whose
+  profile is missing or dangling falls back to the account default rather than
+  401-ing. Notes are profile-scoped too.
 - **Cover extraction** (D26): EPUB OPF manifest cover; PDF page-1 render → JPEG.
 - `POST /convert` — unchanged, still stateless; shells out to Calibre
   `ebook-convert` via child process.

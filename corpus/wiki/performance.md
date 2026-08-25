@@ -1,6 +1,6 @@
 ---
 summary: Recorded live + build-time performance baseline of the current (post-code-split) build — initial JS transfer, chunk sizes, cover→first-page for PDF and EPUB, and EPUB open phases — plus how to reproduce the numbers.
-updated: 2026-07-13
+updated: 2026-08-25
 ---
 
 # Performance baseline
@@ -52,6 +52,16 @@ pdf.worker are absent until a book is opened (code-split verified live).
 | Metric | Cold (first load) | Warm (cached reload) |
 |---|---|---|
 | Initial JS transfer | **123 kB** gzip (1 file) | (from cache) |
+
+> **Stale as of 2026-08-25.** The 123 kB above is the brief-15 measurement and
+> was never re-taken across briefs 19–33 (PWA, media library, discover, notes,
+> the Reading Room rework). A build at `00a7bae` — the commit *before* brief 35
+> — measures the entry chunk at **195.76 kB gzip**, so the headline number had
+> already drifted ~73 kB before profiles touched anything. Brief 35 itself cost
+> **+4.90 kB gzip** (195.76 → 200.66) and +19.5 KiB precache, measured by
+> building both trees. Re-baselining the whole table needs a fresh live run
+> (the harness in `playwright/`); until then, trust the two figures in this
+> note over the table.
 | Fonts on first paint | 159 kB (6 files) | (from cache) |
 | First Contentful Paint | — | 92 ms |
 | domInteractive | 119 ms | 26 ms |

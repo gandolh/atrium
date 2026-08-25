@@ -1,5 +1,63 @@
 # Log
 
+## [2026-08-25] build | Brief 35 shipped — profiles (D35)
+
+An account became a household and a **profile** a person in it. Reading
+progress, notes and four reading preferences moved from user scope to profile
+scope; switching is one tap with no credential (D35 — a profile is an identity
+boundary and explicitly never a security one).
+
+Built via orchestrate → plan-split-dispatch: 7 chunks in 3 waves, 3 senior /
+4 junior. Wave 2 was interrupted twice by session quota mid-verification and
+resumed from disk state rather than re-dispatched cold.
+
+**The migration.** `reading_progress` is keyed on a composite PK, which SQLite
+cannot ALTER, so both it and `notes` needed a create-copy-drop-rename rebuild
+on a database holding real reading positions. It ran inside one transaction
+with row-count assertions that throw rather than log; proven by injecting an
+orphan row and watching the whole thing roll back, leaving the original schema
+and all 9 rows untouched. The live DB was backed up first and never opened for
+writing — every test ran against a WAL-consistent copy.
+
+**Review: 10 findings, 3 Critical, all fixed but one Minor.** The pattern worth
+keeping: *every Critical spanned files owned by different chunks, and none
+tripped typecheck or build.* Per-chunk verification was honest and still
+insufficient, because each chunk was right about its own half.
+- A switch cleared the query cache but not the reader store, so the next
+  profile inherited the previous one's resume position — and `use-progress-sync`
+  wrote it back to *their* row. Progress invented on a book they never opened,
+  fully online, no offline involved.
+- An offline boot with the picker due hung on "Loading…" forever: the gate
+  blocked on an empty profile list that nothing behind it could fetch. Fixed by
+  caching the profile list on the device, so decision 6 survives with no
+  connectivity.
+- The preferences boot cache's legacy fallback was unreachable on precisely the
+  load it was written for — `ebook-reader.profile` is new in this brief, so
+  every existing device boots once with no profile id, and the `!profileId`
+  guard returned `{}` before the fallback could answer.
+- Offline progress was keyed by book alone, so a second profile's write
+  destroyed the first's un-synced position permanently. Now keyed per
+  (profile, book) at DB v4, migrated by pure copy.
+
+**A verification lesson.** Chunk 5 proved "no theme flash" by aborting the
+fetch and watching `data-theme` hold steady — genuinely good evidence, and
+still wrong, because it tested with the profile key already populated. The
+scenario that mattered was the one boot where that key does not exist yet. A
+proof is only as good as the state it starts from.
+
+**Deviations from the brief, all recorded in the brief's outcome:** the default
+profile cannot be deleted; `notes.profile_id` is RESTRICT not CASCADE;
+`GET /profiles/:id/preferences` added; `updateProgressSchema` gained an optional
+`profileId` because step 7's requirement was otherwise impossible to satisfy.
+
+**Corpus drift found and fixed:** `performance.md`'s headline "123 kB gzip
+entry" is a brief-15 number never re-taken across briefs 19–33. A build at the
+commit before this brief measures **195.76 kB**. Brief 35 itself costs +4.90 kB
+gzip, measured by building both trees rather than guessing.
+
+See [briefs/done/35-profiles.md](briefs/done/35-profiles.md), D35, and
+[wiki/architecture.md](wiki/architecture.md).
+
 ## [2026-08-24] grill+todo | Brief 36 (LaTeX) grilled and rewritten — D36, D37
 
 Three rounds. **Why it belongs here** reframed the product: owner said LaTeX is in
@@ -100,7 +158,7 @@ query keys, the offline pending-progress queue re-attributing reads after a
 switch, and globally-keyed reader prefs. Migration is the risk — SQLite cannot
 ALTER a composite PK, so `reading_progress` needs a create-copy-drop-rename
 rebuild with row-count verification. Amends D30/D31. Filed as
-[briefs/todo/35-profiles.md](briefs/todo/35-profiles.md).
+[briefs/done/35-profiles.md](briefs/done/35-profiles.md).
 
 ## [2026-08-24] todo | Brief 34 filed — Convert: the same book in either format
 

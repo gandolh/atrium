@@ -310,3 +310,53 @@ unopposed.
 - The corpus records that a profile is not a security boundary.
 - Typecheck + build + tests clean; Reading Room (D33) conformance passes on the
   picker, switcher, and manage screen.
+
+---
+
+> **Outcome (2026-08-25):** Shipped as specced via orchestrate →
+> plan-split-dispatch: 7 chunks in 3 waves (3 senior / 4 junior), then three
+> scoped review finders and three fix rounds. The migration landed all 8
+> reading_progress rows and both notes on their own account's Default profile
+> with zero loss, verified against a copy of the live DB before the real one
+> was ever touched (and re-verified by injecting an orphan row to prove the
+> row-count assertion rolls the transaction back).
+>
+> **Review found 10 findings — 3 Critical, 5 Important, 2 Minor — all fixed
+> except one Minor, logged below.** None would have been caught by the gates;
+> every one of them spanned files owned by different chunks, which is the
+> argument for the review pass rather than trusting per-chunk sign-off:
+> - **Critical:** a profile switch left the reader loaded, so the next profile
+>   inherited the previous one's resume position and wrote it back to *their*
+>   row — progress invented on a book they never opened, fully online. An
+>   offline boot with the picker due hung on "Loading…" forever, taking brief
+>   20's offline reading with it. The preferences boot cache's legacy fallback
+>   was unreachable on the one load it was written for, so every existing
+>   device would flash the wrong theme exactly once.
+> - **Important:** login remembered a profile nobody picked, making a
+>   server-assigned default indistinguishable from a choice; local offline
+>   progress was keyed by book alone, so a second profile's write silently
+>   destroyed un-synced reading position; the offline snapshot served one
+>   profile's progress to everyone; a modal scrim used a theme-flipping token
+>   and inverted in dark mode; the one solid non-ink button in `apps/web`
+>   broke design.md's "the solid button is ink, not colour".
+>
+> **Deviations from this brief, accepted:** the account's **default profile
+> cannot be deleted** (400 `DEFAULT_PROFILE`) — nothing in `db.ts` can promote
+> a replacement, so deleting it would break the guard's fallback, the reassign
+> target, and the one-default-per-account invariant; rename/recolor still work.
+> `notes.profile_id` is `ON DELETE RESTRICT` rather than CASCADE, so a mistake
+> fails loudly instead of destroying authored work. `GET /profiles/:id/
+> preferences` was added because `profileSchema` carries no preferences field.
+> `updateProgressSchema` gained an optional `profileId` — step 7's "PATCH as
+> the profile that recorded it" was otherwise impossible, since the route
+> resolves the profile from the session; the server verifies account ownership
+> and 404s a foreign id.
+>
+> **Known and accepted, not fixed:** a session whose profile is deleted from
+> *another* device is silently served the account default while that client's
+> header still names the deleted profile, until a reload reconciles it (Minor).
+> Also unmeasured: the 24h idle re-show and the cap-of-5 hidden state were
+> verified by type and logic, not by clock manipulation.
+>
+> Uncommitted work was committed during the run; see `21f3b5b`, `c187c75`,
+> `03f4a96` and the `SAVE` commit that captured the build.

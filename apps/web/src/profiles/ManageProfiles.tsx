@@ -115,13 +115,21 @@ function ProfileRow({
       setError("A name is required.");
       return;
     }
+    const nextName = trimmed !== profile.name ? trimmed : undefined;
+    const nextColor = color !== profile.color ? color : undefined;
+    // Nothing changed. Sending `{}` makes the server's `updateProfileSchema`
+    // refinement reject the empty patch as INVALID_REQUEST, which the client
+    // renders as "Names must be 1–24 characters." — a confusing complaint
+    // about a name the user never touched. Closing the form is what they meant
+    // by Save anyway.
+    if (!nextName && !nextColor) {
+      setEditing(false);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await updateProfile(profile.id, {
-        name: trimmed !== profile.name ? trimmed : undefined,
-        color: color !== profile.color ? color : undefined,
-      });
+      await updateProfile(profile.id, { name: nextName, color: nextColor });
       await onSaved();
       setEditing(false);
     } catch (err) {
@@ -377,7 +385,7 @@ function DeleteProfileDialog({
   return (
     <div
       role="presentation"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-5 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 backdrop-blur-md"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onCancel();
       }}
@@ -425,7 +433,7 @@ function DeleteProfileDialog({
             type="button"
             disabled={busy}
             onClick={() => confirm(noteCount !== null)}
-            className="rounded bg-danger px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+            className="rounded bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Deleting…" : noteCount === null ? "Delete" : "Move notes & delete"}
           </button>

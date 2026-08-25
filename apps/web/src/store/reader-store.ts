@@ -1,11 +1,17 @@
 import { create } from "zustand";
-import type { Format } from "@ebook-reader/shared";
+import type { Format, Preferences } from "@ebook-reader/shared";
+
+import { useAuthStore } from "../lib/auth";
+import { getBootPreferences, initPreferencesSync, schedulePreferencesWrite } from "../lib/preferences";
 
 /**
  * In-memory reader state (decisions.md D9): resets on refresh — intended, no
- * persistence. Shared by both renderers (PDF/EPUB) behind the common Kindle-
- * style chrome (wiki/reader.md). This brief only lays out typed state +
- * setters; the readers (briefs 06/07) wire the actual behavior.
+ * persistence, EXCEPT the four preference groups below (theme, fontSettings,
+ * pageMode, tocSidebarOpen), which brief 35 / D35 moves to the active
+ * profile's server-side `preferences` blob (revising D9 for preferences
+ * only — reading *position* stays session-only, that's D31's locator, not a
+ * preference). Shared by both renderers (PDF/EPUB) behind the common Kindle-
+ * style chrome (wiki/reader.md).
  *
  * `loadedFile`/`loadedFormat` are set by the uploader (brief 05, `/`) once a
  * PDF is picked or an EPUB fork resolves to "Read", and are the handoff seam
@@ -63,13 +69,15 @@ export interface ReaderState {
   /**
    * Reading mode: single page per view vs continuous vertical scroll. Like
    * `tocSidebarOpen`, this is a durable UI *preference* (not reading position,
-   * D9), so it's mirrored to localStorage and survives a refresh.
+   * D9), so it lives in the active profile's `preferences` blob (D35) and
+   * survives a refresh — and follows the person to another device.
    */
   pageMode: PageMode;
   /**
    * Whether the EPUB contents sidebar is docked open. Unlike reading position
    * (D9: intentionally not persisted), this is a durable UI *preference* — the
-   * user asked for it to be remembered — so it's mirrored to localStorage.
+   * user asked for it to be remembered — so it's part of the profile's
+   * `preferences` blob (D35), same as `pageMode`.
    */
   tocSidebarOpen: boolean;
   /** The in-memory file handed from the library (`/`) to the reader (`/read`). */
@@ -144,78 +152,49 @@ const DEFAULT_FONT_SETTINGS: FontSettings = {
   margins: 24,
 };
 
-// The contents-sidebar preference is the one bit of durable UI state (the user
-// asked for it to be remembered). Persist just this boolean — reading position
-// stays session-only (D9). Guarded so SSR/no-storage environments no-op.
-const TOC_SIDEBAR_KEY = "ebook-reader:toc-sidebar-open";
-
-function readTocSidebarPref(): boolean {
-  try {
-    return localStorage.getItem(TOC_SIDEBAR_KEY) === "1";
-  } catch {
-    return false;
-  }
+/**
+ * `profileId` at whatever moment a setter fires — read fresh each time (not
+ * cached), since the active profile can change between renders. `null` on a
+ * device that hasn't picked a profile yet (still on the lock screen, or the
+ * very first paint before login); a setter that fires in that state has
+ * nothing to attach the write to, so it's dropped rather than queued — there
+ * is no "preferences with no owner" concept.
+ */
+function activeProfileId(): string | null {
+  return useAuthStore.getState().activeProfileId;
 }
 
-function writeTocSidebarPref(open: boolean) {
-  try {
-    localStorage.setItem(TOC_SIDEBAR_KEY, open ? "1" : "0");
-  } catch {
-    /* preference persistence is best-effort */
-  }
+/** Schedule `patch` to be written to the active profile's preferences, if there is one. */
+function persistPreference(patch: Preferences): void {
+  const id = activeProfileId();
+  if (id) schedulePreferencesWrite(id, patch);
 }
 
-// The theme is a durable UI preference too (2026-07-16 UI review): without
-// persistence every full page load (deep link, refresh, /discover navigation)
-// snapped a dark/sepia user back to light. Same best-effort pattern.
-const THEME_KEY = "ebook-reader:theme";
-
-function readThemePref(): Theme {
-  try {
-    const value = localStorage.getItem(THEME_KEY);
-    return value === "sepia" || value === "dark" ? value : "light";
-  } catch {
-    return "light";
-  }
-}
-
-function writeThemePref(theme: Theme) {
-  try {
-    localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    /* preference persistence is best-effort */
-  }
-}
-
-// Reading mode is the other durable UI preference (chunk 11). Persisted the same
-// best-effort way as the sidebar: a single localStorage key, guarded so SSR/no-
-// storage environments fall back to the "paged" default.
-const PAGE_MODE_KEY = "ebook-reader:page-mode";
-
-function readPageModePref(): PageMode {
-  try {
-    return localStorage.getItem(PAGE_MODE_KEY) === "scroll" ? "scroll" : "paged";
-  } catch {
-    return "paged";
-  }
-}
-
-function writePageModePref(mode: PageMode) {
-  try {
-    localStorage.setItem(PAGE_MODE_KEY, mode);
-  } catch {
-    /* preference persistence is best-effort */
-  }
-}
+// Brief 35 / D35: the four groups below used to be three bare localStorage
+// keys (theme/pageMode/tocSidebarOpen) plus fontSettings, which wasn't
+// persisted at all. All four now flow through `lib/preferences.ts`, which
+// owns the actual boot-cache/localStorage keys and the debounced server
+// write — this file only reads the synchronous boot snapshot once at module
+// load (below) and calls `persistPreference` from each setter.
+//
+// `bootProfileId` is captured once here (not re-read) and handed to
+// `initPreferencesSync` below so its first reconcile can tell "the store
+// already reflects this exact profile's best guess" from "repaint me" — see
+// that function's doc comment for why conflating the two would flash.
+const bootProfileId = activeProfileId();
+const bootPrefs = getBootPreferences(bootProfileId);
 
 const initialState = {
-  theme: readThemePref(),
-  fontSettings: DEFAULT_FONT_SETTINGS,
+  theme: bootPrefs.theme ?? ("light" as Theme),
+  // Seeded from `DEFAULT_FONT_SETTINGS` for a profile with no stored font
+  // preference — this is the first time these become durable at all (they
+  // used to reset on every reload; see the `FontSettings` doc above).
+  fontSettings: { ...DEFAULT_FONT_SETTINGS, ...bootPrefs.fontSettings },
   currentLocation: null as ReaderLocation,
   chromeVisible: true,
   chromeHoldCount: 0,
-  pageMode: readPageModePref(),
-  tocSidebarOpen: readTocSidebarPref(),
+  pageMode: bootPrefs.pageMode ?? ("paged" as PageMode),
+  tocSidebarOpen: bootPrefs.tocSidebarOpen ?? false,
   loadedFile: null as File | null,
   loadedFormat: null as Format | null,
   loadedBookId: null as string | null,
@@ -229,13 +208,21 @@ export const useReaderStore = create<ReaderState>((set) => ({
 
   setTheme: (theme) =>
     set(() => {
-      writeThemePref(theme);
+      persistPreference({ theme });
       return { theme };
     }),
   setFontSettings: (fontSettings) =>
-    set((state) => ({
-      fontSettings: { ...state.fontSettings, ...fontSettings },
-    })),
+    set((state) => {
+      const merged = { ...state.fontSettings, ...fontSettings };
+      // The server merges the `preferences` blob only one level deep, so
+      // `fontSettings` is REPLACED WHOLESALE on every PATCH — sending a
+      // partial (e.g. just `{ size }`) would silently drop the other three
+      // fields server-side. `merged` always carries all four because
+      // `state.fontSettings` is seeded complete above and every write goes
+      // through this same merge, so it's always safe to send as-is.
+      persistPreference({ fontSettings: merged });
+      return { fontSettings: merged };
+    }),
   setCurrentLocation: (currentLocation) => set({ currentLocation }),
   setChromeVisible: (chromeVisible) => set({ chromeVisible }),
   toggleChrome: () => set((state) => ({ chromeVisible: !state.chromeVisible })),
@@ -248,19 +235,19 @@ export const useReaderStore = create<ReaderState>((set) => ({
     set((state) => ({ chromeHoldCount: Math.max(0, state.chromeHoldCount - 1) })),
   setPageMode: (pageMode) =>
     set(() => {
-      writePageModePref(pageMode);
+      persistPreference({ pageMode });
       return { pageMode };
     }),
   togglePageMode: () =>
     set((state) => {
       const pageMode: PageMode = state.pageMode === "paged" ? "scroll" : "paged";
-      writePageModePref(pageMode);
+      persistPreference({ pageMode });
       return { pageMode };
     }),
   toggleTocSidebar: () =>
     set((state) => {
       const tocSidebarOpen = !state.tocSidebarOpen;
-      writeTocSidebarPref(tocSidebarOpen);
+      persistPreference({ tocSidebarOpen });
       return { tocSidebarOpen };
     }),
   setLoadedFile: (loadedFile, loadedFormat) =>
@@ -271,3 +258,28 @@ export const useReaderStore = create<ReaderState>((set) => ({
   setZoom: (zoom) => set({ zoom }),
   reset: () => set(initialState),
 }));
+
+// Wire profile-switch reactivity once, right after the store exists: whenever
+// `useAuthStore`'s active profile changes (login, the boot reconcile, an
+// explicit switch, or the delete-fallback in `refreshProfiles`), pull that
+// profile's preferences (boot cache first for an instant paint, then the
+// server fetch) and push them in here. This is the ONLY place that happens —
+// no router/header/picker code needs to call anything for a switch to work.
+initPreferencesSync(
+  {
+    applyPreferences: (prefs) =>
+      useReaderStore.setState(() => ({
+        // Resolve against the hard defaults, NOT the currently-showing state.
+        // A profile that has never set a theme must present the app default
+        // when switched to, not whatever the PREVIOUS profile had on screen —
+        // "keep whatever's already showing" here would leave Bob looking dark
+        // forever after switching away from a profile that picked dark, since
+        // Bob's `{}` would never actively overwrite it.
+        theme: prefs.theme ?? "light",
+        fontSettings: { ...DEFAULT_FONT_SETTINGS, ...prefs.fontSettings },
+        pageMode: prefs.pageMode ?? "paged",
+        tocSidebarOpen: prefs.tocSidebarOpen ?? false,
+      })),
+  },
+  bootProfileId,
+);

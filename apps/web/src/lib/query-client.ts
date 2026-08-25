@@ -5,6 +5,13 @@ import { ApiError } from "./api-client";
  * Single QueryClient for the app. No queries live here yet — the convert
  * `useMutation` (wrapping `POST /convert`) lands in brief 05. This just
  * provides the client so `QueryClientProvider` can wrap the router.
+ *
+ * One coupling worth knowing at the definition site: `lib/auth.ts` calls
+ * `queryClient.clear()` on every profile switch and on the 401 re-lock (brief
+ * 35 step 7), because library rows and notes are profile-scoped data. Nothing
+ * cached here may outlive a switch — so if a persister is ever added below, it
+ * must hydrate per profile or it will hand one person's Continue row to the
+ * next. The query keys carry the active profile id for the same reason.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {

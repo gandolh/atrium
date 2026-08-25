@@ -23,16 +23,17 @@ import {
   clearBookCover,
   deleteBook,
   getBook,
-  getUserProgress,
+  getProfile,
+  getProfileProgress,
   insertBook,
   listBooks,
   listBooksNeedingMetadata,
   listBooksWithCover,
-  listUserProgress,
+  listProfileProgress,
   toLibraryBook,
   touchOpened,
   updateBookMetadata,
-  upsertUserProgress,
+  upsertProfileProgress,
 } from "./db.js";
 import { extractMeta } from "./extract.js";
 
@@ -187,14 +188,15 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
 
   // --- GET /library — the gallery list ---------------------------------------
   app.get("/library", async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = request.authUser;
-    if (!user) return reply.status(401).send({ error: "UNAUTHORIZED" });
+    const profile = request.authProfile;
+    if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
     const sort = librarySortSchema.catch("recent").parse(
       (request.query as { sort?: string } | undefined)?.sort,
     );
-    // Progress/locator are per-user; fetch this user's rows once and merge.
+    // Progress/locator are per-profile (brief 35); fetch this profile's rows
+    // once and merge.
     const progressByBook = new Map(
-      listUserProgress(user.id).map((p) => [p.book_id, p]),
+      listProfileProgress(profile.id).map((p) => [p.book_id, p]),
     );
     return reply.send(
       listBooks(sort).map((row) =>
@@ -289,10 +291,11 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     return reply.send(createReadStream(row.cover_path));
   });
 
-  // --- PATCH /library/:id/progress — save THIS user's progress + position ----
+  // --- PATCH /library/:id/progress — save the target profile's progress + position ----
   app.patch("/library/:id/progress", async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.authUser;
-    if (!user) return reply.status(401).send({ error: "UNAUTHORIZED" });
+    const activeProfile = request.authProfile;
+    if (!user || !activeProfile) return reply.status(401).send({ error: "UNAUTHORIZED" });
     const { id } = request.params as { id: string };
     const row = getBook(id);
     if (!row) return reply.status(404).send({ error: "Book not found." });
@@ -301,8 +304,36 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     if (!parsed.success) {
       return reply.status(400).send({ error: "progress must be a number in [0, 1]." });
     }
-    upsertUserProgress(user.id, id, parsed.data.progress, parsed.data.locator ?? null, nowIso());
-    return reply.send(toLibraryBook(row, getUserProgress(user.id, id)));
+
+    // `profileId` is the offline-flush override (brief 35 step 7, D35): a
+    // record queued while one profile was reading must PATCH as THAT profile
+    // even if the session has since switched to another, or the flush would
+    // silently re-attribute person A's reading to person B. Honouring a
+    // client-supplied profile id here is safe under D35 — the account is the
+    // security boundary, the profile is not, so writing as another profile
+    // *on the same account* is exactly as privileged as switching to it and
+    // writing normally. What is NOT safe is skipping the ownership check: an
+    // unverified id would let one account write into another's profile, which
+    // is a cross-*account* write. A foreign or unknown id 404s (never 403),
+    // matching the rule in profile-routes.ts — a 403 would confirm the id
+    // exists on someone else's account.
+    let targetProfileId = activeProfile.id;
+    if (parsed.data.profileId !== undefined) {
+      const target = getProfile(parsed.data.profileId);
+      if (!target || target.user_id !== user.id) {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      targetProfileId = target.id;
+    }
+
+    upsertProfileProgress(
+      targetProfileId,
+      id,
+      parsed.data.progress,
+      parsed.data.locator ?? null,
+      nowIso(),
+    );
+    return reply.send(toLibraryBook(row, getProfileProgress(targetProfileId, id)));
   });
 
   // --- DELETE /library/:id — remove row + file + thumbnail -------------------

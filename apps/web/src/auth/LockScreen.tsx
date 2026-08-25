@@ -1,24 +1,40 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { useAuthStore } from "../lib/auth";
+import { useAuthStore, useNeedsPicker } from "../lib/auth";
+import { ProfilePicker } from "../profiles/ProfilePicker";
 
 /**
  * Auth gate (brief 09, wiki/design.md "Reading Room"). Wraps everything the
  * router renders (mounted in `routes/root-layout.tsx`): checks
  * `GET /auth/status` once on load, then renders either a neutral loading
- * state, the lock screen, or `children` once unlocked. Any later 401 (via
- * `lib/auth.ts`'s `setOnUnauthorized` wiring) flips `status` back to
- * `"locked"`, which re-renders this gate over whatever was mounted.
+ * state, the lock screen, the profile picker, or `children` once unlocked.
+ * Any later 401 (via `lib/auth.ts`'s `setOnUnauthorized` wiring) flips
+ * `status` back to `"locked"`, which re-renders this gate over whatever was
+ * mounted.
+ *
+ * **Brief 35** inserts the "Who's reading?" picker here, after the lock
+ * screen and before `children` — exactly the slot the header comment
+ * describes. `pickerRequired` alone isn't enough to show it: on a fresh boot
+ * `checkStatus` unlocks synchronously from the seeded token and reconciles
+ * the profile list asynchronously after (see auth.ts's "unlock first,
+ * reconcile after"), so there's a brief window where the gate might already
+ * want the picker but `profiles` hasn't arrived yet. Rendering the picker
+ * against an empty list in that window would flash an empty grid, so this
+ * treats "unlocked, wants the picker, no profiles yet" the same as
+ * `"checking"` instead — profiles arrive within one request, and every real
+ * account always has at least one (the last profile can't be deleted).
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const status = useAuthStore((s) => s.status);
   const checkStatus = useAuthStore((s) => s.checkStatus);
+  const pickerRequired = useNeedsPicker();
+  const profileCount = useAuthStore((s) => s.profiles.length);
 
   useEffect(() => {
     void checkStatus();
   }, [checkStatus]);
 
-  if (status === "checking") {
+  if (status === "checking" || (status === "unlocked" && pickerRequired && profileCount === 0)) {
     return (
       <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] items-center justify-center bg-paper">
         <p className="font-ui text-sm text-ink-variant">Loading…</p>
@@ -28,6 +44,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (status === "locked") {
     return <LockScreen />;
+  }
+
+  if (pickerRequired) {
+    return <ProfilePicker />;
   }
 
   return <>{children}</>;

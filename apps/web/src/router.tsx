@@ -7,6 +7,7 @@ import { LibraryHome } from "./library/LibraryHome";
 import { Read } from "./routes/read";
 import { Discover } from "./routes/discover";
 import { Notes } from "./routes/notes";
+import { ManageProfiles } from "./profiles/ManageProfiles";
 
 /**
  * Code-based route tree (no file-based plugin — keeps the shell dependency-
@@ -112,6 +113,15 @@ const discoverRoute = createRoute({
   component: Discover,
 });
 
+// `/profiles` (brief 35 Part C) — the manage screen reached from the header
+// switcher's "Manage profiles" entry. No search params: it always shows the
+// account's whole profile list, there's nothing to deep-link into.
+const profilesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/profiles",
+  component: ManageProfiles,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   booksRoute,
@@ -120,6 +130,7 @@ const routeTree = rootRoute.addChildren([
   notesRoute,
   readRoute,
   discoverRoute,
+  profilesRoute,
 ]);
 
 // `basepath` matches Vite's `base` (import.meta.env.BASE_URL) so client-side

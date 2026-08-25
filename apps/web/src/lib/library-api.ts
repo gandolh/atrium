@@ -32,18 +32,25 @@ export async function deleteBook(id: string): Promise<void> {
 }
 
 /**
- * `PATCH /library/:id/progress` — persist the current user's progress (0..1)
- * and, when known, their exact resume `locator` (page number / CFI).
+ * `PATCH /library/:id/progress` — persist the current profile's progress
+ * (0..1) and, when known, their exact resume `locator` (page number / CFI).
+ *
+ * `profileId` (brief 35 step 7) is for the offline-queue flush ONLY: it names
+ * the profile that recorded the position, overriding the server's normal
+ * session-resolved profile. Omit it (as every live call site does) and the
+ * server writes to whoever the session says is active right now — correct
+ * for a write that's happening as it's made.
  */
 export async function updateProgress(
   id: string,
   progress: number,
   locator?: string | null,
+  profileId?: string,
 ): Promise<void> {
   await apiFetch(`/library/${id}/progress`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ progress, locator: locator ?? null }),
+    body: JSON.stringify({ progress, locator: locator ?? null, profileId }),
   });
 }
 

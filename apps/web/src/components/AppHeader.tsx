@@ -3,11 +3,12 @@ import type { ReactNode } from "react";
 
 import type { Theme } from "../store/reader-store";
 import { useReaderStore } from "../store/reader-store";
+import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
 
 /**
  * The persistent app header, shared by every non-reader page (`/`, `/discover`,
- * `/notes`) so the wordmark, search, Notes and the theme control never
- * disappear when the page changes.
+ * `/notes`, `/profiles`) so the wordmark, search, Notes, the profile switcher
+ * and the theme control never disappear when the page changes.
  *
  * **Brief 28 (D33 move 1) removed `NavTabs`.** Media kind is no longer an
  * address — `/books` `/music` `/videos` collapsed into `/` where kind is a
@@ -15,10 +16,17 @@ import { useReaderStore } from "../store/reader-store";
  * no per-kind navigation at all. What remains is app-level only, in **two
  * clusters on one row**:
  *
- *   wordmark · [search slot] ‖ Notes · {actions} · theme
+ *   wordmark · [search slot] ‖ Notes · {actions} · profile · theme
  *
  * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
  * is a link here rather than a chip in the grid.
+ *
+ * **Brief 35** adds `ProfileSwitcher` as one more item in the existing right
+ * cluster rather than a third cluster — always reachable here regardless of
+ * the picker's 24h idle rule (D35 decision 6), since a household member
+ * switching mid-session needs a door that's open every time. Placed after
+ * `{actions}` and before the theme toggle: the switcher and the theme toggle
+ * are both "who/how you read" controls, so they sit together at the row's end.
  */
 export function AppHeader({
   caption,
@@ -56,6 +64,7 @@ export function AppHeader({
       <div className="ml-auto flex flex-wrap items-center gap-3">
         <NotesLink />
         {actions}
+        <ProfileSwitcher />
         <ThemeToggle />
       </div>
     </header>

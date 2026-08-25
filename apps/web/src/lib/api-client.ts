@@ -29,11 +29,20 @@ export function apiUrl(path: string): URL {
 
 export class ApiError extends Error {
   readonly status: number;
+  /**
+   * The failed response's parsed JSON body, when it had one — e.g. the
+   * profile routes' `{ error: "PROFILE_HAS_NOTES", noteCount: 2 }` (brief 35).
+   * Undefined for a non-JSON or empty body (a 204, a proxy's HTML error page,
+   * etc.); callers must not assume it's present, only that when it IS, its
+   * shape matches whatever that endpoint documents for that status.
+   */
+  readonly body?: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -81,7 +90,21 @@ export async function apiFetch(
     if (response.status === 401 && !options?.skipAuthRedirect) {
       onUnauthorized?.();
     }
-    throw new ApiError(`Request to ${path} failed: ${response.status} ${response.statusText}`, response.status);
+    // Best-effort: most error responses in this app are JSON (`{error, ...}`),
+    // but a 204 has no body and a reverse proxy can hand back an HTML error
+    // page, so a failed parse just leaves `body` undefined rather than
+    // throwing a second, more confusing error out of the error path itself.
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      body = undefined;
+    }
+    throw new ApiError(
+      `Request to ${path} failed: ${response.status} ${response.statusText}`,
+      response.status,
+      body,
+    );
   }
 
   return response;

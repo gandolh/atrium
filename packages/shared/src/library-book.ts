@@ -92,6 +92,24 @@ export const updateProgressSchema = z.object({
   /** Exact resume position (see `LibraryBook.locator`). Omitted/null leaves the
    * stored locator untouched. */
   locator: z.string().min(1).nullish(),
+  /**
+   * The profile this reading was recorded *as* (brief 35). Omitted on a normal
+   * live PATCH — the route resolves the profile from the session, which is
+   * always right when the write happens as it's made.
+   *
+   * It exists for the offline queue (brief 35 step 7). A record queued while
+   * profile A was reading may only flush after a switch to B, and the session
+   * by then says B — so without this the flush would silently re-attribute A's
+   * reading to B, which is the exact bug that step exists to prevent. The
+   * flusher names the recording profile here instead.
+   *
+   * Safe under D35: the account is the security boundary, the profile is not,
+   * so writing as another profile *on the same account* is no more privileged
+   * than switching to it and writing normally. The route still verifies the id
+   * belongs to the caller's account — an unchecked client-supplied id would be
+   * a cross-*account* write, which is a different and real thing.
+   */
+  profileId: z.string().optional(),
 });
 export type UpdateProgressRequest = z.infer<typeof updateProgressSchema>;
 

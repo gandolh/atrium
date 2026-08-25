@@ -27,7 +27,12 @@ const DB_NAME = "ebook-reader:offline";
 // metadata-only operations (list, snapshot refresh) never touch the (large)
 // blobs. v1 databases are migrated in `onupgradeneeded` (blobs relocated, then
 // stripped from the metadata record) — existing downloads survive the bump.
-const DB_VERSION = 2;
+// v3 (brief 35): PROGRESS_STORE records gained `profileId` so a pending write
+// remembers who recorded it — otherwise a flush after a profile switch would
+// silently re-attribute one person's reading to another. v1/v2 databases are
+// migrated in `onupgradeneeded` (existing progress rows backfilled with
+// `profileId: null`) — see the migration block below for why `null`.
+const DB_VERSION = 3;
 /** Object store: `LibraryBook` snapshot + reconstruction metadata, keyed by id.
  *  Metadata ONLY — the file bytes live in FILES_STORE (see below) so listing /
  *  refreshing snapshots never deserializes a 40 MB PDF. */
@@ -43,9 +48,10 @@ const PROGRESS_STORE = "progress";
 
 /**
  * Local reading-progress record — the client-side mirror of the server's
- * per-user progress (D31). `{fraction, locator, updatedAt}` is the public shape
- * (brief item 1/5); `updatedAt` is a local `Date.now()` ms epoch stamped when
- * the reading position last changed on THIS device.
+ * per-profile progress (D31, moved from user to profile scope by brief 35).
+ * `{fraction, locator, updatedAt, profileId}` is the public shape (brief item
+ * 1/5, extended by brief 35 step 7); `updatedAt` is a local `Date.now()` ms
+ * epoch stamped when the reading position last changed on THIS device.
  */
 export interface LocalProgress {
   /** Coarse progress 0..1 (drives the cover bar), same units as `LibraryBook.progress`. */
@@ -54,6 +60,19 @@ export interface LocalProgress {
   locator: string | null;
   /** Local ms epoch of the last position change (last-write-wins clock, this device). */
   updatedAt: number;
+  /**
+   * The profile active on THIS device when the write happened (brief 35 step
+   * 7) — what lets a reconnect flush attribute the PATCH to the person who
+   * actually read, instead of whoever happens to be active when the network
+   * comes back. `null` means "unknown, attribute to whoever is active at
+   * flush time": it's what a v2 record (written before profiles existed)
+   * backfills to on the v2→v3 upgrade below, and it's also what a fresh write
+   * uses if `useProgressSync` ever fires before the active profile is known.
+   * Both cases preserve today's behaviour exactly for the single-profile case
+   * — which is every existing install, since profiles ship in this same
+   * brief — rather than guessing at an attribution we don't have.
+   */
+  profileId: string | null;
 }
 
 /**
@@ -146,6 +165,24 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(PROGRESS_STORE)) {
         db.createObjectStore(PROGRESS_STORE, { keyPath: "id" });
+      } else if (event.oldVersion >= 1 && event.oldVersion < 3 && upgradeTx) {
+        // v2 → v3 migration (brief 35): PROGRESS_STORE already exists (this is
+        // an upgrade, not a fresh install), so its records predate
+        // `profileId`. Backfill `profileId: null` on every existing row via a
+        // cursor — same shape as the v1→v2 blob relocation below: read/rewrite
+        // in place inside the versionchange transaction, nothing is dropped or
+        // recreated, so no pending record can be lost by this bump.
+        const progress = upgradeTx.objectStore(PROGRESS_STORE);
+        const cursorReq = progress.openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (!cursor) return;
+          const legacy = cursor.value as StoredProgress & { profileId?: string | null };
+          if (legacy.profileId === undefined) {
+            cursor.update({ ...legacy, profileId: null } satisfies StoredProgress);
+          }
+          cursor.continue();
+        };
       }
       if (!db.objectStoreNames.contains(FILES_STORE)) {
         const files = db.createObjectStore(FILES_STORE, { keyPath: "id" });
@@ -383,6 +420,9 @@ export async function getLocalProgress(
         fraction: record.fraction,
         locator: record.locator,
         updatedAt: record.updatedAt,
+        // A record predating brief 35 has no stored field at all; treat that
+        // the same as an explicit `null` (see `LocalProgress.profileId`).
+        profileId: record.profileId ?? null,
         pending: record.updatedAt > record.syncedAt,
       };
     });
@@ -406,6 +446,10 @@ export async function putLocalProgress(id: string, progress: LocalProgress): Pro
         fraction: progress.fraction,
         locator: progress.locator,
         updatedAt: progress.updatedAt,
+        // The profile active on THIS device right now — recorded at write
+        // time so a later flush (possibly after a profile switch) still
+        // knows who actually read this position (brief 35 step 7).
+        profileId: progress.profileId,
         syncedAt: existing?.syncedAt ?? 0,
       };
       await reqDone(store.put({ id, ...record }));
@@ -447,10 +491,37 @@ export async function listPendingProgress(): Promise<Array<LocalProgress & { id:
       const all = (await reqDone(store.getAll())) as Array<StoredProgress & { id: string }>;
       return all
         .filter((r) => r.updatedAt > r.syncedAt)
-        .map((r) => ({ id: r.id, fraction: r.fraction, locator: r.locator, updatedAt: r.updatedAt }));
+        .map((r) => ({
+          id: r.id,
+          fraction: r.fraction,
+          locator: r.locator,
+          updatedAt: r.updatedAt,
+          // Predates brief 35 → treat as `null` (see `LocalProgress.profileId`).
+          profileId: r.profileId ?? null,
+        }));
     });
   } catch {
     return [];
+  }
+}
+
+/**
+ * Drop a book's local progress record entirely — used when the profile that
+ * recorded it no longer exists (the reconnect flush's profile-scoped PATCH
+ * comes back 404, brief 35 step 7). Deliberately narrower than
+ * `deleteOfflineBook`: this touches ONLY PROGRESS_STORE, so a still-downloaded
+ * book's blob and metadata (device-scoped, decision 7) are untouched — it's
+ * the attribution that's gone, not the book. Idempotent: deleting an absent
+ * id is a no-op.
+ */
+export async function deleteLocalProgress(id: string): Promise<void> {
+  if (!isOfflineSupported()) return;
+  try {
+    await tx(PROGRESS_STORE, "readwrite", async (getStore) => {
+      await reqDone(getStore(PROGRESS_STORE).delete(id));
+    });
+  } catch {
+    /* best-effort */
   }
 }
 

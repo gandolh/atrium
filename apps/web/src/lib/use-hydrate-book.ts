@@ -3,7 +3,9 @@ import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-quer
 import type { Format, LibraryBook, MediaKind } from "@ebook-reader/shared";
 
 import { useReaderStore } from "../store/reader-store";
+import { useActiveProfileId } from "./auth";
 import { fetchBookFile, fetchLibrary } from "./library-api";
+import { libraryKey, libraryProfileKey } from "./use-library";
 import { getLocalProgress, getOfflineBook, offlineRecordToFile, resolveOfflineResume } from "./offline-store";
 
 /**
@@ -52,20 +54,30 @@ function resumeLocation(locator: string | null, format: LibraryBook["format"]): 
 /**
  * The row for `bookId` from ANY already-cached library list.
  *
- * The query below fetches `["library", "recent"]`, but the home fetches
- * `["library", <active sort>]` — so opening a book with Sort = Title or Author
- * left this hook with a cold cache and no row until its own fetch landed. The
- * opening screen needs the row on its FIRST commit: that is where the cover →
- * reader shared-layout morph lands (`routes/read.tsx`), and a null row there
- * means morphing the library cover into an empty tile.
+ * The query below fetches the `"recent"` sort, but the home fetches whichever
+ * sort is active — so opening a book with Sort = Title or Author left this hook
+ * with a cold cache and no row until its own fetch landed. The opening screen
+ * needs the row on its FIRST commit: that is where the cover → reader
+ * shared-layout morph lands (`routes/read.tsx`), and a null row there means
+ * morphing the library cover into an empty tile.
  *
- * A non-reactive cache read is the right shape for exactly that: every
- * `["library", *]` entry holds the same `LibraryBook[]`, only ordered
- * differently, and the live query result below still wins as soon as it
- * arrives.
+ * A non-reactive cache read is the right shape for exactly that: every sort
+ * variant holds the same `LibraryBook[]`, only ordered differently, and the
+ * live query result below still wins as soon as it arrives.
+ *
+ * Scoped to ONE profile's key prefix (brief 35 step 7), not the bare
+ * `["library"]` one: the row carries `locator`, which is that profile's resume
+ * position (D31 as revised by D35), so a leftover entry from another profile
+ * would open the book at someone else's page.
  */
-function cachedLibraryRow(client: QueryClient, bookId: string): LibraryBook | null {
-  for (const [, data] of client.getQueriesData<LibraryBook[]>({ queryKey: ["library"] })) {
+function cachedLibraryRow(
+  client: QueryClient,
+  profileId: string | null,
+  bookId: string,
+): LibraryBook | null {
+  for (const [, data] of client.getQueriesData<LibraryBook[]>({
+    queryKey: libraryProfileKey(profileId),
+  })) {
     const found = data?.find((b) => b.id === bookId);
     if (found) return found;
   }
@@ -79,6 +91,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
   // reader-specific machinery — the offline blob store and the byte download.
   const isMedia = kind !== "book";
   const queryClient = useQueryClient();
+  const profileId = useActiveProfileId();
   const loadedFile = useReaderStore((s) => s.loadedFile);
   const loadedBookId = useReaderStore((s) => s.loadedBookId);
   const setLoadedBook = useReaderStore((s) => s.setLoadedBook);
@@ -98,8 +111,12 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     ? Boolean(bookId)
     : Boolean(bookId) && (!loadedFile || loadedBookId !== bookId);
 
+  // Built through `libraryKey`, never spelled out: a hand-written
+  // `["library", "recent"]` here would be a SEPARATE cache entry with no
+  // profile in it — never shared with the home list, never invalidated by an
+  // upload, and free to serve the previous profile's rows after a switch.
   const library = useQuery({
-    queryKey: ["library", "recent"],
+    queryKey: libraryKey(profileId, "recent"),
     queryFn: () => fetchLibrary("recent"),
     enabled: needsHydrate,
   });
@@ -125,9 +142,9 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     // Only until the live list answers: once it has, a row missing from it is
     // authoritatively gone ("removed from your library"), and a stale entry
     // under another sort key must not resurrect it.
-    if (!library.data && bookId) return cachedLibraryRow(queryClient, bookId);
+    if (!library.data && bookId) return cachedLibraryRow(queryClient, profileId, bookId);
     return null;
-  }, [library.data, bookId, offlineBook, queryClient]);
+  }, [library.data, bookId, offlineBook, queryClient, profileId]);
 
   useEffect(() => {
     if (!needsHydrate || !bookId) {

@@ -127,3 +127,24 @@ export type {
   CreateNoteRequest,
   UpdateNoteRequest,
 } from "./notes.js";
+
+// --- Profile contract (brief 35) -------------------------------------------
+export {
+  PROFILE_COLORS,
+  profileColorSchema,
+  MAX_PROFILES_PER_ACCOUNT,
+  profileSchema,
+  profileListSchema,
+  createProfileSchema,
+  updateProfileSchema,
+  fontSettingsSchema,
+  preferencesSchema,
+} from "./profile.js";
+export type {
+  ProfileColor,
+  Profile,
+  CreateProfileRequest,
+  UpdateProfileRequest,
+  FontSettingsPreference,
+  Preferences,
+} from "./profile.js";

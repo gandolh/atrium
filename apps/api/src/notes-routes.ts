@@ -19,10 +19,11 @@ import {
 } from "./db.js";
 
 /**
- * Notes CRUD (brief 26). Per-user: every query is scoped by `request.authUser`
- * (the app-wide guard in auth.ts attaches it and 401s otherwise, so these
- * routes never need bespoke auth). Page contents live as JSON in the row's
- * `data` column; the wire shape is the shared `Note` / `NoteSummary`.
+ * Notes CRUD (brief 26). Per-profile since brief 35 (D35, decision 3): every
+ * query is scoped by `request.authProfile` (the app-wide guard in auth.ts
+ * attaches it, alongside `authUser`, and 401s otherwise, so these routes
+ * never need bespoke auth). Page contents live as JSON in the row's `data`
+ * column; the wire shape is the shared `Note` / `NoteSummary`.
  */
 
 const BLANK_PAGE: NotePage = { strokes: [], texts: [], template: "blank" };
@@ -57,11 +58,11 @@ function toSummary(row: NoteRow): NoteSummary {
 }
 
 export function registerNotesRoutes(app: FastifyInstance): void {
-  // The guard guarantees an authUser on every route here.
-  const uid = (request: FastifyRequest): string => request.authUser!.id;
+  // The guard guarantees an authProfile on every route here.
+  const pid = (request: FastifyRequest): string => request.authProfile!.id;
 
   app.get("/notes", async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(noteListSchema.parse(listNotes(uid(request)).map(toSummary)));
+    return reply.send(noteListSchema.parse(listNotes(pid(request)).map(toSummary)));
   });
 
   app.post("/notes", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -70,7 +71,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
     const now = new Date().toISOString();
     const row: NoteRow = {
       id: randomUUID(),
-      user_id: uid(request),
+      profile_id: pid(request),
       title: parsed.data.title?.trim() || "Untitled note",
       data: JSON.stringify([BLANK_PAGE]),
       created_at: now,
@@ -82,7 +83,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
 
   app.get("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
-    const row = getNote(uid(request), id);
+    const row = getNote(pid(request), id);
     if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
     return reply.send(noteSchema.parse(toNote(row)));
   });
@@ -92,7 +93,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
     if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
     const { id } = request.params as { id: string };
     const ok = updateNote(
-      uid(request),
+      pid(request),
       id,
       {
         title: parsed.data.title,
@@ -102,12 +103,12 @@ export function registerNotesRoutes(app: FastifyInstance): void {
     );
     if (!ok) return reply.status(404).send({ error: "NOT_FOUND" });
     // Re-read to return the canonical stored shape (owner-scoped, so it exists).
-    return reply.send(noteSchema.parse(toNote(getNote(uid(request), id)!)));
+    return reply.send(noteSchema.parse(toNote(getNote(pid(request), id)!)));
   });
 
   app.delete("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
-    if (!deleteNote(uid(request), id)) return reply.status(404).send({ error: "NOT_FOUND" });
+    if (!deleteNote(pid(request), id)) return reply.status(404).send({ error: "NOT_FOUND" });
     return reply.status(204).send();
   });
 }

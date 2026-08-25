@@ -2,8 +2,15 @@ import { useEffect, useRef } from "react";
 import type { LibraryBook } from "@ebook-reader/shared";
 
 import { useReaderStore, type ReaderLocation } from "../store/reader-store";
+import { ApiError } from "./api-client";
+import { useAuthStore } from "./auth";
 import { updateProgress } from "./library-api";
-import { listPendingProgress, markLocalProgressSynced, putLocalProgress } from "./offline-store";
+import {
+  deleteLocalProgress,
+  listPendingProgress,
+  markLocalProgressSynced,
+  putLocalProgress,
+} from "./offline-store";
 
 /**
  * Persists reading progress back to the library, per-user (D24). Watches the
@@ -21,6 +28,14 @@ import { listPendingProgress, markLocalProgressSynced, putLocalProgress } from "
  * succeeds the local record is marked synced; when it fails (offline) the record
  * stays pending and `flushPendingProgress` / `useReconnectProgressSync` push it
  * once on reconnect — last-write-wins, no queue of intermediate positions.
+ *
+ * Profiles (brief 35 step 7): the local record is tagged with whoever is
+ * active on THIS device at write time, so a flush that lands after a profile
+ * switch still attributes the position correctly instead of writing it to
+ * whoever happens to be active when the network comes back. The live PATCH
+ * below is left untagged on purpose — it fires in real time under the current
+ * session, which the server already resolves to the right profile; the
+ * explicit `profileId` only matters for a PATCH sent later, by the flush.
  */
 const DEBOUNCE_MS = 1200;
 
@@ -52,9 +67,14 @@ export function useProgressSync() {
     timer.current = setTimeout(() => {
       lastSent.current = signature;
       const updatedAt = Date.now();
+      // Read at fire time (not as a hook dependency): we want whoever is
+      // active WHEN THE WRITE HAPPENS, after the debounce, not whoever was
+      // active when the effect was scheduled. `getState()` is the documented
+      // way to read the auth store from non-React code/timing.
+      const profileId = useAuthStore.getState().activeProfileId;
       // Persist locally FIRST so offline reading position survives even when the
       // PATCH can't go out; then attempt the server write (best-effort).
-      void putLocalProgress(bookId, { fraction, locator, updatedAt });
+      void putLocalProgress(bookId, { fraction, locator, updatedAt, profileId });
       void updateProgress(bookId, fraction, locator)
         .then(() => markLocalProgressSynced(bookId, updatedAt))
         .catch(() => {
@@ -78,6 +98,14 @@ export function useProgressSync() {
  * Because the wire `LibraryBook` carries no per-user progress timestamp, "newer
  * than the server" is inferred from the local pending flag (`updatedAt >
  * syncedAt`, tracked in the store) plus value divergence from the fetched row.
+ *
+ * Profiles (brief 35 step 7): `rows` is fetched under the session's CURRENT
+ * active profile, so it is only a valid "already on the server" comparison
+ * for pending records that belong to that same profile. A record recorded by
+ * a DIFFERENT profile (the whole reason this queue needs `profileId` at all)
+ * cannot be judged against `rows` — it is always sent, never skipped by that
+ * check — and is sent with ITS OWN profile, not the currently active one, so
+ * a switch that happens before reconnect can never re-attribute it.
  */
 /**
  * Single-flight latch. `useReconnectProgressSync`'s effect can re-run (renders,
@@ -101,8 +129,16 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
   const pending = await listPendingProgress();
   if (pending.length === 0) return;
   const byId = new Map(rows.map((r) => [r.id, r]));
+  // The profile `rows` was fetched as — see the header comment above for why
+  // that scopes the "already on the server" shortcut below.
+  const activeProfileId = useAuthStore.getState().activeProfileId;
   for (const p of pending) {
-    const row = byId.get(p.id);
+    // `null` = a record with no recorded profile (pre-brief-35, or written
+    // before the active profile was known) — attribute it to whoever is
+    // active NOW, which is exactly today's single-profile behaviour.
+    const targetProfileId = p.profileId ?? activeProfileId;
+    const belongsToActiveProfile = targetProfileId === activeProfileId;
+    const row = belongsToActiveProfile ? byId.get(p.id) : undefined;
     const alreadyOnServer =
       row != null &&
       (row.locator ?? null) === p.locator &&
@@ -113,10 +149,21 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       continue;
     }
     try {
-      await updateProgress(p.id, p.fraction, p.locator);
+      // Send the record's OWN profile (falling back to active for a `null`
+      // record, per the comment above) — never the currently active one.
+      await updateProgress(p.id, p.fraction, p.locator, targetProfileId ?? undefined);
       await markLocalProgressSynced(p.id, p.updatedAt);
-    } catch {
-      // Still unreachable — leave pending for the next reconnect.
+    } catch (err) {
+      // A 404 here means the profile-scoped PATCH couldn't resolve a target:
+      // either the profile named by `targetProfileId` was deleted (the server
+      // verifies it against the caller's account and 404s if not), or the
+      // book itself is gone. Both leave nothing to sync this record to, so
+      // drop it — otherwise a deleted profile's stale record would retry on
+      // every reconnect forever. Anything else (still offline, 5xx) leaves
+      // the record pending for the next reconnect.
+      if (err instanceof ApiError && err.status === 404) {
+        await deleteLocalProgress(p.id);
+      }
     }
   }
 }

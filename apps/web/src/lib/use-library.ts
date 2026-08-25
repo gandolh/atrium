@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LibraryBook, LibrarySort } from "@ebook-reader/shared";
 
+import { useActiveProfileId } from "./auth";
 import { deleteBook, fetchBookFile, fetchLibrary, uploadBook } from "./library-api";
 import {
   deleteOfflineBook,
@@ -33,15 +34,32 @@ const EMPTY_BOOKS: LibraryBook[] = [];
 /** Stable empty fallback for the cached-summaries query (see EMPTY_BOOKS). */
 const EMPTY_SUMMARIES: OfflineBookSummary[] = [];
 
-const libraryKey = (sort: LibrarySort) => ["library", sort] as const;
+/**
+ * Library query keys carry the active profile (brief 35 step 7). The list rows
+ * are shared across profiles, but each row's `progress` and `locator` are that
+ * profile's (D31 as revised by D35) — so a cached list IS profile data, and a
+ * key without an identity in it can serve one person's Continue row to another.
+ * `switchProfile` clears the cache outright; this is the second line of defence
+ * for a cache that survives anyway (persisted, or a fetch that raced the flip).
+ *
+ * The profile segment sits AFTER `"library"` on purpose: every existing
+ * `invalidateQueries({ queryKey: ["library"] })` still prefix-matches, which is
+ * what we want — an upload or an import changes the shared library for every
+ * profile, not just the active one.
+ */
+export const libraryKey = (profileId: string | null, sort: LibrarySort) =>
+  ["library", profileId, sort] as const;
+/** Prefix matching every sort variant of ONE profile's library list. */
+export const libraryProfileKey = (profileId: string | null) => ["library", profileId] as const;
 /** Query key for the set of downloaded books (metadata only). */
 const offlineBooksKey = ["offline", "books"] as const;
 /** Query key for the storage-usage estimate. */
 const offlineStorageKey = ["offline", "storage"] as const;
 
 export function useLibrary(sort: LibrarySort) {
+  const profileId = useActiveProfileId();
   return useQuery({
-    queryKey: libraryKey(sort),
+    queryKey: libraryKey(profileId, sort),
     queryFn: () => fetchLibrary(sort),
   });
 }
@@ -51,6 +69,10 @@ export function useUploadBook() {
   return useMutation({
     mutationFn: (file: File) => uploadBook(file),
     onSuccess: () => {
+      // Deliberately the broad prefix, not `libraryProfileKey(active)`: the
+      // library is shared across profiles as it is across users (D30/D35), so a
+      // new book belongs to every profile's list. Same below and in
+      // `useImportBook`.
       void qc.invalidateQueries({ queryKey: ["library"] });
     },
   });

@@ -3,12 +3,14 @@ import { mkdirSync } from "node:fs";
 import Database from "better-sqlite3";
 import type {
   BookSource,
+  ConvertStatus,
   FileType,
   LibraryBook,
   LibrarySort,
   MediaKind,
   ProfileColor,
 } from "@ebook-reader/shared";
+import { kindForFormat } from "@ebook-reader/shared";
 import { DATA_DIR, DB_PATH } from "./config.js";
 
 /**
@@ -18,8 +20,52 @@ import { DATA_DIR, DB_PATH } from "./config.js";
  * this table stores only paths + metadata.
  */
 
+/**
+ * The convert half of a book row (brief 34, D34). Split out from `BookRow` so
+ * the upload/import paths can build a row without them — they all take their
+ * SQL defaults, and a book nobody has converted is the overwhelming case.
+ *
+ * `converted_from` is the whole architecture: a **converted book** is its own
+ * `books` row pointing back at its **source book**, not an alternate file on
+ * the source's row. The status columns describe the *conversion*, so they live
+ * on the source — that is the row the reader is looking at when it asks for one.
+ */
+export interface BookConvertFields {
+  /**
+   * The **source book** this row was converted from, or null when this row is
+   * itself a source. Non-null = a converted book, which the three list
+   * statements hide (see `BOOK_COLUMNS`).
+   *
+   * `REFERENCES books(id) ON DELETE CASCADE`: deleting a source removes its
+   * converted book's ROW for free. Its FILE is `DELETE /library/:id`'s job —
+   * the cascade happens inside SQLite where no unlink can run, so a route that
+   * deletes only the row it was given orphans the converted file on disk.
+   */
+  converted_from: string | null;
+  /** Where this book sits in the convert machine (`CONVERT_STATUSES`). */
+  convert_status: ConvertStatus;
+  /** Why the last conversion failed, in words a reader can act on, or null. */
+  convert_error: string | null;
+  /**
+   * ISO timestamp the running job started, or null. Kept after the job ends —
+   * it is what a 24h ceiling (D34) and any "converting since…" copy measure
+   * against, and `markConvertRunning` overwrites it on the next run anyway.
+   */
+  convert_started_at: string | null;
+  /**
+   * The **converted book** made from this row, or null when none exists.
+   *
+   * NOT a column — it is the reverse of `converted_from`, resolved by the same
+   * SELECT (see `BOOK_COLUMNS`). The wire contract needs both link directions
+   * on every row so the reader can offer the format switch from either side,
+   * and looking it up per row inside `toLibraryBook` would turn one library
+   * listing into N+1 queries.
+   */
+  converted_to: string | null;
+}
+
 /** The raw DB row (server-side; includes on-disk paths that never hit the wire). */
-export interface BookRow {
+export interface BookRow extends BookConvertFields {
   id: string;
   title: string;
   author: string | null;
@@ -58,6 +104,14 @@ export interface BookRow {
   /** Playback length in seconds for audio/video, or null (books / unknown). */
   duration_seconds: number | null;
 }
+
+/**
+ * A row as the upload/import paths build it: everything except the convert
+ * fields, which the column defaults supply (`convert_status` = 'none', the rest
+ * NULL). A **converted book** is never inserted this way — it goes through
+ * `insertConvertedBook`, which is the only place `converted_from` is written.
+ */
+export type NewBookRow = Omit<BookRow, keyof BookConvertFields>;
 
 /**
  * A user account. Accounts are operator-seeded (no self-registration); the
@@ -250,6 +304,21 @@ function ensureBookColumns(): void {
     // with no backfill; duration is null for books and unknown-duration media.
     kind: "TEXT NOT NULL DEFAULT 'book'",
     duration_seconds: "REAL",
+    // Convert (brief 34, D34). SQLite accepts a REFERENCES clause on ADD COLUMN
+    // only when the new column defaults to NULL, which this one does — verified
+    // empirically against the bundled SQLite on the live schema, same as
+    // `sessions.active_profile_id` (brief 35). So the cascade is real and not
+    // quietly downgraded to a bare TEXT column.
+    //
+    // ON DELETE CASCADE is what makes deleting a source book take its converted
+    // book's row with it. The FILE is not SQLite's to delete: `DELETE
+    // /library/:id` must unlink both rows' files itself, or the cascaded row's
+    // file is orphaned on disk with nothing left pointing at it.
+    converted_from: "TEXT REFERENCES books(id) ON DELETE CASCADE",
+    // NOT NULL DEFAULT supplies a value for every existing row, so no backfill.
+    convert_status: "TEXT NOT NULL DEFAULT 'none'",
+    convert_error: "TEXT",
+    convert_started_at: "TEXT",
   };
   for (const [name, type] of Object.entries(additions)) {
     if (!existing.has(name)) {
@@ -409,9 +478,53 @@ function migrateToProfileScope(): void {
   }
 }
 
+/**
+ * A source book has at most one converted book (brief 34). Enforced rather than
+ * assumed, because two rows pointing at the same source would make
+ * `converted_to` ambiguous and put a second, invisible card's file on disk with
+ * no way to reach it. SQLite treats NULLs as distinct in a unique index, so
+ * every ordinary (non-derived) book is unaffected. Doubles as the index the
+ * ON DELETE CASCADE lookup wants.
+ */
+function ensureConvertIndex(): void {
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS books_converted_from ON books(converted_from)",
+  );
+}
+
+/**
+ * What a row reaped by `reapInterruptedConversions` says. Exported so the job
+ * runner and the status button can recognise this specific failure rather than
+ * string-matching a sentence that may be reworded.
+ */
+export const CONVERT_INTERRUPTED_ERROR =
+  "The conversion stopped when the server restarted. Nothing was lost — start it again when you're ready.";
+
+/**
+ * Flip every row left in `convert_status = 'running'` to `failed` (D34 decision
+ * 7). A job cannot survive the process: its `ebook-convert` child died with the
+ * old process and the in-memory job map went with it, so a row left `running`
+ * would poll forever with no button able to rescue it.
+ *
+ * Deliberately NOT an auto-resume — decision 7 rejected that because one book
+ * Calibre chokes on would restart, crash, and restart again on every boot.
+ * Retry lives in the button, where a person decides.
+ *
+ * Idempotent (the second run matches nothing) and a no-op on an empty database.
+ */
+function reapInterruptedConversions(): void {
+  db.prepare<[string]>(
+    `UPDATE books
+        SET convert_status = 'failed', convert_error = ?
+      WHERE convert_status = 'running'`,
+  ).run(CONVERT_INTERRUPTED_ERROR);
+}
+
 ensureSessionColumns();
 migrateToProfileScope();
 ensureDefaultProfiles();
+ensureConvertIndex();
+reapInterruptedConversions();
 
 // Created after the migration, never in the schema block above: on a
 // pre-brief-35 database `notes.profile_id` does not exist yet at that point.
@@ -421,8 +534,39 @@ db.exec(`
     ON notes(profile_id, updated_at DESC);
 `);
 
+/**
+ * The projection every read of `books` goes through: the stored columns plus
+ * `converted_to`, the reverse of `converted_from`, resolved by a correlated
+ * subquery in the same statement.
+ *
+ * Doing it here rather than per row is the whole point — the wire contract
+ * carries both link directions on every book, so a lookup inside
+ * `toLibraryBook` would make one library listing N+1 queries. The unique index
+ * `books_converted_from` is what lets the subquery be a scalar.
+ */
+const BOOK_COLUMNS = `b.*, (SELECT c.id FROM books c WHERE c.converted_from = b.id) AS converted_to`;
+
+/**
+ * The clause that delivers "one card per book" (D34): a **converted book** is a
+ * real `books` row, so every statement that LISTS books for a person must
+ * exclude it or the library shows the same book twice.
+ *
+ * READ THIS BEFORE ADDING A FOURTH LIST STATEMENT — it needs this clause too,
+ * and nothing else in the codebase will tell you. It is load-bearing far beyond
+ * the grid: cross-library search, kind chips, grouping and every count are
+ * **client-side over the list `GET /library` returned**
+ * (`apps/web/src/library/search.ts`), so they all inherit the hiding from these
+ * three statements and from nowhere else. Filter here and derived rows vanish
+ * everywhere at once; forget here and they reappear everywhere at once.
+ *
+ * It is deliberately NOT applied to `getById` (the reader opens a converted
+ * book by id — that is the format switch), nor to the backfill/reconcile
+ * statements below, which want every row.
+ */
+const NOT_CONVERTED = "b.converted_from IS NULL";
+
 const statements = {
-  insert: db.prepare<BookRow>(`
+  insert: db.prepare<NewBookRow>(`
     INSERT INTO books (id, title, author, format, file_path, cover_path,
                        size_bytes, progress, created_at, last_opened_at,
                        series, series_index, subjects, source, source_id,
@@ -432,13 +576,20 @@ const statements = {
             @series, @series_index, @subjects, @source, @source_id,
             @kind, @duration_seconds)
   `),
-  getById: db.prepare<[string]>("SELECT * FROM books WHERE id = ?"),
+  // No `NOT_CONVERTED` here on purpose: a converted book is opened by id every
+  // time the reader switches format.
+  getById: db.prepare<[string]>(`SELECT ${BOOK_COLUMNS} FROM books b WHERE b.id = ?`),
   listRecent: db.prepare(
-    "SELECT * FROM books ORDER BY COALESCE(last_opened_at, created_at) DESC",
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE ${NOT_CONVERTED}
+      ORDER BY COALESCE(b.last_opened_at, b.created_at) DESC`,
   ),
-  listByTitle: db.prepare("SELECT * FROM books ORDER BY title COLLATE NOCASE ASC"),
+  listByTitle: db.prepare(
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE ${NOT_CONVERTED}
+      ORDER BY b.title COLLATE NOCASE ASC`,
+  ),
   listByAuthor: db.prepare(
-    "SELECT * FROM books ORDER BY author COLLATE NOCASE ASC, title COLLATE NOCASE ASC",
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE ${NOT_CONVERTED}
+      ORDER BY b.author COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC`,
   ),
   touchOpened: db.prepare<[string, string]>(
     "UPDATE books SET last_opened_at = ? WHERE id = ?",
@@ -447,10 +598,20 @@ const statements = {
 
   // --- Metadata backfill (brief 21) ----------------------------------------
   // Rows added before the series/subjects columns existed have subjects=NULL.
-  listNeedingMetadata: db.prepare("SELECT * FROM books WHERE subjects IS NULL"),
+  // Unfiltered by design: a converted book still wants correct metadata, and a
+  // backfill is maintenance, not a user-facing list. (In practice one never
+  // matches — `insertConvertedBook` copies the source's subjects as JSON, never
+  // null — but the exemption is the deliberate one, not an accident.)
+  listNeedingMetadata: db.prepare(
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE b.subjects IS NULL`,
+  ),
   // Rows that claim a cover, for the startup reconcile that nulls the path when
   // the thumbnail file is actually gone (stale absolute paths from another box).
-  listWithCover: db.prepare("SELECT * FROM books WHERE cover_path IS NOT NULL"),
+  // Also unfiltered: a converted book SHARES its source's thumbnail path, so if
+  // that file disappears both rows are stale and both must be corrected.
+  listWithCover: db.prepare(
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE b.cover_path IS NOT NULL`,
+  ),
   clearCoverPath: db.prepare<[string]>("UPDATE books SET cover_path = NULL WHERE id = ?"),
   // COALESCE on author lets a re-scan fill a previously-null author (PDFs) but
   // never clobber one already stored. `subjects` is set to a JSON array (never
@@ -461,6 +622,44 @@ const statements = {
            author = COALESCE(author, ?)
      WHERE id = ?
   `),
+
+  // --- Convert (brief 34, D34) ----------------------------------------------
+  insertConverted: db.prepare<NewBookRow & { converted_from: string }>(`
+    INSERT INTO books (id, title, author, format, file_path, cover_path,
+                       size_bytes, progress, created_at, last_opened_at,
+                       series, series_index, subjects, source, source_id,
+                       kind, duration_seconds, converted_from)
+    VALUES (@id, @title, @author, @format, @file_path, @cover_path,
+            @size_bytes, @progress, @created_at, @last_opened_at,
+            @series, @series_index, @subjects, @source, @source_id,
+            @kind, @duration_seconds, @converted_from)
+  `),
+  // The unique index guarantees at most one row here.
+  getConvertedBook: db.prepare<[string]>(
+    `SELECT ${BOOK_COLUMNS} FROM books b WHERE b.converted_from = ?`,
+  ),
+  // Clearing the error on start is what stops a retry showing the previous
+  // run's reason while the new one is in flight.
+  markConvertRunning: db.prepare<[string, string]>(
+    `UPDATE books
+        SET convert_status = 'running', convert_error = NULL, convert_started_at = ?
+      WHERE id = ?`,
+  ),
+  setConvertStatus: db.prepare<[string, string | null, string]>(
+    "UPDATE books SET convert_status = ?, convert_error = ? WHERE id = ?",
+  ),
+  resetConvert: db.prepare<[string]>(
+    `UPDATE books
+        SET convert_status = 'none', convert_error = NULL, convert_started_at = NULL
+      WHERE id = ?`,
+  ),
+  // Oldest first so the refusal names the job that has been running longest,
+  // which is the one a person is actually waiting on.
+  getRunningConvert: db.prepare(
+    `SELECT ${BOOK_COLUMNS} FROM books b
+      WHERE b.convert_status = 'running'
+      ORDER BY b.convert_started_at ASC LIMIT 1`,
+  ),
 
   // --- Users ---------------------------------------------------------------
   getUserByName: db.prepare<[string]>("SELECT * FROM users WHERE username = ?"),
@@ -546,7 +745,7 @@ const statements = {
  * `reading_progress` lookup); absent = this profile hasn't opened the book yet.
  */
 export function toLibraryBook(
-  row: BookRow,
+  row: NewBookRow & Partial<BookConvertFields>,
   progress: Pick<ProfileProgressRow, "progress" | "locator"> = { progress: 0, locator: null },
 ): LibraryBook {
   return {
@@ -567,6 +766,18 @@ export function toLibraryBook(
     sourceId: row.source_id,
     kind: row.kind,
     durationSeconds: row.duration_seconds,
+    // Both link directions come off the row the caller already has: the read
+    // statements resolve `converted_to` in the same SELECT (`BOOK_COLUMNS`), so
+    // rendering a library of N books is still one query, not N+1.
+    //
+    // The fallbacks are for the upload/import paths, which hand a row they just
+    // built rather than one read back: a book being inserted is never a
+    // conversion and has never been converted, which is exactly what the SQL
+    // defaults say too.
+    convertedFrom: row.converted_from ?? null,
+    convertedTo: row.converted_to ?? null,
+    convertStatus: row.convert_status ?? "none",
+    convertError: row.convert_error ?? null,
   };
 }
 
@@ -581,7 +792,7 @@ function parseSubjects(raw: string | null): string[] {
   }
 }
 
-export function insertBook(row: BookRow): void {
+export function insertBook(row: NewBookRow): void {
   statements.insert.run(row);
 }
 
@@ -645,6 +856,143 @@ export function updateBookMetadata(
     meta.author,
     id,
   );
+}
+
+// --- Convert: linked source/converted books (brief 34, D34) ------------------
+
+/**
+ * The **converted book** made from `sourceBookId`, or undefined when none
+ * exists. The reverse of `getBook(row.converted_from)`.
+ *
+ * `DELETE /library/:id` must call this BEFORE deleting a source: the row
+ * cascades away inside SQLite, but its file on disk does not, and afterwards
+ * there is nothing left to say the file was ever there.
+ */
+export function getConvertedBook(sourceBookId: string): BookRow | undefined {
+  return statements.getConvertedBook.get(sourceBookId) as BookRow | undefined;
+}
+
+/**
+ * The other half of a converted pair, from either side: given a source book its
+ * converted book, given a converted book its source. Undefined when the row
+ * stands alone.
+ *
+ * One call because `GET /library/:id` has to offer the format switch from
+ * whichever row the reader happens to have open, and which side that is isn't
+ * knowable before the lookup.
+ */
+export function getLinkedBook(row: BookRow): BookRow | undefined {
+  if (row.converted_from !== null) return getBook(row.converted_from);
+  return row.converted_to !== null ? getBook(row.converted_to) : undefined;
+}
+
+/**
+ * Insert the **converted book** for `sourceBookId` and return the stored row.
+ *
+ * Title, author, series and subjects are copied from the source so the pair
+ * reads as one book, and `kind` is derived from the target format like any
+ * upload. The source's cover is **reused, not re-extracted** — brief 34 keeps
+ * `extract.ts` out of this path entirely.
+ *
+ * That means both rows hold the SAME `cover_path`, one file with two rows
+ * pointing at it. Deleting only the conversion must therefore delete the
+ * converted FILE and leave the thumbnail alone, or the source loses its cover
+ * to a delete that had nothing to do with it.
+ *
+ * Throws if the source id is unknown, or (via `books_converted_from`) if that
+ * source already has a conversion — the caller is supposed to have handled the
+ * "already exists" case, so a second insert is a bug worth hearing about.
+ */
+export function insertConvertedBook(args: {
+  /** Pre-generated: the caller needs it to name the output file before converting. */
+  id: string;
+  sourceBookId: string;
+  /** The target format — `convertTargetForFormat(source.format)`. */
+  format: FileType;
+  filePath: string;
+  sizeBytes: number;
+  /** ISO timestamp for `created_at`. */
+  now: string;
+}): BookRow {
+  const source = getBook(args.sourceBookId);
+  if (!source) throw new Error(`Cannot convert unknown book ${args.sourceBookId}`);
+
+  statements.insertConverted.run({
+    id: args.id,
+    title: source.title,
+    author: source.author,
+    format: args.format,
+    file_path: args.filePath,
+    cover_path: source.cover_path,
+    size_bytes: args.sizeBytes,
+    progress: 0,
+    created_at: args.now,
+    last_opened_at: null,
+    series: source.series,
+    series_index: source.series_index,
+    // Never null, so the metadata backfill can't mistake a fresh conversion for
+    // a pre-column row and re-scan it (see `listNeedingMetadata`).
+    subjects: source.subjects ?? "[]",
+    // Provenance is where the *book* came from, which a conversion doesn't
+    // change; `converted_from` is what records that this row was derived.
+    source: source.source,
+    source_id: source.source_id,
+    kind: kindForFormat(args.format),
+    duration_seconds: null,
+    converted_from: args.sourceBookId,
+  });
+
+  return getBook(args.id) as BookRow;
+}
+
+/**
+ * Start the clock on a conversion: `running`, no error, started now. Set on the
+ * **source book** — the status describes the conversion, and the converted book
+ * may not exist yet.
+ */
+export function markConvertRunning(id: string, now: string): void {
+  statements.markConvertRunning.run(now, id);
+}
+
+/**
+ * Record the outcome of a conversion — `ready`, `poor` (produced but probably
+ * unusable, a scanned PDF; it still opens and the UI only warns) or `failed`
+ * with a reason the reader can act on.
+ *
+ * `convert_started_at` is left alone: the run it timed did happen, and the next
+ * `markConvertRunning` overwrites it.
+ */
+export function setConvertStatus(
+  id: string,
+  status: ConvertStatus,
+  error: string | null = null,
+): void {
+  statements.setConvertStatus.run(status, error, id);
+}
+
+/**
+ * Return a source book to "never converted" — used when a finished conversion
+ * is deleted or a running one is cancelled, so the button offers Convert again
+ * rather than a switch to a row that is gone.
+ */
+export function resetConvert(id: string): void {
+  statements.resetConvert.run(id);
+}
+
+/**
+ * The conversion currently in flight, or undefined. Backs the single-flight
+ * guard (D34 decision 6: one at a time, a refusal rather than a queue) and the
+ * 409 the route returns — the returned row is the book to name in the message.
+ *
+ * Store-wide, not per account, because the library is shared across accounts by
+ * design (there is no per-book ownership), so "one per account" and "one at a
+ * time" are the same query here.
+ *
+ * This is the durable half of the guard: `convert_jobs`'s in-process map knows
+ * about children this process spawned, the DB knows about the row.
+ */
+export function getRunningConvert(): BookRow | undefined {
+  return statements.getRunningConvert.get() as BookRow | undefined;
 }
 
 // --- Users & sessions --------------------------------------------------------

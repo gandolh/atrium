@@ -3,15 +3,6 @@ import { ReactReader, ReactReaderStyle, type IReactReaderStyle } from "react-rea
 import { EpubCFI, type Book, type NavItem, type Rendition } from "epubjs";
 
 import { useReaderStore } from "../../store/reader-store";
-// EPUB→PDF conversion is hidden for now (see the toolbar). Restore alongside
-// the "Download as PDF" button:
-// import { useMutation } from "@tanstack/react-query";
-// import {
-//   ConvertApiError,
-//   convertEpubToPdf,
-//   downloadBlob,
-//   pdfFilenameFor,
-// } from "../../lib/convert-api";
 import {
   HomeButton,
   PageNav,
@@ -796,35 +787,6 @@ export function EpubReader({ file }: { file: File }) {
     [rendition, setCurrentLocation, refreshProgress],
   );
 
-  // Secondary action: export this EPUB as a PDF (server round-trip through
-  // Calibre). Hidden for now — reading is the whole product (see the toolbar
-  // below). The conversion machinery is kept, commented out, so restoring the
-  // "Download as PDF" button is a single revert:
-  //
-  // const [convertError, setConvertError] = useState<string | null>(null);
-  // const convertMutation = useMutation({
-  //   mutationFn: (f: File) => convertEpubToPdf(f),
-  // });
-  // const converting = convertMutation.isPending;
-  // const onDownloadPdf = useCallback(() => {
-  //   if (converting) return;
-  //   setConvertError(null);
-  //   convertMutation.mutate(file, {
-  //     onSuccess: (blob) => downloadBlob(blob, pdfFilenameFor(file.name)),
-  //     onError: (err) =>
-  //       setConvertError(
-  //         err instanceof ConvertApiError ? err.message : "Conversion failed.",
-  //       ),
-  //   });
-  // }, [file, converting, convertMutation]);
-  //
-  // // Error notice is transient — dismiss on its own after a beat.
-  // useEffect(() => {
-  //   if (!convertError) return;
-  //   const id = setTimeout(() => setConvertError(null), 6000);
-  //   return () => clearTimeout(id);
-  // }, [convertError]);
-
   // react-reader's own arrows + TOC toggle are hidden — we use the shared
   // chrome for those. Keep the reader area transparent so the themed page
   // background (from the rendition) shows through.
@@ -988,23 +950,8 @@ export function EpubReader({ file }: { file: File }) {
           />
         )}
 
-        {/* Conversion error banner — hidden along with the "Download as PDF"
-            button (restore together):
-        {convertError && (
-          <div
-            role="alert"
-            className="absolute bottom-20 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs text-red-800 shadow-md"
-          >
-            {convertError}
-          </div>
-        )} */}
-
         <ReaderToolbar
           visible={chromeVisible}
-          // The "Download as PDF" export is hidden for now — reading is the
-          // whole product. The conversion code (convertMutation, onDownloadPdf,
-          // DownloadIcon) is kept so the button can be restored in one edit.
-          //
           // Groups (track C): LEFT = navigation (home, contents, search),
           // CENTER = view (typography/theme, reading mode), RIGHT = position.
           leftControls={
@@ -1078,42 +1025,6 @@ export function EpubReader({ file }: { file: File }) {
     </div>
   );
 }
-
-// Icons for the hidden "Download as PDF" toolbar button — restore with it:
-// function DownloadIcon() {
-//   return (
-//     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-//       <path
-//         d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M4.5 19.5h15"
-//         stroke="currentColor"
-//         strokeWidth="1.75"
-//         strokeLinecap="round"
-//         strokeLinejoin="round"
-//       />
-//     </svg>
-//   );
-// }
-//
-// function SpinnerIcon() {
-//   return (
-//     <svg
-//       width="18"
-//       height="18"
-//       viewBox="0 0 24 24"
-//       fill="none"
-//       aria-hidden="true"
-//       className="motion-safe:animate-spin"
-//     >
-//       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" opacity="0.25" />
-//       <path
-//         d="M21 12a9 9 0 00-9-9"
-//         stroke="currentColor"
-//         strokeWidth="1.75"
-//         strokeLinecap="round"
-//       />
-//     </svg>
-//   );
-// }
 
 /** Loading = a page taking shape: faint prose-line bars in the same measure-
  * capped column the text will land in (no spinner, no "Loading…" string). */

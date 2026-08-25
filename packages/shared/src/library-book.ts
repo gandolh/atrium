@@ -2,7 +2,7 @@ import { z } from "zod";
 // Import from the leaf module, not ./index.js, to avoid an import cycle
 // (index.js re-exports this file). `fileTypeSchema` === the format enum
 // (pdf | epub | mp3 | mp4 | webm); `mediaKindSchema` === book | audio | video.
-import { fileTypeSchema, mediaKindSchema } from "./file-validation.js";
+import { type FileType, fileTypeSchema, mediaKindSchema } from "./file-validation.js";
 
 /**
  * Library book contract (decisions.md D24) — the shape the API returns for a
@@ -22,6 +22,42 @@ import { fileTypeSchema, mediaKindSchema } from "./file-validation.js";
 export const BOOK_SOURCES = ["upload", "gutenberg"] as const;
 export const bookSourceSchema = z.enum(BOOK_SOURCES);
 export type BookSource = z.infer<typeof bookSourceSchema>;
+
+/**
+ * Where a book sits in the convert machine (D34, brief 34). `none` is every
+ * book that has never been converted; `running` means a job is in flight;
+ * `ready` and `poor` both mean a **converted book** exists and opens — `poor`
+ * only adds "this looks scanned, expect little text", which the UI *warns*
+ * about and never blocks on (decision 12). `failed` carries a reason and a
+ * retry.
+ *
+ * The status lives on the **source book**, not on the converted book: it
+ * describes the conversion, and the source is the row the reader is looking at
+ * when it asks for one.
+ */
+export const CONVERT_STATUSES = ["none", "running", "ready", "poor", "failed"] as const;
+export const convertStatusSchema = z.enum(CONVERT_STATUSES);
+export type ConvertStatus = z.infer<typeof convertStatusSchema>;
+
+/**
+ * The format a **convert** of `format` produces — `pdf → epub`, `epub → pdf`,
+ * and **null for mp3/mp4/webm**, which have no conversion target at all.
+ *
+ * One source of truth for the pair, deliberately shaped like `kindForFormat`:
+ * the API turns the null into a 400 and the client uses it to decide whether to
+ * offer the button and what to call it, and those two must never disagree about
+ * what a given format converts to.
+ */
+export function convertTargetForFormat(format: FileType): FileType | null {
+  switch (format) {
+    case "pdf":
+      return "epub";
+    case "epub":
+      return "pdf";
+    default:
+      return null;
+  }
+}
 
 /** A book as seen by the client (no server-side paths). */
 export const libraryBookSchema = z.object({
@@ -80,6 +116,29 @@ export const libraryBookSchema = z.object({
   createdAt: z.string(),
   /** ISO timestamp the book was last opened, or null if never opened. */
   lastOpenedAt: z.string().nullable(),
+  /**
+   * The **source book** this row was converted from, or null when this row is
+   * itself a source (D34). Non-null marks a **converted book** — a row the
+   * library grid, search, chips and counts never show, reached only by the
+   * reader's format switch.
+   */
+  convertedFrom: z.string().nullable(),
+  /**
+   * The **converted book** produced from this row, or null when no conversion
+   * exists. The reverse of `convertedFrom`, resolved server-side, so the reader
+   * can offer the format switch from either side of the pair without a second
+   * request.
+   */
+  convertedTo: z.string().nullable(),
+  /** Where this book sits in the convert machine — see `CONVERT_STATUSES`. */
+  convertStatus: convertStatusSchema,
+  /**
+   * Why the last conversion failed, in words a reader can act on, or null.
+   * Only meaningful while `convertStatus` is "failed": the button shows this
+   * next to its retry, and a row reaped after an API restart says so here (the
+   * job's child process is gone, so it can only be re-run — D34 decision 7).
+   */
+  convertError: z.string().nullable(),
 });
 export type LibraryBook = z.infer<typeof libraryBookSchema>;
 

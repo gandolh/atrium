@@ -29,16 +29,42 @@ export type ConvertOutcome =
   | { kind: "missing" };
 
 /**
- * Run `ebook-convert <input> <output>` with a hard timeout. On timeout the
- * child (and its tree, best-effort) is killed and `{ kind: "timeout" }` is
- * returned. The promise never rejects — all failure modes are values.
+ * A conversion in flight. `promise` is the same never-rejecting outcome
+ * `runEbookConvert` returns; `cancel` kills the child now.
+ *
+ * There is deliberately **no `cancelled` outcome**. The outcome type is what
+ * db.ts, the routes and the existing narration all read, and a fifth kind would
+ * ripple through all of them for no information gain: only the caller that
+ * called `cancel` can distinguish a cancellation from a failure, and it already
+ * knows. A killed child resolves `{ kind: "failed", code: null }` — SIGKILL
+ * closes with a null exit code — and the job runner ignores that outcome
+ * entirely when it was the one that asked for the kill.
  */
-export function runEbookConvert(
+export interface RunningConvert {
+  /** Resolves an outcome; never rejects. */
+  readonly promise: Promise<ConvertOutcome>;
+  /** SIGKILL the child. False when it had already settled (nothing to kill). */
+  cancel(): boolean;
+}
+
+/**
+ * Spawn `ebook-convert <input> <output> [...args]` with a hard timeout and
+ * return a handle, so a long job can be killed by whoever is holding it.
+ * `args` are Calibre's own conversion options (e.g. `--enable-heuristics`) and
+ * go AFTER the positionals, which is where `ebook-convert` expects them.
+ *
+ * On timeout the child is killed and `{ kind: "timeout" }` is returned. The
+ * promise never rejects — all failure modes are values.
+ */
+export function startEbookConvert(
   input: string,
   output: string,
   timeoutMs: number,
-): Promise<ConvertOutcome> {
-  return new Promise<ConvertOutcome>((resolve) => {
+  args: readonly string[] = [],
+): RunningConvert {
+  let kill: () => boolean = () => false;
+
+  const promise = new Promise<ConvertOutcome>((resolve) => {
     let settled = false;
     const finish = (outcome: ConvertOutcome): void => {
       if (settled) return;
@@ -47,10 +73,14 @@ export function runEbookConvert(
       resolve(outcome);
     };
 
-    const child = spawn(EBOOK_CONVERT, [input, output], {
+    const child = spawn(EBOOK_CONVERT, [input, output, ...args], {
       stdio: ["ignore", "ignore", "pipe"],
       env: CALIBRE_ENV,
     });
+
+    // A kill on an already-settled run is a no-op, so a cancel racing the
+    // child's own exit can't fabricate a second outcome.
+    kill = () => (settled ? false : child.kill("SIGKILL"));
 
     let stderr = "";
     child.stderr.on("data", (chunk: Buffer) => {
@@ -79,6 +109,22 @@ export function runEbookConvert(
       finish({ kind: "failed", code, stderr });
     });
   });
+
+  return { promise, cancel: () => kill() };
+}
+
+/**
+ * Run `ebook-convert <input> <output> [...args]` to completion. The
+ * fire-and-forget shape for callers that have no reason to cancel; the promise
+ * never rejects.
+ */
+export function runEbookConvert(
+  input: string,
+  output: string,
+  timeoutMs: number,
+  args: readonly string[] = [],
+): Promise<ConvertOutcome> {
+  return startEbookConvert(input, output, timeoutMs, args).promise;
 }
 
 /**

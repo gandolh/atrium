@@ -41,18 +41,6 @@ export {
 } from "./file-validation.js";
 export type { PdfMimeType, EpubMimeType, FileType, MediaKind } from "./file-validation.js";
 
-// --- Convert request ------------------------------------------------------
-export { convertRequestSchema } from "./convert-request.js";
-export type { ConvertRequest } from "./convert-request.js";
-
-// --- Convert error ----------------------------------------------------
-export {
-  CONVERT_ERROR_CODES,
-  convertErrorCodeSchema,
-  convertErrorSchema,
-} from "./convert-error.js";
-export type { ConvertErrorCode, ConvertError } from "./convert-error.js";
-
 // --- Library book contract (D24) ------------------------------------------
 export {
   libraryBookSchema,
@@ -64,6 +52,9 @@ export {
   libraryGroupSchema,
   BOOK_SOURCES,
   bookSourceSchema,
+  CONVERT_STATUSES,
+  convertStatusSchema,
+  convertTargetForFormat,
 } from "./library-book.js";
 export type {
   LibraryBook,
@@ -71,6 +62,7 @@ export type {
   LibrarySort,
   LibraryGroup,
   BookSource,
+  ConvertStatus,
 } from "./library-book.js";
 
 // --- Catalog contract (brief 22) ------------------------------------------

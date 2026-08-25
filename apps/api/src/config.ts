@@ -39,6 +39,7 @@ const envSchema = z.object({
   HOST: z.string().min(1),
   MAX_UPLOAD_MB: z.coerce.number().positive(),
   CONVERT_TIMEOUT_MS: z.coerce.number().int().positive(),
+  CONVERT_JOB_TIMEOUT_MS: z.coerce.number().int().positive(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -67,6 +68,21 @@ export const MAX_UPLOAD_MB = env.MAX_UPLOAD_MB;
 export const MAX_UPLOAD_BYTES = maxUploadBytesFromMb(MAX_UPLOAD_MB);
 
 export const CONVERT_TIMEOUT_MS = env.CONVERT_TIMEOUT_MS;
+
+/**
+ * Ceiling on a library conversion job (D34, brief 34 decision 4). Defaults to
+ * 24 hours in `.env.example`, which looks absurd until you read it as what it
+ * is: a **last-resort reaper, not a UX guard**. Nobody waits at the screen for
+ * a conversion — the row says `running`, the client polls, and the person goes
+ * away. The only job this number has is to stop a wedged `ebook-convert` from
+ * pinning a CPU forever; the answer to "this is taking too long" is Cancel
+ * (decision 5), which is why the ceiling can afford to be this generous.
+ *
+ * Distinct from `CONVERT_TIMEOUT_MS`, the old 60s cap on the *synchronous*
+ * export route (D15) — that one was a UX guard, because a request was blocked
+ * on it.
+ */
+export const CONVERT_JOB_TIMEOUT_MS = env.CONVERT_JOB_TIMEOUT_MS;
 
 /**
  * Library storage roots (decisions.md D24/D25). Everything lives under the

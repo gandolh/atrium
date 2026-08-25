@@ -10,7 +10,6 @@ import {
   MAX_UPLOAD_MB,
   PORT,
 } from "./config.js";
-import { registerConvertRoute } from "./convert-route.js";
 import {
   backfillLibraryMetadata,
   reconcileMissingCovers,
@@ -62,17 +61,17 @@ app.get("/health", async () => {
 });
 
 registerAuthRoutes(app);
-registerConvertRoute(app);
 registerLibraryRoutes(app);
 registerCatalogRoutes(app);
 registerNotesRoutes(app);
 registerProfileRoutes(app);
 
 /**
- * Startup probe for `ebook-convert` (brief step 2). Missing Calibre is NOT
- * fatal — the server still boots and the /convert route returns a structured
- * CALIBRE_MISSING error at request time — but we log a loud warning so it's
- * obvious the machine can't actually convert.
+ * Startup probe for `ebook-convert`. Missing Calibre is NOT fatal — the server
+ * still boots, and a conversion started from the library fails that book's
+ * convert job with the Calibre-missing reason rather than taking anything else
+ * down (D5, D34). We log a loud warning so it's obvious the machine can't
+ * actually convert.
  */
 async function checkCalibre(): Promise<void> {
   const available = await isCalibreAvailable();
@@ -83,7 +82,7 @@ async function checkCalibre(): Promise<void> {
   app.log.warn(
     "============================================================\n" +
       "  WARNING: `ebook-convert` (Calibre) was NOT found on PATH.\n" +
-      "  EPUB->PDF conversion will fail with CALIBRE_MISSING.\n" +
+      "  Book conversion (PDF <-> EPUB) will fail on every attempt.\n" +
       "  Install Calibre and ensure `ebook-convert` is on PATH.\n" +
       "  See decisions.md D5.\n" +
       "============================================================",

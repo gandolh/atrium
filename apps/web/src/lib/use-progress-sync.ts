@@ -76,7 +76,10 @@ export function useProgressSync() {
       // PATCH can't go out; then attempt the server write (best-effort).
       void putLocalProgress(bookId, { fraction, locator, updatedAt, profileId });
       void updateProgress(bookId, fraction, locator)
-        .then(() => markLocalProgressSynced(bookId, updatedAt))
+        // Mark the record THIS write created — the progress store is keyed per
+        // (profile, book) since v4, so the profile has to come along or the
+        // lookup misses and the row stays pending forever.
+        .then(() => markLocalProgressSynced(bookId, profileId, updatedAt))
         .catch(() => {
           // Offline / server down: the local record stays pending and is pushed
           // once on reconnect (last-write-wins).
@@ -144,15 +147,18 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       (row.locator ?? null) === p.locator &&
       Math.abs(row.progress - p.fraction) < FRACTION_EPSILON;
     if (alreadyOnServer) {
-      // Server already holds this position — just clear the pending flag.
-      await markLocalProgressSynced(p.id, p.updatedAt);
+      // Server already holds this position — just clear the pending flag. Keyed
+      // by the record's OWN profile (`p.profileId`), not `targetProfileId`:
+      // that's the row we actually read, and for a profile-less record the two
+      // differ.
+      await markLocalProgressSynced(p.id, p.profileId, p.updatedAt);
       continue;
     }
     try {
       // Send the record's OWN profile (falling back to active for a `null`
       // record, per the comment above) — never the currently active one.
       await updateProgress(p.id, p.fraction, p.locator, targetProfileId ?? undefined);
-      await markLocalProgressSynced(p.id, p.updatedAt);
+      await markLocalProgressSynced(p.id, p.profileId, p.updatedAt);
     } catch (err) {
       // A 404 here means the profile-scoped PATCH couldn't resolve a target:
       // either the profile named by `targetProfileId` was deleted (the server
@@ -162,7 +168,9 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       // every reconnect forever. Anything else (still offline, 5xx) leaves
       // the record pending for the next reconnect.
       if (err instanceof ApiError && err.status === 404) {
-        await deleteLocalProgress(p.id);
+        // Only this profile's row for the book — a housemate's position for the
+        // same book is a separate record and stays.
+        await deleteLocalProgress(p.id, p.profileId);
       }
     }
   }
@@ -172,13 +180,28 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
  * Drive `flushPendingProgress` on app start and on every `online` event, using
  * the live library rows for the value comparison. Mount this once where the
  * library list is known (the library page). Safe no-op with no pending records.
+ *
+ * `isOffline` (from `useLibraryList`) means those rows are the OFFLINE FALLBACK
+ * — downloaded books' cached snapshots — and it MUST suppress the flush. Those
+ * rows compose their `progress`/`locator` from this device's own progress
+ * records (brief 35 fix), so comparing a pending record against them is
+ * comparing it against itself: every record would look "already on the server"
+ * and be marked synced without a single PATCH ever going out, silently
+ * discarding the offline reading it was queued to deliver. `rows` is only a
+ * valid comparison when it is genuinely the server's answer.
+ *
+ * Nothing is lost by waiting: react-query refetches on reconnect, `isOffline`
+ * flips back to false with real rows, and this effect re-runs and flushes then.
  */
-export function useReconnectProgressSync(rows: LibraryBook[] | undefined): void {
+export function useReconnectProgressSync(
+  rows: LibraryBook[] | undefined,
+  isOffline: boolean,
+): void {
   useEffect(() => {
-    if (!rows) return;
+    if (!rows || isOffline) return;
     void flushPendingProgress(rows);
     const onOnline = () => void flushPendingProgress(rows);
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [rows]);
+  }, [rows, isOffline]);
 }

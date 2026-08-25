@@ -178,10 +178,13 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     async function openFromOfflineStore(id: string): Promise<boolean> {
       const record = await getOfflineBook(id);
       if (cancelled || !record) return false;
-      const local = await getLocalProgress(id);
+      // Scoped to the active profile (brief 35 fix): the progress store holds
+      // one record per (profile, book), so this is THIS reader's position and
+      // never the housemate's. The stored snapshot carries no position at all.
+      const local = await getLocalProgress(id, profileId);
       if (cancelled) return false;
       setOfflineBook(record.book);
-      const wireLocator = resolveOfflineResume(record, local);
+      const wireLocator = resolveOfflineResume(local);
       const initialLocation = resumeLocation(wireLocator, record.format);
       // This path only runs for books (media never reaches the offline store),
       // so `format` is always pdf/epub — narrow the widened FileType to the
@@ -248,7 +251,19 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     return () => {
       cancelled = true;
     };
-  }, [needsHydrate, bookId, isMedia, library.isPending, library.isError, library.data, setLoadedBook, attempt]);
+  }, [
+    needsHydrate,
+    bookId,
+    isMedia,
+    library.isPending,
+    library.isError,
+    library.data,
+    setLoadedBook,
+    attempt,
+    // The offline resume is read for THIS profile, so a switch must re-resolve
+    // it rather than keep serving the position resolved for the previous one.
+    profileId,
+  ]);
 
   const retry = useCallback(() => {
     // The failure may have been the library list itself — refetch it too.

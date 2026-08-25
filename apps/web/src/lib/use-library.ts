@@ -51,8 +51,15 @@ export const libraryKey = (profileId: string | null, sort: LibrarySort) =>
   ["library", profileId, sort] as const;
 /** Prefix matching every sort variant of ONE profile's library list. */
 export const libraryProfileKey = (profileId: string | null) => ["library", profileId] as const;
-/** Query key for the set of downloaded books (metadata only). */
-const offlineBooksKey = ["offline", "books"] as const;
+/**
+ * Query key for the set of downloaded books (metadata only). The DOWNLOADS are
+ * device-scoped (decision 7) but each row's `progress`/`locator` is composed
+ * from the active profile's progress record (brief 35 fix), so the cached list
+ * IS profile data — same reasoning as `libraryKey` above.
+ */
+const offlineBooksKey = (profileId: string | null) => ["offline", "books", profileId] as const;
+/** Prefix matching every profile's downloaded-books query (for invalidation). */
+const offlineBooksPrefix = ["offline", "books"] as const;
 /** Query key for the storage-usage estimate. */
 const offlineStorageKey = ["offline", "storage"] as const;
 
@@ -90,9 +97,10 @@ export function useDeleteBook() {
 
 /** Downloaded books, as a react-query cache both offline hooks share. */
 function useOfflineBooksQuery() {
+  const profileId = useActiveProfileId();
   return useQuery({
-    queryKey: offlineBooksKey,
-    queryFn: () => listOfflineBooks(),
+    queryKey: offlineBooksKey(profileId),
+    queryFn: () => listOfflineBooks(profileId),
     // The offline set only changes via our own download/remove mutations, which
     // invalidate this key; no need to refetch on focus.
     staleTime: Infinity,
@@ -127,13 +135,17 @@ export interface LibraryListResult {
 }
 
 export function useLibraryList(sort: LibrarySort): LibraryListResult {
+  const profileId = useActiveProfileId();
   const query = useLibrary(sort);
   const offline = useOfflineBooksQuery();
 
   // Item 6: keep the stored snapshots fresh from every successful live load.
+  // The rows were fetched AS `profileId`, so their positions are seeded into
+  // that profile's own progress records while the shared metadata goes into the
+  // device-scoped snapshot — see `refreshOfflineSnapshots`.
   useEffect(() => {
-    if (query.data) void refreshOfflineSnapshots(query.data);
-  }, [query.data]);
+    if (query.data) void refreshOfflineSnapshots(query.data, profileId);
+  }, [query.data, profileId]);
 
   const serverBooks = query.data ?? null;
   const cachedBooks = offline.data ?? EMPTY_SUMMARIES;
@@ -221,7 +233,9 @@ export function useOfflineDownload(): OfflineDownloadManager {
   const downloadedIds = new Set(downloaded.map((b) => b.id));
 
   const invalidate = useCallback(() => {
-    void qc.invalidateQueries({ queryKey: offlineBooksKey });
+    // The broad prefix: a download/removal changes the device's set for every
+    // profile's view of it, not just the active one.
+    void qc.invalidateQueries({ queryKey: offlineBooksPrefix });
     void qc.invalidateQueries({ queryKey: offlineStorageKey });
   }, [qc]);
 

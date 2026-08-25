@@ -125,7 +125,9 @@ export function LibraryHome() {
 
   const { books, isOffline, isLoading, isError, refetch } = useLibraryList(sort);
   const offlineDownload = useOfflineDownload();
-  useReconnectProgressSync(books);
+  // `isOffline` gates the flush: the fallback rows are this device's own cached
+  // snapshots, not the server's answer — see `useReconnectProgressSync`.
+  useReconnectProgressSync(books, isOffline);
 
   const upload = useUploadBook();
   const remove = useDeleteBook();

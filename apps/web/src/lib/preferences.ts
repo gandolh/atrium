@@ -118,7 +118,15 @@ function readLegacyPreferences(): Preferences {
  * read applies instead.
  */
 export function getBootPreferences(profileId: string | null): Preferences {
-  if (!profileId) return {};
+  // A null profile id is the UPGRADE case, not a "nothing to paint" case:
+  // `ebook-reader.profile` is a key this brief introduces, so no build before
+  // it ever wrote one, and every existing device therefore boots once with no
+  // profile id at all. Returning `{}` here made the legacy fallback below
+  // unreachable on precisely the load it was written for — the app painted
+  // `light`, then snapped to the user's real theme once the profile resolved.
+  // That is the flash decision 4(b) exists to prevent, so the legacy keys have
+  // to answer when there is no profile-scoped cache to answer instead.
+  if (!profileId) return readLegacyPreferences();
   return readCachedPreferences(profileId) ?? readLegacyPreferences();
 }
 

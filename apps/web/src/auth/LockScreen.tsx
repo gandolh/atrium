@@ -34,7 +34,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     void checkStatus();
   }, [checkStatus]);
 
-  if (status === "checking" || (status === "unlocked" && pickerRequired && profileCount === 0)) {
+  if (status === "checking") {
     return (
       <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] items-center justify-center bg-paper">
         <p className="font-ui text-sm text-ink-variant">Loading…</p>
@@ -46,7 +46,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <LockScreen />;
   }
 
-  if (pickerRequired) {
+  // Ask who is reading only when we know who there is to ask about. The list is
+  // cached on the device, so an offline boot still gets a real picker; the empty
+  // case is a device that has never once synced, and there the only honest
+  // options are "show an empty picker" or "let them in" — waiting was a third
+  // option that never resolved, because nothing behind this gate can fetch the
+  // list. An un-asked picker costs at most one session of misattributed
+  // progress; a permanent "Loading…" costs the whole app, offline reading
+  // (brief 20) included.
+  if (pickerRequired && profileCount > 0) {
     return <ProfilePicker />;
   }
 

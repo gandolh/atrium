@@ -140,7 +140,12 @@ export interface ReaderState {
   setProgressFraction: (fraction: number | null) => void;
   /** Set the PDF zoom scale (brief 06). Clamped by the caller. */
   setZoom: (zoom: number) => void;
-  reset: () => void;
+  /**
+   * Drop the loaded book and everything derived from it, leaving preferences
+   * alone. Called when the active profile changes — see the subscription at
+   * the foot of this file.
+   */
+  clearLoadedBook: () => void;
 }
 
 // design.md "Typography": the reading pane defaults to Newsreader at 18/1.78
@@ -256,7 +261,16 @@ export const useReaderStore = create<ReaderState>((set) => ({
     set({ loadedFile, loadedFormat, loadedBookId, initialLocation, progressFraction: null }),
   setProgressFraction: (progressFraction) => set({ progressFraction }),
   setZoom: (zoom) => set({ zoom }),
-  reset: () => set(initialState),
+  clearLoadedBook: () =>
+    set({
+      loadedFile: null,
+      loadedFormat: null,
+      loadedBookId: null,
+      initialLocation: null,
+      currentLocation: null,
+      progressFraction: null,
+      zoom: 1,
+    }),
 }));
 
 // Wire profile-switch reactivity once, right after the store exists: whenever
@@ -283,3 +297,26 @@ initPreferencesSync(
   },
   bootProfileId,
 );
+
+// A profile switch must not leave the previous person's book loaded.
+//
+// `loadedBookId`/`initialLocation`/`progressFraction` live in this module-level
+// store, so they outlive both the reader unmounting and the query cache being
+// cleared. Left alone, `use-hydrate-book` saw the same `loadedBookId` still
+// matching the URL, skipped hydration entirely, and handed the new profile the
+// PREVIOUS profile's resume position — which `use-progress-sync` then wrote
+// back to the new profile's row, inventing progress on a book they never
+// opened. Clearing here rather than in `switchProfile` keeps the invariant next
+// to the state it protects and avoids an auth -> reader-store -> preferences ->
+// auth import cycle.
+//
+// Deliberately NOT the old `reset()`: that reverted to `initialState`, a
+// snapshot captured at module load, so it would also have repainted the BOOT
+// profile's theme and font settings over the profile now on screen — the exact
+// bug the `applyPreferences` comment above describes. Preferences are the
+// subscription above's job; this one only forgets the book.
+useAuthStore.subscribe((state, prev) => {
+  if (state.activeProfileId !== prev.activeProfileId) {
+    useReaderStore.getState().clearLoadedBook();
+  }
+});

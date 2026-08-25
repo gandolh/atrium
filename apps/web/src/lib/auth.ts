@@ -3,6 +3,7 @@ import {
   authStatusSchema,
   loginResponseSchema,
   type LoginRequest,
+  profileListSchema,
   type Profile,
 } from "@ebook-reader/shared";
 
@@ -35,6 +36,8 @@ const TOKEN_KEY = "ebook-reader.token";
 const USERNAME_KEY = "ebook-reader.username";
 /** The device's remembered profile choice — an id, and only ever a hint. */
 const PROFILE_KEY = "ebook-reader.profile";
+/** Device cache of the account's profile list — see `readStoredProfiles`. */
+const PROFILES_KEY = "ebook-reader.profiles";
 /** Epoch ms of the last app load, stamped below. See `PROFILE_PICKER_IDLE_MS`. */
 const PROFILE_ACTIVITY_KEY = "ebook-reader.profile-activity";
 
@@ -109,6 +112,44 @@ function writeStoredProfileId(id: string | null): void {
     }
   } catch {
     /* profile persistence is best-effort */
+  }
+}
+
+/**
+ * Device cache of the account's profile list.
+ *
+ * The picker needs names to show, and `GET /profiles` cannot answer when the
+ * device is offline — which is exactly when a household tablet is most likely
+ * to be opened after sitting idle past the 24h window. Without this the gate
+ * had nothing to render and no way to resolve, so an offline boot with the
+ * picker due hung forever. Caching the list keeps decision 6 working with no
+ * connectivity: the person still gets asked who is reading.
+ *
+ * It is display data only — reachable by anyone holding the device, which is
+ * fine because a profile is an identity boundary and never a security one
+ * (D35). It is cleared on the 401 re-lock, since the next person to log in is
+ * not necessarily the account this list belongs to.
+ */
+function readStoredProfiles(): Profile[] {
+  try {
+    const raw = localStorage.getItem(PROFILES_KEY);
+    if (!raw) return [];
+    const parsed = profileListSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredProfiles(profiles: Profile[]): void {
+  try {
+    if (profiles.length > 0) {
+      localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+    } else {
+      localStorage.removeItem(PROFILES_KEY);
+    }
+  } catch {
+    /* profile-list caching is best-effort */
   }
 }
 
@@ -223,7 +264,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
   activeProfile: null,
   activeProfileId: readStoredProfileId(),
-  profiles: [],
+  profiles: readStoredProfiles(),
   pickerRequired: !FRESH_CHOICE_AT_BOOT,
 
   async checkStatus() {
@@ -303,14 +344,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // A remembered id from a DIFFERENT account can't match anything in this
       // list, so logging in as someone else always lands on the picker.
       const skipPicker = active.id === remembered?.id;
-      writeStoredProfileId(active.id);
+      const merged = mergeProfile(profiles, active);
+      // Remember ONLY a profile the person actually picked. Writing the
+      // server-assigned default here made an un-picked default look exactly
+      // like a choice: log in, walk away without tapping, and the next load
+      // saw a fresh remembered id and skipped the picker for another 24h —
+      // so everyone's reading landed on Default. Decision 6 lets the 24h rule
+      // suppress the picker only for a device whose person has ALREADY
+      // chosen, and `skipPicker` is precisely that condition.
+      if (skipPicker) writeStoredProfileId(active.id);
+      writeStoredProfiles(merged);
       set({
         status: "unlocked",
         username: resolved,
         error: null,
         activeProfile: active,
         activeProfileId: active.id,
-        profiles: mergeProfile(profiles, active),
+        profiles: merged,
         pickerRequired: !skipPicker,
       });
     } catch (err) {
@@ -345,6 +395,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // the in-between state.
     queryClient.clear();
     writeStoredProfileId(profile.id);
+    writeStoredProfiles(mergeProfile(get().profiles, profile));
     stampActivity();
     set((s) => ({
       activeProfile: profile,
@@ -359,6 +410,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const current = get().activeProfileId;
     const still = profiles.find((p) => p.id === current);
     if (still) {
+      writeStoredProfiles(profiles);
       set({ profiles, activeProfile: still });
       return;
     }
@@ -368,7 +420,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // what's cached belongs to a profile that no longer exists.
     const fallback = defaultProfile(profiles);
     queryClient.clear();
-    writeStoredProfileId(fallback?.id ?? null);
+    writeStoredProfiles(profiles);
+    // Not a choice — the person's profile was deleted out from under them, so
+    // the fallback is the server's pick, not theirs. Clearing the remembered
+    // id means the next boot asks who is reading instead of silently adopting
+    // Default as though it had been chosen.
+    writeStoredProfileId(null);
     set({
       profiles,
       activeProfile: fallback ?? null,
@@ -400,7 +457,11 @@ async function reconcileProfiles(): Promise<void> {
       // belt and braces is the whole point of step 7.
       queryClient.clear();
     }
-    writeStoredProfileId(active.id);
+    // Re-affirm an existing choice, never mint one: `target` falls back to the
+    // account default when nothing is stored, and writing that id would turn a
+    // guess into a remembered pick (same defect as login's, below).
+    if (active.id === stored) writeStoredProfileId(active.id);
+    writeStoredProfiles(mergeProfile(profiles, active));
     useAuthStore.setState((s) => ({
       activeProfile: active,
       activeProfileId: active.id,
@@ -426,6 +487,7 @@ setOnUnauthorized(() => {
   // remembered timestamp is device activity rather than account state, that id
   // would have looked fresh enough to skip the picker.
   writeStoredProfileId(null);
+  writeStoredProfiles([]);
   setAuthToken(null);
   // Whoever logs in next is not necessarily who just got locked out.
   queryClient.clear();

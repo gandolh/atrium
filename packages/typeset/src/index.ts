@@ -71,3 +71,112 @@ export type {
   PositionedGlyph,
   ShapedText,
 } from "./font/handle.ts";
+
+/**
+ * The pipeline stages, in the order `compile()` runs them. Exported so a caller
+ * can drive one stage alone — the golden tests do, and an editor could ask for
+ * diagnostics without paying for layout.
+ *
+ * Named rather than `export *` on purpose: two chunks independently defined a
+ * `TextStyle`, and a star re-export would have merged or shadowed them silently.
+ * `layout`'s is now `TextFace` (a *resolved* handle at a size); `doc`'s stays
+ * `TextStyle` (semantic — a `FontSelection` plus underline, deliberately no
+ * size). Listing every name is what makes the next such collision a build error.
+ */
+export { parseLatex } from "./parse/index.ts";
+export type { Argument, LatexNode, ParseResult, SourceSpan } from "./parse/index.ts";
+
+export { buildDocument } from "./doc/index.ts";
+export type { BuildDocumentOptions, BuildResult, SourceFiles } from "./doc/index.ts";
+export {
+  DEFAULT_TEXT_STYLE,
+  HEADING_DEPTH,
+  SECTION_NUMBER_DEPTH,
+  UNRESOLVED_REFERENCE,
+  cloneStyle,
+  headingMarker,
+  labelMarker,
+} from "./doc/model.ts";
+export type {
+  AbstractBlock,
+  Block,
+  FontSelection,
+  FootnoteInline,
+  HeadingBlock,
+  HeadingLevel,
+  Inline,
+  LabelInfo,
+  LatexDocument,
+  LineBreakInline,
+  ListBlock,
+  ListItem,
+  ListVariant,
+  MarkerBlock,
+  MarkerInline,
+  PackageUse,
+  PageBreakBlock,
+  ParagraphBlock,
+  ReferenceInline,
+  SpaceInline,
+  TextInline,
+  TextStyle,
+  TieInline,
+  TitleBlock,
+  TocBlock,
+  TocEntry,
+  VerbatimBlock,
+} from "./doc/model.ts";
+
+export { budgetDiagnostic, createBudget, spend } from "./macro/index.ts";
+export type { Budget } from "./macro/index.ts";
+
+/** Line breaking and glue setting. `model.ts`'s vocabulary is already exported above. */
+export {
+  AWFUL_BAD,
+  DECENT_FIT,
+  DEFAULT_LINE_BREAK_PARAMS,
+  INF_BAD,
+  LOOSE_FIT,
+  TIGHT_FIT,
+  VERY_LOOSE_FIT,
+  addNodeExtent,
+  badness,
+  breakParagraph,
+  cloneExtent,
+  computeGlueSet,
+  createEnglishHyphenator,
+  createShaper,
+  emptyDiscretionary,
+  finishParagraph,
+  fontSpacing,
+  hpack,
+  hyphenateHList,
+  isFinished,
+  measure,
+  parFillSkip,
+  paragraphIndent,
+  setWidth,
+  shapeRun,
+  spaceGlue,
+  textToHList,
+  zeroExtent,
+} from "./layout/index.ts";
+export type {
+  Extent,
+  Fitness,
+  FontSpacing,
+  GlueSetting,
+  HyphenateOptions,
+  Hyphenator,
+  LineBreak,
+  LineBreakParams,
+  LineBreakResult,
+  LineWidths,
+  PackReport,
+  Shaper,
+  TextFace,
+  TextRunOptions,
+} from "./layout/index.ts";
+
+export { renderPdf } from "./pdf/index.ts";
+export type { RenderPdfOptions, RenderPdfResult } from "./pdf/index.ts";

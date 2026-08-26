@@ -1,0 +1,169 @@
+import type { HeadingLevel } from "./model.ts";
+import { HEADING_DEPTH, SECTION_NUMBER_DEPTH } from "./model.ts";
+
+/**
+ * Counters, and the number a `\ref` to them prints (brief 37, chunk 6).
+ *
+ * The formats are `article.cls`'s, not inventions: `\theenumii` really is
+ * lowercase letters in parentheses, and a `\ref` to a second-level item really
+ * does print `1a` rather than `(a)` — LaTeX composes the reference from
+ * `\p@enumii\theenumii` while the item's *label* is `(\theenumii)`. Getting
+ * this wrong is the kind of bug nobody notices until a cross-reference points
+ * at the wrong list item, so it is implemented from the class file's rules.
+ */
+
+export type CounterName =
+  | "section"
+  | "subsection"
+  | "subsubsection"
+  | "paragraph"
+  | "footnote"
+  | "enumi"
+  | "enumii"
+  | "enumiii"
+  | "enumiv";
+
+/** Stepping a counter resets everything subordinate to it, as `\newcounter[...]` does. */
+const SUBORDINATES: Readonly<Record<CounterName, readonly CounterName[]>> = {
+  section: ["subsection", "subsubsection", "paragraph"],
+  subsection: ["subsubsection", "paragraph"],
+  subsubsection: ["paragraph"],
+  paragraph: [],
+  footnote: [],
+  enumi: ["enumii", "enumiii", "enumiv"],
+  enumii: ["enumiii", "enumiv"],
+  enumiii: ["enumiv"],
+  enumiv: [],
+};
+
+export type Counters = Record<CounterName, number>;
+
+export function createCounters(): Counters {
+  return {
+    section: 0,
+    subsection: 0,
+    subsubsection: 0,
+    paragraph: 0,
+    footnote: 0,
+    enumi: 0,
+    enumii: 0,
+    enumiii: 0,
+    enumiv: 0,
+  };
+}
+
+export function step(counters: Counters, name: CounterName): number {
+  counters[name] += 1;
+  for (const sub of SUBORDINATES[name]) counters[sub] = 0;
+  return counters[name];
+}
+
+export function reset(counters: Counters, name: CounterName): void {
+  counters[name] = 0;
+  for (const sub of SUBORDINATES[name]) counters[sub] = 0;
+}
+
+const HEADING_COUNTER: Readonly<Record<HeadingLevel, CounterName>> = {
+  section: "section",
+  subsection: "subsection",
+  subsubsection: "subsubsection",
+  paragraph: "paragraph",
+};
+
+export function headingCounter(level: HeadingLevel): CounterName {
+  return HEADING_COUNTER[level];
+}
+
+/** Whether `article` numbers this level at all (`secnumdepth` is 3). */
+export function isNumbered(level: HeadingLevel): boolean {
+  return HEADING_DEPTH[level] <= SECTION_NUMBER_DEPTH;
+}
+
+/** `\thesubsection` and friends: the dotted number chain down to `level`. */
+export function formatHeadingNumber(counters: Counters, level: HeadingLevel): string {
+  const chain: CounterName[] = ["section", "subsection", "subsubsection", "paragraph"];
+  const depth = HEADING_DEPTH[level];
+  return chain
+    .slice(0, depth)
+    .map((c) => String(counters[c]))
+    .join(".");
+}
+
+const LOWER_ALPHA = "abcdefghijklmnopqrstuvwxyz";
+const ROMAN: readonly (readonly [number, string])[] = [
+  [1000, "m"],
+  [900, "cm"],
+  [500, "d"],
+  [400, "cd"],
+  [100, "c"],
+  [90, "xc"],
+  [50, "l"],
+  [40, "xl"],
+  [10, "x"],
+  [9, "ix"],
+  [5, "v"],
+  [4, "iv"],
+  [1, "i"],
+];
+
+export function alph(n: number): string {
+  // LaTeX's `\@alph` is only defined for 1–26 and errors past it; printing the
+  // bare number is a visible, honest fallback rather than a wrong letter.
+  return n >= 1 && n <= 26 ? LOWER_ALPHA[n - 1]! : String(n);
+}
+
+export function Alph(n: number): string {
+  return alph(n).toUpperCase();
+}
+
+export function roman(n: number): string {
+  if (n <= 0) return String(n);
+  let rest = n;
+  let out = "";
+  for (const [value, numeral] of ROMAN) {
+    while (rest >= value) {
+      out += numeral;
+      rest -= value;
+    }
+  }
+  return out;
+}
+
+export const ENUM_COUNTERS: readonly CounterName[] = ["enumi", "enumii", "enumiii", "enumiv"];
+
+/** The counter for an `enumerate` at `depth` (1-based). Depth past 4 reuses the last. */
+export function enumCounter(depth: number): CounterName {
+  return ENUM_COUNTERS[Math.min(Math.max(depth, 1), ENUM_COUNTERS.length) - 1]!;
+}
+
+/** `\theenumN` — the counter's own value, without the parent chain. */
+export function formatEnumValue(depth: number, value: number): string {
+  switch (Math.min(Math.max(depth, 1), 4)) {
+    case 1:
+      return String(value);
+    case 2:
+      return alph(value);
+    case 3:
+      return roman(value);
+    default:
+      return Alph(value);
+  }
+}
+
+/** `\labelenumN` — what prints in the item's margin. */
+export function formatEnumLabel(depth: number, value: number): string {
+  const text = formatEnumValue(depth, value);
+  return Math.min(Math.max(depth, 1), 4) === 2 ? `(${text})` : `${text}.`;
+}
+
+/** `\p@enumN\theenumN` — what a `\ref` to this item prints. */
+export function enumReferenceText(counters: Counters, depth: number): string {
+  const d = Math.min(Math.max(depth, 1), 4);
+  let out = "";
+  for (let level = 1; level <= d; level++) {
+    const value = counters[enumCounter(level)];
+    const text = formatEnumValue(level, value);
+    out += level === 2 ? `(${text})` : text;
+  }
+  return out;
+}

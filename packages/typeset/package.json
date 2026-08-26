@@ -10,18 +10,26 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./fonts/node": {
+      "types": "./dist/fonts.d.ts",
+      "import": "./dist/fonts.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json",
     "test": "node --test 'test/**/*.test.ts'"
   },
   "dependencies": {
-    "@ebook-reader/shared": "*"
+    "@ebook-reader/shared": "*",
+    "@unified-latex/unified-latex-types": "1.8.4",
+    "@unified-latex/unified-latex-util-parse": "1.8.4",
+    "fontkit": "2.0.4"
   },
   "devDependencies": {
     "@types/node": "22.20.0",

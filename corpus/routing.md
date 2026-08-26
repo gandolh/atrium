@@ -53,6 +53,13 @@ The corpus is the WHY; the code is the WHAT. Neither substitutes.
 | backend (apps/api) | apps/api/src, wiki/conversion.md, wiki/architecture.md (library) | apps/web | — |
 | shared contract | packages/shared, wiki/decisions.md, **wiki/glossary.md** | — | — |
 | notes | packages/shared/src/notes.ts, wiki/glossary.md (Notes terms) | apps/api/src/extract.ts | impeccable |
+| typesetting engine (packages/typeset) | packages/typeset/src, wiki/typeset.md, **wiki/glossary-authoring.md** (engine terms), briefs 37/39/40 | apps/web, apps/api — the engine ships no UI and no routes | — |
+
+**`packages/typeset` toolchain quirk, load-bearing:** relative imports inside its
+`src/` carry an explicit **`.ts` suffix**, not `.js`. Node's type stripping does not
+rewrite specifiers, so `.js` breaks `node --test`; `tsc` rewrites `.ts` to `.js` on
+emit. This deliberately differs from `apps/api`'s `.js` convention — tell every
+dispatched chunk, or it will copy the wrong one.
 
 Every dispatched chunk gets the terms it needs from
 [wiki/glossary.md](wiki/glossary.md) — a subagent that doesn't know the

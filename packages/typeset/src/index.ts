@@ -52,7 +52,13 @@ export type {
 
 export type { GlyphRun, Page, PlacedItem, PlacedRule } from "./layout/page.ts";
 
-export { scaleToPoints } from "./font/handle.ts";
+export {
+  LATIN_MODERN_FACE_IDS,
+  createFontHandle,
+  createLatinModernProvider,
+  latinModernFaceId,
+  scaleToPoints,
+} from "./font/handle.ts";
 export type {
   FontFamily,
   FontHandle,
@@ -60,6 +66,8 @@ export type {
   FontRequest,
   FontSlant,
   FontWeight,
+  LatinModernBytes,
+  LatinModernFaceId,
   PositionedGlyph,
   ShapedText,
 } from "./font/handle.ts";

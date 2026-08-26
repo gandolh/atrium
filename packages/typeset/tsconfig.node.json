@@ -1,0 +1,22 @@
+{
+  // The Node-only font loader, compiled as its own program.
+  //
+  // It exists as a separate project rather than a folder inside `src` because
+  // `src` is compiled with `"types": []` on purpose (D38): the engine performs
+  // no I/O, and withholding the Node types is what turns "don't import `fs`"
+  // from a convention into a compile error. The loader genuinely does read
+  // files, so it needs the types — and therefore needs to be somewhere else.
+  //
+  // `rootDir` is `./node` and `outDir` is `./dist`, so `node/fonts.ts` emits as
+  // `dist/fonts.js`: the same one-level-below-the-package-root depth as the
+  // source, which is what lets `latinModernFontDir()` find `assets/fonts` the
+  // same way whether it is running from source under `node --test` or from the
+  // build. It imports nothing from `src`, so nothing here can be emitted twice.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./node",
+    "outDir": "./dist",
+    "types": ["node"]
+  },
+  "include": ["node"]
+}

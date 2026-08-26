@@ -11,5 +11,7 @@
     "sourceMap": false,
     "types": ["node"]
   },
-  "include": ["src", "test"]
+  // `node` is listed so the Node-only font loader is checked here too; the
+  // tests exercise it, and it is the only way `src` ever gets its fonts.
+  "include": ["src", "node", "test"]
 }

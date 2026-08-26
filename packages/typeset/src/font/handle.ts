@@ -118,3 +118,18 @@ export interface FontProvider {
    */
   get(request: FontRequest): FontHandle | undefined;
 }
+
+// --- implementations -------------------------------------------------------
+//
+// Re-exported here so that "the font seam" is one import for the rest of the
+// engine. `fontkit-handle.ts` imports `scaleToPoints` back out of this file,
+// which makes a module cycle; it is harmless because the only thing crossing it
+// is a hoisted function declaration, initialised before any module body runs.
+
+export { createFontHandle } from "./fontkit-handle.ts";
+export {
+  LATIN_MODERN_FACE_IDS,
+  createLatinModernProvider,
+  latinModernFaceId,
+} from "./latin-modern.ts";
+export type { LatinModernBytes, LatinModernFaceId } from "./latin-modern.ts";

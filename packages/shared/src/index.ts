@@ -140,3 +140,13 @@ export type {
   FontSettingsPreference,
   Preferences,
 } from "./profile.js";
+
+// --- LaTeX diagnostic contract (brief 37) ----------------------------------
+export {
+  DIAGNOSTIC_SEVERITIES,
+  diagnosticSeveritySchema,
+  DIAGNOSTIC_CODES,
+  diagnosticCodeSchema,
+  diagnosticSchema,
+} from "./latex.js";
+export type { DiagnosticSeverity, DiagnosticCode, Diagnostic } from "./latex.js";

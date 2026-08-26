@@ -1,0 +1,11 @@
+# typeset golden dump v1
+document: hello.tex
+pages: 1
+
+## page 1  612.000 x 792.000
+  glyphs  x=   72.000 y=   84.000 w=  125.000  stub-roman@10.000  "The quick brown fox jumps"
+  glyphs  x=   72.000 y=   96.000 w=   90.000  stub-roman@10.000  "over the lazy dog."
+  rule    x=   72.000 y=  120.000 w=  468.000 h=    0.400
+
+## diagnostics
+  warning hello.tex:9:1            undefined-reference  reference `fig:missing' is undefined

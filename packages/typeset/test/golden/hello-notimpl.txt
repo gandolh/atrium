@@ -1,0 +1,6 @@
+# typeset golden dump v1
+document: hello.tex
+pages: 0
+
+## diagnostics
+  error   hello.tex:0              unsupported          the typesetting engine is a scaffold and sets nothing yet (brief 37, chunk 1)

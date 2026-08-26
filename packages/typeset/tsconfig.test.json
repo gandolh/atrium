@@ -1,0 +1,15 @@
+{
+  // Typechecks `test/` alongside `src/` without ever emitting it: the build
+  // config above includes only `src`, so nothing under `test/` can reach dist.
+  // Tests may touch the filesystem (the golden files live there), so unlike the
+  // build config this one does grant the Node types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["src", "test"]
+}

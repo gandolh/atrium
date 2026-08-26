@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    // Source files import each other with an explicit `.ts` suffix, which tsc
+    // rewrites to `.js` on emit. That is what lets `node --test` run the
+    // TypeScript sources directly (type stripping does not rewrite specifiers,
+    // so a `.js` suffix would resolve to a file that does not exist) while the
+    // built package still works under plain Node ESM.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    // Node's type stripping erases types without a type checker, so it cannot
+    // tell a type import from a value import and cannot compile an enum. These
+    // two turn "would break under node --test" into a typecheck error.
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+
+    // The engine is a pure function with no I/O (D38). Withholding the Node
+    // type definitions from `src` makes `fs`, `process` and `Buffer` fail to
+    // compile rather than merely being frowned upon in review.
+    "types": []
+  },
+  "include": ["src"]
+}

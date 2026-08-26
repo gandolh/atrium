@@ -79,12 +79,17 @@ open library book → GET /library/:id/file → PDF?  → react-pdf viewer
                                            → EPUB? → react-reader viewer
 ```
 
-**Conversion (unchanged, still stateless):**
+**Convert — an async job producing a linked library row (D34):**
 ```
-web: EPUB multipart ──POST /convert──► api: validate (Zod) → spawn Calibre
-                                              ebook-convert (temp files, 60s cap)
-     Download ◄── PDF stream ◄──── stream result, cleanup in finally
+reader ──POST /library/:id/convert──► api: 202, job starts (one at a time, 24h ceiling)
+                                            spawn ebook-convert (+--enable-heuristics on PDF→EPUB)
+                                            quality gate → ready | poor
+       ◄── poll GET /library/:id ────       insert CONVERTED row (converted_from = source)
+       reader switches format = open the other book id
 ```
+Both directions. The converted book is read in-app, not downloaded — the
+stateless `POST /convert` and its temp-file workspace are gone (D34 revises
+D1/D15). See [conversion.md](conversion.md).
 
 ## Server-side storage (D25)
 ```
@@ -104,6 +109,12 @@ Tables (`db.ts`):
   operator-seeded accounts (D30).
 - `sessions`: `token PK, user_id → users ON DELETE CASCADE, created_at` — opaque
   login sessions (D30).
+- `books` also carries the convert link (D34): `converted_from` (FK to
+  `books.id`, `ON DELETE CASCADE`, unique — at most one conversion per source),
+  plus `convert_status` / `convert_error` / `convert_started_at`. The three list
+  statements filter `converted_from IS NULL`, which is what keeps one card per
+  book — and what search, chips, grouping and counts all inherit, since they run
+  client-side over that list.
 - `profiles`: `(user_id, name)` unique → `name, color, is_default, preferences`
   — the people inside one account (D35). `preferences` is a JSON blob (theme,
   font settings, page mode, TOC sidebar), which is why D9 no longer holds for
@@ -115,7 +126,8 @@ Tables (`db.ts`):
 
 ## Frontend stack (`apps/web`)
 - **TanStack Router** — routes between views (home/upload ↔ reader).
-- **TanStack Query** — `useMutation` wrapping `POST /convert` (loading/error/success).
+- **TanStack Query** — library/notes/profile queries; the convert control polls
+  `GET /library/:id` at a flat 30s while a conversion is running (D34).
 - **Zustand** — in-memory reader state (current page, theme, font settings).
 - **Zod** — client-side file validation (shared schemas).
 - **Tailwind** + **Base UI** (`@base-ui/react`) — styling + unstyled accessible
@@ -126,9 +138,10 @@ Tables (`db.ts`):
 ## Backend stack (`apps/api`)
 - **Fastify** + `@fastify/multipart` (upload) + `@fastify/cors`.
 - **`better-sqlite3`** (D24) — synchronous single-file DB for the library.
-- **Library routes** (D24): `POST /library`, `GET /library`,
+- **Library routes** (D24): `POST /library`, `GET /library`, `GET /library/:id`,
   `GET /library/:id/file`, `GET /library/:id/cover`,
-  `PATCH /library/:id/progress`, `DELETE /library/:id`.
+  `PATCH /library/:id/progress`, `DELETE /library/:id`, and the convert pair
+  `POST /library/:id/convert` / `DELETE /library/:id/convert` (D34).
 - **Auth** (D30, `auth.ts` + `password.ts`): app-wide `onRequest` guard +
   `POST /auth/login` / `GET /auth/status` / `POST /auth/logout`; scrypt password
   hashing; opaque sessions. Accounts seeded by `scripts/seed.ts` (no

@@ -1,6 +1,6 @@
 ---
 summary: Locked tech/design decisions (D1–D33) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
-updated: 2026-08-24
+updated: 2026-08-25
 ---
 
 # Decisions (locked)
@@ -18,7 +18,7 @@ keep it that way. Terminology that a decision settles belongs in
 
 | # | Decision | Rationale |
 |---|---|---|
-| D1 | **EPUB→PDF is export-only**, never a reading path | Conversion discards reflow; native EPUB reading is superior |
+| ~~D1~~ | ~~**EPUB→PDF is export-only**, never a reading path~~ **REVISED 2026-08-25 → D34** | Reason was "conversion discards reflow" — direction-specific, and it *inverts* for PDF→EPUB, which adds reflow. Convert is now symmetric and produces a readable linked row |
 | ~~D2~~ | ~~**Single-user, no auth**~~ **REVISED 2026-07-07 → D28** | Still single-user, still no accounts — but the public deployment is now gated behind one shared password (see D28). |
 | ~~D3~~ | ~~**No persistence** — upload → read → gone on refresh~~ **REVISED 2026-07-07 → D24** | Superseded: the app now keeps a persistent **library** (server-side SQLite). Reading *position* is still session-only per D9. |
 | ~~D4~~ | ~~**Backend = one stateless `/convert` route**~~ **REVISED 2026-07-07 → D24** | Superseded: backend now also owns the library (CRUD + file/cover storage). `/convert` still exists and is still stateless. |
@@ -32,7 +32,7 @@ keep it that way. Terminology that a decision settles belongs in
 | D12 | **Formats = PDF + EPUB only** for v1 | Matches the two reading paths; MOBI/AZW3 deferred |
 | D13 | **Detection = extension/MIME only** (no magic bytes) | Spoofing isn't a threat for a personal tool |
 | D14 | **CORS + `VITE_API_URL`** (no Vite proxy) | Explicit base URL, deploy-ready |
-| D15 | **Convert limits: 50MB / 60s / structured errors / no queue** | Sane defaults for single-user |
+| ~~D15~~ | ~~**Convert limits: 50MB / 60s / structured errors / no queue**~~ **60s REVISED 2026-08-25 → D34** (50MB cap and "no queue" stand) | A conversion is now an async job with a 24h reaper, one at a time, cancellable — a synchronous 60s cap cannot hold a real PDF→EPUB |
 | D16 | **Tailwind + Base UI** | Fast chrome; unstyled accessible primitives keep the Kindle look |
 | D17 | **Local dev only** — `npm run dev`, no Docker/deploy | Personal tool |
 | D18 | **No bookmarks/highlights in v1** | Pointless without persistence |

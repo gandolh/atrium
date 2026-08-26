@@ -286,3 +286,70 @@ now-unused convert schemas in `packages/shared`.
   the EPUB reader's Download-as-PDF still works.
 - Typecheck + build + tests clean; Reading Room (D33) conformance passes on the
   status button, the format switch, and the warning.
+
+---
+
+> **Outcome (2026-08-25):** Shipped as specced via orchestrate →
+> plan-split-dispatch: 6 chunks in 3 waves (2 senior / 4 junior), then three
+> scoped review finders and one fix round. Verified against real Calibre 5.37
+> and a copy of the live database throughout.
+>
+> **Review found 7 findings — 1 Critical, 4 Important, 2 Minor.** All fixed but
+> the two Minor. The Critical was reported **independently by two finders**, and
+> is the one worth remembering: deleting a book never cancelled its running
+> conversion, so the runner kept its single-flight slot claimed for a row that
+> no longer existed — refusing every other conversion in the app with a 409
+> naming the deleted book, with no way to release it, since the cancel route
+> resolves `getBook(id)` first and 404s once the row is gone. Every component
+> was individually correct; nothing told the runner the book was gone.
+>
+> The other Important findings: a cancel landing during the quality gate was
+> silently ignored and the conversion committed anyway (the `cancelled` flag was
+> read once, before two more awaits); a process death mid-job orphaned its
+> output forever, because the converted book's id was a `randomUUID` living only
+> in-process; reading a converted twin never moved the library card, because
+> progress is recorded against the row you opened and that row is hidden from
+> the list; and the "looks scanned" note was frozen off by a mount-time
+> `useState` initializer for the most ordinary path to `poor`.
+>
+> **Deviations from this brief, accepted:** `convertError` joined the wire
+> contract (step 1 specified three fields, but the `failed` state has to show a
+> reason and nothing else carried it) and `lastReadAt` joined it too (step 7's
+> comparison was impossible from the client, which deliberately saw no progress
+> timestamp). A unique index on `converted_from` was added, so a re-run must
+> delete before it inserts. The single-flight guard is **store-wide** rather
+> than per-account — the library is shared with no per-book ownership (D30/D24),
+> so the two are the same query. Deleting a converted book directly now resets
+> its source's status, which the brief did not cover. `use-hydrate-book.ts`
+> needed a by-id fallback, since hydration sourced only from the library list
+> can never open a row that list hides by design.
+>
+> **Known and accepted, not fixed:** the boot reap can mislabel a live job if a
+> second process imports `db.ts` (running the seed script mid-conversion); it
+> self-heals when the job completes. The three convert hooks live in
+> `use-library.ts`, so a few hundred bytes ship in the entry chunk — the
+> component itself correctly stays in the lazy reader chunk.
+>
+> **Not verified:** step 10's live matrix was only partially exercisable. This
+> machine's Calibre has an `lxml`/`html5-parser` ABI mismatch, so any PDF or
+> EPUB **with an outline** fails to convert — a host defect, not a code one.
+> Clean single-page fixtures convert correctly (a real 21-page PDF→EPUB in 2.0s
+> with the heuristics flag confirmed on the spawned command line), but the
+> two-column-academic and real-scanned-PDF readability judgements remain for the
+> owner on a working Calibre install.
+>
+> **Cost:** entry chunk 200.66 → 201.81 kB gzip (+1.15). An earlier wiring
+> measured +41 kB, because importing the convert control from the route dragged
+> reader chrome out of the lazy reader bundle; the row is passed down as data
+> instead.
+>
+> Commits `afd7f1e`, `a7bd493`, `7f3c4e8`.
+>
+> **An incident worth recording:** during verification an agent ran the
+> whole-book-delete route against a pre-existing row and **permanently destroyed
+> one of the owner's books**. `LIBRARY_DATA_DIR` redirects only the database, so
+> a copied DB still points at the real files. It was recovered only because an
+> orphaned byte-identical duplicate happened to be on disk. `config.ts` now
+> carries the warning at the definition and
+> [../../wiki/open-questions.md](../../wiki/open-questions.md) records the fix
+> (make the file directories overridable too).

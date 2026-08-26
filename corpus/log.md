@@ -1,5 +1,78 @@
 # Log
 
+## [2026-08-26] build | Brief 34 shipped — Convert (D34)
+
+A PDF now offers a reflowable EPUB twin and an EPUB offers a PDF. A **converted
+book** is its own `books` row linked to its **source book**, hidden from the
+grid, so there is one card per book and each format keeps its own resume
+position. Built via orchestrate → plan-split-dispatch: 6 chunks, 3 waves, 2
+senior / 4 junior.
+
+**The architecture paid for itself.** Linked rows made per-format resume, "which
+format did I last use", and "no reader changes" all fall out for free — the
+readers open a book id, as they always have. The whole cost is one
+`WHERE converted_from IS NULL` on three list statements, which search, chips,
+grouping and counts inherit because they run client-side over that list.
+
+**D1 is revised, not overturned.** Its reason — "conversion discards reflow" —
+was direction-specific and *inverts* for PDF→EPUB, which adds reflow. It was
+right when only one direction existed. D15's 60s synchronous cap is revised
+too; its 50MB limit and "no queue" stand.
+
+**Review: 7 findings, 1 Critical, all fixed but two Minor.** The Critical was
+reported by **two finders independently**, and is the run's lesson: deleting a
+book never cancelled its running conversion, so the job runner kept its
+single-flight slot claimed for a row that no longer existed — refusing every
+other conversion in the app with a 409 naming the deleted book, unreleasable
+because the cancel route resolves `getBook(id)` first and 404s once the row is
+gone. Every component was individually correct. Nothing told the runner the book
+was gone. Integration defects live in the gaps between correct pieces, which is
+exactly what per-chunk verification cannot see.
+
+Three more worth keeping:
+- A cancel landing during the quality gate was ignored and the conversion
+  committed anyway — the `cancelled` flag was read once, then two more awaits
+  ran before the commit. A single early check is how that invariant rotted.
+- A process death orphaned the output forever, because the converted book's id
+  was a `randomUUID` living only in-process. Naming the in-progress file from
+  the **source** row makes the leftover addressable, so a boot sweep can delete
+  exactly it rather than hunting unreferenced files near real library data.
+- Reading a converted twin never moved the library card: progress is recorded
+  against the row you opened, and that row is hidden from the list. The card
+  stands for the book now.
+
+**A perf trap worth remembering:** mounting the convert control by importing it
+from the route cost **+41 kB gzip** on the entry chunk — it dragged reader
+chrome out of the lazy reader bundle and undid brief 15's code-splitting.
+Passing the row down as *data* instead keeps it in the reader chunk; final cost
++1.15 kB. A typecheck never catches this and a reviewer rarely thinks to measure
+it.
+
+**An incident.** During verification an agent ran the whole-book-delete route
+against a pre-existing row and **permanently destroyed one of the owner's
+books**. `LIBRARY_DATA_DIR` redirects only the database, so a copied DB still
+carries absolute paths into the real, gitignored file directories. It was
+recovered only because an orphaned byte-identical duplicate happened to be on
+disk — luck, not a safety net. `config.ts` now warns at the definition,
+[wiki/open-questions.md](wiki/open-questions.md) records the real fix (make the
+file directories overridable too), and a manual backup now lives outside the
+repo. The practice, stated plainly: to test a destructive path, upload a
+throwaway fixture and act on that — never on a row that was already there.
+
+**Not verified:** this machine's Calibre has an `lxml`/`html5-parser` ABI
+mismatch, so anything with an outline fails to convert. A clean 21-page PDF→EPUB
+ran in 2.0s with `--enable-heuristics` confirmed on the spawned command line,
+but the two-column and scanned-PDF readability judgements await a working
+install.
+
+`wiki/status.md` passed the 200-line rule and split: the dashboard keeps the
+current snapshot and the briefs table, [wiki/status-history.md](wiki/status-history.md)
+takes the archive.
+
+See [briefs/done/34-convert.md](briefs/done/34-convert.md), D34, and
+[wiki/conversion.md](wiki/conversion.md) (rewritten — every claim on the old
+page was false).
+
 ## [2026-08-25] build | Brief 35 shipped — profiles (D35)
 
 An account became a household and a **profile** a person in it. Reading
@@ -111,7 +184,7 @@ reimplemented on top of library conversion — no capability lost. Async job wit
 **24h** ceiling, cancellable, one at a time per account, reaped to `failed` on
 restart; flat 30s polling **driven by row status, not a client flag**, which is
 what makes "start it, refresh, return hours later" behave identically. Renamed
-`34-pdf-reflow.md` → [`34-convert.md`](briefs/todo/34-convert.md).
+`34-pdf-reflow.md` → [`34-convert.md`](briefs/done/34-convert.md).
 
 *Brief 35 — Profiles.* Owner's framing — *"an account is like a household,
 profiles are for different persons from the household, they can change freely"* —
@@ -178,7 +251,7 @@ body, no OCR), so the brief makes reflow opt-in, disposable, and quality-gated,
 with "show original" as the designed safety net rather than a convenience. Three
 decisions marked **[CONFIRM]** (async 202 + poll, per-variant locator, the
 "reflow" vs "convert" naming split). Filed as
-[briefs/todo/34-convert.md](briefs/todo/34-convert.md). Also corrected
+[briefs/done/34-convert.md](briefs/done/34-convert.md). Also corrected
 `status.md`, which still showed briefs 21/22 as todo and was missing 27–33.
 
 ## [2026-08-24] capture | Video covers todo filed — capture a frame client-side

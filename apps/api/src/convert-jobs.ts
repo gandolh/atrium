@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { rm, stat } from "node:fs/promises";
+import { readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import AdmZip from "adm-zip";
 import { pdf } from "pdf-to-img";
@@ -79,6 +79,51 @@ export function convertedFilePath(id: string, format: FileType): string {
   return join(LIBRARY_FILES_DIR, `${id}.${format}`);
 }
 
+/**
+ * Where a conversion writes while it is still running, named from the SOURCE
+ * book rather than the converted book's pre-generated id.
+ *
+ * The distinction matters only when the process dies mid-job. The converted
+ * id is a `randomUUID()` that exists solely inside the in-process job — it is
+ * never persisted — so a crash used to leave a multi-MB file on disk that
+ * nothing could name: no row referenced it, the boot reap only wrote a status,
+ * and every retry leaked another. Deriving the in-progress name from the source
+ * row makes the leftover addressable, which is what lets `sweepInterruptedOutputs`
+ * below delete exactly the right file instead of hunting for unreferenced ones
+ * near real library data.
+ *
+ * The `.converting.` infix is what makes the sweep safe: an uploaded file is
+ * always `<uuid>.<ext>`, so nothing else in this directory can ever match.
+ */
+export function inProgressPath(sourceBookId: string, format: FileType): string {
+  return join(LIBRARY_FILES_DIR, `${sourceBookId}.converting.${format}`);
+}
+
+/**
+ * Delete any in-progress conversion output left behind by a process that died
+ * mid-job. Call once at boot, alongside the row reap in `db.ts` — that reap
+ * flips the row to `failed`, this reclaims the disk the same job was using.
+ *
+ * Matches ONLY the `.converting.` infix written by `inProgressPath`. A blanket
+ * "delete files with no row" sweep would be far more thorough and far more
+ * dangerous: this feature has already destroyed one of the owner's books once,
+ * and an over-eager sweep next to real library files is exactly how it would
+ * happen again.
+ */
+export async function sweepInterruptedOutputs(): Promise<number> {
+  let removed = 0;
+  try {
+    for (const name of await readdir(LIBRARY_FILES_DIR)) {
+      if (!/\.converting\.[a-z0-9]+$/i.test(name)) continue;
+      await discard(join(LIBRARY_FILES_DIR, name));
+      removed += 1;
+    }
+  } catch {
+    // A missing directory on a fresh install is not a failure.
+  }
+  return removed;
+}
+
 interface ConvertJob {
   /** The **source book** as it stood when the job started — kept so a refusal
    *  can name the book being converted without a second DB read. */
@@ -92,6 +137,21 @@ interface ConvertJob {
   /** Set by `cancelConvert` BEFORE the kill, so the completion path can tell a
    *  cancellation from a genuine failure without a fifth `ConvertOutcome`. */
   cancelled: boolean;
+}
+
+/**
+ * Cancel every in-flight conversion, returning how many were stopped. Used on
+ * shutdown: the child is not detached, so a SIGTERM that only stops this
+ * process would leave `ebook-convert` running with nothing left to record its
+ * result. Reuses `cancelConvert`, so each job resets its source row to `none`
+ * and discards its output exactly as a user-initiated cancel would.
+ */
+export function cancelAllConverts(): number {
+  let cancelled = 0;
+  for (const sourceBookId of [...jobs.keys()]) {
+    if (cancelConvert(sourceBookId)) cancelled += 1;
+  }
+  return cancelled;
 }
 
 /** `sourceBookId → job`. At most one entry (decision 6), but a map keeps the
@@ -181,7 +241,9 @@ export function startConvert(source: BookRow): StartConvertResult {
 
   const startedAt = new Date().toISOString();
   const convertedBookId = randomUUID();
-  const targetPath = convertedFilePath(convertedBookId, targetFormat);
+  // Written under a source-derived name and renamed into place only once the
+  // conversion has actually succeeded — see `inProgressPath`.
+  const targetPath = inProgressPath(source.id, targetFormat);
 
   // The source's own file already lives here, so this is all but guaranteed to
   // exist; it costs nothing to be sure before handing a path to a child.
@@ -254,6 +316,20 @@ export function isConverting(sourceBookId: string): boolean {
 }
 
 /**
+ * True when the job was cancelled, having cleaned up its output.
+ *
+ * `cancelConvert` resets the source row synchronously and returns, so by the
+ * time this reads the flag the row already says `none` and the user has been
+ * told it stopped. All that is left is to make that true: drop the output and
+ * commit nothing. Called after every await on the path to the insert.
+ */
+async function abandonIfCancelled(job: ConvertJob): Promise<boolean> {
+  if (!job.cancelled) return false;
+  await discard(job.targetPath);
+  return true;
+}
+
+/**
  * Await the child and record the outcome. Never rejects: every path either
  * writes a status onto the source row or deliberately leaves a cancelled row
  * alone, and the whole body is wrapped so a surprise (a full disk, a corrupt
@@ -264,12 +340,14 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
   try {
     const outcome = await job.handle.promise;
 
-    if (job.cancelled) {
-      // `cancelConvert` already reset the row; only the half-written file is
-      // ours to clean up.
-      await discard(job.targetPath);
-      return;
-    }
+    // Cancellation is checked after EVERY await from here to the commit, not
+    // just this one. `cancelConvert` can only set the flag — it cannot unwind
+    // work already in flight — so a single early check silently loses any
+    // cancel that lands during the two awaits below (`stat`, and `gradeEpub`,
+    // which parses the whole source PDF and unzips the EPUB: comfortably
+    // seconds on a large book). That window ended with the user being told the
+    // conversion was cancelled and getting it anyway.
+    if (await abandonIfCancelled(job)) return;
 
     switch (outcome.kind) {
       case "missing":
@@ -303,6 +381,8 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
       return;
     }
 
+    if (await abandonIfCancelled(job)) return;
+
     // The quality gate runs BEFORE the insert so the row and the status land
     // together — a `ready` that turns into `poor` a second later is a worse
     // experience than a slightly later `ready`.
@@ -311,12 +391,28 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
         ? await gradeEpub(source.file_path, job.targetPath)
         : "ready";
 
+    // Last gate before the commit: `gradeEpub` above is the longest await in
+    // the whole job, so it is the likeliest place for a cancel to land.
+    if (await abandonIfCancelled(job)) return;
+
+    // Move the finished output off its in-progress name and onto the converted
+    // book's own id, so it stops matching the boot sweep and starts matching
+    // the row about to reference it. Renaming AFTER the last cancel check keeps
+    // the sweep-able name for the entire window a cancel can still arrive in.
+    const finalPath = convertedFilePath(job.convertedBookId, targetFormat);
+    try {
+      await rename(job.targetPath, finalPath);
+    } catch {
+      await fail(source.id, job.targetPath, "The conversion finished but couldn't be saved. Try again.");
+      return;
+    }
+
     try {
       insertConvertedBook({
         id: job.convertedBookId,
         sourceBookId: source.id,
         format: targetFormat,
-        filePath: job.targetPath,
+        filePath: finalPath,
         sizeBytes,
         now: new Date().toISOString(),
       });
@@ -326,7 +422,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
       // way the output is orphaned and must not be left on disk.
       await fail(
         source.id,
-        job.targetPath,
+        finalPath,
         "The conversion finished but couldn't be saved. Try again.",
       );
       return;

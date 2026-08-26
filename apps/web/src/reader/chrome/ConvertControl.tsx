@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { convertTargetForFormat, type FileType, type LibraryBook } from "@ebook-reader/shared";
 
@@ -160,13 +160,25 @@ function SourceBookControl({ book }: { book: LibraryBook }) {
   const current = live.data ?? book;
   const targetFormat = convertTargetForFormat(current.format);
 
-  // `poorNoteVisible` is computed ONCE per mount (i.e. per time this book is
-  // opened in the reader) — "on first use" (brief 34 step 6). Marking it seen
-  // (in the trigger's onClick below) only affects FUTURE mounts; it must not
-  // retract the note while it's already showing this session.
-  const [poorNoteVisible] = useState(
-    () => current.convertStatus === "poor" && !hasSeenPoorNote(current.id),
-  );
+  // The "looks scanned" note shows "on first use" (brief 34 step 6) and must
+  // not retract mid-session when the trigger marks it seen. It LATCHES rather
+  // than being computed once at mount: the status arrives by polling, so the
+  // most ordinary way to reach `poor` is to start a conversion and wait for it
+  // with the reader open — and a mount-time initializer evaluates while the
+  // status is still `running`, freezing the note off for exactly that pass. It
+  // would then only appear if the reader were closed and reopened, which is the
+  // one path where the warning is least needed.
+  //
+  // Latching on the book id (not a boolean) also resets it for free when the
+  // reader moves to a different book, while `markPoorNoteSeen` — which changes
+  // storage, not `current.id` — cannot pull it back out from under the reader.
+  const [poorNoteFor, setPoorNoteFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (current.convertStatus === "poor" && !hasSeenPoorNote(current.id)) {
+      setPoorNoteFor(current.id);
+    }
+  }, [current.convertStatus, current.id]);
+  const poorNoteVisible = poorNoteFor === current.id;
 
   if (targetFormat === null) return null; // media: nothing to convert
 

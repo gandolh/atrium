@@ -16,6 +16,7 @@ import {
   registerLibraryRoutes,
 } from "./library-routes.js";
 import { registerCatalogRoutes } from "./catalog-routes.js";
+import { cancelAllConverts, sweepInterruptedOutputs } from "./convert-jobs.js";
 import { registerNotesRoutes } from "./notes-routes.js";
 import { registerProfileRoutes } from "./profile-routes.js";
 
@@ -110,10 +111,33 @@ async function start(): Promise<void> {
     void reconcileMissingCovers(app.log).catch((err) => {
       app.log.error({ err }, "cover reconcile failed");
     });
+    // `db.ts` reaps rows left `running` by a process that died mid-conversion;
+    // this reclaims the disk those same jobs were using. The converted book's
+    // id never outlived the process, so the output is named from the SOURCE row
+    // precisely so it can still be found here (convert-jobs.ts `inProgressPath`).
+    void sweepInterruptedOutputs()
+      .then((removed) => {
+        if (removed > 0) app.log.info({ removed }, "removed interrupted conversion output");
+      })
+      .catch((err) => {
+        app.log.error({ err }, "conversion output sweep failed");
+      });
   } catch (err) {
     app.log.error(err);
     process.exit(1);
   }
+}
+
+// A conversion child is spawned with `detached: false`, so a plain SIGTERM to
+// this process leaves `ebook-convert` running and its output orphaned — the
+// very leak the boot sweep above exists to clean up. Killing in-flight jobs on
+// a clean shutdown means there is usually nothing left to sweep.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    const cancelled = cancelAllConverts();
+    if (cancelled > 0) app.log.info({ cancelled }, "cancelled conversions on shutdown");
+    void app.close().then(() => process.exit(0));
+  });
 }
 
 void start();

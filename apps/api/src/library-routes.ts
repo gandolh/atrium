@@ -202,9 +202,23 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       listProfileProgress(profile.id).map((p) => [p.book_id, p]),
     );
     return reply.send(
-      listBooks(sort).map((row) =>
-        toLibraryBook(row, progressByBook.get(row.id) ?? { progress: 0, locator: null }),
-      ),
+      listBooks(sort).map((row) => {
+        const own = progressByBook.get(row.id);
+        // A card stands for the BOOK, not for one of its two rows. Reading
+        // happens against whichever format you opened, and for a converted book
+        // that row is hidden from this list — so without merging the pair here,
+        // reading the EPUB twin of a PDF for a week left the card sitting at 0%
+        // and never surfaced it in the Continue strip, which needs
+        // `progress > 0 && progress < 1`. The pair's identity is already
+        // resolved by whichever row was read more recently (that is how brief
+        // 34 step 7 picks the format to reopen), so the same comparison decides
+        // which position the card should show. Costs nothing: both rows are
+        // already in `progressByBook`.
+        const twin = row.converted_to ? progressByBook.get(row.converted_to) : undefined;
+        const newer =
+          twin && (!own || (twin.updated_at ?? "") > (own.updated_at ?? "")) ? twin : own;
+        return toLibraryBook(row, newer ?? { progress: 0, locator: null });
+      }),
     );
   });
 
@@ -447,6 +461,19 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     //   about to stop existing.
     const linkedConverted = row.converted_from === null ? getConvertedBook(id) : undefined;
 
+    // Kill any conversion this delete would otherwise strand. The job runner
+    // keys its single-flight slot on the SOURCE row, and nothing else tells it
+    // the book is gone: delete a source mid-conversion and the child keeps
+    // running, the slot stays claimed, and every other conversion in the app is
+    // refused with a 409 naming a book that no longer exists — with no way out,
+    // because the cancel route resolves `getBook(id)` first and now 404s. The
+    // slot would then stay blocked until the 24h ceiling expired or the API was
+    // restarted, which is precisely the "no other recourse" decision 5 exists to
+    // prevent. Cancelling first is the whole fix.
+    if (row.converted_from === null && isConverting(id)) {
+      cancelConvert(id);
+    }
+
     deleteBook(id);
     await rm(row.file_path, { force: true });
     // Only unlink the cover when this row owns it outright. A converted book's
@@ -462,9 +489,15 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       // to clean up. Never its cover_path — that's the SAME file as
       // `row.cover_path`, already handled above.
       await rm(linkedConverted.file_path, { force: true });
-    } else if (row.converted_from !== null) {
+    } else if (row.converted_from !== null && !isConverting(row.converted_from)) {
       // `row` was the converted book: its source is still around and must not
       // keep claiming a conversion that no longer exists.
+      //
+      // Guarded on `isConverting` because a source can be mid-conversion while
+      // an older conversion of it is deleted — resetting it to `none` here
+      // would drop a live job's `running` status on the floor, leaving the
+      // button offering "Convert" for a conversion already in flight. The
+      // running job owns that row's status until it finishes.
       resetConvert(row.converted_from);
     }
 

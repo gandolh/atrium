@@ -587,9 +587,19 @@ const statements = {
   // No `NOT_CONVERTED` here on purpose: a converted book is opened by id every
   // time the reader switches format.
   getById: db.prepare<[string]>(`SELECT ${BOOK_COLUMNS} FROM books b WHERE b.id = ?`),
+  // "Recent" orders by the most recent activity on EITHER half of a convert
+  // pair. Opening the converted twin touches only that row, which is hidden
+  // from this list, so ordering on `b.last_opened_at` alone would freeze a
+  // book's position the moment its reader switched format. The correlated
+  // MAX covers the row itself and its conversion, and is indexed by
+  // `books_converted_from`.
   listRecent: db.prepare(
     `SELECT ${BOOK_COLUMNS} FROM books b WHERE ${NOT_CONVERTED}
-      ORDER BY COALESCE(b.last_opened_at, b.created_at) DESC`,
+      ORDER BY COALESCE(
+        (SELECT MAX(x.last_opened_at) FROM books x
+          WHERE x.id = b.id OR x.converted_from = b.id),
+        b.last_opened_at, b.created_at
+      ) DESC`,
   ),
   listByTitle: db.prepare(
     `SELECT ${BOOK_COLUMNS} FROM books b WHERE ${NOT_CONVERTED}

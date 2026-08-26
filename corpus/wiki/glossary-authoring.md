@@ -1,6 +1,6 @@
 ---
-summary: Naming authority for authored content — Notes (note, page, stroke, text box) and LaTeX (project, draft, published document, version); the collected-media half lives in glossary.md.
-updated: 2026-08-24
+summary: Naming authority for authored content — Notes (note, page, stroke, text box) and LaTeX (project, draft, published document, version, typesetting engine, supported subset, diagnostic); the collected-media half lives in glossary.md.
+updated: 2026-08-26
 ---
 
 # Glossary — authored content
@@ -54,3 +54,24 @@ _Avoid_: export, output, final, artifact
 One publish: its compiled PDF plus a zip of the whole project at that moment, so
 it can be rebuilt. Selectable in the reader; the newest opens by default.
 _Avoid_: revision, snapshot, release, build
+
+## The engine
+
+**Typesetting engine**:
+Atrium's own TypeScript library (`packages/typeset`, brief 37, D38) that turns a
+LaTeX project into a PDF. Ours, not TeX — it takes an in-memory file map and
+returns bytes, with no filesystem, network, or shell. See `wiki/typeset.md`.
+_Avoid_: the compiler, LaTeX, TeX, Tectonic, the renderer
+
+**Supported subset**:
+The exact set of LaTeX commands and environments the engine implements. The
+scope line is **syntax, not semantics**: Atrium reads LaTeX-shaped documents, it
+does not execute TeX. Anything outside it is a **diagnostic**, never a silent
+skip.
+_Avoid_: supported features, our LaTeX, the dialect, partial support
+
+**Diagnostic**:
+One structured problem from a compile — file, line, severity, message. Both a
+real LaTeX error and "this engine does not implement `\foo`" are diagnostics;
+the loud-failure contract (D38) means the second kind must always be produced.
+_Avoid_: error, warning, log line, compile message

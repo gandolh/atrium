@@ -1,5 +1,66 @@
 # Log
 
+## [2026-08-26] decision | Atrium will write its own typesetting engine (D38, brief 37)
+
+**D37's engine clause is revised before a line of brief 36 was built.** The
+owner walked the engine question from Tectonic → SwiftLaTeX → "why an external
+engine at all", and the answer landed on **our own TypeScript library**
+(`packages/typeset`, brief 37). Nothing else in D37 moves: drafts, publishing,
+versions and the editor stand exactly as grilled.
+
+**What the research actually turned up**, since it is what makes the decision
+defensible rather than romantic:
+
+- **SwiftLaTeX cannot compile at all today.** It fetches every class and font
+  from a package server; `texlive.swiftlatex.com` has **no DNS record** and
+  `texlive2.swiftlatex.com` returned **HTTP 522 on 4/4 attempts**. The engine is
+  local, the package tree never was — which also corrects the claim that it buys
+  offline compilation.
+- **The scale of real TeX, measured not guessed:** `tex.web` is **25,010 lines**
+  of literate Pascal; the LaTeX kernel is **79 `.dtx` files, 4.81 MB**, before
+  `article.cls`. **Typst's team looked at reimplementing TeX and designed a new
+  language instead** — the single most useful data point on the question.
+- **WASM turned out to be unnecessary.** It was only ever needed to run someone
+  else's C. Writing it ourselves, TypeScript runs in Node *and* the browser with
+  no toolchain and no artifact — so the owner's "no second language" constraint
+  made the design simpler, not weaker.
+- **The JS stack is well supplied:** `@unified-latex` (AST, maintained),
+  `fontkit` (47M/mo), `pdfkit` (24M/mo), `hypher`, `mathjax-full`. We borrow
+  glyphs and PDF bytes; we write the engine.
+
+**Two consequences worth remembering.** First, a **pure no-I/O function deletes
+D37's sandboxing spec** rather than implementing it — `\write18` cannot execute
+because we never write a shell escape, and `\input{/etc/passwd}` has no
+filesystem to reach. A deterministic step budget replaces the wall clock.
+Second, brief 37 brings the repo's **first test suite** (golden layout dumps,
+not PDF bytes), because a typesetting engine without them is unmaintainable.
+
+**The load-bearing caveat:** this is a LaTeX *subset* — syntax, not semantics.
+It is defensible only because brief 36 decision 4 already established the owner
+has nothing to import. If a legacy `.tex` corpus ever appears, D38 is the first
+thing to revisit.
+
+**Brief 36 is superseded; the work is re-planned as four briefs.** The engine
+turned out to be too big to sit inside the editor brief, so it was split along
+the lines that ship independently — and the order was chosen so a usable product
+arrives second, not last:
+
+| | | |
+|---|---|---|
+| **37** | Engine: foundation | test harness, prose, structure. Proves or kills the architecture |
+| **38** | LaTeX editor | projects, compile, publish, versions — **end-to-end usable** |
+| **39** | Engine: figures, tables, bibliography | |
+| **40** | Engine: math | MathJax SVG + our own SVG→PDF emitter |
+
+The reorder is the point: after **37** the engine can set a written report, so
+**38** delivers something the owner can actually use, and **39**/**40** then
+improve documents underneath a UI that already exists and needs no further work.
+39 and 40 are independent — **swap them if most of what gets written is math.**
+
+Brief 36's editor design was owner-confirmed over three grill rounds and is
+carried into 38 unchanged; only the engine moved. 36 is kept in `superseded/`
+because it records the Tectonic reasoning D38 had to answer.
+
 ## [2026-08-26] build | Brief 34 shipped — Convert (D34)
 
 A PDF now offers a reflowable EPUB twin and an EPUB offers a PDF. A **converted
@@ -164,7 +225,7 @@ rule, so it split along D36's own line — collected vocabulary stays in
 [glossary-authoring.md](wiki/glossary-authoring.md), cross-linked. Same authority,
 two pages.
 
-Order: **35 → 34 → 36**. See [briefs/todo/36-latex-editor.md](briefs/todo/36-latex-editor.md).
+Order: **35 → 34 → 36**. See [briefs/superseded/36-latex-editor.md](briefs/superseded/36-latex-editor.md).
 
 ## [2026-08-24] grill+todo | Briefs 34 + 35 grilled and rewritten; brief 36 (LaTeX) filed
 
@@ -197,7 +258,7 @@ first time. Picker returns after **24h** idle, device-side — the fix for
 `sessions` having no expiry, which would otherwise let a household tablet
 attribute everyone's reading to whoever used it last.
 
-*Brief 36 — LaTeX* ([36-latex-editor.md](briefs/todo/36-latex-editor.md)),
+*Brief 36 — LaTeX* ([36-latex-editor.md](briefs/superseded/36-latex-editor.md)),
 **ungrilled**, filed on request. Three things fall out for free: `PdfReader`
 takes a `File`, so the preview pane needs **no changes**; brief 34's job runner
 is the compile machine; Notes established the per-profile authored-content

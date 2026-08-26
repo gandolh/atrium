@@ -83,4 +83,8 @@ The dashboard is what is true *now*; the archive is how it got here.
 | 27–33 | Reading Room rework (D33) — tokens, one home, tiles/tints, search, dock, reader, notes | **done (2026-08-24)** |
 | 34 | Convert: the same book in either format (linked rows, D34) | **done (2026-08-25)** |
 | 35 | Profiles: several readers behind one account (household model, D35) | **done (2026-08-25)** |
-| 36 | LaTeX: write, compile, publish (Tectonic + CodeMirror, D37) | **todo** |
+| 36 | LaTeX: write, compile, publish (Tectonic) | **superseded by 37–40 (2026-08-26)** |
+| 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **todo — next** |
+| 38 | LaTeX editor: projects, compile, publish, versions (needs 37) | **todo** |
+| 39 | Engine: figures, tables, bibliography | **todo** |
+| 40 | Engine: math (MathJax SVG → PDF) | **todo** |

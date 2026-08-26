@@ -1,0 +1,7 @@
+# typeset golden dump v1
+document: hello.tex
+pages: 0
+
+## diagnostics
+  warning hello.tex:7:1            unsupported          no \date was given and this engine has no clock, so no date is printed
+  error   hello.tex:0              missing-font         no font provider was supplied — pass `fonts` to compile(); the engine reads no files of its own

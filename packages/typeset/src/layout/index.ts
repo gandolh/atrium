@@ -48,6 +48,24 @@ export {
 } from "./linebreak.ts";
 export type { Fitness, LineBreak, LineBreakParams, LineBreakResult, LineWidths } from "./linebreak.ts";
 
+export {
+  HEADING_DESIGN,
+  SIZE10,
+  defaultDesign,
+  documentDesign,
+  itemizeLabel,
+  listSpacing,
+  parseDimension,
+  tocIndent,
+} from "./design.ts";
+export type { FontSize, ListSpacing, PageDesign, SizeLadder } from "./design.ts";
+
+export { buildVerticalList, createLayoutContext, footnoteMarker } from "./vlist.ts";
+export type { LayoutContext, PreparedFootnote } from "./vlist.ts";
+
+export { buildPages } from "./page.ts";
+export type { GlyphRun, Page, PageBuildOptions, PageBuildResult, PlacedItem, PlacedRule } from "./page.ts";
+
 export { EJECT_PENALTY, INFINITE_PENALTY, glue, kern, naturalSize, penalty } from "./model.ts";
 export type {
   Discretionary,

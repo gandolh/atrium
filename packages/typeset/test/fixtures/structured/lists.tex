@@ -1,0 +1,39 @@
+\section{Lists}
+\label{sec:lists}
+
+\begin{itemize}
+  \item A bullet at the first level.
+  \item Another one, long enough that it has to be broken across more than a
+        single line so that the hanging indent is visible.
+  \begin{itemize}
+    \item A nested bullet, which LaTeX sets with an en dash.
+  \end{itemize}
+\end{itemize}
+
+\begin{enumerate}
+  \item The first numbered item.
+  \item The second, with a second footnote\footnote{Footnotes are numbered
+        across the whole document.} attached.
+\end{enumerate}
+
+\begin{description}
+  \item[Term] A description item, whose term runs into the first line.
+\end{description}
+
+\subsection{Verbatim}
+
+\begin{verbatim}
+function compile(files, entrypoint) {
+  return renderPdf(buildPages(...));
+}
+\end{verbatim}
+
+\subsubsection{The deepest level}
+
+\texttt{article} numbers no further than this.
+
+\newpage
+
+\section{After a page break}
+
+This section starts on a fresh page.

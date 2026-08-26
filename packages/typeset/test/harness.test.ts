@@ -85,7 +85,10 @@ function stubCompile(files: Record<string, Uint8Array>, entrypoint: string): Com
 
 // The end-to-end path: fixture -> compile -> dump -> golden.
 goldenTest("hello-stub", stubCompile, { fixture: "hello" });
-goldenTest("hello-notimpl", compile, { fixture: "hello" });
+// `compile()` refuses without a font provider — it performs no I/O and so
+// cannot find a face itself. That refusal is the one end-to-end path through
+// the harness that needs no fonts; `compile.test.ts` holds the real goldens.
+goldenTest("hello-nofonts", compile, { fixture: "hello" });
 
 test("loadFixture reads a .tex file and keeps its name as the entrypoint", () => {
   const fixture = loadFixture("hello");

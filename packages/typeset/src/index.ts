@@ -9,7 +9,7 @@
  * it runs unchanged in Node and in a browser. `compile()` is the whole surface.
  */
 
-export { compile, resolveCompileOptions, DEFAULT_COMPILE_OPTIONS } from "./compile.ts";
+export { compile, decodeUtf8, resolveCompileOptions, DEFAULT_COMPILE_OPTIONS } from "./compile.ts";
 export type {
   AbortLike,
   CompileFn,
@@ -50,7 +50,32 @@ export type {
   VNode,
 } from "./layout/model.ts";
 
-export type { GlyphRun, Page, PlacedItem, PlacedRule } from "./layout/page.ts";
+export { buildPages } from "./layout/page.ts";
+export type {
+  GlyphRun,
+  Page,
+  PageBuildOptions,
+  PageBuildResult,
+  PlacedItem,
+  PlacedRule,
+} from "./layout/page.ts";
+
+/** Page design: the sizes and dimensions `article.cls` would have supplied. */
+export {
+  HEADING_DESIGN,
+  SIZE10,
+  defaultDesign,
+  documentDesign,
+  itemizeLabel,
+  listSpacing,
+  parseDimension,
+  tocIndent,
+} from "./layout/design.ts";
+export type { FontSize, ListSpacing, PageDesign, SizeLadder } from "./layout/design.ts";
+
+/** Vertical-list assembly: the document model becomes one tall column. */
+export { buildVerticalList, createLayoutContext, footnoteMarker } from "./layout/vlist.ts";
+export type { LayoutContext, PreparedFootnote } from "./layout/vlist.ts";
 
 export {
   LATIN_MODERN_FACE_IDS,

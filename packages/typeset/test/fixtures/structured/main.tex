@@ -1,0 +1,36 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+
+\title{On the Setting of Type}
+\author{The Atrium Engine}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A short account of how this engine turns a document model into pages, kept
+short so that the abstract has something to hold and no more.
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+\label{sec:intro}
+
+This document exercises headings, lists, footnotes\footnote{Like this one,
+which belongs at the foot of the page its mark appears on.} and
+cross-references.
+
+Section~\ref{sec:lists} begins on page~\pageref{sec:lists}, and the
+introduction you are reading is section~\ref{sec:intro} on
+page~\pageref{sec:intro}.
+
+\subsection{Faces}
+
+Here is some \textbf{bold text}, some \emph{emphasis}, some \texttt{typewriter
+text} and some \underline{underlined text}.
+
+\input{lists}
+
+\end{document}

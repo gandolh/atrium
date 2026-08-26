@@ -1,7 +1,18 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontProvider } from "./font/handle.ts";
 import type { Page } from "./layout/page.ts";
-import { error, internalError, wholeFile } from "./diagnostics.ts";
+import { buildPages } from "./layout/page.ts";
+import type { PageDesign } from "./layout/design.ts";
+import { documentDesign } from "./layout/design.ts";
+import { buildVerticalList, createLayoutContext } from "./layout/vlist.ts";
+import type { Shaper } from "./layout/hlist.ts";
+import { createShaper } from "./layout/hlist.ts";
+import type { BuildResult } from "./doc/index.ts";
+import { buildDocument } from "./doc/index.ts";
+import type { Budget } from "./macro/budget.ts";
+import { budgetDiagnostic, createBudget } from "./macro/budget.ts";
+import { renderPdf } from "./pdf/index.ts";
+import { error, hasErrors, internalError, warning, wholeFile } from "./diagnostics.ts";
 
 /**
  * `AbortSignal` without the DOM or Node type libraries. The engine is
@@ -145,17 +156,15 @@ export function compile(
 }
 
 /**
- * Scaffold (brief 37, chunk 1). The pipeline — parse, macro expansion, document
- * model, line breaking, page building, PDF emission — arrives in later chunks.
- * Until then it does the one thing it can do honestly: refuse, loudly.
+ * The pipeline, in the order it runs: decode, build the document model, lay it
+ * out, break it into pages, emit a PDF. Everything that can go wrong becomes a
+ * diagnostic; `compile()`'s `catch` above exists only for engine bugs.
  */
 function compileProject(
   files: Record<string, Uint8Array>,
   entrypoint: string,
-  _opts: ResolvedCompileOptions,
+  opts: ResolvedCompileOptions,
 ): CompileResult {
-  const empty: CompileStats = { pages: 0, steps: 0, bytes: 0 };
-
   if (!Object.prototype.hasOwnProperty.call(files, entrypoint)) {
     return {
       pdf: null,
@@ -163,23 +172,279 @@ function compileProject(
       diagnostics: [
         error("missing-file", wholeFile(entrypoint), `entrypoint \`${entrypoint}\` is not in the project`),
       ],
-      stats: empty,
+      stats: { pages: 0, steps: 0, bytes: 0 },
     };
   }
 
-  return {
-    pdf: null,
-    pages: [],
-    diagnostics: [
-      // Not via `unsupported()`: there is no single construct to name yet.
-      // Still severity error with code `unsupported`, because right now every
-      // construct is outside the implemented subset.
+  const diagnostics: Diagnostic[] = [];
+  const build = buildDocument(decodeFiles(files), entrypoint, {
+    stepBudget: opts.stepBudget,
+    signal: opts.signal,
+  });
+  for (const d of build.diagnostics) diagnostics.push(d);
+
+  const fonts = opts.fonts;
+  if (fonts === null) {
+    // The engine performs no I/O (D38), so it cannot go and find a face: a
+    // caller that wants type must hand one over. Substituting something built
+    // in would produce a document set in the wrong font with nothing to say so.
+    diagnostics.push(
       error(
-        "unsupported",
+        "missing-font",
         wholeFile(entrypoint),
-        "the typesetting engine is a scaffold and sets nothing yet (brief 37, chunk 1)",
+        "no font provider was supplied — pass `fonts` to compile(); the engine reads no files of its own",
       ),
-    ],
-    stats: empty,
+    );
+    return { pdf: null, pages: [], diagnostics, stats: { pages: 0, steps: build.steps, bytes: 0 } };
+  }
+
+  // Layout gets whatever the document layer left of the budget, so the ceiling
+  // is on the compile as a whole rather than per stage.
+  const budget = createBudget(Math.max(0, opts.stepBudget - build.steps), opts.signal);
+  const design = documentDesign(build.document, entrypoint, diagnostics);
+  // One shaper for the whole compile, reused across every layout pass: line
+  // breaking re-measures constantly, the font layer has no cache, and a second
+  // pass re-shapes almost exactly the same words as the first.
+  const shaper = createShaper();
+
+  const laid = layoutDocument(build, design, fonts, shaper, budget, entrypoint, opts);
+  for (const d of laid.diagnostics) diagnostics.push(d);
+
+  if (budget.stopped && !budget.reported) {
+    budget.reported = true;
+    diagnostics.push(
+      budgetDiagnostic(
+        budget,
+        wholeFile(entrypoint),
+        `while laying out pages; building the document model had already spent ${build.steps} of the ${opts.stepBudget}-step budget`,
+      ),
+    );
+  }
+
+  const steps = build.steps + budget.spent;
+  const stats: CompileStats = { pages: laid.pages.length, steps, bytes: 0 };
+
+  if (hasErrors(diagnostics)) {
+    return { pdf: null, pages: laid.pages, diagnostics, stats };
+  }
+
+  const rendered = renderPdf(laid.pages, {
+    file: entrypoint,
+    maxOutputBytes: opts.maxOutputBytes,
+    // No `creationDate`: a clock read here would make the bytes differ between
+    // two compiles of the same source, and the tests assert on those bytes.
+  });
+  for (const d of rendered.diagnostics) diagnostics.push(d);
+  stats.bytes = rendered.pdf?.length ?? 0;
+
+  return {
+    pdf: hasErrors(diagnostics) ? null : rendered.pdf,
+    pages: laid.pages,
+    diagnostics,
+    stats,
   };
+}
+
+/**
+ * How many times the document may be laid out. Two is the normal answer and the
+ * cycle LaTeX documents with its `.aux` file; the third exists because filling
+ * a `\pageref` in changes how wide that reference prints, which can move the
+ * line it sits on to another page and therefore change the very number that was
+ * filled in. A run that is still moving after three passes is reported rather
+ * than iterated on — TeX itself just tells you to re-run.
+ */
+const MAX_LAYOUT_PASSES = 3;
+
+interface LaidOutDocument {
+  pages: Page[];
+  diagnostics: Diagnostic[];
+}
+
+/**
+ * The two-pass cycle.
+ *
+ * 1. Lay the whole document out. Every `\pageref` and every table-of-contents
+ *    entry prints `??`, because no page numbers exist yet.
+ * 2. Collect `marker name → page` from where the layout's `Marker` nodes landed.
+ * 3. Hand that to `resolvePageNumbers`, which rewrites `ReferenceInline.text`
+ *    in place.
+ * 4. Lay out again, now reading the rewritten text.
+ *
+ * The loop stops as soon as a pass produces the same page numbers it was given,
+ * which is the fixed point that makes the output self-consistent. A document
+ * with no markers at all reaches it after one pass and is never laid out twice.
+ *
+ * Diagnostics are taken from the **final** pass only. Every pass produces the
+ * same overfull boxes, and reporting each one two or three times would say
+ * something false about the document.
+ */
+function layoutDocument(
+  build: BuildResult,
+  design: PageDesign,
+  fonts: FontProvider,
+  shaper: Shaper,
+  budget: Budget,
+  entrypoint: string,
+  opts: ResolvedCompileOptions,
+): LaidOutDocument {
+  let known: ReadonlyMap<string, number> = new Map();
+  let referenceDiagnostics: Diagnostic[] = [];
+  let final: LaidOutDocument = { pages: [], diagnostics: [] };
+  let stable = false;
+
+  for (let pass = 1; pass <= MAX_LAYOUT_PASSES; pass++) {
+    const passDiagnostics: Diagnostic[] = [];
+    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known);
+    const list = buildVerticalList(build.document, ctx);
+    const built = buildPages(list, {
+      design,
+      footnotes: ctx.footnotes,
+      fonts,
+      shaper,
+      budget,
+      diagnostics: passDiagnostics,
+      file: entrypoint,
+      maxPages: opts.maxPages,
+    });
+    final = { pages: built.pages, diagnostics: passDiagnostics };
+
+    if (samePages(built.markerPages, known)) {
+      stable = true;
+      break;
+    }
+    known = built.markerPages;
+    referenceDiagnostics = build.resolvePageNumbers(known);
+    if (budget.stopped) break;
+  }
+
+  for (const d of referenceDiagnostics) final.diagnostics.push(d);
+  if (!stable && !budget.stopped) {
+    final.diagnostics.push(
+      warning(
+        "undefined-reference",
+        wholeFile(entrypoint),
+        `page numbers were still moving after ${MAX_LAYOUT_PASSES} layout passes; a \\pageref or a table-of-contents entry may name the wrong page`,
+      ),
+    );
+  }
+  return final;
+}
+
+function samePages(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, value] of a) if (b.get(key) !== value) return false;
+  return true;
+}
+
+// --- decoding ---------------------------------------------------------------
+
+/**
+ * Project bytes as text.
+ *
+ * `buildDocument` wants `Record<string, string>`; `compile()` is handed
+ * `Record<string, Uint8Array>`. Bridging the two needs a UTF-8 decoder, and
+ * `src/` has none: it compiles with `"types": []` and the ES2022 lib alone, so
+ * `TextDecoder` — a DOM/Node global, not an ECMAScript one — is not in scope,
+ * which is the same wall that keeps `node:fs` out (D38).
+ *
+ * Threading a decoder in through `CompileOptions` was the alternative. It is
+ * rejected because it would make *decoding* a caller's responsibility: two
+ * callers could hand over decoders that disagree about malformed input, and the
+ * engine's output would then depend on its embedding rather than on its input.
+ * Thirty lines of UTF-8 is a small price for a compile that is a pure function
+ * of `files` on every host.
+ *
+ * Malformed input is not an error. A stray byte becomes U+FFFD and the rest of
+ * the file still compiles, which is what `TextDecoder` does in its default
+ * non-fatal mode and what a person editing a file in the wrong encoding needs.
+ */
+function decodeFiles(files: Record<string, Uint8Array>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const path of Object.keys(files)) out[path] = decodeUtf8(files[path] as Uint8Array);
+  return out;
+}
+
+const REPLACEMENT = 0xfffd;
+/** Emitted in blocks so a large file does not build one enormous argument list. */
+const DECODE_CHUNK = 4096;
+
+export function decodeUtf8(bytes: Uint8Array): string {
+  const units: number[] = [];
+  const parts: string[] = [];
+  const emit = (code: number): void => {
+    if (code > 0xffff) {
+      const v = code - 0x10000;
+      units.push(0xd800 + (v >> 10), 0xdc00 + (v & 0x3ff));
+    } else {
+      units.push(code);
+    }
+    if (units.length >= DECODE_CHUNK) {
+      parts.push(String.fromCharCode(...units));
+      units.length = 0;
+    }
+  };
+
+  // A byte-order mark is metadata, not text: leaving it in would put an
+  // invisible character in front of `\documentclass`.
+  let i = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? 3 : 0;
+
+  while (i < bytes.length) {
+    const b0 = bytes[i] as number;
+    if (b0 < 0x80) {
+      emit(b0);
+      i += 1;
+      continue;
+    }
+    // Length and the smallest value the sequence is allowed to encode, so an
+    // overlong form (the classic `\xC0\xAF` "/" smuggle) is rejected rather
+    // than decoded.
+    let length: number;
+    let code: number;
+    let lowest: number;
+    if (b0 >= 0xc2 && b0 <= 0xdf) {
+      length = 2;
+      code = b0 & 0x1f;
+      lowest = 0x80;
+    } else if (b0 >= 0xe0 && b0 <= 0xef) {
+      length = 3;
+      code = b0 & 0x0f;
+      lowest = 0x800;
+    } else if (b0 >= 0xf0 && b0 <= 0xf4) {
+      length = 4;
+      code = b0 & 0x07;
+      lowest = 0x10000;
+    } else {
+      emit(REPLACEMENT);
+      i += 1;
+      continue;
+    }
+
+    let valid = true;
+    for (let k = 1; k < length; k++) {
+      const b = bytes[i + k];
+      if (b === undefined || (b & 0xc0) !== 0x80) {
+        valid = false;
+        // Resynchronise at the offending byte rather than past it, so a
+        // truncated sequence followed by valid text loses only the sequence.
+        i += k;
+        break;
+      }
+      code = (code << 6) | (b & 0x3f);
+    }
+    if (!valid) {
+      emit(REPLACEMENT);
+      continue;
+    }
+    // Surrogates are not scalar values, and nothing above U+10FFFF exists.
+    if (code < lowest || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) {
+      emit(REPLACEMENT);
+      i += length;
+      continue;
+    }
+    emit(code);
+    i += length;
+  }
+
+  if (units.length > 0) parts.push(String.fromCharCode(...units));
+  return parts.join("");
 }

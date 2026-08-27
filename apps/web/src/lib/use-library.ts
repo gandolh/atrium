@@ -6,8 +6,10 @@ import { useActiveProfileId } from "./auth";
 import {
   cancelConvert,
   deleteBook,
+  deleteBookVersion,
   fetchBookById,
   fetchBookFile,
+  fetchBookVersions,
   fetchLibrary,
   startConvert,
   uploadBook,
@@ -172,6 +174,51 @@ export function useCancelConvert() {
     mutationFn: (id: string) => cancelConvert(id),
     onSuccess: (_result, id) => {
       void qc.invalidateQueries({ queryKey: bookKey(id) });
+    },
+  });
+}
+
+// --- Document versions (brief 38 step 7 — the reader's version picker) -----
+
+/**
+ * Query key for one book's version list. NOT profile-scoped like `libraryKey`
+ * — `versions` (id/versionNo/publishedAt/sizeBytes) are properties of the
+ * BOOK, shared across every profile the same way the library itself is. Only
+ * `currentVersionId` inside the response is per-profile, which is exactly why
+ * this key is invalidated (never persisted across a profile switch via
+ * `staleTime`) rather than trusted indefinitely.
+ */
+const bookVersionsKey = (bookId: string) => ["library", "book-versions", bookId] as const;
+
+/**
+ * `GET /library/:id/versions` (the version picker's data). `enabled` lets the
+ * caller gate the request on `book.source === "latex"` — every other book
+ * source answers `{ versions: [], currentVersionId: null }` truthfully, but
+ * there is no reason to ask for every ordinary upload opened in the reader.
+ */
+export function useBookVersions(bookId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: bookVersionsKey(bookId ?? ""),
+    queryFn: () => fetchBookVersions(bookId as string),
+    enabled: Boolean(bookId) && enabled,
+  });
+}
+
+/**
+ * Delete one version (brief 38 step 7, decision 11). Invalidates this book's
+ * version list so the picker catches up. Deliberately does NOT invalidate the
+ * broad `["library"]` prefix itself — deleting a version that was NOT the
+ * book's last one changes nothing about the gallery card; the caller (the
+ * version picker) is the one that knows whether this delete emptied the book
+ * and, if so, invalidates the library list itself (decision 11: last version
+ * gone means the whole entry is gone server-side too).
+ */
+export function useDeleteBookVersion(bookId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (versionId: string) => deleteBookVersion(bookId, versionId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: bookVersionsKey(bookId) });
     },
   });
 }

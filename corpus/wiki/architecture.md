@@ -98,11 +98,21 @@ apps/api/
   library/<id>.<ext>         original uploaded PDF/EPUB files
   images/thumbnails/<id>.jpg extracted cover thumbnails
 ```
-`data/`, `library/`, `images/` are **gitignored**, and all three are
-independently redirectable by env (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
-`THUMBNAILS_DIR` — D39). Redirect all three together to point a test at a
-scratch root; redirecting the database alone leaves it pointing at the real
-files, which is how a verification run destroyed a book on 2026-08-25.
+Every storage root is **gitignored** and independently redirectable by env.
+There are **five** (D39, extended by brief 38):
+
+| Env var | Holds |
+|---|---|
+| `LIBRARY_DATA_DIR` | the SQLite database |
+| `LIBRARY_FILES_DIR` | uploaded book/music/video files |
+| `THUMBNAILS_DIR` | cover thumbnails |
+| `LATEX_PROJECTS_DIR` | LaTeX project working trees |
+| `DOCUMENT_VERSIONS_DIR` | published version PDFs and project zips |
+
+**Redirect all five together** to point a test at a scratch root. Redirecting
+only some of them leaves the rest pointing at real data — redirecting the
+database alone is how a verification run destroyed a book on 2026-08-25, and
+the same trap now has five doors instead of three.
 
 The DB stores **metadata only, never paths** (D39). A file's location is
 *derived* — `paths.ts` is the single definition: an original is
@@ -119,6 +129,14 @@ Tables (`db.ts`):
   only progress and notes are scoped). The `progress` column is legacy —
   per-profile progress lives in `reading_progress`. `file_path`/`cover_path`
   were dropped by D39.
+- `latex_projects`: `id, profile_id → profiles ON DELETE CASCADE, title,
+  entrypoint, compile_status, published_book_id → books ON DELETE **SET NULL**,
+  created_at, updated_at` — per-profile LaTeX drafts (brief 38). The `SET NULL`
+  is load-bearing: deleting the published entry must not delete the draft, or
+  vice versa.
+- `document_versions`: `id, book_id → books ON DELETE CASCADE, version_no,
+  published_at`, unique on `(book_id, version_no)` — one publish each. **No path
+  columns** (D39); both artifacts derive from the version id.
 - `users`: `id, username (unique), password_hash (scrypt), created_at` —
   operator-seeded accounts (D30).
 - `sessions`: `token PK, user_id → users ON DELETE CASCADE, created_at` — opaque

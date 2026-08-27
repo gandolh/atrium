@@ -97,6 +97,20 @@ export interface ReaderState {
    */
   initialLocation: ReaderLocation;
   /**
+   * The published **version** id whose bytes are currently `loadedFile`
+   * (brief 38 step 7). `null` for a non-versioned book (an ordinary upload,
+   * a dev sample) — every published document always carries one once its
+   * version list has resolved. Two consumers:
+   *  - `useProgressSync` sends it alongside every progress PATCH, so a saved
+   *    `locator` always stays paired with the version it was measured in
+   *    (decision 10 — the two move together or not at all).
+   *  - the version picker compares it against `currentVersionId` (the
+   *    server's `reading_progress.version_id`) to decide whether a switch is
+   *    "the version you were already on" (keep the locator) or a genuinely
+   *    different one (start at page 0).
+   */
+  loadedVersionId: string | null;
+  /**
    * Coarse reading progress, 0..1, reported by whichever reader is mounted
    * (PDF = page/total; EPUB = locations percentage). Consumed by the library
    * progress-sync hook to PATCH the server (D24). `null` before it's known.
@@ -135,7 +149,22 @@ export interface ReaderState {
     format: Format,
     bookId: string,
     initialLocation?: ReaderLocation,
+    /** See `loadedVersionId`. Omitted for every non-versioned load. */
+    versionId?: string | null,
   ) => void;
+  /**
+   * Re-tag the already-loaded file as belonging to a given version, with NO
+   * refetch and NO change to `loadedFile`/`currentLocation` (brief 38 step 7).
+   * Exists for the common case the version picker hits on every mount: the
+   * default open (`GET /library/:id/file` with no `?version=`) already served
+   * the NEWEST version's bytes, which is also the picker's own default
+   * selection almost all of the time — so there is nothing to swap, only a
+   * label to attach so `useProgressSync` sends the right id. Reaching for
+   * `setLoadedBook` instead here would work too, but it resets `initialLocation`
+   * and — because `PdfReader` re-reads it on every `file` identity change —
+   * would re-trigger the resume effect for a `file` that never actually moved.
+   */
+  setLoadedVersionId: (versionId: string | null) => void;
   /** Report coarse reading progress (0..1) from the active reader. */
   setProgressFraction: (fraction: number | null) => void;
   /** Set the PDF zoom scale (brief 06). Clamped by the caller. */
@@ -204,6 +233,7 @@ const initialState = {
   loadedFormat: null as Format | null,
   loadedBookId: null as string | null,
   initialLocation: null as ReaderLocation,
+  loadedVersionId: null as string | null,
   progressFraction: null as number | null,
   zoom: 1,
 };
@@ -256,9 +286,21 @@ export const useReaderStore = create<ReaderState>((set) => ({
       return { tocSidebarOpen };
     }),
   setLoadedFile: (loadedFile, loadedFormat) =>
-    set({ loadedFile, loadedFormat, loadedBookId: null, initialLocation: null }),
-  setLoadedBook: (loadedFile, loadedFormat, loadedBookId, initialLocation = null) =>
-    set({ loadedFile, loadedFormat, loadedBookId, initialLocation, progressFraction: null }),
+    set({
+      loadedFile,
+      loadedFormat,
+      loadedBookId: null,
+      initialLocation: null,
+      loadedVersionId: null,
+    }),
+  setLoadedBook: (
+    loadedFile,
+    loadedFormat,
+    loadedBookId,
+    initialLocation = null,
+    loadedVersionId = null,
+  ) => set({ loadedFile, loadedFormat, loadedBookId, initialLocation, loadedVersionId, progressFraction: null }),
+  setLoadedVersionId: (loadedVersionId) => set({ loadedVersionId }),
   setProgressFraction: (progressFraction) => set({ progressFraction }),
   setZoom: (zoom) => set({ zoom }),
   clearLoadedBook: () =>
@@ -267,6 +309,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
       loadedFormat: null,
       loadedBookId: null,
       initialLocation: null,
+      loadedVersionId: null,
       currentLocation: null,
       progressFraction: null,
       zoom: 1,

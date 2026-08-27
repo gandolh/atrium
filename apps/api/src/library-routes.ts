@@ -22,20 +22,29 @@ import {
   deleteBook,
   getBook,
   getConvertedBook,
+  getDocumentVersion,
   getProfile,
   getProfileProgress,
   insertBook,
   listBooks,
   listBooksNeedingMetadata,
+  listDocumentVersions,
   listProfileProgress,
   resetConvert,
   toLibraryBook,
   touchOpened,
   updateBookMetadata,
   upsertProfileProgress,
+  type BookRow,
 } from "./db.js";
 import { cancelConvert, isConverting, startConvert } from "./convert-jobs.js";
-import { coverOwnerId, coverPathFor, filePathFor } from "./paths.js";
+import {
+  coverOwnerId,
+  coverPathFor,
+  filePathFor,
+  versionPdfPathFor,
+  versionZipPathFor,
+} from "./paths.js";
 import { extractMeta } from "./extract.js";
 
 /**
@@ -229,6 +238,11 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   });
 
   // --- GET /library/:id/file — stream the original for the reader ------------
+  //
+  // `?version=<id>` (brief 38 step 7) selects one published VERSION of the book
+  // instead of the current library file. Everything below — ETag, range, 304,
+  // the recorded open — is the same machinery; only the identity and the path
+  // change, and both change together.
   app.get("/library/:id/file", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = getBook(id);
@@ -237,6 +251,23 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // Record the open (drives "recently opened" ordering) even on a cache hit.
     touchOpened(id, nowIso());
 
+    // No `?version=` means the NEWEST, and the newest needs no lookup at all:
+    // publish copies it to `filePathFor(bookId, "pdf")`, the same derived
+    // location every uploaded book uses (D39). That is the whole reason this
+    // route has no "is this a published document?" branch.
+    const requestedVersion = (request.query as { version?: unknown } | undefined)?.version;
+    let version;
+    if (typeof requestedVersion === "string" && requestedVersion !== "") {
+      version = getDocumentVersion(requestedVersion);
+      // `getDocumentVersion` looks up by id ALONE, so the `book_id` comparison
+      // is what stops one book's URL streaming another's bytes. Both an unknown
+      // id and a foreign one answer 404 — never 403, which would confirm the id
+      // exists somewhere (brief 35's rule).
+      if (!version || version.book_id !== id) {
+        return reply.status(404).send({ error: "Version not found." });
+      }
+    }
+
     // The stored bytes for an id never change — a re-upload gets a fresh id — so
     // the id doubles as a strong validator. `no-cache` makes the browser
     // revalidate on every open, but a matching If-None-Match short-circuits to a
@@ -244,7 +275,13 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // runs. Without this the reader re-streams the whole file on every refresh.
     // `Accept-Ranges: bytes` is always advertised — media players (and Safari's
     // `bytes=0-1` probe) require it to enable seek/scrub (brief 23).
-    const etag = `"${id}"`;
+    //
+    // A version's id is the same kind of validator for the same reason, and a
+    // stronger one: a version artifact is IMMUTABLE by construction (publishing
+    // again mints a new id rather than rewriting one). Deriving the ETag from
+    // the version's own identity — the identity its path is derived from — is
+    // what stops v2 being served out of a cache entry filled by v3.
+    const etag = `"${version ? version.id : id}"`;
     reply
       .header("Cache-Control", "private, no-cache")
       .header("ETag", etag)
@@ -253,20 +290,23 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       return reply.status(304).send();
     }
 
-    const contentType = CONTENT_TYPE[row.format];
-    const disposition = `inline; filename="${id}.${row.format}"`;
+    // A version is always a PDF — publishing produces nothing else.
+    const contentType = version ? CONTENT_TYPE.pdf : CONTENT_TYPE[row.format];
+    const disposition = `inline; filename="${version ? `${version.id}.pdf` : `${id}.${row.format}`}"`;
 
     // Total size from disk — needed for Content-Range and to clamp the range.
     // We never read the whole file into memory: `createReadStream({start,end})`
     // streams only the requested window.
     // Derived, never read back from the row — see `paths.ts` for why the two
     // can only ever have agreed.
-    const filePath = filePathFor(row.id, row.format);
+    const filePath = version ? versionPdfPathFor(version.id) : filePathFor(row.id, row.format);
     let size: number;
     try {
       ({ size } = await stat(filePath));
     } catch {
-      return reply.status(404).send({ error: "Book file not found." });
+      return reply
+        .status(404)
+        .send({ error: version ? "Version file not found." : "Book file not found." });
     }
 
     const range = parseRange(request.headers.range, size);
@@ -356,12 +396,35 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       targetProfileId = target.id;
     }
 
+    // Brief 38 decision 10: a `locator` inside a published document is only
+    // meaningful together with the version it was measured in — page 40 of v3
+    // is not page 40 of v4. `upsertProfileProgress` COALESCEs both columns, so
+    // a write carrying a locator for a version MUST carry that version's id
+    // too; otherwise the row would keep an older version's id beside a newer
+    // version's page and resume in the wrong place, which is worse than
+    // resuming at 0. An ordinary uploaded book has no versions and sends
+    // nothing, leaving the column NULL.
+    //
+    // A foreign or unknown version id is a 404, never a 403 — the same rule the
+    // profile check above states, for the same reason. Without the `book_id`
+    // comparison a client could point this book's progress row at another
+    // book's version, which the FK would happily accept.
+    let versionId: string | null = null;
+    if (parsed.data.versionId) {
+      const version = getDocumentVersion(parsed.data.versionId);
+      if (!version || version.book_id !== id) {
+        return reply.status(404).send({ error: "Version not found." });
+      }
+      versionId = version.id;
+    }
+
     upsertProfileProgress(
       targetProfileId,
       id,
       parsed.data.progress,
       parsed.data.locator ?? null,
       nowIso(),
+      versionId,
     );
     return reply.send(toLibraryBook(row, getProfileProgress(targetProfileId, id)));
   });
@@ -440,66 +503,99 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     return reply.status(204).send();
   });
 
-  // --- DELETE /library/:id — remove row + file + thumbnail -------------------
+  // --- DELETE /library/:id — remove row + file + thumbnail + versions --------
   app.delete("/library/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = getBook(id);
     if (!row) return reply.status(404).send({ error: "Book not found." });
-
-    // A converted book shares its source's cover file outright (never its
-    // own) — so resolve the OTHER half of the pair before deleting anything:
-    // - if `row` is a source, its converted book's ROW is `ON DELETE CASCADE`
-    //   (db.ts), so nothing will be left pointing at that FILE afterwards
-    //   unless we grab it now.
-    // - if `row` is itself a converted book, its source stays alive and must
-    //   not lose its `ready`/`poor` status pointing at a conversion that's
-    //   about to stop existing.
-    const linkedConverted = row.converted_from === null ? getConvertedBook(id) : undefined;
-
-    // Kill any conversion this delete would otherwise strand. The job runner
-    // keys its single-flight slot on the SOURCE row, and nothing else tells it
-    // the book is gone: delete a source mid-conversion and the child keeps
-    // running, the slot stays claimed, and every other conversion in the app is
-    // refused with a 409 naming a book that no longer exists — with no way out,
-    // because the cancel route resolves `getBook(id)` first and now 404s. The
-    // slot would then stay blocked until the 24h ceiling expired or the API was
-    // restarted, which is precisely the "no other recourse" decision 5 exists to
-    // prevent. Cancelling first is the whole fix.
-    if (row.converted_from === null && isConverting(id)) {
-      cancelConvert(id);
-    }
-
-    deleteBook(id);
-    await rm(filePathFor(row.id, row.format), { force: true });
-    // Only unlink the cover when this row OWNS it. Ownership is
-    // `converted_from ?? id` (`coverOwnerId`): a converted book's thumbnail is
-    // its source's file, so `converted_from === null` is exactly the test for
-    // "the derived path names this row" — removing it otherwise would strip the
-    // cover off a source book this request never touched. `rm --force` covers
-    // the book that simply never had a thumbnail.
-    if (row.converted_from === null) {
-      await rm(coverPathFor(row.id), { force: true });
-    }
-
-    if (linkedConverted) {
-      // Its row is already gone via the cascade; only its FILE is still ours
-      // to clean up. Never its cover — that derives to the SAME thumbnail as
-      // `row`'s, already handled above.
-      await rm(filePathFor(linkedConverted.id, linkedConverted.format), { force: true });
-    } else if (row.converted_from !== null && !isConverting(row.converted_from)) {
-      // `row` was the converted book: its source is still around and must not
-      // keep claiming a conversion that no longer exists.
-      //
-      // Guarded on `isConverting` because a source can be mid-conversion while
-      // an older conversion of it is deleted — resetting it to `none` here
-      // would drop a live job's `running` status on the floor, leaving the
-      // button offering "Convert" for a conversion already in flight. The
-      // running job owns that row's status until it finishes.
-      resetConvert(row.converted_from);
-    }
-
+    await deleteBookWithArtifacts(row, request.log);
     return reply.status(204).send();
   });
+}
+
+/**
+ * Delete a book: its row, its file, its thumbnail, its published versions'
+ * artifacts, and whatever its convert link leaves dangling.
+ *
+ * Exported and shared with `DELETE /library/:id/versions/:versionId` in
+ * `latex-routes.ts`, which deletes the library entry when its LAST version goes
+ * (brief 38 step 7 — an entry with no versions has nothing to show). One code
+ * path rather than two that can drift: every rule below is one that was learned
+ * the hard way, and a second copy would relearn them.
+ */
+export async function deleteBookWithArtifacts(
+  row: BookRow,
+  log: FastifyBaseLogger,
+): Promise<void> {
+  const id = row.id;
+
+  // Brief 38 / D39: `document_versions.book_id` is ON DELETE CASCADE, so the
+  // rows go on their own — and SQLite cascades ROWS, NEVER FILES. After
+  // `deleteBook` there is nothing left that knows these version ids, and the
+  // per-version PDFs and zips would be unreachable bytes forever. Enumerate
+  // them BEFORE the row goes; the paths are derived from the version id, which
+  // only this listing still has.
+  const versions = listDocumentVersions(id);
+
+  // A converted book shares its source's cover file outright (never its
+  // own) — so resolve the OTHER half of the pair before deleting anything:
+  // - if `row` is a source, its converted book's ROW is `ON DELETE CASCADE`
+  //   (db.ts), so nothing will be left pointing at that FILE afterwards
+  //   unless we grab it now.
+  // - if `row` is itself a converted book, its source stays alive and must
+  //   not lose its `ready`/`poor` status pointing at a conversion that's
+  //   about to stop existing.
+  const linkedConverted = row.converted_from === null ? getConvertedBook(id) : undefined;
+
+  // Kill any conversion this delete would otherwise strand. The job runner
+  // keys its single-flight slot on the SOURCE row, and nothing else tells it
+  // the book is gone: delete a source mid-conversion and the child keeps
+  // running, the slot stays claimed, and every other conversion in the app is
+  // refused with a 409 naming a book that no longer exists — with no way out,
+  // because the cancel route resolves `getBook(id)` first and now 404s. The
+  // slot would then stay blocked until the 24h ceiling expired or the API was
+  // restarted, which is precisely the "no other recourse" decision 5 exists to
+  // prevent. Cancelling first is the whole fix.
+  if (row.converted_from === null && isConverting(id)) {
+    cancelConvert(id);
+  }
+
+  deleteBook(id);
+  await rm(filePathFor(row.id, row.format), { force: true });
+  // Only unlink the cover when this row OWNS it. Ownership is
+  // `converted_from ?? id` (`coverOwnerId`): a converted book's thumbnail is
+  // its source's file, so `converted_from === null` is exactly the test for
+  // "the derived path names this row" — removing it otherwise would strip the
+  // cover off a source book this request never touched. `rm --force` covers
+  // the book that simply never had a thumbnail.
+  if (row.converted_from === null) {
+    await rm(coverPathFor(row.id), { force: true });
+  }
+
+  if (linkedConverted) {
+    // Its row is already gone via the cascade; only its FILE is still ours
+    // to clean up. Never its cover — that derives to the SAME thumbnail as
+    // `row`'s, already handled above.
+    await rm(filePathFor(linkedConverted.id, linkedConverted.format), { force: true });
+  } else if (row.converted_from !== null && !isConverting(row.converted_from)) {
+    // `row` was the converted book: its source is still around and must not
+    // keep claiming a conversion that no longer exists.
+    //
+    // Guarded on `isConverting` because a source can be mid-conversion while
+    // an older conversion of it is deleted — resetting it to `none` here
+    // would drop a live job's `running` status on the floor, leaving the
+    // button offering "Convert" for a conversion already in flight. The
+    // running job owns that row's status until it finishes.
+    resetConvert(row.converted_from);
+  }
+
+  for (const version of versions) {
+    await rm(versionPdfPathFor(version.id), { force: true });
+    await rm(versionZipPathFor(version.id), { force: true });
+  }
+  if (versions.length > 0) {
+    log.info({ bookId: id, versions: versions.length }, "deleted a published document and its versions");
+  }
 }
 
 /**

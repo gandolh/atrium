@@ -1,5 +1,68 @@
 # Log
 
+## [2026-08-27] build | Brief 38 shipped — LaTeX in Atrium
+
+10 chunks (6 senior, 4 junior), 6 waves, 3 scoped finders, 2 fix rounds.
+~6,600 lines of new source. **Typecheck 0, build 0, 332/332.** Verified live in
+a browser against the real database; every test artifact removed afterwards and
+the library ended exactly as it started — 5 books, 9 files, 7 thumbnails.
+
+**The whole loop works on real data.** A project compiles with our own engine —
+no TeX, no binary — the PDF previews beside the source, diagnostics carry file
+and line and clicking one moves the caret, and three publishes produced **one**
+library card with versions 3/2/1 and a cover extracted from page 1 of our own
+output.
+
+**The brief was wrong about one thing and it was caught before dispatch.** Step
+6 said to point `books.file_path` at the newest version's PDF; brief 41 had
+dropped that column hours earlier. Publish now writes to the *derived* library
+path instead, and `document_versions` was created without the two path columns
+the brief's DDL listed — reintroducing stored paths in a new table would have
+undone D39 on its first day. Both corrections dated in the brief.
+
+**Fifth build running: every serious defect crossed chunk boundaries, and none
+tripped a gate.** Three finders returned 13 findings (3 Critical, 6 Important):
+
+- The compile preview mounts a second `PdfReader` against the **shared reader
+  store**, so scrolling it — then losing a 1.2 s race with the next book's
+  download — overwrote that book's saved position. The same bug class brief 35
+  already shipped and fixed once.
+- The editor's file-text cache was `staleTime: Infinity` and writes never
+  updated it, so switching files and back **reverted a saved edit** and the next
+  keystroke PUT the stale version over it.
+- `flush()` was fire-and-forget, so compile and publish could run against the
+  previous autosave — despite the code asserting "flush() FIRST, always". For
+  publish, those stale bytes become a permanent version.
+- Publish read `published_book_id` from a snapshot taken **before** the compile,
+  so two racing publishes could each create a card — the exact thing decision 8
+  exists to prevent.
+- A leaked job-map entry would have wedged compilation **account-wide with no
+  reaper** if the status write threw between claiming and scheduling.
+- The size cap was bypassable past 32 directories deep, and the same truncation
+  **silently dropped those files from a published version's zip** — defeating
+  the one reason the zip exists.
+
+Both fix rounds worked to the right standard: reproduce the failure against a
+pre-fix variant first, then show it gone. Not assertions.
+
+**A diagnostic code was borrowed for the third time, and caught for the third
+time.** A wall-clock stop was reporting `budget-exceeded`, which means the
+*deterministic* step budget — the same document stopping in the same place,
+which is what makes it testable. A wall clock stops somewhere different every
+run. Added `stopped`; conflating them tells a writer to go simplify a document
+that was never too complex.
+
+**Decided during the build:** deleting the entrypoint is refused (409) rather
+than silently repointed or left dangling; a published document's `source` is
+`latex`, not `upload`; the monospace source pane is a recorded, bounded
+exception to the two-family type rule.
+
+**Deferred deliberately, now [brief 44](briefs/todo/44-compile-worker-thread.md):**
+`compile()` is synchronous and blocks the API process. Fine at ~80 ms, but it
+means a cancel cannot reach a *running* compile and a compile on one device
+stalls another — which sits badly with D36's premise. Briefs 39 and 40 make
+compiles longer, so 44 should land before 40.
+
 ## [2026-08-27] build | Brief 41 shipped — derived storage paths, and a sandbox that works
 
 4 chunks (3 senior, 1 junior), 3 waves, 3 scoped finders, 1 fix round.

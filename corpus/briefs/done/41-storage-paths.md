@@ -3,7 +3,7 @@
 **Closes all three entries in [open-questions.md](../../wiki/open-questions.md)**,
 grilled with the owner 2026-08-27. Records **D39**.
 
-**Build this before [brief 38](../todo/38-latex-editor.md).** 38 is the next brief to
+**Build this before [brief 38](../done/38-latex-editor.md).** 38 is the next brief to
 touch `apps/api` and `apps/web`, and it inherits the data-safety hazard this
 brief retires. Doing 41 first means 38's verification can be sandboxed properly
 instead of relying on discipline.

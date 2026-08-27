@@ -98,11 +98,13 @@ export const DB_PATH = resolve(DATA_DIR, "library.db");
 /**
  * Original uploaded PDF/EPUB files: `library/<id>.<ext>`.
  *
- * All three storage roots (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
- * `THUMBNAILS_DIR`) are independently overridable via env, same pattern as
- * `DATA_DIR` above. Redirect all three together to point a test/deploy at a
- * scratch storage root, so a scratch database and scratch files move as one —
- * never redirect the database alone and run against the real files.
+ * Every storage root (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
+ * `THUMBNAILS_DIR`, and brief 38's `LATEX_PROJECTS_DIR` /
+ * `DOCUMENT_VERSIONS_DIR` below) is independently overridable via env, same
+ * pattern as `DATA_DIR` above. Redirect them all together to point a
+ * test/deploy at a scratch storage root, so a scratch database and scratch
+ * files move as one — never redirect the database alone and run against the
+ * real files.
  */
 export const LIBRARY_FILES_DIR = process.env.LIBRARY_FILES_DIR
   ? resolve(process.env.LIBRARY_FILES_DIR)
@@ -111,6 +113,101 @@ export const LIBRARY_FILES_DIR = process.env.LIBRARY_FILES_DIR
 export const THUMBNAILS_DIR = process.env.THUMBNAILS_DIR
   ? resolve(process.env.THUMBNAILS_DIR)
   : resolve(API_ROOT, "images", "thumbnails");
+
+/**
+ * LaTeX project working trees (brief 38): one directory per project, at
+ * `latex/<projectId>/`, holding the `.tex` sources plus any figures and `.bib`
+ * files the editor uploaded. This is the **draft** side of brief 38 — live,
+ * mutable, never shown in the gallery.
+ *
+ * It is also the **confinement root** every path-accepting LaTeX route checks
+ * against; see `latex-paths.ts`. Nothing may join an untrusted path onto this
+ * directory directly.
+ */
+export const LATEX_PROJECTS_DIR = process.env.LATEX_PROJECTS_DIR
+  ? resolve(process.env.LATEX_PROJECTS_DIR)
+  : resolve(API_ROOT, "latex");
+
+/**
+ * Published version artifacts (brief 38 step 6): the per-version PDF and the
+ * zip of the project tree that produced it, at `versions/<versionId>.pdf` and
+ * `versions/<versionId>.zip`. These are **immutable** once written — a version
+ * is a snapshot — which is what makes them a different root from the mutable
+ * draft trees above rather than a subdirectory of them.
+ *
+ * Both new roots are env-overridable for exactly the reason D39 gives: a
+ * storage root that cannot be redirected cannot be tested destructively, which
+ * is how brief 34's verification run permanently destroyed one of the owner's
+ * books on 2026-08-25. Redirect **all five** roots together at a scratch base
+ * when pointing a test or a throwaway deploy somewhere safe — a scratch
+ * database next to real files is the precise shape of that accident.
+ */
+export const DOCUMENT_VERSIONS_DIR = process.env.DOCUMENT_VERSIONS_DIR
+  ? resolve(process.env.DOCUMENT_VERSIONS_DIR)
+  : resolve(API_ROOT, "versions");
+
+/**
+ * Read an OPTIONAL positive-number env override, or fall back to a default.
+ *
+ * Deliberately not part of the required zod schema above (D29): these are
+ * tuning knobs, and demanding them of every deploy would make the contract
+ * noisier without making it safer. But "optional" must not mean "silently
+ * ignored" — a typo'd `LATEX_TIMEOUT_MS=12O000` (letter O) that quietly fell
+ * back to the default would be exactly the silent-fallback behaviour this
+ * file's header disowns. So a value that is *present but malformed* is fatal,
+ * the same as a malformed required one; only an *absent* value takes the
+ * default.
+ */
+function numericOverride(name: string, fallback: number, integer = false): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || (integer && !Number.isInteger(value))) {
+    console.error(
+      `\n============================================================\n` +
+        `  Invalid environment configuration.\n\n` +
+        `  - ${name}: expected a positive ${integer ? "integer" : "number"}, got ${JSON.stringify(raw)}\n` +
+        `\n  (This variable is optional — unset it to use the default of ${fallback}.)\n` +
+        `============================================================\n`,
+    );
+    process.exit(1);
+  }
+  return value;
+}
+
+/**
+ * Wall-clock ceiling on a LaTeX compile route (brief 38 step 3), in ms.
+ *
+ * This is the **outer backstop, not the real guard**. The typesetting engine is
+ * a pure function with a deterministic step budget (D38) — that budget is what
+ * actually stops a runaway `\newcommand` recursion, and it stops it at the same
+ * point on every machine. This timer only exists for the case the step budget
+ * cannot see: the process wedged somewhere outside the engine's step loop.
+ *
+ * Two minutes is therefore generous on purpose. Shortening it would not make
+ * the engine safer, it would only start failing slow-but-legitimate documents
+ * on a slow machine, non-deterministically — the one property D38 bought.
+ */
+export const LATEX_TIMEOUT_MS = numericOverride("LATEX_TIMEOUT_MS", 120_000, true);
+
+/**
+ * Ceiling on the compiled PDF a single compile may produce, in MB.
+ *
+ * A document can be small and its output enormous (a loop emitting pages), so
+ * the input caps below do not imply this one. Enforced while the PDF is being
+ * written, so the disk cannot fill before anyone notices.
+ */
+export const LATEX_MAX_OUTPUT_MB = numericOverride("LATEX_MAX_OUTPUT_MB", 25);
+export const LATEX_MAX_OUTPUT_BYTES = maxUploadBytesFromMb(LATEX_MAX_OUTPUT_MB);
+
+/**
+ * Ceiling on the total on-disk size of one project's working tree, in MB —
+ * sources plus every uploaded figure and `.bib`. Checked on each write/upload
+ * against the tree's current size, since `MAX_UPLOAD_MB` only bounds a *single*
+ * file and a project is an unbounded number of them.
+ */
+export const LATEX_MAX_PROJECT_MB = numericOverride("LATEX_MAX_PROJECT_MB", 50);
+export const LATEX_MAX_PROJECT_BYTES = maxUploadBytesFromMb(LATEX_MAX_PROJECT_MB);
 
 /**
  * Base URL of the Gutendex instance the catalog proxy talks to (brief 22).

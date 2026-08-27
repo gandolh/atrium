@@ -1,7 +1,7 @@
 # Task 38 — LaTeX: write, compile, publish
 
 **Second of four.** [37](../done/37-engine-foundation.md) (foundation) → **38** (editor)
-→ [39](39-engine-figures-tables-bib.md) → [40](40-engine-math.md).
+→ [39](../todo/39-engine-figures-tables-bib.md) → [40](../todo/40-engine-math.md).
 
 **Replaces superseded brief 36**, which specified Tectonic. Everything here about
 projects, drafts, publishing and versions is unchanged from that brief's
@@ -152,9 +152,11 @@ stays as the route's backstop).
      updated_at DESC)`. **`ON DELETE SET NULL`** is decision 11: deleting the
      library entry must not delete the draft, or vice versa.
    - `document_versions (id TEXT PK, book_id TEXT NOT NULL REFERENCES books(id)
-     ON DELETE CASCADE, version_no INTEGER NOT NULL, pdf_path TEXT NOT NULL,
-     source_zip_path TEXT NOT NULL, published_at TEXT NOT NULL)` + unique
-     `(book_id, version_no)`.
+     ON DELETE CASCADE, version_no INTEGER NOT NULL, ~~pdf_path TEXT NOT NULL,
+     source_zip_path TEXT NOT NULL,~~ published_at TEXT NOT NULL)` + unique
+     `(book_id, version_no)`. **Corrected 2026-08-27 (D39):** the two path
+     columns are gone before they were ever written — derive both from the
+     version id via `paths.ts`. See the correction under step 6.
    - `reading_progress` gains a **nullable** `version_id` recording which version
      the saved locator belongs to — **not** part of the PK, so no rebuild.
      Opening a version whose id differs from the stored one starts at 0, which is
@@ -186,10 +188,27 @@ stays as the route's backstop).
    none (kind `book`, format `pdf`, title from the project, cover via the
    existing page-1 extraction), then append a `document_versions` row storing the
    PDF and a **zip of the entire project tree** (`adm-zip` is already an API
-   dependency). Point `books.file_path` at the newest version's PDF so every
-   existing consumer — file route, offline download, reader — keeps working
-   unchanged; `?version=` selects an older one. Refresh the cover from the newest
-   version.
+   dependency). ~~Point `books.file_path` at the newest version's PDF~~ — see
+   the correction below — so every existing consumer — file route, offline
+   download, reader — keeps working unchanged; `?version=` selects an older one.
+   Refresh the cover from the newest version.
+
+   > **Corrected 2026-08-27 (brief 41, D39).** `books.file_path` **no longer
+   > exists**: paths are derived, not stored. The intent survives unchanged —
+   > every existing consumer must keep working — but the mechanism is now:
+   > **publish writes the newest version's PDF to the derived library location**
+   > `filePathFor(bookId, "pdf")`, so `GET /library/:id/file` resolves it with no
+   > special case and `paths.ts` stays a pure function of `id` + `format`. The
+   > newest version's bytes therefore exist twice (once as the library file,
+   > once as its version artifact); that duplication is the price of not
+   > branching the one derivation D39 just unified, and it is deliberate.
+   >
+   > For the same reason **`document_versions` stores no paths either**. Drop
+   > `pdf_path` and `source_zip_path` from the DDL in step 2 and derive both from
+   > the version id, exactly as the library does — extend `paths.ts` rather than
+   > inventing a second convention. A new storage root for version artifacts must
+   > be **env-overridable like the other three** (D39), or it reintroduces the
+   > untestable-directory hazard brief 41 just removed.
 
 7. **Version picker** (reader chrome + `library-routes.ts`): a quiet control
    listing versions by number and date, shown **only** on a book with more than
@@ -267,3 +286,86 @@ stays as the route's backstop).
 - PRODUCT.md describes what Atrium now is.
 - Typecheck + build + tests clean; Reading Room (D33) conformance passes on the
   project list, editor chrome, log panel, publish dialog and version picker.
+
+---
+
+## Outcome (2026-08-27) — done
+
+Built via plan-split-dispatch: **10 chunks (6 senior, 4 junior), 6 waves**, then
+3 scoped finders and 2 fix rounds. ~6,600 lines of new source across
+`apps/api/src/latex-*.ts`, `apps/web/src/latex/` and the version picker.
+**Typecheck 0, build 0, 332/332 tests.** Verified live in a browser against the
+real database, then every test artifact removed — the library ended at the 5
+books, 9 files and 7 thumbnails it started with.
+
+**Delivered as specified**, with one mechanism corrected mid-brief.
+
+### The brief was wrong about one thing, and it was corrected before dispatch
+
+Step 6 said *"point `books.file_path` at the newest version's PDF"*. That column
+was **dropped hours earlier by brief 41** (D39). The intent survived; the
+mechanism became: publish **writes the newest version's PDF to the derived
+library path**, so `GET /library/:id/file` needs no special case. For the same
+reason `document_versions` was created **without** the `pdf_path`/`source_zip_path`
+columns the brief's DDL listed — reintroducing stored paths in a new table would
+have undone a decision on its first day. Both corrections are dated in place
+above.
+
+### What the review caught — the seams again
+
+Three scoped finders returned **13 findings (3 Critical, 6 Important)**. **Every
+serious one spanned files owned by different chunks, and none tripped a gate** —
+the fifth build running where that is true:
+
+- **The compile preview corrupted the real reader's saved progress.** It mounts
+  a second `PdfReader` bound to the same global reader store while
+  `loadedBookId` still named the last book read; scrolling the preview then
+  losing a 1.2 s race with the next book's download overwrote that book's
+  position. The same bug class brief 35 already shipped and fixed once.
+- **Switching files and back destroyed a saved edit** — the file-text cache was
+  `staleTime: Infinity` and writes never updated it, so the editor reseeded from
+  pre-edit content and the next keystroke PUT it back over the saved work.
+- **`flush()` was fire-and-forget**, so compile and publish could run against
+  the previous autosave despite the code asserting "flush() FIRST, always". For
+  publish, those stale bytes become a permanent version.
+- **Publish could create two cards for one project** — it read
+  `published_book_id` from a row snapshot taken before the compile.
+- **A leaked job-map entry would wedge compilation account-wide** with no
+  reaper, if the status write threw between claiming and scheduling.
+- **The project size cap was bypassable** past 32 directories deep, and the same
+  truncation silently dropped those files from a published version's zip —
+  defeating the reason the zip exists.
+
+All fixed with before/after evidence: each fix round reproduced the failure
+against a pre-fix variant first, then showed it gone.
+
+### Decisions taken during the build
+
+- **Deleting the entrypoint is refused (409)**, not silently repointed and not
+  left dangling. Renaming carries the pointer with the file, because there the
+  intent is unambiguous.
+- **A `stopped` diagnostic code was added** so a wall-clock or cancel stop is
+  never reported as `budget-exceeded`. The step budget is deterministic; a wall
+  clock is not, and conflating them tells a writer to simplify a document that
+  was never too complex.
+- **`BOOK_SOURCES` gained `latex`**, with `source_id` pointing at the draft. A
+  published document is not an upload.
+- **The monospace source pane** is a recorded, bounded exception to the
+  two-family type rule — platform stack, source pane only. See design.md.
+
+### Known and accepted
+
+- **`compile()` is synchronous and blocks the API process.** A cancel cannot be
+  delivered while the engine holds the thread. Bounded today (~80 ms), but it
+  sits badly with D36's multi-device premise, and briefs 39/40 will make
+  compiles longer. Fix is a `worker_thread`; it changes hosting, not contract.
+  **Its own brief.**
+- **Offline progress on a versioned document** degrades rather than corrupts: if
+  a queued offline record has no version, the flush sends the fraction with a
+  **null locator** rather than pairing a page with the wrong version. No
+  IndexedDB v6 — rows predating published documents cannot have a version, so
+  "absent" and "null" are the same statement.
+- The publish route's new `409 PROJECT_TREE_TRUNCATED` / `409 PUBLISH_RACED` /
+  `400 too-deep` carry human-readable `message`s the client surfaces generically;
+  nothing branches on them yet.
+- One test draft remains on a non-Default profile from the live verification.

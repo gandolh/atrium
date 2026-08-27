@@ -141,12 +141,27 @@ export type {
   Preferences,
 } from "./profile.js";
 
-// --- LaTeX diagnostic contract (brief 37) ----------------------------------
+// --- LaTeX diagnostic + project/file/compile/version contract (briefs 37, 38) ---
 export {
   DIAGNOSTIC_SEVERITIES,
   diagnosticSeveritySchema,
   DIAGNOSTIC_CODES,
   diagnosticCodeSchema,
   diagnosticSchema,
+  COMPILE_STATUSES,
+  compileStatusSchema,
+  latexProjectSchema,
+  latexFileSchema,
+  latexCompileResultSchema,
+  documentVersionSchema,
 } from "./latex.js";
-export type { DiagnosticSeverity, DiagnosticCode, Diagnostic } from "./latex.js";
+export type {
+  DiagnosticSeverity,
+  DiagnosticCode,
+  Diagnostic,
+  CompileStatus,
+  LatexProject,
+  LatexFile,
+  LatexCompileResult,
+  DocumentVersion,
+} from "./latex.js";

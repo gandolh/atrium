@@ -1,6 +1,6 @@
 # Task 39 — Typesetting engine: figures, tables, bibliography
 
-**Third of four.** [37](../done/37-engine-foundation.md) → [38](38-latex-editor.md) →
+**Third of four.** [37](../done/37-engine-foundation.md) → [38](../done/38-latex-editor.md) →
 **39** → [40](40-engine-math.md).
 
 **Requires brief 37.** Read its "What this is, and what it is deliberately not",

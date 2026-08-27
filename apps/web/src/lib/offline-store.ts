@@ -138,6 +138,27 @@ export interface LocalProgress {
    * in this same brief — rather than guessing at an attribution we don't have.
    */
   profileId: string | null;
+  /**
+   * The published **version** `locator` was measured in (brief 38, decision 10),
+   * or `null`/absent for a book that has no versions at all — an ordinary
+   * upload, a Gutenberg import, a dev sample.
+   *
+   * Load-bearing for the reconnect flush, not for reading offline. The server
+   * COALESCEs `locator` and `version_id` independently, so a flush that sends a
+   * locator with no version overwrites the page number while leaving the OLD
+   * version id beside it — "page 40 of v3" filed as "page 40 of v4", which is
+   * exactly the pairing `library-routes.ts` warns must never be broken. Carried
+   * here so the flush can send the pair, or (when it genuinely cannot know the
+   * version — see `use-progress-sync.ts`) withhold the locator instead.
+   *
+   * Optional rather than a v6 schema bump: IndexedDB records are schemaless, and
+   * every row written before this field existed predates published documents
+   * entirely, so "absent" and "this book has no version" are the same statement.
+   * A migration would rewrite every row to store an explicit `null` that reads
+   * back identically to its absence — churn, not safety. Both are handled with
+   * `!= null` at every read.
+   */
+  versionId?: string | null;
 }
 
 /**
@@ -724,6 +745,7 @@ export async function getLocalProgress(
         locator: record.locator,
         updatedAt: record.updatedAt,
         profileId: record.profileId ?? null,
+        versionId: record.versionId ?? null,
         pending: record.updatedAt > record.syncedAt,
       };
     });
@@ -760,6 +782,11 @@ export async function putLocalProgress(id: string, record: LocalProgress): Promi
           // time so a later flush (possibly after a profile switch) still
           // knows who actually read this position (brief 35 step 7).
           profileId: record.profileId,
+          // The version `locator` was measured in, recorded at write time for
+          // the same reason and with the same consequence if it is missing: a
+          // locator that arrives at the server without its version is filed
+          // against whatever version was there before (brief 38, decision 10).
+          versionId: record.versionId ?? null,
           syncedAt: existing?.syncedAt ?? 0,
         } satisfies StoredProgress),
       );
@@ -816,6 +843,9 @@ export async function listPendingProgress(): Promise<Array<LocalProgress & { id:
           locator: r.locator,
           updatedAt: r.updatedAt,
           profileId: r.profileId ?? null,
+          // `?? null` folds "written before this field existed" into "this book
+          // has no version", which is the same statement — see `LocalProgress`.
+          versionId: r.versionId ?? null,
         }));
     });
   } catch {

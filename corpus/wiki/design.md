@@ -1,6 +1,6 @@
 ---
 summary: The enforced "Reading Room" visual language (D33) — warm neutrals, four kind tints, the Newsreader/Archivo type split, motion rules, and the frontend conformance checklist. Replaces Quiet Paper.
-updated: 2026-08-24
+updated: 2026-08-27
 ---
 
 # Design — "Reading Room"
@@ -87,6 +87,16 @@ Inter all retire.
 | `label-ui` | **Archivo** | 13.5 / 1.4 | 500 | Nav, buttons, settings |
 | `label-caps` | **Archivo** | 10 / 1.6, `.15em` | 600 | Chips, eyebrows (uppercase) |
 | `numeric` | **Archivo** | inherits | 500 | **`tabular-nums` always** |
+| `code` | **platform monospace** | inherits | 400 | LaTeX source pane, and nothing else |
+
+**The one exception to the two-family rule** (added 2026-08-27, brief 38). The
+LaTeX editor's source pane sets in `--font-code`: the *platform's own* monospace
+stack, not a third brand face — nothing is downloaded and the payload argument
+below is untouched. It exists because source is the one text in Atrium where
+character alignment is semantic: `\begin{tabular}` set proportionally is
+unreadable, and the caret stops landing where the eye is. **It applies to the
+source pane only** — the diagnostics panel, the file tree and every label around
+the editor are still `font-ui`. Any other use is drift, not precedent.
 
 **Numbers line up.** Every figure the interface reports — progress, duration,
 size, page count, counts — sets `font-variant-numeric: tabular-nums`.

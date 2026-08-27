@@ -13,6 +13,7 @@ import { useHydrateBook } from "../lib/use-hydrate-book";
 import { useDevSampleFile } from "../reader/pdf/dev/use-dev-sample-file";
 import { useDevSampleEpub } from "../reader/epub/dev/use-dev-sample-epub";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
+import { VersionPicker } from "../reader/chrome";
 import { useMotionTransition } from "../lib/motion";
 import { coverLayoutId } from "../lib/cover-layout-id";
 
@@ -270,6 +271,12 @@ function BookReader() {
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
         <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
           <PdfReader file={file} book={hydrate.book} />
+          {/* Brief 38 step 7: reader chrome, mounted here rather than inside
+              `PdfReader` — that file stays byte-for-byte unmodified (see its
+              own doc comment). `PdfReader` already fills the true viewport, so
+              this floats as a plain `fixed` sibling; versions are PDF-only
+              (publishing produces nothing else), so EPUB never needs this. */}
+          {hydrate.book && <VersionPicker book={hydrate.book} />}
         </Suspense>
       </ReaderChunkErrorBoundary>
     );

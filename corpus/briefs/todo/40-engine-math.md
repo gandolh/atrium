@@ -1,6 +1,6 @@
 # Task 40 — Typesetting engine: math
 
-**Fourth of four.** [37](../done/37-engine-foundation.md) → [38](38-latex-editor.md) →
+**Fourth of four.** [37](../done/37-engine-foundation.md) → [38](../done/38-latex-editor.md) →
 [39](39-engine-figures-tables-bib.md) → **40**.
 
 **Requires brief 37.** Its scope line (syntax, not semantics), failure contract

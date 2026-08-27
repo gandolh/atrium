@@ -7,6 +7,7 @@ import { LibraryHome } from "./library/LibraryHome";
 import { Read } from "./routes/read";
 import { Discover } from "./routes/discover";
 import { Notes } from "./routes/notes";
+import { LatexRoute } from "./routes/latex";
 import { ManageProfiles } from "./profiles/ManageProfiles";
 
 /**
@@ -72,6 +73,21 @@ const notesRoute = createRoute({
   component: Notes,
 });
 
+// `/latex` (brief 38 chunk 7) — one route, two views: the project list, or
+// the (placeholder, until chunk 8) project view when `?project=<id>` is
+// present. Mirrors `notesSearchSchema` exactly — same pattern, sibling
+// destination (D33g / D36).
+const latexSearchSchema = z.object({
+  project: z.string().optional(),
+});
+
+const latexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/latex",
+  validateSearch: latexSearchSchema,
+  component: LatexRoute,
+});
+
 // `format` is optional + type-safe (validated against the shared Zod enum) so
 // `/read` can be deep-linked. Widened from the pdf/epub `formatSchema` to the
 // full `fileTypeSchema` (pdf/epub/mp3/mp4/webm) in brief 23 so media formats
@@ -128,6 +144,7 @@ const routeTree = rootRoute.addChildren([
   musicRoute,
   videosRoute,
   notesRoute,
+  latexRoute,
   readRoute,
   discoverRoute,
   profilesRoute,

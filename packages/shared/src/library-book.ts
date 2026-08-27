@@ -19,7 +19,13 @@ import { type FileType, fileTypeSchema, mediaKindSchema } from "./file-validatio
  * `import` (brief 22). Stored on the row and surfaced on the wire so the client
  * can badge imported books and cross-reference them against a catalog id.
  */
-export const BOOK_SOURCES = ["upload", "gutenberg"] as const;
+/**
+ * Where a library entry came from. `latex` was added 2026-08-27 (brief 38): a
+ * published document is authored *here*, so calling it an `upload` would make
+ * the card lie about its own provenance — and it is the one source whose entry
+ * has a live draft still behind it.
+ */
+export const BOOK_SOURCES = ["upload", "gutenberg", "latex"] as const;
 export const bookSourceSchema = z.enum(BOOK_SOURCES);
 export type BookSource = z.infer<typeof bookSourceSchema>;
 
@@ -180,6 +186,17 @@ export const updateProgressSchema = z.object({
    * a cross-*account* write, which is a different and real thing.
    */
   profileId: z.string().optional(),
+  /**
+   * Which published **version** the `locator` was measured in (brief 38
+   * decision 10). Omitted/null leaves the stored one untouched — the upsert
+   * COALESCEs it exactly as it does the locator, so the two move as a matched
+   * pair or not at all: a locator without its version could later be applied to
+   * a different version of the same document, which is the wrong page.
+   *
+   * Null for every non-published book, which is all of them until a document is
+   * published.
+   */
+  versionId: z.string().nullish(),
 });
 export type UpdateProgressRequest = z.infer<typeof updateProgressSchema>;
 

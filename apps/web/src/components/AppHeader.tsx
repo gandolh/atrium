@@ -7,8 +7,8 @@ import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
 
 /**
  * The persistent app header, shared by every non-reader page (`/`, `/discover`,
- * `/notes`, `/profiles`) so the wordmark, search, Notes, the profile switcher
- * and the theme control never disappear when the page changes.
+ * `/notes`, `/latex`, `/profiles`) so the wordmark, search, Notes, LaTeX, the
+ * profile switcher and the theme control never disappear when the page changes.
  *
  * **Brief 28 (D33 move 1) removed `NavTabs`.** Media kind is no longer an
  * address — `/books` `/music` `/videos` collapsed into `/` where kind is a
@@ -16,10 +16,12 @@ import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
  * no per-kind navigation at all. What remains is app-level only, in **two
  * clusters on one row**:
  *
- *   wordmark · [search slot] ‖ Notes · {actions} · profile · theme
+ *   wordmark · [search slot] ‖ Notes · LaTeX · {actions} · profile · theme
  *
  * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
- * is a link here rather than a chip in the grid.
+ * is a link here rather than a chip in the grid. **Brief 38 (D36) adds LaTeX as
+ * the same kind of peer**: a draft that lives only at `/latex`, never in the
+ * media grid, so it gets the identical link treatment right next to Notes.
  *
  * **Brief 35** adds `ProfileSwitcher` as one more item in the existing right
  * cluster rather than a third cluster — always reachable here regardless of
@@ -63,6 +65,7 @@ export function AppHeader({
 
       <div className="ml-auto flex flex-wrap items-center gap-3">
         <NotesLink />
+        <LatexLink />
         {actions}
         <ProfileSwitcher />
         <ThemeToggle />
@@ -88,6 +91,23 @@ function NotesLink() {
       activeProps={{ className: "text-accent font-semibold" }}
     >
       Notes
+    </Link>
+  );
+}
+
+/**
+ * **LaTeX** as its own destination (brief 38, D36 generalising D33g) — a
+ * project is a draft that lives only at `/latex`, never in the media grid, so
+ * it gets the same link-not-chip treatment as `NotesLink` right next to it.
+ */
+function LatexLink() {
+  return (
+    <Link
+      to="/latex"
+      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      activeProps={{ className: "text-accent font-semibold" }}
+    >
+      LaTeX
     </Link>
   );
 }

@@ -5,7 +5,30 @@ updated: 2026-08-27
 
 # Status — 2026-08-27
 
-**Latest (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
+**Latest (2026-08-27):** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
+write a multi-file project at `/latex`, compile it with **our own engine** (no
+TeX, no binary), preview the PDF beside the source, and **publish** it into the
+library as a document that accumulates **versions** — press publish ten times
+and you get ten versions on one card, verified on real data. Diagnostics carry
+file and line and clicking one jumps the caret; an unimplemented construct reads
+as *"not supported yet"* and is visibly distinct from a typo. The engine's
+purity means the remaining attack surface is one path-confinement module, which
+rejects traversal, absolutes, escaping symlinks and — the case naive
+implementations write straight through — **dangling** symlinks.
+
+10 chunks, 3 finders, **13 findings (3 Critical)**, all fixed. Every serious one
+crossed chunk boundaries and none tripped a gate: the compile preview
+overwriting the real reader's saved position, a stale cache reverting a saved
+edit, a fire-and-forget `flush()` letting publish immortalise stale bytes, and
+publish racing itself into two cards. Details in
+[briefs/done/38-latex-editor.md](../briefs/done/38-latex-editor.md) and
+[latex.md](latex.md).
+
+**Known:** `compile()` is synchronous and blocks the API process for its
+duration — fine at ~80 ms today, but it needs a `worker_thread` before briefs
+39/40 make compiles longer. Its own brief.
+
+**Earlier (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
 testing is finally sandboxable.** All three storage roots are env overrides, so
 a scratch database and scratch files move together; the `file_path`/`cover_path`
 columns are **dropped** and every location derives from `paths.ts`. `hasCover`
@@ -126,9 +149,10 @@ The dashboard is what is true *now*; the archive is how it got here.
 | 35 | Profiles: several readers behind one account (household model, D35) | **done (2026-08-25)** |
 | 36 | LaTeX: write, compile, publish (Tectonic) | **superseded by 37–40 (2026-08-26)** |
 | 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
-| 38 | LaTeX editor: projects, compile, publish, versions | **todo — next, unblocked** |
-| 39 | Engine: figures, tables, bibliography | **todo** |
+| 38 | LaTeX editor: projects, compile, publish, versions | **done (2026-08-27)** |
+| 39 | Engine: figures, tables, bibliography | **todo — next, unblocked** |
 | 40 | Engine: math (MathJax SVG → PDF) | **todo** |
 | 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **done (2026-08-27)** |
 | 42 | Video covers, decoded in the browser (D40) | **todo — unblocked** |
 | 43 | Readable tiles for coverless media | **todo — needs 42** |
+| 44 | Host the typesetting engine on a worker thread | **todo — do before 40** |

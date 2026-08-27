@@ -1,6 +1,6 @@
 # Task 37 — Typesetting engine: foundation
 
-**First of four.** 37 (foundation) → [38](../todo/38-latex-editor.md) (editor) →
+**First of four.** 37 (foundation) → [38](38-latex-editor.md) (editor) →
 [39](../todo/39-engine-figures-tables-bib.md) (figures, tables, bibliography) →
 [40](../todo/40-engine-math.md) (math). This brief carries the design rationale the
 other three refer back to.

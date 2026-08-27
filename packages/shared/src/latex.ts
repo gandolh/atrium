@@ -53,6 +53,18 @@ export const DIAGNOSTIC_CODES = [
   "budget-exceeded",
   /** An output-size or page-count cap was hit. */
   "limit-exceeded",
+  /**
+   * The compile was stopped by its host rather than by the engine: the caller's
+   * outer wall-clock backstop expired, or a person cancelled it.
+   *
+   * Deliberately NOT `budget-exceeded`. That code means the engine's own
+   * DETERMINISTIC step budget ran out — the same document stops at the same
+   * place every time, which is exactly what makes it testable. A wall clock is
+   * the opposite: the same document may stop in a different place, or not at
+   * all, depending on what else the machine was doing. Conflating them tells a
+   * writer to go simplify a document that was never too complex.
+   */
+  "stopped",
   /** An engine bug, caught at the `compile()` boundary so it becomes output, not a throw. */
   "internal",
 ] as const;
@@ -78,3 +90,89 @@ export const diagnosticSchema = z.object({
   construct: z.string().optional(),
 });
 export type Diagnostic = z.infer<typeof diagnosticSchema>;
+
+/**
+ * LaTeX project, file, compile-result and version contracts (brief 38, D38,
+ * D39) — the wire shapes for `/latex`, sibling to the `Diagnostic` contract
+ * above. Same rule as everywhere else in this package: these are what the API
+ * sends and the client renders, not the SQLite row shape. In particular there
+ * are **no path fields anywhere below** — a draft's files live on disk under
+ * its project id and a version's PDF/zip are derived from its id via
+ * `paths.ts` (D39), so a path is never something the wire needs to carry.
+ */
+
+/**
+ * Where a project sits in the compile machine. Deliberately the same
+ * vocabulary as `CONVERT_STATUSES` (`library-book.ts`) so the two job kinds
+ * read consistently: `none` before the first compile, `running` while one is
+ * in flight, `ready` once a PDF exists and opens, `failed` with a reason on
+ * the project.
+ *
+ * No `poor` here — that status is specifically about a converted book's OCR
+ * quality, which has no compile-side equivalent: a LaTeX compile with
+ * warnings is still `ready` (the diagnostics panel is where warnings show),
+ * and only an error-severity diagnostic makes it `failed`.
+ */
+export const COMPILE_STATUSES = ["none", "running", "ready", "failed"] as const;
+export const compileStatusSchema = z.enum(COMPILE_STATUSES);
+export type CompileStatus = z.infer<typeof compileStatusSchema>;
+
+/** A LaTeX project (the draft) as seen by the client — `/latex` list and detail. */
+export const latexProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** Project-relative path to the file `compile()` starts from. */
+  entrypoint: z.string().default("main.tex"),
+  compileStatus: compileStatusSchema,
+  /**
+   * The library book this project has published to, or null if it never has.
+   * Set on first publish and then stable — publishing again adds a version to
+   * the same book, it never repoints this (decision 8).
+   */
+  publishedBookId: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type LatexProject = z.infer<typeof latexProjectSchema>;
+
+/** One file within a project's tree, as listed in the editor's file tree. */
+export const latexFileSchema = z.object({
+  /** Project-relative, e.g. `main.tex` or `figures/plot.png`. */
+  path: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+  updatedAt: z.string(),
+});
+export type LatexFile = z.infer<typeof latexFileSchema>;
+
+/**
+ * The outcome of one compile — what `POST /latex/:id/compile` returns and
+ * `GET /latex/:id/log` re-serves. `status` only ever lands on `ready` or
+ * `failed` here (a result is by definition of a compile that finished), kept
+ * as the full `CompileStatus` union rather than a two-value type so the panel
+ * and the project row can share one switch.
+ */
+export const latexCompileResultSchema = z.object({
+  status: compileStatusSchema,
+  /** Full plain-text engine log, for the "show raw log" affordance next to
+   * the structured panel below. */
+  log: z.string(),
+  diagnostics: z.array(diagnosticSchema),
+});
+export type LatexCompileResult = z.infer<typeof latexCompileResultSchema>;
+
+/**
+ * One publish of a project (decision 8). Versions accumulate on the
+ * **library book** the project publishes to; this is the version-picker row,
+ * not the project itself. No path fields (D39) — the PDF and the project zip
+ * are derived from `id` via `paths.ts`, fetched through
+ * `GET /library/:id/file?version=<id>`.
+ */
+export const documentVersionSchema = z.object({
+  id: z.string(),
+  /** 1-based, unique per book, increasing with each publish. */
+  versionNo: z.number().int().positive(),
+  publishedAt: z.string(),
+  /** Size of this version's PDF, in bytes. */
+  sizeBytes: z.number().int().nonnegative(),
+});
+export type DocumentVersion = z.infer<typeof documentVersionSchema>;

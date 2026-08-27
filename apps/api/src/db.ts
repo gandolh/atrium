@@ -3,6 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import Database from "better-sqlite3";
 import type {
   BookSource,
+  CompileStatus,
   ConvertStatus,
   FileType,
   LibraryBook,
@@ -181,6 +182,88 @@ export interface NoteRow {
 }
 
 /**
+ * A **LaTeX project** — the *draft* half of brief 38 (decisions 1, 2, 8, 11).
+ *
+ * A draft lives only in `/latex` and is NEVER a `books` row, so it never
+ * reaches the media gallery, search, chips or counts — those are all derived
+ * client-side from `GET /library`, which reads `books` and nothing else.
+ * Publishing is what produces a library entry, and it produces exactly ONE no
+ * matter how many times it is pressed: `published_book_id` is set on the first
+ * publish and every later publish appends a `document_versions` row to that
+ * same book.
+ *
+ * The project's *files* are not here: multi-file including binaries, so they
+ * live on disk with a row pointing at them — the same split D25 chose for the
+ * library. Where they live is derived from `id`, never stored (D39).
+ */
+export interface LatexProjectRow {
+  id: string;
+  /**
+   * The owning profile. `ON DELETE CASCADE`, like `reading_progress` and unlike
+   * `notes`: a draft's *published* work survives its author (see
+   * `published_book_id`), so deleting a profile does not destroy authored output
+   * the way it would for a notebook, and there is nothing to reassign.
+   */
+  profile_id: string;
+  title: string;
+  /** Project-relative path compiled as the document root; defaults to `main.tex`. */
+  entrypoint: string;
+  /**
+   * Where this project sits in the compile machine (`COMPILE_STATUSES`). Mirrors
+   * `convert_status` deliberately — the compile job IS brief 34's job runner
+   * with a much shorter ceiling, so it has the same outcomes.
+   */
+  compile_status: CompileStatus;
+  /**
+   * The ONE library entry this project publishes into, or null until its first
+   * publish.
+   *
+   * `REFERENCES books(id) ON DELETE SET NULL` — decision 11, and the difference
+   * between it and the CASCADE two fields up is a product decision, not a
+   * default. Publishing is the act of making something independent, so the two
+   * sides are severable in *both* directions:
+   *  - delete the **library entry** → this column goes NULL and the draft is
+   *    still here, still editable, ready to be published afresh. A CASCADE here
+   *    would silently destroy the source of the thing that was deleted.
+   *  - delete the **draft** → nothing at all happens to the `books` row, because
+   *    the reference points the other way. The published document keeps its
+   *    versions and keeps opening.
+   * A version's own lifetime is the third case and *is* a cascade — see
+   * `DocumentVersionRow`.
+   */
+  published_book_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * One published **version** of a document (brief 38 decisions 8 and 11).
+ *
+ * Pressing publish ten times gives ten of these rows on ONE `books` card, never
+ * ten cards. `version_no` is 1-based and dense per book (`appendDocumentVersion`
+ * allocates it), and `(book_id, version_no)` is unique so two concurrent
+ * publishes cannot both claim v4.
+ *
+ * NO PATH COLUMNS, deliberately (D39, correction of 2026-08-27): the version's
+ * PDF and its project zip are derived from `id` by `paths.ts`, exactly as a
+ * book's file is derived from its own id. Brief 41 dropped `books.file_path` /
+ * `books.cover_path` for being a stale cache of a pure function; storing
+ * `pdf_path` / `source_zip_path` here would reintroduce that on its first day.
+ *
+ * `ON DELETE CASCADE` on `book_id`: deleting the library entry removes every
+ * version (decision 11). As always in this file the cascade takes the ROW, not
+ * the FILE — whoever deletes a book must unlink each version's artifacts first,
+ * because after the cascade nothing is left pointing at them.
+ */
+export interface DocumentVersionRow {
+  id: string;
+  book_id: string;
+  /** 1-based, dense per book, allocated by `appendDocumentVersion`. */
+  version_no: number;
+  published_at: string;
+}
+
+/**
  * One profile's reading state for one book. Progress + resume position are
  * per-profile since brief 35 (D35, revising D31's per-user scope): the library
  * is shared, the place you're at is not.
@@ -199,6 +282,27 @@ export interface ProfileProgressRow {
    * all, which callers represent as `null` rather than by faking a value here.
    */
   updated_at: string;
+  /**
+   * Which published **version** `locator` belongs to (brief 38 decision 10), or
+   * null for an ordinary book — one that was uploaded or imported rather than
+   * published from a LaTeX project, which is every book that has no
+   * `document_versions` rows at all.
+   *
+   * Nullable and NOT part of the primary key, on purpose. The key stays
+   * `(profile_id, book_id)`, so a reader has exactly ONE saved position per
+   * book, and this column says which version that position was taken in.
+   * Opening a version whose id differs starts at page 0 — decision 10, the
+   * owner's rule: *"when you are on page 40 on v3 and publish v4, you will
+   * resume from page 0 of v4."* An older version therefore does NOT keep its
+   * own position; making it part of the key is exactly the third progress
+   * mechanism that simplification exists to avoid.
+   *
+   * `REFERENCES document_versions(id) ON DELETE SET NULL`, so deleting a version
+   * leaves the row intact with its pointer cleared rather than a dangling id.
+   * The reader's behaviour is the same either way (a mismatch starts at 0); what
+   * the constraint buys is that `PRAGMA foreign_key_check` stays meaningful.
+   */
+  version_id: string | null;
 }
 
 mkdirSync(DATA_DIR, { recursive: true });
@@ -286,6 +390,69 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+`);
+
+// LaTeX drafts and published versions (brief 38). Kept in their own statement,
+// like `notes` above, so the books schema block stays focused.
+//
+// The two foreign-key behaviours below differ ON PURPOSE, and the difference is
+// brief 38 decision 11 rather than a default anyone reached for:
+//
+//   latex_projects.profile_id       -> profiles(id)  ON DELETE CASCADE
+//   latex_projects.published_book_id-> books(id)     ON DELETE SET NULL
+//   document_versions.book_id       -> books(id)     ON DELETE CASCADE
+//
+// A **draft** and a **published document** are different things in different
+// places. The draft lives only in `/latex`; publishing copies work OUT of it
+// into one `books` row that then stands on its own. So the link between them
+// must break cleanly from either end: deleting the library entry clears
+// `published_book_id` and leaves the draft editable (SET NULL), and deleting the
+// draft does nothing at all to the `books` row, because the reference only
+// points one way. A CASCADE on `published_book_id` would make "tidy up the
+// library" silently delete the manuscript.
+//
+// `document_versions` is the opposite case and so is the opposite clause: a
+// version is not independent of its entry, it IS its entry's history, and an
+// entry with no versions has nothing to show. Deleting the book takes every
+// version row with it.
+//
+// As everywhere else in this file the cascade removes ROWS, never FILES.
+// Whoever deletes a book must unlink each version's PDF and project zip first —
+// after the cascade nothing is left pointing at them. Those locations are
+// derived from the version id by `paths.ts` and are deliberately NOT stored
+// here (D39; see `DocumentVersionRow`).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS latex_projects (
+    id                TEXT PRIMARY KEY,
+    profile_id        TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    title             TEXT NOT NULL,
+    -- Project-relative path of the document root. A default rather than a
+    -- nullable column: every project has an entrypoint, and a new one is seeded
+    -- from a hello-world called main.tex (brief 38 decision 4).
+    entrypoint        TEXT NOT NULL DEFAULT 'main.tex',
+    compile_status    TEXT NOT NULL DEFAULT 'none',
+    -- NULL until the first publish; see the note above on SET NULL.
+    published_book_id TEXT REFERENCES books(id) ON DELETE SET NULL,
+    created_at        TEXT NOT NULL,
+    updated_at        TEXT NOT NULL
+  );
+  -- The project list is per-profile, most-recently-edited first — this index is
+  -- exactly that query, the same shape as notes_profile_updated.
+  CREATE INDEX IF NOT EXISTS latex_projects_profile_updated
+    ON latex_projects(profile_id, updated_at DESC);
+
+  CREATE TABLE IF NOT EXISTS document_versions (
+    id           TEXT    PRIMARY KEY,
+    book_id      TEXT    NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    version_no   INTEGER NOT NULL,
+    published_at TEXT    NOT NULL
+  );
+  -- Enforced, not assumed: appendDocumentVersion allocates the next number with
+  -- a MAX()+1 subquery, so two publishes racing for v4 must not both win.
+  -- Doubles as the index the per-book version listing and the ON DELETE CASCADE
+  -- lookup both want.
+  CREATE UNIQUE INDEX IF NOT EXISTS document_versions_book_no
+    ON document_versions(book_id, version_no);
 `);
 
 // Enforce the sessions→users foreign key (off by default in SQLite).
@@ -594,6 +761,39 @@ function ensureConvertIndex(): void {
 }
 
 /**
+ * Idempotent column add for `reading_progress` (brief 38 step 2): which
+ * published **version** the saved locator was taken in.
+ *
+ * A plain `ALTER TABLE ADD COLUMN`, deliberately NOT the create-copy-drop-rename
+ * rebuild `migrateToProfileScope` needs. That rebuild exists because that
+ * migration had to change a composite PRIMARY KEY, which SQLite cannot ALTER.
+ * Nothing of the sort is happening here: the key stays `(profile_id, book_id)`
+ * and this is an ordinary nullable column beside it. Reaching for a rebuild
+ * anyway would take the one migration in the repo that can destroy authored work
+ * and run it for a column add.
+ *
+ * `ON DELETE SET NULL` rather than CASCADE: deleting a version must not delete
+ * the reader's progress ROW for the book, only its pointer at that version. The
+ * next open finds `version_id IS NULL`, which is a mismatch, which starts at
+ * page 0 — decision 10 arriving by itself with no special case. SQLite accepts a
+ * REFERENCES clause on ADD COLUMN only when the new column defaults to NULL,
+ * which this one does (the same rule `ensureSessionColumns` and
+ * `ensureBookColumns` rely on), so the constraint is real.
+ *
+ * MUST run after `migrateToProfileScope`: on a pre-brief-35 database that
+ * function drops and recreates `reading_progress` from a DDL that has never
+ * heard of this column, so adding it first would silently lose it.
+ */
+function ensureProgressVersionColumn(): void {
+  if (!columnsOf("reading_progress").has("version_id")) {
+    db.exec(
+      `ALTER TABLE reading_progress ADD COLUMN version_id TEXT
+         REFERENCES document_versions(id) ON DELETE SET NULL`,
+    );
+  }
+}
+
+/**
  * What a row reaped by `reapInterruptedConversions` says. Exported so the job
  * runner and the status button can recognise this specific failure rather than
  * string-matching a sentence that may be reworded.
@@ -621,12 +821,37 @@ function reapInterruptedConversions(): void {
   ).run(CONVERT_INTERRUPTED_ERROR);
 }
 
+/**
+ * Flip every LaTeX project left in `compile_status = 'running'` to `failed`, the
+ * exact counterpart of `reapInterruptedConversions` and for the exact same
+ * reason (brief 34 decision 7, carried into brief 38 step 3).
+ *
+ * A compile cannot survive the process. The engine is in-process, so its work
+ * died with the old process and the in-memory single-flight slot went with it —
+ * but the row did not. A project left `running` would poll forever AND, because
+ * the single-flight guard's durable half is this column, hold the one compile
+ * slot closed for every project on the account. That is brief 34's Critical
+ * verbatim: a claimed slot nobody can release wedges compilation app-wide.
+ *
+ * No error text to write: `latex_projects` has no error column, because the log
+ * and the structured diagnostics are artifacts on disk, not row data.
+ *
+ * Idempotent (the second run matches nothing) and a no-op on a fresh database.
+ */
+function reapInterruptedLatexCompiles(): void {
+  db.prepare("UPDATE latex_projects SET compile_status = 'failed' WHERE compile_status = 'running'").run();
+}
+
 ensureSessionColumns();
 migrateToProfileScope();
 dropLegacyPathColumns();
+// After migrateToProfileScope, which rebuilds `reading_progress` wholesale on a
+// pre-brief-35 database — see the note on the function.
+ensureProgressVersionColumn();
 ensureDefaultProfiles();
 ensureConvertIndex();
 reapInterruptedConversions();
+reapInterruptedLatexCompiles();
 
 // Created after the migration, never in the schema block above: on a
 // pre-brief-35 database `notes.profile_id` does not exist yet at that point.
@@ -725,6 +950,17 @@ const statements = {
        SET series = ?, series_index = ?, subjects = ?,
            author = COALESCE(author, ?)
      WHERE id = ?
+  `),
+  /**
+   * Re-point a published document's card at its newest version (brief 38).
+   * Unlike `updateMetadata` above, `title` is assigned outright rather than
+   * COALESCEd: renaming the draft is how a person renames the published thing,
+   * so the newest publish is authoritative. Without this the card keeps v1's
+   * title and v1's byte size forever, which is a card describing a file it is
+   * no longer serving.
+   */
+  updatePublishedBook: db.prepare<[string, number, string]>(`
+    UPDATE books SET title = ?, size_bytes = ? WHERE id = ?
   `),
 
   // --- Convert (brief 34, D34) ----------------------------------------------
@@ -826,20 +1062,30 @@ const statements = {
 
   // --- Per-profile reading progress ----------------------------------------
   listProfileProgress: db.prepare<[string]>(
-    "SELECT book_id, progress, locator, updated_at FROM reading_progress WHERE profile_id = ?",
+    "SELECT book_id, progress, locator, updated_at, version_id FROM reading_progress WHERE profile_id = ?",
   ),
   getProfileProgress: db.prepare<[string, string]>(
-    "SELECT book_id, progress, locator, updated_at FROM reading_progress WHERE profile_id = ? AND book_id = ?",
+    "SELECT book_id, progress, locator, updated_at, version_id FROM reading_progress WHERE profile_id = ? AND book_id = ?",
   ),
   // COALESCE keeps a previously-saved locator when a progress-only update sends
   // null, so a bar refresh can't wipe the resume position.
-  upsertProfileProgress: db.prepare<[string, string, number, string | null, string]>(`
-    INSERT INTO reading_progress (profile_id, book_id, progress, locator, updated_at)
-    VALUES (?, ?, ?, ?, ?)
+  //
+  // `version_id` is COALESCEd for the same reason and as a matched pair with the
+  // locator: the two are one fact — *this position, in this version* — so a
+  // progress-only write that carries neither must leave both alone rather than
+  // orphan a locator from the version it was taken in. The rule that follows for
+  // callers: a write that supplies a `locator` for a published version MUST
+  // supply that version's id alongside it.
+  upsertProfileProgress: db.prepare<
+    [string, string, number, string | null, string, string | null]
+  >(`
+    INSERT INTO reading_progress (profile_id, book_id, progress, locator, updated_at, version_id)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(profile_id, book_id) DO UPDATE SET
       progress = excluded.progress,
       locator = COALESCE(excluded.locator, reading_progress.locator),
-      updated_at = excluded.updated_at
+      updated_at = excluded.updated_at,
+      version_id = COALESCE(excluded.version_id, reading_progress.version_id)
   `),
 };
 
@@ -960,6 +1206,15 @@ export function listBooksNeedingMetadata(): BookRow[] {
  * re-index). `subjects` is a `string[]` stored as JSON; `author` fills a
  * previously-null author without overwriting an existing one (COALESCE).
  */
+/**
+ * Point a published document's `books` row at what its newest version actually
+ * is. Called on every publish, including re-publishes — see the statement's
+ * comment for why `title` is overwritten rather than preserved.
+ */
+export function updatePublishedBook(id: string, title: string, sizeBytes: number): void {
+  statements.updatePublishedBook.run(title, sizeBytes, id);
+}
+
 export function updateBookMetadata(
   id: string,
   meta: { series: string | null; seriesIndex: number | null; subjects: string[]; author: string | null },
@@ -1259,6 +1514,14 @@ export function getProfileProgress(
  * Save a profile's progress + resume position for a book. A null `locator`
  * leaves any previously-saved position intact (see the COALESCE in the
  * statement).
+ *
+ * `versionId` says which published **version** the locator was taken in (brief
+ * 38 decision 10). It is optional and defaults to null so that every caller
+ * predating brief 38 — and every ordinary book, which has no versions at all —
+ * keeps working unchanged; null means "don't change what's recorded", not
+ * "recorded against no version". A reader showing a published version must pass
+ * it whenever it passes a `locator`, or the saved position outlives the version
+ * it describes.
  */
 export function upsertProfileProgress(
   profileId: string,
@@ -1266,8 +1529,9 @@ export function upsertProfileProgress(
   progress: number,
   locator: string | null,
   now: string,
+  versionId: string | null = null,
 ): void {
-  statements.upsertProfileProgress.run(profileId, bookId, progress, locator, now);
+  statements.upsertProfileProgress.run(profileId, bookId, progress, locator, now, versionId);
 }
 
 // --- Notes (brief 26; profile-scoped since brief 35) -------------------------
@@ -1347,4 +1611,274 @@ export function deleteNote(profileId: string, id: string): boolean {
  */
 export function reassignNotes(fromProfileId: string, toProfileId: string): number {
   return noteStatements.reassign.run(toProfileId, fromProfileId).changes;
+}
+
+// --- LaTeX projects & published versions (brief 38) --------------------------
+//
+// In its own statement object, like `noteStatements` above: LaTeX is a
+// destination of its own, not another view of the library.
+//
+// Every project lookup is scoped by `profile_id` in the SQL, never checked
+// afterwards. That is brief 35's rule made unavoidable — a project belonging to
+// another profile simply is not found, so the route answers 404 and never 403,
+// and there is no way to write a handler that forgets the check.
+const latexStatements = {
+  listByProfile: db.prepare<[string]>(
+    "SELECT * FROM latex_projects WHERE profile_id = ? ORDER BY updated_at DESC",
+  ),
+  getByProfile: db.prepare<[string, string]>(
+    "SELECT * FROM latex_projects WHERE id = ? AND profile_id = ?",
+  ),
+  insert: db.prepare<LatexProjectRow>(`
+    INSERT INTO latex_projects (id, profile_id, title, entrypoint, compile_status,
+                                published_book_id, created_at, updated_at)
+    VALUES (@id, @profile_id, @title, @entrypoint, @compile_status,
+            @published_book_id, @created_at, @updated_at)
+  `),
+  // COALESCE lets a title-only or entrypoint-only PATCH leave the other intact,
+  // the same shape as `notes.update` and `updateProfile`.
+  update: db.prepare<[string | null, string | null, string, string, string]>(`
+    UPDATE latex_projects
+       SET title = COALESCE(?, title),
+           entrypoint = COALESCE(?, entrypoint),
+           updated_at = ?
+     WHERE id = ? AND profile_id = ?
+  `),
+  touch: db.prepare<[string, string]>(
+    "UPDATE latex_projects SET updated_at = ? WHERE id = ?",
+  ),
+  setCompileStatus: db.prepare<[string, string]>(
+    "UPDATE latex_projects SET compile_status = ? WHERE id = ?",
+  ),
+  // The WHERE clause is the guard `setLatexPublishedBook` documents, moved into
+  // the SQL so it cannot be raced past: attaching is allowed only when the
+  // column is still NULL or already names the SAME book. Detaching (a NULL
+  // third/fourth parameter) is always allowed — that is the FK's
+  // ON DELETE SET NULL path, not an overwrite.
+  setPublishedBook: db.prepare<[string | null, string, string | null, string | null]>(`
+    UPDATE latex_projects
+       SET published_book_id = ?
+     WHERE id = ?
+       AND (published_book_id IS NULL OR published_book_id = ? OR ? IS NULL)
+  `),
+  remove: db.prepare<[string, string]>(
+    "DELETE FROM latex_projects WHERE id = ? AND profile_id = ?",
+  ),
+  // Account-wide, joined through `profiles`, because the single-flight rule is
+  // "one at a time per account" (brief 38 step 3) and a profile is not a
+  // security or a resource boundary (D35) — one person switching profiles must
+  // not be able to start a second compile. Oldest first so a refusal can name
+  // the compile that has been running longest, like `getRunningConvert`.
+  getRunning: db.prepare<[string]>(`
+    SELECT lp.* FROM latex_projects lp
+      JOIN profiles p ON p.id = lp.profile_id
+     WHERE p.user_id = ? AND lp.compile_status = 'running'
+     ORDER BY lp.updated_at ASC LIMIT 1
+  `),
+
+  listVersions: db.prepare<[string]>(
+    "SELECT * FROM document_versions WHERE book_id = ? ORDER BY version_no DESC",
+  ),
+  getVersion: db.prepare<[string]>("SELECT * FROM document_versions WHERE id = ?"),
+  getLatestVersion: db.prepare<[string]>(
+    "SELECT * FROM document_versions WHERE book_id = ? ORDER BY version_no DESC LIMIT 1",
+  ),
+  countVersions: db.prepare<[string]>(
+    "SELECT COUNT(*) AS n FROM document_versions WHERE book_id = ?",
+  ),
+  // The version number is allocated by the INSERT itself rather than read out,
+  // incremented and written back. A read-then-write would let two publishes
+  // seconds apart both compute v4; here the losing one violates
+  // `document_versions_book_no` and throws, which the caller can retry. NOT a
+  // COUNT(*)+1: deleting v2 must not make the next publish v4 a second time.
+  insertVersion: db.prepare<[string, string, string, string]>(`
+    INSERT INTO document_versions (id, book_id, version_no, published_at)
+    SELECT ?, ?, COALESCE(MAX(version_no), 0) + 1, ?
+      FROM document_versions WHERE book_id = ?
+  `),
+  removeVersion: db.prepare<[string]>("DELETE FROM document_versions WHERE id = ?"),
+};
+
+/** A profile's LaTeX projects, most-recently-updated first (uses the index). */
+export function listLatexProjects(profileId: string): LatexProjectRow[] {
+  return latexStatements.listByProfile.all(profileId) as LatexProjectRow[];
+}
+
+/**
+ * One project, only if it belongs to `profileId` (else undefined → the route
+ * 404s). Every route that takes a project id from the URL must come through
+ * here before deriving a path from that id.
+ */
+export function getLatexProject(profileId: string, id: string): LatexProjectRow | undefined {
+  return latexStatements.getByProfile.get(id, profileId) as LatexProjectRow | undefined;
+}
+
+export function insertLatexProject(row: LatexProjectRow): void {
+  latexStatements.insert.run(row);
+}
+
+/**
+ * Rename a project and/or repoint its entrypoint (both optional; undefined
+ * leaves the column unchanged) and stamp `updated_at`. Returns whether a row
+ * changed, so a project the profile doesn't own 404s.
+ *
+ * The entrypoint is a client-supplied project-relative path: the caller MUST
+ * have confined it to the project directory before calling. This function
+ * stores a string; it cannot tell a filename from a traversal.
+ */
+export function updateLatexProject(
+  profileId: string,
+  id: string,
+  fields: { title?: string; entrypoint?: string },
+  now: string,
+): boolean {
+  return (
+    latexStatements.update.run(
+      fields.title ?? null,
+      fields.entrypoint ?? null,
+      now,
+      id,
+      profileId,
+    ).changes > 0
+  );
+}
+
+/**
+ * Stamp `updated_at` — what a file write inside the project calls, since the
+ * files are on disk and nothing else would move the row the project list is
+ * ordered by. Unscoped by profile on purpose: the caller has already resolved
+ * the project through `getLatexProject`.
+ */
+export function touchLatexProject(id: string, now: string): void {
+  latexStatements.touch.run(now, id);
+}
+
+/**
+ * Record where a project sits in the compile machine. This column is the
+ * DURABLE half of the single-flight guard — an in-process job map knows about
+ * work this process started, the row is what survives a restart — so it must be
+ * moved off `running` on every exit path, including cancellation and failure.
+ * `reapInterruptedLatexCompiles` is the backstop for the one exit path code
+ * cannot cover, a crash.
+ */
+export function setLatexCompileStatus(id: string, status: CompileStatus): void {
+  latexStatements.setCompileStatus.run(status, id);
+}
+
+/**
+ * Attach a project to the ONE library entry it publishes into, or (with null)
+ * detach it.
+ *
+ * Called once, on the first publish. Every later publish appends a version to
+ * the book already named here — that is the whole of "publish ten times, one
+ * card".
+ *
+ * **Overwriting a non-null value with a DIFFERENT book id is refused, not
+ * performed**, and the refusal is the return value. This used to be a rule
+ * stated in prose ("callers must not…"), and prose lost: two publishes of one
+ * project that overlap across an `await` can each read `published_book_id` as
+ * NULL, each insert a book, and the second call would silently repoint the
+ * column — leaving the first book with its versions, its library file and its
+ * cover and nothing pointing at them. That is two gallery cards for one
+ * project, which is exactly what decision 8 forbids. The guard lives in the
+ * WHERE clause above so the check and the write are one statement and there is
+ * no window between them; `false` means "somebody else got there first", which
+ * the publish route turns into a retryable 409 rather than a 500.
+ *
+ * Detaching (`bookId === null`) is always allowed: that is the FK's
+ * ON DELETE SET NULL path, which un-publishes a project whose entry was
+ * deleted, not an overwrite.
+ *
+ * Returns false only for a refusal or a missing row — both cases in which the
+ * caller must NOT assume the column now names its book.
+ */
+export function setLatexPublishedBook(id: string, bookId: string | null): boolean {
+  return latexStatements.setPublishedBook.run(bookId, id, bookId, bookId).changes > 0;
+}
+
+/**
+ * Delete a project if it belongs to `profileId`; returns whether a row was
+ * removed. Its published entry is deliberately untouched (decision 11) — the
+ * `published_book_id` reference points at `books`, not the other way, so there
+ * is nothing here that could reach it. The project's working tree on disk is
+ * the caller's to remove: SQLite deletes rows, never files.
+ */
+export function deleteLatexProject(profileId: string, id: string): boolean {
+  return latexStatements.remove.run(id, profileId).changes > 0;
+}
+
+/**
+ * The compile currently in flight on `userId`'s account, or undefined. Backs the
+ * single-flight refusal (one at a time per account, a 409 rather than a queue)
+ * and returns the project so the message can name it.
+ *
+ * Per account rather than per profile: switching profiles is free (D35), so a
+ * per-profile limit would be no limit at all.
+ */
+export function getRunningLatexCompile(userId: string): LatexProjectRow | undefined {
+  return latexStatements.getRunning.get(userId) as LatexProjectRow | undefined;
+}
+
+/** A published document's versions, newest first — the version picker's list. */
+export function listDocumentVersions(bookId: string): DocumentVersionRow[] {
+  return latexStatements.listVersions.all(bookId) as DocumentVersionRow[];
+}
+
+/**
+ * One version by id, or undefined. The id arrives as `?version=` on the file
+ * route, so callers MUST check `row.book_id` against the book they were asked
+ * for — otherwise one book's URL streams another's bytes.
+ */
+export function getDocumentVersion(id: string): DocumentVersionRow | undefined {
+  return latexStatements.getVersion.get(id) as DocumentVersionRow | undefined;
+}
+
+/**
+ * The newest version of a book, or undefined for a book that was never
+ * published from a project. What a card opens by default (decision 9).
+ */
+export function getLatestDocumentVersion(bookId: string): DocumentVersionRow | undefined {
+  return latexStatements.getLatestVersion.get(bookId) as DocumentVersionRow | undefined;
+}
+
+/**
+ * How many versions a book has: 0 for an ordinary upload, which is how the
+ * reader knows to show no picker at all; 1 also shows none (decision 7 of the
+ * reader chrome — a picker with one entry is noise); and it is what tells a
+ * version delete that it is removing the last one, which deletes the entry too.
+ */
+export function countDocumentVersions(bookId: string): number {
+  return (latexStatements.countVersions.get(bookId) as { n: number }).n;
+}
+
+/**
+ * Append a version to `bookId` and return the stored row.
+ *
+ * `versionNo` is allocated inside the INSERT (`MAX + 1`), so the caller never
+ * computes it — see the statement for why that matters. Throws
+ * `SQLITE_CONSTRAINT_UNIQUE` if two publishes race for the same number, and
+ * `SQLITE_CONSTRAINT_FOREIGNKEY` if `bookId` is unknown.
+ *
+ * `id` is generated here because it is the whole of what this row says about
+ * where the artifacts went: `versionPdfPathFor(id)` and `versionZipPathFor(id)`
+ * in `paths.ts` derive both, and no path is stored (D39). The caller therefore
+ * needs the id back before it can write the bytes — insert first, then write.
+ */
+export function appendDocumentVersion(bookId: string, now: string): DocumentVersionRow {
+  const id = randomUUID();
+  latexStatements.insertVersion.run(id, bookId, now, bookId);
+  return latexStatements.getVersion.get(id) as DocumentVersionRow;
+}
+
+/**
+ * Delete one version; returns whether a row was removed. Its PDF and project zip
+ * are the caller's to unlink — derive them from the id BEFORE calling, because
+ * afterwards nothing is left pointing at them.
+ *
+ * Any `reading_progress` row resuming inside this version has its `version_id`
+ * cleared by the FK, not its progress destroyed; the next open sees a mismatch
+ * and starts at page 0, which is decision 10 with no special case.
+ */
+export function deleteDocumentVersion(id: string): boolean {
+  return latexStatements.removeVersion.run(id).changes > 0;
 }

@@ -52,15 +52,22 @@ export function useProgressSync() {
   const bookId = useReaderStore((s) => s.loadedBookId);
   const fraction = useReaderStore((s) => s.progressFraction);
   const location = useReaderStore((s) => s.currentLocation);
+  // Brief 38 step 7, decision 10: a `locator` inside a published document only
+  // means something alongside the version it was measured in. Read fresh at
+  // send time via the `timer` closure below (not just a hook dependency) so a
+  // version switch that lands mid-debounce is what actually goes out, not a
+  // stale id captured when the timer was scheduled.
+  const versionId = useReaderStore((s) => s.loadedVersionId);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSent = useRef<string | null>(null);
 
   useEffect(() => {
     if (!bookId || fraction === null) return;
     const locator = serializeLocator(location);
-    // Dedupe: skip when neither the position nor the (rounded) fraction moved
-    // since the last send, so a settled reader doesn't PATCH on a loop.
-    const signature = `${locator ?? ""}|${fraction.toFixed(4)}`;
+    // Dedupe: skip when neither the position, the version, nor the (rounded)
+    // fraction moved since the last send, so a settled reader doesn't PATCH on
+    // a loop.
+    const signature = `${locator ?? ""}|${fraction.toFixed(4)}|${versionId ?? ""}`;
     if (signature === lastSent.current) return;
 
     if (timer.current) clearTimeout(timer.current);
@@ -74,8 +81,22 @@ export function useProgressSync() {
       const profileId = useAuthStore.getState().activeProfileId;
       // Persist locally FIRST so offline reading position survives even when the
       // PATCH can't go out; then attempt the server write (best-effort).
-      void putLocalProgress(bookId, { progress: fraction, locator, updatedAt, profileId });
-      void updateProgress(bookId, fraction, locator)
+      //
+      // `versionId` goes into the local record too, and must: the flush that
+      // sends this record later has no other way to know which version the
+      // locator was measured in, and the server COALESCEs the two columns
+      // separately — an unpaired locator overwrites the page number while
+      // leaving the previous version id beside it (decision 10's "page 40 of v3
+      // is not page 40 of v4"). Recorded at write time, exactly like
+      // `profileId` above and for the same class of reason.
+      void putLocalProgress(bookId, {
+        progress: fraction,
+        locator,
+        updatedAt,
+        profileId,
+        versionId,
+      });
+      void updateProgress(bookId, fraction, locator, undefined, versionId)
         // Mark the record THIS write created — the progress store is keyed per
         // (profile, book) since v4, so the profile has to come along or the
         // lookup misses and the row stays pending forever.
@@ -89,7 +110,7 @@ export function useProgressSync() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [bookId, fraction, location]);
+  }, [bookId, fraction, location, versionId]);
 }
 
 /**
@@ -157,7 +178,40 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
     try {
       // Send the record's OWN profile (falling back to active for a `null`
       // record, per the comment above) — never the currently active one.
-      await updateProgress(p.id, p.progress, p.locator, targetProfileId ?? undefined);
+      //
+      // **Never write a locator that is not paired with the version it was
+      // measured in** (brief 38 decision 10; `apps/api/src/library-routes.ts`
+      // states the same rule from the server side). `upsertProfileProgress`
+      // COALESCEs `locator` and `version_id` independently, so a locator sent
+      // without a version replaces the page number and leaves the OLD version
+      // id sitting next to it — a fresh page filed against a document it was
+      // never measured in, which resumes in the wrong place and is strictly
+      // worse than resuming at 0.
+      //
+      // Records written since brief 38 carry their version (`putLocalProgress`),
+      // so the pair normally goes out intact. The one case that cannot is a
+      // versioned book read while the version list never resolved — reading
+      // OFFLINE, where `GET /library/:id/versions` simply never answered and
+      // `loadedVersionId` stayed null. There we send the fraction alone: the
+      // cover bar advances, and the server's existing (locator, version_id)
+      // pair is left undisturbed by the COALESCE rather than half-rewritten.
+      // The cost is that the exact page isn't restored; the alternative is a
+      // resume position that is quietly wrong, which is not a trade worth making.
+      //
+      // "Versioned" is read off the book's own row (`source === "latex"` —
+      // publishing is the only thing that mints versions). A book that isn't in
+      // `rows` at all cannot be a published document (those are always source
+      // rows, never excluded from `GET /library`), so an unknown book keeps
+      // today's behaviour and sends its locator.
+      const versioned = byId.get(p.id)?.source === "latex";
+      const locator = p.versionId != null || !versioned ? p.locator : null;
+      await updateProgress(
+        p.id,
+        p.progress,
+        locator,
+        targetProfileId ?? undefined,
+        p.versionId ?? undefined,
+      );
       await markLocalProgressSynced(p.id, p.profileId, p.updatedAt);
     } catch (err) {
       // A 404 here means the profile-scoped PATCH couldn't resolve a target:

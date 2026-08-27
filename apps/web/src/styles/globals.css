@@ -144,6 +144,27 @@
   --tint-music: #f1e6e8;
   --tint-video: #e4ebf1;
   --tint-note: #e4eee7;
+
+  /* ── Code surface (latex/SourceEditor) ────────────────────────────────────
+     The LaTeX editor is a WORKING surface, not a reading surface, but it lives
+     in the same system: its CodeMirror theme is built from these tokens rather
+     than imported with a stock palette of its own. Same pattern as the note
+     editor's `--note-ink-*` — a component palette that belongs in globals.css,
+     never in a component.
+
+     Deliberately TWO hues and no more. Reading Room is quiet, and LaTeX only
+     needs to separate three things from the prose around them: the control
+     sequence, its argument, and a comment. Everything else falls back to
+     existing tokens (comments/brackets `--ink-variant`, numbers + math
+     identifiers `--ink`, malformed input `--danger`).
+
+     Neither hue is `--accent`, in any theme: accent means STATE (design.md),
+     and syntax classification is not state. They are also kept clear of all
+     three accent hues (light blue #2f5486, sepia orange-brown #92400e, dark
+     light-blue #8fb3dd) so a highlighted command never reads as an active
+     control. Both hold ≥6.5:1 on their theme's editor ground. */
+  --code-command: #1f5c4e; /* \section, \begin, math delimiters — teal-green */
+  --code-arg: #6b3a7d; /* {article}, {fig:plot}, \ref keys — plum */
 }
 
 /*
@@ -178,6 +199,10 @@
      past WCAG AA. Derived here, not in design.md, which tabulates light +
      dark only. */
   --tint-book: #ddcfaf;
+
+  /* Revalued onto sepia's warmer, lighter ground; same two hues. */
+  --code-command: #1c5648;
+  --code-arg: #653573;
 }
 
 [data-theme="dark"] {
@@ -202,6 +227,10 @@
   --tint-music: #241a1d;
   --tint-video: #171f28;
   --tint-note: #16221b;
+
+  /* Lifted for the dark ground (both ≥8:1 on `--paper-low` #100f0d). */
+  --code-command: #7fc4b0;
+  --code-arg: #c3a0d4;
 }
 
 /* ── Structure (design.md "Structure") ───────────────────────────────────────
@@ -254,12 +283,26 @@
   --color-note-sheet-ink: var(--note-sheet-ink);
   --color-note-sheet-rule: var(--note-sheet-rule);
 
+  /* Code-surface colours → text-code-command / text-code-arg. */
+  --color-code-command: var(--code-command);
+  --color-code-arg: var(--code-arg);
+
   /* Type roles (design.md "Typography"). Families self-hosted in main.tsx.
      Newsreader wrote it; Archivo says it. The two display/reading roles share a
      family on purpose — the identifiers are kept so no className churns. */
   --font-display: "Newsreader", Georgia, serif;
   --font-reading: "Newsreader", Georgia, serif;
   --font-ui: "Archivo", system-ui, sans-serif;
+  /* The ONE place a third family is admitted, and it is not a brand face: the
+     LaTeX source pane (latex/SourceEditor). Fixed-width is structural there —
+     alignment, columns and a caret that lands where the eye says it will —
+     not decoration, and `\begin{tabular}` set in Archivo is unreadable. This
+     is the platform's own monospace stack, self-hosted by definition (nothing
+     is downloaded), so design.md's "two families, self-hosted, no CDN" rule is
+     untouched: no third *brand* face joins Newsreader and Archivo. Defined
+     here so the editor resolves a token like everything else. */
+  --font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
 
   /* Radii: 4px default, 2px artwork, 20px chips — nothing else. */
   --radius-card: 4px;
@@ -404,4 +447,37 @@ body {
    epub.js reader). */
 [data-reader-flow="scroll"] .epub-container {
   overflow-anchor: none;
+}
+
+/*
+ * LaTeX source pane (latex/SourceEditor). CodeMirror's own theme is built from
+ * tokens in latex/source-theme.ts; these two rules are the parts that cannot
+ * live there — a keyframe and a media query, neither of which style-mod's
+ * theme objects express.
+ *
+ * `.cm-atrium-reveal` is painted on the line a diagnostic points at when the
+ * editor jumps to it (chunk 9 wires the click; chunk 8 owns the landing). One
+ * quiet accent wash that settles out — accent means state, and "this is the
+ * line you asked for" is state. Paper settles, it does not flash: 600ms on the
+ * system curve, the same duration as the reader's chrome fade.
+ */
+@keyframes latex-reveal-line {
+  from {
+    background-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+.cm-atrium-reveal {
+  animation: latex-reveal-line 600ms var(--ease-paper);
+}
+/* Motion degrades (design.md): with reduced motion the wash is dropped
+   entirely rather than shortened. Nothing is lost — the jump also puts the
+   caret on the line and CodeMirror's active-line highlight marks it, so the
+   destination still reads without anything moving. */
+@media (prefers-reduced-motion: reduce) {
+  .cm-atrium-reveal {
+    animation: none;
+  }
 }

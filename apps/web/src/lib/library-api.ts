@@ -1,10 +1,13 @@
 import {
+  documentVersionSchema,
   libraryBookSchema,
   libraryListSchema,
+  type DocumentVersion,
   type FileType,
   type LibraryBook,
   type LibrarySort,
 } from "@ebook-reader/shared";
+import { z } from "zod";
 import { apiFetch, apiUrl, getAuthToken } from "./api-client";
 
 /**
@@ -95,17 +98,60 @@ export async function cancelConvert(id: string): Promise<void> {
  * server writes to whoever the session says is active right now — correct
  * for a write that's happening as it's made.
  */
+/**
+ * `versionId` (brief 38, added 2026-08-27) — which published **version** the
+ * `locator` was measured in. Omitted (the default, and every call site outside
+ * the reader) leaves the stored one untouched, exactly like an omitted
+ * `locator` — the server COALESCEs both, so they only ever move together (see
+ * `updateProgressSchema`'s doc comment). `undefined` here is dropped by
+ * `JSON.stringify`, never sent as a literal `null`, which is what makes
+ * omitting it safe for every non-versioned book (all of them, until a
+ * document is published).
+ */
 export async function updateProgress(
   id: string,
   progress: number,
   locator?: string | null,
   profileId?: string,
+  versionId?: string | null,
 ): Promise<void> {
   await apiFetch(`/library/${id}/progress`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ progress, locator: locator ?? null, profileId }),
+    body: JSON.stringify({ progress, locator: locator ?? null, profileId, versionId }),
   });
+}
+
+/**
+ * `GET /library/:id/versions` — the version picker's data (brief 38 step 7).
+ * `[]` for an ordinary upload (never versioned) — the caller shows no picker
+ * at all below two entries. `currentVersionId` is this profile's own
+ * `reading_progress.version_id`: the version whose `locator` is on file, or
+ * `null`. It exists so the client can run decision 10's comparison itself
+ * ("the version being opened !== currentVersionId" -> start at page 0)
+ * without a second round trip.
+ */
+const libraryVersionsResponseSchema = z.object({
+  versions: z.array(documentVersionSchema),
+  currentVersionId: z.string().nullable(),
+});
+export interface LibraryVersionsResult {
+  versions: DocumentVersion[];
+  currentVersionId: string | null;
+}
+export async function fetchBookVersions(id: string): Promise<LibraryVersionsResult> {
+  const res = await apiFetch(`/library/${id}/versions`);
+  return libraryVersionsResponseSchema.parse(await res.json());
+}
+
+/**
+ * `DELETE /library/:id/versions/:versionId` — 204 on success. If this removed
+ * the LAST version, the whole library entry (row + files) is gone with it —
+ * callers must refresh the library list, not just the version picker (brief
+ * 38 step 7, decision 11).
+ */
+export async function deleteBookVersion(id: string, versionId: string): Promise<void> {
+  await apiFetch(`/library/${id}/versions/${versionId}`, { method: "DELETE" });
 }
 
 /**
@@ -134,8 +180,16 @@ export function coverUrl(id: string): string {
 export async function fetchBookFile(
   book: LibraryBook,
   onProgress?: (fraction: number | null) => void,
+  /**
+   * A specific published version's PDF, via `?version=`. Omitted/null (every
+   * call site outside the version picker) serves "the newest" — no lookup
+   * needed server-side (see the route's own comment) — which is exactly what
+   * every non-versioned book has always fetched.
+   */
+  versionId?: string | null,
 ): Promise<File> {
-  const res = await apiFetch(`/library/${book.id}/file`);
+  const qs = versionId ? `?version=${encodeURIComponent(versionId)}` : "";
+  const res = await apiFetch(`/library/${book.id}/file${qs}`);
   const ext = book.format;
   const mime = ext === "pdf" ? "application/pdf" : "application/epub+zip";
   const safeName = `${book.title || book.id}.${ext}`.replace(/[/\\]/g, "_");

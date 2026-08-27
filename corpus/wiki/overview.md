@@ -1,14 +1,21 @@
 ---
-summary: What Atrium is in a paragraph — a personal, per-user-account media gallery (books, music, video) + a Notes tab; the orientation page.
-updated: 2026-08-24
+summary: What Atrium is in a paragraph — a personal cloud space: a household media library (books, music, video) plus authored Notes and LaTeX documents; the orientation page.
+updated: 2026-08-27
 ---
 
 # Overview
 
 **Atrium** (renamed from "ebook-reader" in brief 24, 2026-07-20) is a personal
 **media gallery** with **per-user accounts** and a **shared persistent
-library** — books (PDF/EPUB), music (MP3), and video (MP4/WebM), plus a
-**Notes** tab for drawing and writing.
+library** — books (PDF/EPUB), music (MP3), and video (MP4/WebM) — plus the
+things you **author**: **Notes** for drawing and writing, and **LaTeX** for
+documents you compile and publish.
+
+Since brief 36 the premise has a name (**D36**): Atrium is **a personal cloud
+space — your stuff, reachable from anywhere**. Media you collect *plus*
+documents you write, sharing one account model, one design system and one
+deploy. An **account** is a household and a **profile** is a person in it
+(D35).
 
 Since the **Reading Room** rework (briefs 27–33, D33) there is **one home** at
 `/`: media kind is a filter chip with a live count, not a destination — which
@@ -17,8 +24,14 @@ redirects). Each kind keeps its native card shape (book 2:3, music square,
 video 16:9) and now carries a **paper tint** that signals kind without a badge.
 A **Continue** strip leads the page in *time remaining*, a **player dock** at
 the foot survives navigation, and a `/`-focused field searches the whole
-library. **Notes** (brief 26) stays its own destination, outside the grid — a
-notebook is authored, not collected. The name/design evolved but the internal
+library. **Notes** (brief 26) and **LaTeX** (brief 38) stay their own
+destinations, outside the grid — a notebook is authored, not collected, and the
+rule generalises to every authored thing.
+
+**LaTeX** (`/latex`, D37/D38) is multi-file projects compiled by **Atrium's own
+TypeScript engine** — no TeX, no binary — previewed in the existing PDF reader
+and published into the library as documents that accumulate versions. See
+[latex.md](latex.md) and [typeset.md](typeset.md). The name/design evolved but the internal
 npm scope `@ebook-reader/*` and the `books`/`library` code nouns were kept (see
 [decisions.md](decisions.md) D32).
 

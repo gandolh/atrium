@@ -34,6 +34,7 @@ Triage on the summaries: read `index.md`, then **at most 2–3** wiki pages
 (the retrieval budget — see [CLAUDE.md](CLAUDE.md)).
 
 ## Work
+- **[resume-2026-08-28.md](resume-2026-08-28.md) — pick up the 44/42/39 backlog cold** (mid-run checkpoint)
 - [briefs/todo/](briefs/todo/) — ready-to-build specs
 - [briefs/done/](briefs/done/) — completed (immutable)
 - [todos/](todos/) — captured ideas (pre-spec)

@@ -1,73 +1,53 @@
 ---
 summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
-updated: 2026-08-25
+updated: 2026-08-27
 ---
 
 # Open Questions
 
 Only genuinely unresolved threads. Delete each the moment it's answered.
 
-- **One concept, two names: `progress` vs `fraction`.** Found 2026-08-24 while
-  writing [glossary.md](glossary.md). The per-user 0..1 "how far in" is `progress`
-  in the wire contract ([library-book.ts](../../packages/shared/src/library-book.ts),
-  `PATCH /library/:id/progress`) but `fraction` in the offline IndexedDB record
-  ([offline-store.ts](../../apps/web/src/lib/offline-store.ts) — `{fraction,
-  locator, updatedAt, syncedAt}`). Same quantity, two names, and the sync path
-  translates between them. The glossary names `progress` canonical; the store was
-  not changed, because renaming a persisted field means an IndexedDB migration
-  (the DB is already at v2) for a purely cosmetic gain. **Open call:** fold the
-  rename into the next offline-store migration, or record it as a deliberate
-  boundary translation in `decisions.md`.
+## Calibre on this machine cannot convert anything with an outline (2026-08-25)
 
-- **Library DB stores absolute file paths → dead rows after a checkout move.**
-  Found 2026-07-07 (brief 08 verification): rows created under the old
-  `/home/gandolh/projects/ebook-reader` checkout 500 on `GET /library/:id/file`
-  and `/cover` because the DB persists absolute paths that no longer exist
-  (`ENOENT` on `D:\home\gandolh\...`). The blobs themselves live fine under
-  `apps/api/library/<id>.<ext>` — storing paths *relative to the storage root*
-  (or deriving them from `id` + `format`) would make the library portable.
-  Also: dead rows linger in the UI with no cleanup path.
-  **Partly mitigated 2026-07-20:** a startup reconcile (`reconcileMissingCovers`,
-  library-routes.ts) now nulls a row's `cover_path` when the thumbnail file is
-  missing, so the cover half no longer 500s / emits `ERR_BLOCKED_BY_ORB` — the
-  card falls back to its per-kind tile. The **`file_path` half is still open**
-  (`GET /library/:id/file` returns a clean 404 but the row can't self-heal —
-  `file_path` is NOT NULL); the portable-paths fix above remains the real cure.
+This host's Calibre has an `lxml` / `html5-parser` ABI mismatch, so
+`ebook-convert` fails on any book carrying an outline. Brief 34 shipped and its
+job machinery is verified, but **two quality checks are still unrun**: the
+two-column PDF→EPUB readability case and the scanned-PDF quality gate, both of
+which need a working local install to judge by eye.
 
-## Library file paths are not sandboxable for testing (2026-08-25)
+An environment problem, not a code one — but it is the reason brief 34's
+conversion quality is asserted from Calibre's own documentation rather than from
+our own output. Related: the API must spawn Calibre with `PYTHONNOUSERSITE=1` on
+hosts where a pip `lxml` shadows the distro one (it does now).
 
-`LIBRARY_DATA_DIR` redirects the **database** only. `LIBRARY_FILES_DIR` and
-`THUMBNAILS_DIR` resolve from the API package's own location and have no
-override, so pointing the API at a *copied* database does not sandbox the
-files — the copied rows still carry absolute paths into the real
-`apps/api/library/` and `apps/api/images/thumbnails/`, both gitignored with no
-version history.
+---
 
-This is a live hazard, not a theoretical one: during brief 34's verification an
-agent ran the whole-book-delete route against a pre-existing row and
-**permanently destroyed a real book** (the Interpretable Context Methodology
-PDF). It was recovered only because an orphaned byte-identical duplicate
-happened to be on disk from an earlier deletion. `apps/api/src/config.ts` now
-carries a warning at the definition, and the practice is: to test a destructive
-path, upload a throwaway fixture and act on that, never on a row that was
-already there.
+## Recently closed
 
-The real fix is to make both directories overridable the way `LIBRARY_DATA_DIR`
-is, so a scratch DB and scratch files move together. Related: the absolute-path
-problem above — deriving paths from `id` + `format` relative to a storage root
-would solve both at once.
+**All three long-running threads were grilled with the owner on 2026-08-27 and
+are now decisions, not questions** — see **D39** and **D40** in
+[decisions.md](decisions.md), specified as
+[brief 41](../briefs/todo/41-storage-paths.md) and
+[brief 42](../briefs/todo/42-video-covers.md):
 
-A manual backup now exists outside the repo, but nothing automates it.
+- ~~**One concept, two names: `progress` vs `fraction`.**~~ Closed 2026-08-27 →
+  renamed in the offline store at IndexedDB v5 (D39). The corpus had this
+  recorded as "the DB is already at v2"; it was in fact at **v4**, and its
+  v3→v4 upgrade had already rewritten every progress record successfully — which
+  is what made the rename a known shape rather than a new risk.
+- ~~**Library DB stores absolute file paths → dead rows after a checkout
+  move.**~~ Closed 2026-08-27 → paths are derived from `id` + `format`, and a
+  cover from `converted_from ?? id` (D39). Open since 2026-07-07.
+- ~~**Library file paths are not sandboxable for testing.**~~ Closed
+  2026-08-27 → all three storage roots become env overrides, so a scratch
+  database and scratch files finally move together (D39). This is the thread
+  that **cost a real book** on 2026-08-25; until brief 41 ships, the practice
+  still stands: to test a destructive path, upload a throwaway fixture and act
+  on that, never on a row that was already there.
 
-
-Both former verification gaps closed on 2026-07-02 by the
-full Playwright run + live Calibre conversion (see
-[../test-plans/RESULTS.md](../test-plans/RESULTS.md)):
-
-- ~~Backend live conversion unverified~~ — real EPUB→PDF round-trip verified
-  (200, valid 28MB PDF, ~6s). Note: the API must spawn Calibre with
-  `PYTHONNOUSERSITE=1` on hosts where a pip lxml shadows the distro one (it
-  does now).
-- ~~Readers not pixel-verified~~ — both readers rendered, exercised, and
-  screenshot-audited against real files; several real defects found and fixed
-  (EPUB blank-render on real-world books being the headline).
+Both original verification gaps closed on 2026-07-02 by the full Playwright run
+plus a live Calibre conversion (see
+[../test-plans/RESULTS.md](../test-plans/RESULTS.md)): the backend EPUB→PDF
+round-trip was verified end to end, and both readers were rendered, exercised and
+screenshot-audited against real files — which is where the EPUB blank-render
+defect on real-world books was found.

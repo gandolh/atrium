@@ -1,5 +1,56 @@
 # Log
 
+## [2026-08-27] grill | Every open question closed — D39, D40, briefs 41-43
+
+Seven questions, one at a time, at the owner's request. The whole of
+`open-questions.md` is now decided; nothing is built yet.
+
+**The three long-running threads turned out to be one bug.** `progress`/`fraction`
+was cosmetic, but the other two — dead rows after a checkout move (open since
+2026-07-07) and the untestable file directories (2026-08-25) — share a single
+cause: **the API persisted absolute paths while two of its three storage roots
+could not be redirected**. That is why pointing a test at a copied database
+still reached the real files, and why brief 34's verification destroyed a book.
+Both halves are fixed together in brief 41 (D39): all three roots become
+overrides, and paths derive from `id` + `format`.
+
+**Two findings made the fix much cheaper than it looked.** Every *write* already
+derives its path — `filePathFor` / `coverPathFor` are what uploads, catalog
+downloads and conversions all call — so the stored column was a cache of a pure
+function whose only capability was to disagree. And cover *ownership* was already
+encoded: D34's `converted_from` is exactly the "whose thumbnail is this" relation,
+so the derivation needed **no new column**. That let the decision go further than
+planned: `cover_path` is dropped and `hasCover` becomes a disk check, so the DB
+cannot drift from disk — which **deletes `reconcileMissingCovers` and
+`clearCoverPath`**, machinery written to repair a drift that stops being
+representable.
+
+**A question answered by fact rather than by decision.** video-covers listed a
+trust boundary on `POST /library/:id/cover` as an open call. `books` has no
+`user_id` — the library is install-wide, only progress and notes are scoped
+(D35) — so setting a cover is strictly *less* privileged than the delete route
+already unscoped. There was nothing to decide. Recorded in D40 so it is not
+re-asked.
+
+**And a decision that was narrower than its record.** Brief 23 reads as *no video
+covers, ever*. What was actually declined was the **ffmpeg binary**; frame
+extraction was just the only route on the table. mp4/webm are accepted formats
+*because the browser decodes them* (D12), so the browser does the capture and the
+declined dependency stays declined. Capture runs at upload **and** as a playback
+backfill — not redundancy: the backfill is what covers the existing library, and
+it is the iOS Safari fallback.
+
+**Corpus corrections found while checking claims:** open-questions.md said the
+offline store was "already at v2" — it is at **v4**, and its v3→v4 upgrade had
+already rewritten every progress record successfully, which is what made the v5
+rename a known shape rather than a new risk. The video-covers todo said the
+coverless video tile is "identical to the book one" — brief 25 gave each kind its
+own glyph and D33 its own tint; what is actually identical is every video tile to
+every *other* video tile, which is a different (and smaller) problem, now brief 43.
+
+Briefs written: **41** (storage, gates 38), **42** (video covers, needs 41), **43**
+(coverless tile readability, needs 42). Build order: 41 → 38.
+
 ## [2026-08-26] build | Brief 37 shipped — Atrium's own typesetting engine (D38)
 
 `compile()` takes a `.tex` file map and returns a PDF. Ours, in TypeScript, no

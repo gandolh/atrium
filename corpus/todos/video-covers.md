@@ -1,7 +1,7 @@
 ---
 title: Real covers for video — capture a frame client-side, no ffmpeg
 created: 2026-08-24
-status: captured
+status: promoted
 tags: [library, media, backend, frontend, covers]
 ---
 
@@ -92,6 +92,16 @@ them readable instead of a wall of matching tiles. Separable from the frame work
   context" — brief 23 reads as "no video covers, ever". Probably a short entry
   recording that the *dependency* was the objection, not the feature.
 - **Scope:** does the fallback-tile polish ride along, or stay separate?
+
+## Promoted
+
+**Promoted 2026-08-27** to [brief 42](../briefs/todo/42-video-covers.md) after a
+grill with the owner; the tile-readability idea became
+[brief 43](../briefs/todo/43-coverless-tiles.md). Of the five open questions
+above, three were settled by decision (capture points, overwrite rule, tile
+scope), one was answered by fact (there is no trust boundary — `books` has no
+`user_id`), and one is now brief 42 acceptance (iOS Safari, verified on a real
+device). See **D40**.
 
 ## Acceptance
 

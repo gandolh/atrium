@@ -38,7 +38,6 @@ export type SpecialId =
   | "pagebreak"
   | "noindent"
   | "today"
-  | "input"
   | "verb"
   | "stray-environment"
   | "ignore";
@@ -172,8 +171,22 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   pagebreak: { role: "special", id: "pagebreak" },
   noindent: { role: "special", id: "noindent" },
   today: { role: "special", id: "today" },
-  input: { role: "special", id: "input" },
-  include: { role: "special", id: "input" },
+  // `\input`/`\include` are deliberately *not* here. `doc/index.ts`'s
+  // `resolveInputs()` runs on the raw parse tree, before macro expansion and
+  // before this table is ever consulted, and it recurses into every group,
+  // environment and command argument (`\newcommand` bodies included) to find
+  // and consume every literal `\input`/`\include` node there is — with its
+  // own diagnostics (`syntax` for no filename, `missing-file`, a self-include
+  // cycle). A `command` node named "input" or "include" therefore never
+  // survives to reach this table at all (confirmed: not even one buried
+  // inside an unused macro definition, which is the shape that looks most
+  // likely to slip through). A row here, and the `case "input"` it used to
+  // route to in `applySpecial`, promised to catch a case that could not
+  // occur — dead code that claims to handle something it cannot reach, which
+  // is worse than no code (chunk 8). Removed rather than kept "just in
+  // case": if `resolveInputs` ever regresses, the honest failure is
+  // `undefined-command`, not a message about a case this table cannot prove
+  // it still catches.
   verb: { role: "special", id: "verb" },
   // `\protect` and friends only matter to a macro processor with fragile
   // arguments; here they are genuinely nothing, which is why they are the only

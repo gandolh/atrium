@@ -85,9 +85,15 @@ interface HeadingDesign {
  * bold in the document model (chunk 6 resolves `\bfseries` into the title's
  * inline styles), so only the size is supplied here.
  *
- * `\paragraph`'s afterskip is negative in `article.cls` — a run-in heading,
- * where the following text continues on the same line. That is not implemented;
- * it is set as a small heading on its own line, and `layoutHeading` says so.
+ * `\paragraph`'s afterskip is `-1em` in `article.cls`, not a positive `ex`
+ * value like the other three — negative signals a *run-in* heading in real
+ * `\@startsection`, where the title becomes the leading material of the
+ * paragraph that textually follows rather than getting a line (or a
+ * vertical skip) of its own; `layoutRunInParagraph` in `vlist.ts` implements
+ * that branch and does not read `afterEx` at all for `paragraph`. This entry
+ * (`1`, ex not em, a plain guess rather than a transcribed value) survives
+ * only as `layoutHeading`'s fallback vertical gap for the rare case nothing
+ * textually follows to run into — see that function's caller in `vlist.ts`.
  */
 export const HEADING_DESIGN: Readonly<Record<HeadingLevel, HeadingDesign>> = {
   section: { size: "Large", beforeEx: 3.5, afterEx: 2.3 },

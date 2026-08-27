@@ -201,6 +201,13 @@ function compileProject(
   // Layout gets whatever the document layer left of the budget, so the ceiling
   // is on the compile as a whole rather than per stage.
   const budget = createBudget(Math.max(0, opts.stepBudget - build.steps), opts.signal);
+  // `Budget.reported` is documented as latched across stages so that one
+  // runaway produces one diagnostic — but this is a *new* Budget, so that latch
+  // resets here. When the document layer is what exhausted the budget it has
+  // already reported, and this stage then starts with ~0 steps and trips on its
+  // very first `spend()`, reporting the same stop a second time. Carry the latch
+  // across the stage boundary so the guarantee actually holds.
+  budget.reported = diagnostics.some((d) => d.code === "budget-exceeded");
   const design = documentDesign(build.document, entrypoint, diagnostics);
   // One shaper for the whole compile, reused across every layout pass: line
   // breaking re-measures constantly, the font layer has no cache, and a second

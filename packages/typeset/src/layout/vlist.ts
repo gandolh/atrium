@@ -58,6 +58,8 @@ export interface PreparedFootnote {
   list: VList;
   /** Natural height of `list`, in points. */
   height: number;
+  /** Where the `\footnote` call itself sits, for a diagnostic that names it. */
+  loc: SourceRef;
 }
 
 export interface LayoutContext {
@@ -81,6 +83,8 @@ export interface LayoutContext {
   footnotes: Map<string, PreparedFootnote>;
   /** Faces already reported as missing, so one absent face is one diagnostic. */
   missingFaces: Set<string>;
+  /** `font id + codepoint` pairs already reported missing, so one is one diagnostic. */
+  missingGlyphs: Set<string>;
 }
 
 export function createLayoutContext(
@@ -92,16 +96,85 @@ export function createLayoutContext(
   file: string,
   pageOf: ReadonlyMap<string, number>,
 ): LayoutContext {
+  const missingGlyphs = new Set<string>();
   return {
     design,
     fonts,
-    shaper,
+    shaper: withGlyphCoverageCheck(shaper, file, diagnostics, missingGlyphs),
     budget,
     diagnostics,
     file,
     pageOf,
     footnotes: new Map(),
     missingFaces: new Set(),
+    missingGlyphs,
+  };
+}
+
+/**
+ * Glyph id `0` is `.notdef` by OpenType construction — not a guess about this
+ * particular font, a fact about the format (see `FontkitSubset.includeGlyph`'s
+ * doc comment in `pdf/fontkit-types.ts`: "ids are handed out in call order
+ * starting at 1; 0 is `.notdef`"). Shaping a character the face has no glyph
+ * for silently produces one of these, which renders as nothing: without this
+ * check, `"中"` in an otherwise-Latin document compiles to a clean-looking
+ * blank with no trace anywhere that anything went wrong — exactly the
+ * silently-wrong-output case D38 exists to rule out.
+ *
+ * Wrapping `Shaper` itself, rather than checking after each of the ten-odd
+ * call sites in this file, is deliberate: automatic hyphenation re-shapes
+ * syllable fragments from inside `hyphenate.ts`/`linebreak.ts` — files this
+ * chunk does not own and cannot instrument at their own call sites — but
+ * every one of those re-shapes still goes through this same function, since
+ * once wrapped it *is* `ctx.shaper`. This is also why the diagnostic's
+ * position is whole-document (`{ file, line: 0 }`, the same fallback
+ * `resolveFace` uses below): `Shaper`'s signature is `(style, text) =>
+ * ShapedText`, with no source location to attach, and changing that
+ * signature would ripple into every module that calls a `Shaper` — squarely
+ * the kind of cross-module contract this chunk was told to leave alone.
+ *
+ * Severity is `warning`, deliberately lighter than `missing-font`'s `error`:
+ * a whole face being unavailable can blank out most of a document, but one
+ * uncovered character is a narrow, local defect, much closer in kind to
+ * `overfull-box`/`underfull-box` (also `warning`) than to losing a face
+ * outright. `hasErrors()` gating PDF output on this would refuse an
+ * otherwise-fine document over a single exotic character, which is a worse
+ * outcome than shipping the document with a loud, precise note about the one
+ * character that did not make it in.
+ *
+ * The diagnostic code is `missing-font`, not a new one: the underlying
+ * problem is the same shape ("this face cannot show this text"), just
+ * narrowed from a whole face down to one character. `DiagnosticCode` is a
+ * closed union in `@ebook-reader/shared`, a different package the API and
+ * editor also depend on — widening it is a cross-package contract change,
+ * outside what this chunk should decide unilaterally.
+ */
+function withGlyphCoverageCheck(
+  shaper: Shaper,
+  file: string,
+  diagnostics: Diagnostic[],
+  reported: Set<string>,
+): Shaper {
+  return (style, text) => {
+    const shaped = shaper(style, text);
+    for (const g of shaped.glyphs) {
+      if (g.id !== 0) continue;
+      const codePoint = text.codePointAt(g.cluster) ?? text.charCodeAt(g.cluster);
+      const key = `${style.font.id} ${codePoint}`;
+      if (reported.has(key)) continue;
+      reported.add(key);
+      const char = String.fromCodePoint(codePoint);
+      const hex = codePoint.toString(16).toUpperCase().padStart(4, "0");
+      diagnostics.push(
+        warning(
+          "missing-font",
+          { file, line: 0 },
+          `"${char}" (U+${hex}) has no glyph in ${style.font.id}; it does not appear in the output`,
+          char,
+        ),
+      );
+    }
+    return shaped;
   };
 }
 
@@ -536,6 +609,79 @@ function layoutHeading(block: HeadingBlock, col: Column, ctx: LayoutContext, env
   addVspace(col, spec.afterEx * ex, ex / 5, 0);
 }
 
+/**
+ * `\paragraph`'s afterskip is `-1em` in `article.cls` — negative, unlike
+ * every other level's. That sign is not a magnitude to negate and use as a
+ * vertical skip (which is what this engine did before this fix): in real
+ * `\@startsection`'s `\@sect`/`\@xsect` (classes.dtx), a non-positive
+ * afterskip takes an entirely different branch. Instead of setting the
+ * title on its own line and adding `\vskip`, it stores the title as
+ * `\@svsechd` and splices it onto `\everypar`, so it becomes the *leading
+ * material of whatever paragraph comes textually next* — a run-in heading,
+ * with no line break and no vertical space between title and body. There is
+ * no synthetic gap baked into that splice beyond `\@svsechd`'s own
+ * `\hskip\parindent` before the title (`\paragraph`'s indent argument is
+ * literally `\parindent`) — whatever separates the bold title from the body
+ * text is just whatever the author typed there, almost always one space,
+ * which is why this merges in a single ordinary interword space rather than
+ * a fixed kern.
+ *
+ * Only called when a `ParagraphBlock` genuinely follows in the block list —
+ * the shape a real `\paragraph{...} text...` document produces. `\parindent`
+ * is applied unconditionally, matching `\@svsechd`'s unconditional
+ * `\hskip\parindent`, not `env`'s usual "is this paragraph indented" logic.
+ */
+function layoutRunInParagraph(
+  heading: HeadingBlock,
+  next: ParagraphBlock,
+  col: Column,
+  ctx: LayoutContext,
+  env: BlockEnv,
+): void {
+  const design = ctx.design;
+  const spec = HEADING_DESIGN[heading.level];
+  const size = design.sizes[spec.size];
+  const ex = parseDimension("1ex", design.sizes.normalsize.size) ?? 0;
+
+  pushPenalty(col, design.secPenalty);
+  addVspace(col, spec.beforeEx * ex, ex / 2, ex / 5);
+
+  const prefix: HNode[] = [paragraphIndent(env.parIndent), { kind: "marker", name: heading.marker }];
+  if (heading.number !== null) {
+    const numberStyle = heading.title[0]?.kind === "text" ? heading.title[0].style : null;
+    const face = resolveFace(
+      ctx,
+      numberStyle?.font ?? { family: "serif", weight: "bold", slant: "upright" },
+      size.size,
+    );
+    if (face !== null) {
+      prefix.push(shapeRun(face, heading.number, ctx.shaper));
+      prefix.push(kern(size.size));
+    }
+  }
+
+  // The font this space actually renders in is whatever ran immediately
+  // before it (the bold title) — see `inlinesToHList`'s "space" case — so
+  // `style.font` here is never read; only `style.underline` is.
+  const gap: Inline = {
+    kind: "space",
+    style: { font: { family: "serif", weight: "regular", slant: "upright" }, underline: false },
+    loc: heading.loc,
+  };
+  const combined: Inline[] = [...heading.title, gap, ...next.content];
+
+  // `paragraph`'s own rung is `normalsize` — the same as the body — so the
+  // merged material never needs a size change mid-run, only the weight
+  // change each inline's own style already carries.
+  const hlist = inlinesToHList(combined, ctx, {
+    size: env.size.size,
+    at: heading.loc,
+    allowFootnotes: env.allowFootnotes,
+    prefix,
+  });
+  pushParagraph(col, ctx, hlist, env, heading.loc);
+}
+
 // --- lists ------------------------------------------------------------------
 
 function layoutList(block: ListBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
@@ -569,27 +715,24 @@ function layoutItem(
   labelWidth: number,
   labelSep: number,
 ): void {
-  let content = item.content;
-
   if (block.variant === "description") {
-    // `description` runs the term into the first line rather than hanging it in
-    // the margin. LaTeX also pulls it back to the enclosing margin
-    // (`\itemindent -\leftmargin`); this sets it at the item's own margin,
-    // which keeps a long term from colliding with the text above it.
-    content = runInLabel(item, content);
-  } else {
-    const label = itemLabel(block, item, ctx, env.size.size);
-    if (label !== null) {
-      // `\makelabel` is `\hbox to\labelwidth{\hss #1}` followed by `\labelsep`:
-      // right-aligned in the margin, and `\hss` rather than `\hfil` so an
-      // over-wide label sticks out instead of being reported overfull.
-      const box = hpack([glue(0, 1, 1, 1, 1), label], labelWidth).box;
-      col.pendingPrefix = [kern(env.left - labelWidth - labelSep), box, kern(labelSep)];
-    }
+    col.suppressIndent = true;
+    layoutDescriptionItem(item, col, ctx, env, labelWidth + labelSep);
+    col.suppressIndent = false;
+    return;
+  }
+
+  const label = itemLabel(block, item, ctx, env.size.size);
+  if (label !== null) {
+    // `\makelabel` is `\hbox to\labelwidth{\hss #1}` followed by `\labelsep`:
+    // right-aligned in the margin, and `\hss` rather than `\hfil` so an
+    // over-wide label sticks out instead of being reported overfull.
+    const box = hpack([glue(0, 1, 1, 1, 1), label], labelWidth).box;
+    col.pendingPrefix = [kern(env.left - labelWidth - labelSep), box, kern(labelSep)];
   }
 
   col.suppressIndent = true;
-  layoutBlocks(content, col, ctx, env);
+  layoutBlocks(item.content, col, ctx, env);
   col.suppressIndent = false;
   // An item whose body produced nothing would strand the label; emit it alone.
   if (col.pendingPrefix !== null) {
@@ -597,6 +740,72 @@ function layoutItem(
     col.pendingPrefix = null;
     pushBox(col, hpack(prefix, "natural").box, env.size.baselineSkip, 0);
   }
+}
+
+/**
+ * `description` in `article.cls`:
+ * ```
+ * \newenvironment{description}
+ *                {\list{}{\labelwidth\z@ \itemindent-\leftmargin
+ *                         \let\makelabel\descriptionlabel}}
+ *                {\endlist}
+ * \newcommand*\descriptionlabel[1]{\hspace\labelsep \normalfont\bfseries #1}
+ * ```
+ * `\itemindent -\leftmargin` pulls the *whole first line* of the item back
+ * by exactly `leftMargin` — to the list's enclosing margin, one full
+ * `\leftmargin` left of where the item's own text sits (`env.left`) — while
+ * every line the term's paragraph wraps onto returns to `env.left`, same
+ * shape as itemize/enumerate's hanging bullet/number. That first line is
+ * therefore `leftMargin` *wider* too, so it still ends at the same right
+ * margin as every other line: `breakParagraph` gets `env.measure +
+ * leftMargin` for line 0 and plain `env.measure` from line 1 on.
+ *
+ * A previous pass deliberately did not do this — set at `env.left` instead,
+ * see the old comment this replaced — reasoning that a long term could then
+ * collide with whatever text sits just above the item. That risk is real,
+ * but it is `article.cls`'s own risk, not one this engine would be
+ * introducing: a long `description` term overrunning into the line above is
+ * a known, if unloved, property of real LaTeX's `description` (authors hit
+ * it and reach for `\item[Short term:]` or similar). Chunk 8's brief is to
+ * match `article.cls` where "verify against the real definition" settles the
+ * question, and it settles this one unambiguously — so this now does what
+ * `\itemindent -\leftmargin` actually does, warts included, rather than a
+ * gentler substitute LaTeX itself does not offer.
+ */
+function layoutDescriptionItem(
+  item: ListItem,
+  col: Column,
+  ctx: LayoutContext,
+  env: BlockEnv,
+  leftMargin: number,
+): void {
+  const merged = runInLabel(item, item.content);
+  const first = merged[0];
+  const rest = merged.slice(1);
+
+  if (first === undefined || first.kind !== "paragraph") {
+    layoutBlocks(merged, col, ctx, env);
+    return;
+  }
+
+  // `runInLabel` always marks its merged/synthetic paragraph `indent: false`
+  // (the run-in term takes the place of any `\parindent` box), so there is
+  // never a `paragraphIndent` prefix to add here — `\itemindent` positions
+  // the line directly.
+  const hlist = inlinesToHList(first.content, ctx, {
+    size: env.size.size,
+    at: first.loc,
+    allowFootnotes: env.allowFootnotes,
+  });
+  if (hlist.length > 0) {
+    const result = breakParagraph(hlist, [env.measure + leftMargin, env.measure], breakOptions(ctx, first.loc));
+    for (const d of result.diagnostics) ctx.diagnostics.push(d);
+    spend(ctx.budget, result.steps);
+    for (let i = 0; i < result.lines.length; i++) {
+      pushBox(col, result.lines[i] as HBox, env.size.baselineSkip, env.left + (i === 0 ? -leftMargin : 0));
+    }
+  }
+  layoutBlocks(rest, col, ctx, env);
 }
 
 function itemLabel(block: ListBlock, item: ListItem, ctx: LayoutContext, size: number): HBox | null {
@@ -800,7 +1009,10 @@ function pushTocEntry(
   const design = ctx.design;
   const size = design.sizes.normalsize;
   const { indent, numberWidth } = tocIndent(design, entry.level);
-  // `\l@section` sets its entries bold and puts 1em of space above them.
+  // `\l@section` sets its entries in `\bfseries` and puts 1em of space above
+  // them; `\l@subsection` and everything below it goes through
+  // `\@dottedtocline`, which sets `\normalfont` — plain, not bold. Verified
+  // against `article.cls` directly rather than assumed.
   const bold = entry.level === "section";
   if (bold) addVspace(col, design.sizes.normalsize.size, 1, 0);
 
@@ -816,21 +1028,45 @@ function pushTocEntry(
     }
   }
 
+  // `entry.title` is the very same inline list `applySection` built for the
+  // heading itself (doc/build.ts) — and headings are always bold in the body,
+  // regardless of level. The ToC's weight rule is different (only `section`
+  // is bold), so it must be set *explicitly* here, not merely added when
+  // `bold`: a `subsection` entry that only skipped adding bold would still
+  // carry the bold weight baked in from the heading it was copied from,
+  // which is exactly the bug this fixes (subsection/subsubsection entries
+  // rendering bold in the ToC).
+  const tocWeight: "bold" | "regular" = bold ? "bold" : "regular";
   const title = entry.title.map((inline) =>
-    bold && inline.kind === "text"
-      ? { ...inline, style: { ...inline.style, font: { ...inline.style.font, weight: "bold" as const } } }
+    inline.kind === "text"
+      ? { ...inline, style: { ...inline.style, font: { ...inline.style.font, weight: tocWeight } } }
       : inline,
   );
   const hlist = inlinesToHList(title, ctx, { size: size.size, at, allowFootnotes: false, prefix });
   while (hlist.length > 0 && (hlist[hlist.length - 1] as HNode).kind === "glue") hlist.pop();
 
+  const measure = env.measure - indent;
   const page = ctx.pageOf.get(entry.marker);
   const numberFace = resolveFace(ctx, { family: "serif", weight: "regular", slant: "upright" }, size.size);
   if (numberFace !== null) {
-    // `\nobreak\hfil\nobreak\hb@xt@\@pnumwidth{\hss #2}`: the folio is pinned to
-    // the right edge and never left alone on a line of its own.
+    // `\nobreak ⟨connector⟩ \nobreak\hb@xt@\@pnumwidth{\hss #2}`: the folio is
+    // pinned to the right edge and never left alone on a line of its own.
+    //
+    // `\l@section`'s connector is plain `\hfil`. `\@dottedtocline`'s — every
+    // level below it — is `\leaders\hbox{...\hbox{.}...}\hfil`: a period
+    // repeated to fill whatever the glue resolves to. `buildDotLeader`
+    // approximates that (see its own doc comment for why it can only
+    // approximate) using the gap computed here on the assumption the entry
+    // sets on one line; when a title is too wide for that to hold, or there
+    // is no room for even one dot, it falls back to the same plain `\hfil`
+    // `\l@section` always uses.
+    const titleWidth = measureNodes(hlist, "h").natural;
+    const gap = measure - titleWidth - pnumWidth;
+    const leader = bold ? null : buildDotLeader(numberFace, ctx.shaper, gap);
+
     hlist.push(penalty(INFINITE_PENALTY));
-    hlist.push(glue(0, 1, 0, 1, 0));
+    if (leader === null) hlist.push(glue(0, 1, 0, 1, 0));
+    else for (const node of leader) hlist.push(node);
     hlist.push(penalty(INFINITE_PENALTY));
     hlist.push(
       hpack(
@@ -840,11 +1076,56 @@ function pushTocEntry(
     );
   }
 
-  const measure = env.measure - indent;
   const result = breakParagraph(hlist, measure, breakOptions(ctx, at, { finish: false }));
   for (const d of result.diagnostics) ctx.diagnostics.push(d);
   spend(ctx.budget, result.steps);
   for (const line of result.lines) pushBox(col, line, size.baselineSkip, env.left + indent);
+}
+
+/**
+ * An approximation of `\@dottedtocline`'s connector — real TeX's
+ * `\leaders\hbox{$\m@th\mkern\@dotsep mu\hbox{.}\mkern\@dotsep mu$}\hfil`
+ * repeats that little box exactly as many times as fit the glue's *resolved*
+ * width, which is only decided during justification, deep inside
+ * `glue.ts`/`linebreak.ts` — files outside this chunk. This lays real period
+ * glyphs at a fixed spacing instead, as many as comfortably fit under `width`
+ * (the caller computes it assuming the entry sets on one line, true for
+ * every entry in both golden fixtures) — then, critically, caps the run with
+ * genuine order-1 (`\hfil`-strength) stretch, the same as the plain
+ * connector this replaces, rather than a kern sized to make the total come
+ * out exactly to `width`.
+ *
+ * That last part is not a style choice: a kern *exactly* filling the
+ * estimate leaves the line with no forgiveness for the estimate being even a
+ * fraction of a point off from what `breakParagraph` computes independently
+ * for the same content, which surfaced as a real regression while building
+ * this — a line coming back with nonzero badness made the breaker consider
+ * hyphenating the title, and a title whose hyphenation was *considered* (even
+ * though never taken) rendered as several adjacent glyph runs instead of one
+ * word, in an otherwise unrelated golden line. Order-1 glue absorbs any such
+ * slack at zero badness, exactly as `\hfil` always has, so this can only ever
+ * add dots to the existing behaviour, never change how a line is chosen.
+ *
+ * `\@dotsep` is 4.5mu; taking 1mu as this face's `em/18` (`mu`'s usual
+ * meaning relative to a text font's own quad, absent a loaded math font to
+ * take it from) puts 0.25em of space on each side of a period, which is
+ * where the ". . . . ." look comes from.
+ *
+ * Returns `null` when there is no room for even one dot, or the entry does
+ * not fit on one line at all (`width <= 0`) — the caller then falls back to
+ * plain glue, same as `\l@section`'s undotted connector.
+ */
+function buildDotLeader(face: TextFace, shaper: Shaper, width: number): HNode[] | null {
+  const dot = shapeRun(face, ".", shaper);
+  const pad = 0.25 * face.size;
+  const cell = dot.width + 2 * pad;
+  if (width <= 0 || cell <= 0) return null;
+  const count = Math.floor(width / cell);
+  if (count < 1) return null;
+  const content: HNode[] = [];
+  for (let i = 0; i < count; i++) content.push(kern(pad), dot, kern(pad));
+  content.push(glue(0, 1, 0, 1, 0));
+  return content;
 }
 
 // --- footnotes --------------------------------------------------------------
@@ -896,7 +1177,7 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
     layoutBlocks(blocks, col, ctx, env);
   }
 
-  return { number: note.number, list: col.list, height: measureNodes(col.list, "v").natural };
+  return { number: note.number, list: col.list, height: measureNodes(col.list, "v").natural, loc: note.loc };
 }
 
 // --- the dispatcher ---------------------------------------------------------
@@ -907,6 +1188,21 @@ function layoutBlocks(blocks: readonly Block[], col: Column, ctx: LayoutContext,
     const block = blocks[i] as Block;
     if (i > 0 && block.kind === "paragraph" && (blocks[i - 1] as Block).kind === "paragraph") {
       pushGlue(col, env.parSkip, env.parSkipStretch, 0);
+    }
+    // `\paragraph` is a run-in heading (see `layoutRunInParagraph`'s doc
+    // comment): when a paragraph genuinely follows, the two merge into one
+    // set of lines instead of the title getting a line to itself. Anything
+    // else following (nothing, a list, another heading) has no paragraph to
+    // run into, so `layoutBlock` below falls through to the ordinary,
+    // own-line `layoutHeading` — the same rendering used before this fix.
+    if (block.kind === "heading" && block.level === "paragraph") {
+      const next = blocks[i + 1];
+      if (next !== undefined && next.kind === "paragraph") {
+        layoutRunInParagraph(block, next, col, ctx, env);
+        col.suppressIndent = false;
+        i++;
+        continue;
+      }
     }
     layoutBlock(block, col, ctx, env);
   }
@@ -988,6 +1284,18 @@ export function buildVerticalList(document: LatexDocument, ctx: LayoutContext): 
     }
     if (i > 0 && block.kind === "paragraph" && (document.blocks[i - 1] as Block).kind === "paragraph") {
       pushGlue(col, env.parSkip, env.parSkipStretch, 0);
+    }
+    // Same run-in merge `layoutBlocks` does below — duplicated rather than
+    // shared because this loop also owns the `toc` interception `layoutBlocks`
+    // does not need (only the top level can see `document.toc`).
+    if (block.kind === "heading" && block.level === "paragraph") {
+      const next = document.blocks[i + 1];
+      if (next !== undefined && next.kind === "paragraph") {
+        layoutRunInParagraph(block, next, col, ctx, env);
+        col.suppressIndent = false;
+        i++;
+        continue;
+      }
     }
     layoutBlock(block, col, ctx, env);
   }

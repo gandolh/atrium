@@ -35,6 +35,83 @@ import type { Argument, LatexNode, SourceSpan } from "./ast.ts";
 
 const ESCAPED_CHARS = new Set(["%", "&", "_", "#", "$", "{", "}"]);
 
+/**
+ * `@unified-latex`'s own type declarations say `Environment.env` is always a
+ * plain `string` (`unified-latex-types`: `interface Environment { env:
+ * string; ... }`, shared by both `"environment"` and `"mathenv"` nodes) —
+ * true for `"environment"` nodes, but not for `"mathenv"` ones. Confirmed by
+ * direct probing (same method as this file's other two documented library
+ * quirks, above): `\begin{eqnarray}...\end{eqnarray}` (an ordinary
+ * `"environment"`) comes back with `env: "eqnarray"` exactly as declared,
+ * but `\begin{equation}...\end{equation}` (a `"mathenv"` — every amsmath
+ * display environment is) comes back with `env: { type: "string", content:
+ * "equation" }`, an *unnormalised string-node object*, not the string it
+ * contains.
+ *
+ * Reading `raw.env` directly for a `"mathenv"` node therefore property-keys
+ * on an object, which coerces to the literal string `"[object Object]"` —
+ * which is why `equation`/`equation*`/`align`/`align*`/`gather`/
+ * `displaymath`/`math` were all reported as `undefined-environment` ("not a
+ * thing at all") instead of `unsupported` ("real LaTeX, deliberately not
+ * implemented — brief 40"), exactly backwards for the most common math
+ * construct in LaTeX. It also meant a diagnostic's `construct` field held
+ * that raw object rather than a string, breaking the shared `Diagnostic`
+ * schema (`construct: z.string().optional()` in
+ * `packages/shared/src/latex.ts`) for every one of the seven.
+ *
+ * Guarded with `typeof` here, not trusted from the type declaration, because
+ * the type declaration is exactly what is wrong. This is the only place in
+ * `mapNode` that reads an environment's name off the raw tree, so it is also
+ * the only place this particular quirk can leak a non-string into
+ * `EnvironmentNode.name` (and, downstream, into a diagnostic's `construct`).
+ */
+function environmentName(raw: string | { content: string }): string {
+  if (typeof raw === "string") return raw;
+  if (typeof raw.content === "string") return raw.content;
+  // Never observed in probing, but D38 says fail loud rather than silently
+  // mislabel: "[unknown-environment-name]" cannot collide with any name a
+  // real document could write, so this reliably falls through to
+  // `undefined-environment` rather than accidentally matching a builtin or
+  // (worse) putting a non-string into a diagnostic's `construct` again.
+  return "[unknown-environment-name]";
+}
+
+
+/**
+ * TeX's tokenizer, not any macro's own semantics, decides whether a space
+ * survives after `\name`: a *control word* (`\` followed by one or more
+ * letters — catcode-11 in the default catcode regime this engine targets) is
+ * followed by the tokenizer entering its "skip blanks" state, so any run of
+ * spaces right after it is consumed and never becomes a space token at all.
+ * A *control symbol* (`\` followed by exactly one non-letter, e.g. `\%`,
+ * `\$`, `\\`) does not do this — the tokenizer returns to normal state
+ * immediately, so a following space is an ordinary space token.
+ *
+ * `@unified-latex`'s own tokenizer doesn't model this distinction (confirmed
+ * by direct probing: `\large text` and `\% text` both come back with an
+ * explicit `whitespace` node after the macro) — so it has to be reproduced
+ * here, at the point where we're already deciding what each raw node means.
+ *
+ * A blank line (`parbreak`) is deliberately *not* covered by this: even in
+ * TeX's skip-blanks state, an end-of-line still advances the line-state
+ * machine such that a genuinely blank line still yields `\par`. Only
+ * ordinary inter-word space is swallowed.
+ */
+function isControlWord(raw: Ast.Node): boolean {
+  if (raw.type !== "macro" || !/^[A-Za-z]+$/.test(raw.content)) return false;
+  // Gobbling only reaches the token immediately following the control
+  // word's own name in the *source*. If `@unified-latex` attached real
+  // arguments (e.g. `\texttt{article}`), the `{`, the argument's content and
+  // the `}` already sat between the name and whatever comes next in this
+  // list — so that next thing isn't adjacent to the control word at the
+  // tokenizer level, and is an ordinary token, not one the tokenizer ever
+  // saw right after `\texttt`. An argument slot the source didn't write
+  // (`content.length === 0`, e.g. `\section`'s unwritten `s`/`o`/`o`) is
+  // zero-width and doesn't count as "real" for this purpose.
+  const args = raw.args;
+  return !args || args.every((a) => a.content.length === 0);
+}
+
 function toRef(pos: { line: number; column: number }, file: string): SourceRef {
   return { file, line: pos.line, column: pos.column };
 }
@@ -198,7 +275,10 @@ function mapNode(
     case "mathenv": {
       const { args, endCursor } = mapArgs(raw.args, file, source, span.start, diagnostics);
       const { nodes: body } = mapContentList(raw.content, file, source, endCursor, diagnostics);
-      return { node: { type: "environment", name: raw.env, args, body, loc: span }, consumedEnd: span.end };
+      return {
+        node: { type: "environment", name: environmentName(raw.env), args, body, loc: span },
+        consumedEnd: span.end,
+      };
     }
     case "group": {
       const { nodes: body } = mapContentList(raw.content, file, source, span.start, diagnostics);
@@ -248,6 +328,18 @@ export function mapContentList(
     const { node, consumedEnd } = mapNode(raw, file, source, span, diagnostics);
     out.push(node);
     cursor = consumedEnd;
+
+    // Control-word space-gobbling (see `isControlWord`): the very next raw
+    // node, in this same list, is dropped rather than mapped — it is not a
+    // real token in TeX's stream, so emitting a `WhitespaceNode` for it would
+    // be inventing a space the source doesn't actually produce.
+    if (isControlWord(raw)) {
+      const next = rawNodes[i + 1];
+      if (next && next.type === "whitespace") {
+        cursor = resolveSpan(next, file, cursor, rawNodes, i + 1).end;
+        i++;
+      }
+    }
   }
   return { nodes: out, endCursor: cursor };
 }

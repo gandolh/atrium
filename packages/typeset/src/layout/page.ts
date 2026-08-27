@@ -1,6 +1,6 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontHandle, FontProvider, PositionedGlyph } from "../font/handle.ts";
-import { error, wholeFile } from "../diagnostics.ts";
+import { error, warning, wholeFile } from "../diagnostics.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { PageDesign } from "./design.ts";
@@ -321,10 +321,13 @@ function placeFootnotes(
   onMarker: (name: string) => void,
 ): void {
   const { design } = opts;
-  let height = design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow;
+  const ruleOverhead = design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow;
+  let height = ruleOverhead;
   for (let i = 0; i < notes.length; i++) {
     height += (notes[i] as PreparedFootnote).height + (i === 0 ? 0 : FOOTNOTE_GAP);
   }
+
+  reportOverflowingFootnotes(notes, design.textHeight - ruleOverhead, opts.diagnostics);
 
   // The note block hugs the bottom of the text body, which is where a page
   // vpacked to `\pagegoal` puts it.
@@ -344,6 +347,41 @@ function placeFootnotes(
     const note = notes[i] as PreparedFootnote;
     placeVertical(note.list, design.marginLeft, y, items, onMarker, 0);
     y += note.height;
+  }
+}
+
+/**
+ * Footnotes are never split across pages (out of scope for this chunk — see
+ * the module doc comment's account of how a note's height shrinks the page
+ * goal). A note's whole vbox is placed in one piece, bottom-anchored so its
+ * *last* line sits exactly at `design.textHeight`, the same anchor a full
+ * page of body text would use. That anchor math does not know or care
+ * whether the block actually fits: when a note taller than `maxNoteHeight`
+ * (the whole page, minus the rule every footnote block carries) is placed
+ * this way, its top edge lands above where the anchor math assumes the page
+ * begins — off the sheet, not merely into the text above it — and previously
+ * did so with nothing in `diagnostics` to say why. `overfull-box` is the
+ * right code, not a new one: a box that cannot be shrunk to fit its
+ * allotted space is exactly what that code means, just vertical here and
+ * reported once per note rather than once per set line. `warning`, matching
+ * that code's own precedent (and `underfull-box`'s): one page rendering
+ * badly is not a reason to refuse the whole document a PDF.
+ */
+function reportOverflowingFootnotes(
+  notes: readonly PreparedFootnote[],
+  maxNoteHeight: number,
+  diagnostics: Diagnostic[],
+): void {
+  for (const note of notes) {
+    if (note.height <= maxNoteHeight) continue;
+    diagnostics.push(
+      warning(
+        "overfull-box",
+        note.loc,
+        `footnote ${note.number} is ${note.height.toFixed(1)}pt tall, taller than the ${maxNoteHeight.toFixed(1)}pt a footnote can ever have on this page; it is placed anyway and overflows the page — footnotes are never split across pages`,
+        "\\footnote",
+      ),
+    );
   }
 }
 

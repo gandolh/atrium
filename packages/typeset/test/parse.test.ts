@@ -199,6 +199,43 @@ for (const [source, char] of [
   });
 }
 
+test("a control word gobbles the whitespace that follows it, the way TeX's tokenizer does", () => {
+  // The brief's own example: `\textbackslash large` must set as `\large`
+  // (backslash glyph immediately followed by "large"), not `\ large` with a
+  // visible gap — because `\textbackslash` (all letters) is a *control
+  // word*, and TeX's tokenizer consumes the space after a control word
+  // before a space token is ever produced. `@unified-latex` itself doesn't
+  // model this (confirmed by direct probing — see from-unified-latex.ts) so
+  // there is no upstream whitespace node here at all to preserve.
+  const { root, diagnostics } = parseLatex("\\textbackslash large", "x.tex");
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(types(root), ["command", "text"]);
+  assert.equal((root[0] as CommandNode).name, "textbackslash");
+  assert.equal((root[1] as { value: string }).value, "large");
+});
+
+test("a control symbol does not gobble the whitespace that follows it", () => {
+  // `\%` is a *control symbol* (backslash + one non-letter character): TeX's
+  // tokenizer returns to normal state immediately, so the space after it is
+  // a real space token, unlike after a control word.
+  const { root, diagnostics } = parseLatex("\\% text", "x.tex");
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(types(root), ["escaped", "whitespace", "text"]);
+});
+
+test("a control word gobbles the whitespace even when it takes no known arguments", () => {
+  const { root } = parseLatex("\\large text", "x.tex");
+  assert.deepEqual(types(root), ["command", "text"]);
+  assert.equal((root[1] as { value: string }).value, "text");
+});
+
+test("a control word does not gobble across a blank line — that is still a paragraph break", () => {
+  // TeX's skip-blanks state after a control word still yields \par for a
+  // genuinely blank line; only ordinary inter-word space is swallowed.
+  const { root } = parseLatex("\\large\n\ntext", "x.tex");
+  assert.deepEqual(types(root), ["command", "parbreak", "text"]);
+});
+
 test("a math-mode macro that shares a character with an escaped special is not confused for one", () => {
   // `_` outside math is the escaped-underscore special; `_` inside math is
   // the subscript macro and takes an argument. Same content string, must not

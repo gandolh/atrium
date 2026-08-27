@@ -609,15 +609,10 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
         warning("unsupported", at, "this engine performs no I/O and has no clock, so \\today prints nothing", "\\today"),
       );
       return;
-    case "input":
-      st.diagnostics.push(
-        unsupported(
-          at,
-          `\\${cmd.name}`,
-          "\\input must be written literally in the source; one produced by a macro is not resolved",
-        ),
-      );
-      return;
+    // `\input`/`\include` have no case here — see the comment on their
+    // (removed) rows in `macro/builtins.ts` for why: `doc/index.ts`'s
+    // `resolveInputs()` consumes every literal one before this function ever
+    // runs, so a case here could never fire.
     case "verb":
       st.diagnostics.push(unsupported(at, "\\verb", "this form of \\verb was not recognised by the parser"));
       return;

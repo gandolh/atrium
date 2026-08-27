@@ -56,12 +56,24 @@ export {
   itemizeLabel,
   listSpacing,
   parseDimension,
+  resolveDocumentLength,
   tocIndent,
 } from "./design.ts";
-export type { FontSize, ListSpacing, PageDesign, SizeLadder } from "./design.ts";
+export type { FontSize, LengthContext, ListSpacing, PageDesign, SizeLadder } from "./design.ts";
 
-export { buildVerticalList, createLayoutContext, footnoteMarker } from "./vlist.ts";
+export { buildVerticalList, createLayoutContext, floatMarker, footnoteMarker } from "./vlist.ts";
 export type { LayoutContext, PreparedFootnote } from "./vlist.ts";
+
+/**
+ * Brief 39's two layout seams. `float.ts` (chunk 39.4) queues and places floats;
+ * `table.ts` (chunk 39.3) measures a `tabular`'s columns and sets its grid. Both
+ * are stubs today, and both are exported so a chunk can drive one directly from
+ * a test without going through a whole compile.
+ */
+export { FLOAT_NAME, prepareFloat } from "./float.ts";
+export type { FloatContext, PreparedFloat } from "./float.ts";
+export { setTable } from "./table.ts";
+export type { TableContext } from "./table.ts";
 
 export { buildPages } from "./page.ts";
 export type { GlyphRun, Page, PageBuildOptions, PageBuildResult, PlacedItem, PlacedRule } from "./page.ts";

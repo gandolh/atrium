@@ -1,4 +1,4 @@
-import type { Argument, CommandNode, EnvironmentNode, LatexNode } from "../parse/index.ts";
+import type { Argument, CommandNode, EnvironmentNode, GroupNode, LatexNode } from "../parse/index.ts";
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { error, info, unsupported, warning, wholeFile } from "../diagnostics.ts";
 import type { Budget } from "../macro/budget.ts";
@@ -7,25 +7,44 @@ import type { BuiltinSpec, SpecialId } from "../macro/builtins.ts";
 import { lookupCommand, lookupEnvironment } from "../macro/builtins.ts";
 import { mergeAdjacentText } from "../macro/expand.ts";
 import type {
+  BibItem,
+  BibliographyBlock,
   Block,
+  CitationInline,
+  CitationStyle,
+  DocumentLength,
+  FloatClass,
+  FloatListEntry,
+  FloatPlacement,
+  FloatPlacementLetter,
   FontSelection,
+  ImageSizing,
   Inline,
   LabelInfo,
+  LengthRegister,
   ListItem,
   ListVariant,
   PackageUse,
   ParagraphBlock,
   ReferenceInline,
+  TableCell,
+  TableColumn,
+  TableColumnSpec,
+  TableRow,
+  TableRule,
   TextStyle,
   TocEntry,
   FootnoteInline,
   HeadingLevel,
 } from "./model.ts";
 import {
+  DEFAULT_FLOAT_PLACEMENT,
   DEFAULT_TEXT_STYLE,
   HEADING_DEPTH,
   SECTION_NUMBER_DEPTH,
+  UNRESOLVED_CITATION,
   UNRESOLVED_REFERENCE,
+  captionMarker,
   cloneStyle,
   headingMarker,
   labelMarker,
@@ -35,13 +54,16 @@ import {
   createCounters,
   enumCounter,
   enumReferenceText,
+  floatCounter,
   formatEnumLabel,
+  formatFloatNumber,
   formatHeadingNumber,
   headingCounter,
   isNumbered,
   reset,
   step,
 } from "./counters.ts";
+import { IMPLEMENTED_BIB_STYLE } from "./bib.ts";
 import { scanTextRun } from "./text.ts";
 
 /**
@@ -99,6 +121,27 @@ interface BuildState {
   listDepth: number;
   /** Per-variant nesting, tracked separately because LaTeX's labels are. */
   variantDepth: Record<ListVariant, number>;
+  /**
+   * The float being walked, or null outside one (brief 39). `\caption` reads
+   * this to know which counter to step and which `\listof...` to join, and
+   * refuses outright when it is null — a caption with no float has no number,
+   * and printing it unnumbered would be silently wrong output.
+   */
+  float: { floatClass: FloatClass; construct: string } | null;
+  /** Every `\caption`, in document order, for `\listoffigures`/`\listoftables`. */
+  floatList: FloatListEntry[];
+  /** How many captions have been built, so each gets its own marker name. */
+  captions: number;
+  /** Every `\cite`/`\citep`/`\citet`/`\nocite`, for the bibliography pass. */
+  citations: CitationInline[];
+  /**
+   * Every `\bibliography` and `thebibliography` block, kept by reference so
+   * `doc/index.ts` can fill in `content` once the whole document is walked and
+   * every cited key is therefore known.
+   */
+  bibliographies: BibliographyBlock[];
+  /** `\bibliographystyle`'s argument, wherever in the document it was written. */
+  bibliographyStyle: string | null;
 }
 
 export function createBuildState(file: string, diagnostics: Diagnostic[], budget: Budget): BuildState {
@@ -123,6 +166,12 @@ export function createBuildState(file: string, diagnostics: Diagnostic[], budget
     classLoc: null,
     listDepth: 0,
     variantDepth: { itemize: 0, enumerate: 0, description: 0 },
+    float: null,
+    floatList: [],
+    captions: 0,
+    citations: [],
+    bibliographies: [],
+    bibliographyStyle: null,
   };
 }
 
@@ -294,7 +343,7 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
           ),
         );
         break;
-      case "command":
+      case "command": {
         /*
          * The environment name after an unpaired `\begin`/`\end` arrives as a
          * sibling group. Swallow it: it is the name, not content, and setting
@@ -302,8 +351,23 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
          * the diagnostic `applyCommand` is about to raise.
          */
         if ((node.name === "begin" || node.name === "end") && nodes[i + 1]?.type === "group") i++;
+        /*
+         * Two of brief 39's commands have an argument the parser leaves as a
+         * *sibling* group — the biggest surprise in `@unified-latex`'s output,
+         * documented on `CommandNode` in `ast.ts`. Adopt it here, where the
+         * siblings are in scope, rather than in `applySpecial`, which only ever
+         * sees one node. Without this the argument would be typeset as ordinary
+         * text and the construct would quietly lose it.
+         */
+        const adopted = adoptSiblingGroup(nodes, i, st);
+        if (adopted !== null) {
+          applyCommand(adopted.cmd, sink, st, depth);
+          i += adopted.consumed + 1;
+          continue;
+        }
         applyCommand(node, sink, st, depth);
         break;
+      }
       case "environment":
         applyEnvironment(node, sink, st, depth);
         break;
@@ -505,6 +569,50 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
     case "tableofcontents":
       pushBlock(sink, { kind: "toc", loc: at });
       return;
+    case "listoffigures":
+    case "listoftables":
+      // Collected exactly the way `\tableofcontents` is: the entries are
+      // gathered as the captions are built, whether or not anything asked for
+      // the list, and the block only says where to set them.
+      pushBlock(sink, { kind: "listof", floatClass: id === "listoffigures" ? "figure" : "table", loc: at });
+      return;
+    case "caption":
+      applyCaption(cmd, sink, st, depth);
+      return;
+    case "includegraphics":
+      applyIncludeGraphics(cmd, sink, st);
+      return;
+    case "cite":
+    case "citep":
+    case "citet":
+    case "nocite":
+      applyCitation(id, cmd, sink, st);
+      return;
+    case "bibliography":
+      applyBibliographyCommand(cmd, sink, st);
+      return;
+    case "bibliographystyle": {
+      const arg = mandatoryArgument(cmd);
+      const style = arg === null ? "" : plainText(arg.content).trim();
+      if (style.length === 0) {
+        st.diagnostics.push(
+          error("syntax", at, "\\bibliographystyle needs a style name, e.g. \\bibliographystyle{plain}", "\\bibliographystyle"),
+        );
+      } else {
+        st.bibliographyStyle = style;
+      }
+      if (style.length > 0 && style !== IMPLEMENTED_BIB_STYLE) {
+        st.diagnostics.push(
+          unsupported(
+            at,
+            `\\bibliographystyle{${style}}`,
+            `only the numeric \`${IMPLEMENTED_BIB_STYLE}\` style is implemented; author-year styles and .bst files are out of scope`,
+          ),
+        );
+        return;
+      }
+      return;
+    }
     case "label": {
       const arg = mandatoryArgument(cmd);
       if (arg === null) {
@@ -655,6 +763,10 @@ function applyEnvironment(env: EnvironmentNode, sink: Sink, st: BuildState, dept
     applyList(env, spec.variant, sink, st, depth);
     return;
   }
+  if (spec.role === "float") {
+    applyFloat(env, spec.class, spec.spanning, sink, st, depth);
+    return;
+  }
   switch (spec.id) {
     case "document": {
       // A nested `document` is malformed, but its content is still content.
@@ -672,6 +784,12 @@ function applyEnvironment(env: EnvironmentNode, sink: Sink, st: BuildState, dept
       return;
     case "verbatim":
       pushBlock(sink, { kind: "verbatim", lines: verbatimLines(plainText(env.body)), loc: at });
+      return;
+    case "tabular":
+      applyTabular(env, sink, st, depth);
+      return;
+    case "thebibliography":
+      applyThebibliography(env, sink, st, depth);
       return;
   }
 }
@@ -777,6 +895,1046 @@ function buildItem(
   }
 
   return { label, content: walkBlocks(bodyNodes, st, DEFAULT_TEXT_STYLE, depth + 1), loc: at };
+}
+
+// --- brief 39: floats, captions, images, tables, bibliography ---------------
+
+/*
+ * Everything below this line is brief 39's *syntax* half (chunk 39.1): the
+ * constructs are parsed, validated, numbered and put into the document model,
+ * and the four capabilities they need — image decode, column measurement, float
+ * placement, bibliography formatting — are seams elsewhere (`src/image/`,
+ * `layout/table.ts`, `layout/float.ts`, `doc/bib.ts`).
+ *
+ * **No interim notices remain.** Every one of brief 39's five chunks carried a
+ * temporary loud-failure diagnostic here or at its own seam while its
+ * capability was missing — image decode and placement (39.2), column
+ * measurement and grid setting (39.3), float placement (39.4) and bibliography
+ * formatting (39.5) — and every one of them has landed. The last to go was
+ * `NOTICE-39.4`, on a `\caption` written outside any float: that case is not an
+ * unimplemented capability and never will be one, it is an authoring error, so
+ * the plain `syntax` error in `applyCaption` is now the whole story.
+ */
+
+/**
+ * `\caption`, which only means anything inside a float: its number comes from
+ * the float's class, and its setting is part of setting the float.
+ *
+ * The number is assigned *before* the caption's text is walked, exactly as
+ * `applySection` does it, so a `\label` written inside the caption's own
+ * argument records the caption's number rather than whatever came before.
+ */
+function applyCaption(cmd: CommandNode, sink: Sink, st: BuildState, depth: number): void {
+  const at = cmd.loc.start;
+  const float = st.float;
+  if (float === null) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        "\\caption is only allowed inside a figure or table environment; there is no float here for it to number",
+        "\\caption",
+      ),
+    );
+    return;
+  }
+  const arg = mandatoryArgument(cmd);
+  if (arg === null) {
+    st.diagnostics.push(error("syntax", at, "\\caption needs its text", "\\caption"));
+    return;
+  }
+  if (cmd.args.some((a) => a.bracket === "[")) {
+    st.diagnostics.push(
+      unsupported(
+        at,
+        "\\caption[...]",
+        "a separate short caption for the list of figures or tables is not implemented",
+      ),
+    );
+  }
+  step(st.counters, floatCounter(float.floatClass));
+  const number = formatFloatNumber(st.counters, float.floatClass);
+  st.currentLabel = number;
+  st.currentLabelKind = float.floatClass;
+  const marker = captionMarker(st.captions);
+  st.captions += 1;
+  const content = walkInlines(arg.content, st, DEFAULT_TEXT_STYLE, "\\caption", depth + 1);
+  // The very same array the caption sets, not a copy — the sharing `TocEntry`
+  // relies on, so a `\ref` inside a caption resolves in both places at once.
+  // Layout must drop occurrence-only inlines when it re-sets it; see `tocTitle`
+  // in `layout/vlist.ts` for the bug that rule exists to prevent.
+  st.floatList.push({ floatClass: float.floatClass, number, title: content, marker });
+  pushBlock(sink, { kind: "caption", floatClass: float.floatClass, number, content, marker, loc: at });
+}
+
+/** `figure`, `figure*`, `table`, `table*`. */
+function applyFloat(
+  env: EnvironmentNode,
+  floatClass: FloatClass,
+  spanning: boolean,
+  sink: Sink,
+  st: BuildState,
+  depth: number,
+): void {
+  const at = env.loc.start;
+  if (st.float !== null) {
+    // LaTeX refuses this outright ("Not in outer par mode"), and the inner
+    // float's caption would take a number that no page could ever show.
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `a \`${env.name}\` cannot be nested inside a \`${st.float.construct}\`; LaTeX floats do not nest`,
+        env.name,
+      ),
+    );
+  }
+  const placement = readFloatPlacement(env, st);
+  const saved = st.float;
+  st.float = { floatClass, construct: env.name };
+  const content = walkBlocks(env.body, st, DEFAULT_TEXT_STYLE, depth + 1);
+  st.float = saved;
+  if (content.length === 0) {
+    st.diagnostics.push(warning("syntax", at, `\`${env.name}\` is empty, so it sets nothing`, env.name));
+  }
+  pushBlock(sink, {
+    kind: "float",
+    floatClass,
+    construct: env.name,
+    spanning,
+    placement,
+    content,
+    loc: at,
+  });
+}
+
+/** `[htbp]`, `[!ht]`, or nothing at all — in which case the class default applies. */
+function readFloatPlacement(env: EnvironmentNode, st: BuildState): FloatPlacement {
+  const at = env.loc.start;
+  const arg = env.args.find((a) => a.bracket === "[");
+  if (arg === undefined) return { ...DEFAULT_FLOAT_PLACEMENT, letters: [...DEFAULT_FLOAT_PLACEMENT.letters] };
+
+  const letters: FloatPlacementLetter[] = [];
+  let override = false;
+  for (const char of plainText(arg.content)) {
+    if (char === " " || char === "\t" || char === "\n") continue;
+    if (char === "!") {
+      override = true;
+      continue;
+    }
+    if (char === "h" || char === "t" || char === "b" || char === "p") {
+      if (!letters.includes(char)) letters.push(char);
+      continue;
+    }
+    if (char === "H") {
+      st.diagnostics.push(
+        unsupported(
+          at,
+          `${env.name}[H]`,
+          "the float package's H (exactly here, never moved) placement is out of scope; write [h] and accept that it may move",
+        ),
+      );
+      continue;
+    }
+    st.diagnostics.push(
+      error("syntax", at, `\`${char}\` is not a float placement letter; use h, t, b or p`, env.name),
+    );
+  }
+  if (letters.length === 0) {
+    st.diagnostics.push(
+      warning(
+        "syntax",
+        at,
+        `\`${env.name}\` was given no usable placement letter, so the class default (${DEFAULT_FLOAT_PLACEMENT.letters.join("")}) applies`,
+        env.name,
+      ),
+    );
+    return { letters: [...DEFAULT_FLOAT_PLACEMENT.letters], override, explicit: false };
+  }
+  return { letters, override, explicit: true };
+}
+
+/**
+ * `\includegraphics[width=…,height=…,scale=…]{file}`.
+ *
+ * **Nothing is read.** The path is recorded as written; resolving it against
+ * `compile()`'s file map, decoding the bytes and honouring the sizing keys is
+ * `src/image/`'s job (chunk 39.2), because the engine performs no I/O of its
+ * own (D38) and the document layer has no file map at all.
+ */
+function applyIncludeGraphics(cmd: CommandNode, sink: Sink, st: BuildState): void {
+  const at = cmd.loc.start;
+  const arg = mandatoryArgument(cmd);
+  const path = arg === null ? "" : plainText(arg.content).trim();
+  if (path.length === 0) {
+    st.diagnostics.push(
+      error("syntax", at, "\\includegraphics needs a file name, e.g. \\includegraphics{plot.png}", "\\includegraphics"),
+    );
+  }
+  const options = cmd.args.find((a) => a.bracket === "[");
+  const sizing = readImageSizing(options === undefined ? [] : options.content, at, st);
+  // Emitted even when the name is missing: the node is what carries this site
+  // into layout, and a construct that produced a diagnostic and then vanished
+  // from the model is exactly the silent loss D38 forbids.
+  emit(sink, { kind: "image", path, sizing, style: cloneStyle(sink.style), loc: at });
+}
+
+function readImageSizing(nodes: readonly LatexNode[], at: SourceRef, st: BuildState): ImageSizing {
+  const sizing: ImageSizing = { width: null, height: null, scale: null };
+  const raw = keyValueText(nodes).trim();
+  if (raw.length === 0) return sizing;
+  for (const part of raw.split(",")) {
+    const text = part.trim();
+    if (text.length === 0) continue;
+    const eq = text.indexOf("=");
+    if (eq < 0) {
+      st.diagnostics.push(
+        unsupported(
+          at,
+          `\\includegraphics[${text}]`,
+          "only the width=, height= and scale= keys are implemented; graphicx's keyless options are out of scope",
+        ),
+      );
+      continue;
+    }
+    const key = text.slice(0, eq).trim();
+    const value = text.slice(eq + 1).trim();
+    if (key === "width" || key === "height") {
+      const length = parseDocumentLength(value);
+      if (length === null) {
+        st.diagnostics.push(
+          error(
+            "syntax",
+            at,
+            `\\includegraphics's ${key}=${value} is not a length this engine understands; use a unit (pt, bp, in, cm, mm, pc, em, ex) or a multiple of \\textwidth`,
+            "\\includegraphics",
+          ),
+        );
+        continue;
+      }
+      if (key === "width") sizing.width = length;
+      else sizing.height = length;
+      continue;
+    }
+    if (key === "scale") {
+      const factor = Number(value);
+      if (!Number.isFinite(factor) || factor <= 0) {
+        st.diagnostics.push(
+          error("syntax", at, `\\includegraphics's scale=${value} is not a positive number`, "\\includegraphics"),
+        );
+        continue;
+      }
+      sizing.scale = factor;
+      continue;
+    }
+    st.diagnostics.push(
+      unsupported(
+        at,
+        `\\includegraphics[${key}=...]`,
+        "only the width=, height= and scale= keys are implemented",
+      ),
+    );
+  }
+  if (sizing.scale !== null && (sizing.width !== null || sizing.height !== null)) {
+    // LaTeX resolves this silently in favour of the explicit size. Silently is
+    // the problem: the author asked for two sizes and will get one.
+    st.diagnostics.push(
+      warning(
+        "syntax",
+        at,
+        "\\includegraphics was given scale= as well as width= or height=; the explicit size wins and scale= is ignored",
+        "\\includegraphics",
+      ),
+    );
+  }
+  return sizing;
+}
+
+/**
+ * An option list as text, with a length register kept visible: `plainText`
+ * would drop `\textwidth` (it flattens commands away) and `width=0.5\textwidth`
+ * would silently become `width=0.5`, i.e. half a point wide.
+ */
+function keyValueText(nodes: readonly LatexNode[]): string {
+  let out = "";
+  for (const node of nodes) {
+    switch (node.type) {
+      case "text":
+        out += node.value;
+        break;
+      case "whitespace":
+        out += " ";
+        break;
+      case "escaped":
+        out += node.char;
+        break;
+      case "command":
+        out += `\\${node.name}`;
+        break;
+      case "group":
+        out += `{${keyValueText(node.body)}}`;
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
+}
+
+/**
+ * The registers a length may be written as a multiple of. `\linewidth` and
+ * `\columnwidth` are not the same as `\textwidth` — the first is the measure in
+ * force, which is narrower inside a list — and resolving them is a page-design
+ * question, answered by `resolveDocumentLength` in `layout/design.ts`.
+ */
+const LENGTH_REGISTERS: Readonly<Record<string, LengthRegister>> = {
+  textwidth: "textwidth",
+  linewidth: "linewidth",
+  columnwidth: "columnwidth",
+  textheight: "textheight",
+  paperwidth: "paperwidth",
+  paperheight: "paperheight",
+};
+
+/**
+ * `3cm`, `0.8\textwidth`, `2em`, `-1pt` → a `DocumentLength`, or null when it is
+ * not a length this engine reads.
+ *
+ * The absolute units are the same table `parseDimension` in `layout/design.ts`
+ * uses, and `pt` means the PDF point there too (see that file's header on why
+ * TeX's 1/72.27 inch is deliberately not used). The two are separate functions
+ * because this one must *not* resolve `em`, `ex` or `\textwidth`: the document
+ * layer does not know the type size in force or the page's measure, and baking
+ * one page design into the model would be wrong the moment the model is laid
+ * out again.
+ */
+function parseDocumentLength(text: string): DocumentLength | null {
+  const trimmed = text.trim();
+  const relative = /^([+-]?(?:\d+\.?\d*|\.\d+)?)\s*\\([A-Za-z]+)$/.exec(trimmed);
+  if (relative !== null) {
+    const register = LENGTH_REGISTERS[relative[2] ?? ""];
+    if (register === undefined) return null;
+    const written = relative[1] ?? "";
+    const factor = written === "" || written === "+" ? 1 : written === "-" ? -1 : Number(written);
+    if (!Number.isFinite(factor)) return null;
+    return { kind: "relative", factor, of: register };
+  }
+  const absolute = /^([+-]?(?:\d+\.?\d*|\.\d+))\s*(pt|bp|in|cm|mm|pc|em|ex|sp)?$/.exec(trimmed);
+  if (absolute === null) return null;
+  const value = Number(absolute[1]);
+  if (!Number.isFinite(value)) return null;
+  const unit = absolute[2] ?? "pt";
+  if (unit === "em" || unit === "ex") return { kind: "font", value, unit };
+  return { kind: "points", value: value * (ABSOLUTE_UNITS[unit] ?? 1) };
+}
+
+/** Points per unit. `pt` is the PDF point (1/72 in), as `layout/model.ts` requires. */
+const ABSOLUTE_UNITS: Readonly<Record<string, number>> = {
+  pt: 1,
+  bp: 1,
+  in: 72,
+  cm: 72 / 2.54,
+  mm: 72 / 25.4,
+  pc: 12,
+  sp: 1 / 65536,
+};
+
+// --- tables -----------------------------------------------------------------
+
+/**
+ * `tabular`: the cell grid, the column specification and the rules. **Parsed
+ * only** — not one width is measured here, because measuring needs a shaper and
+ * a measure the document layer must not know about (`layout/table.ts`).
+ */
+function applyTabular(env: EnvironmentNode, sink: Sink, st: BuildState, depth: number): void {
+  const at = env.loc.start;
+  if (env.args.some((a) => a.bracket === "[")) {
+    st.diagnostics.push(
+      unsupported(
+        at,
+        `${env.name}[...]`,
+        "aligning a tabular's top or bottom row with the surrounding line is not implemented",
+      ),
+    );
+  }
+  const specArg = env.args.find((a) => a.bracket === "{");
+  let spec: TableColumnSpec = { columns: [], rulesAfter: 0 };
+  if (specArg === undefined) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `\`${env.name}\` needs a column specification, e.g. \\begin{${env.name}}{lcr}`,
+        env.name,
+      ),
+    );
+  } else {
+    spec = readColumnSpec(specArg.content, at, env.name, st);
+    if (spec.columns.length === 0) {
+      st.diagnostics.push(
+        error("syntax", at, `\`${env.name}\`'s column specification declares no columns`, env.name),
+      );
+    }
+  }
+  const { rows, rulesBelow } = readTableBody(env, spec, st, depth);
+  pushBlock(sink, { kind: "table", construct: env.name, spec, rows, rulesBelow, loc: at });
+}
+
+/** One thing in a column specification: a character, or a `{...}` group after `p`. */
+type SpecToken = { kind: "char"; text: string } | { kind: "group"; text: string };
+
+function specTokens(nodes: readonly LatexNode[]): SpecToken[] {
+  const out: SpecToken[] = [];
+  for (const node of nodes) {
+    switch (node.type) {
+      case "text":
+        for (const char of node.value) out.push({ kind: "char", text: char });
+        break;
+      case "whitespace":
+        out.push({ kind: "char", text: " " });
+        break;
+      case "escaped":
+        out.push({ kind: "char", text: node.char });
+        break;
+      case "group":
+        // `p{3cm}`'s width arrives as a real group, so the braces are structure
+        // rather than characters — which is why `plainText` cannot read a column
+        // specification: it would flatten `p{3cm}` to `p3cm`.
+        out.push({ kind: "group", text: plainText(node.body) });
+        break;
+      case "command":
+        out.push({ kind: "char", text: `\\${node.name}` });
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
+}
+
+/** `{|l|c|p{3cm}|}` → columns and the rules between them. */
+function readColumnSpec(
+  nodes: readonly LatexNode[],
+  at: SourceRef,
+  construct: string,
+  st: BuildState,
+): TableColumnSpec {
+  const columns: TableColumn[] = [];
+  const tokens = specTokens(nodes);
+  /** `|`s seen since the last column; they belong in front of the next one. */
+  let rules = 0;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]!;
+    if (token.kind === "group") {
+      st.diagnostics.push(
+        error(
+          "syntax",
+          at,
+          `a \`{...}\` in a column specification only follows \`p\`; \`{${token.text}}\` follows nothing`,
+          construct,
+        ),
+      );
+      continue;
+    }
+    const text = token.text;
+    if (text === " " || text === "\t" || text === "\n") continue;
+    if (text === "|") {
+      rules += 1;
+      continue;
+    }
+    if (text === "l" || text === "c" || text === "r") {
+      columns.push({
+        align: text === "l" ? "left" : text === "c" ? "center" : "right",
+        width: null,
+        rulesBefore: rules,
+      });
+      rules = 0;
+      continue;
+    }
+    if (text === "p") {
+      const next = tokens[i + 1];
+      if (next === undefined || next.kind !== "group") {
+        st.diagnostics.push(error("syntax", at, "a `p` column needs a width, e.g. `p{3cm}`", construct));
+        continue;
+      }
+      i += 1;
+      const width = parseDocumentLength(next.text);
+      if (width === null) {
+        st.diagnostics.push(
+          error("syntax", at, `\`p{${next.text}}\` is not a column width this engine understands`, construct),
+        );
+        continue;
+      }
+      columns.push({ align: "paragraph", width, rulesBefore: rules });
+      rules = 0;
+      continue;
+    }
+    // Real LaTeX from a package the engine does not implement. Each of these
+    // takes a `{...}` argument, which is skipped so one unknown column type is
+    // one diagnostic rather than two.
+    const packageColumn = ARRAY_PACKAGE_COLUMNS[text];
+    if (packageColumn !== undefined) {
+      st.diagnostics.push(unsupported(at, `${construct} column \`${text}\``, packageColumn));
+      if (tokens[i + 1]?.kind === "group") i += 1;
+      continue;
+    }
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `\`${text}\` is not a column type this engine understands; use l, c, r or p{width}`,
+        construct,
+      ),
+    );
+  }
+  return { columns, rulesAfter: rules };
+}
+
+/** Column types that are real LaTeX from a package brief 39 leaves out. */
+const ARRAY_PACKAGE_COLUMNS: Readonly<Record<string, string>> = {
+  m: "the array package's m{width} (vertically centred) column is out of scope; use p{width}",
+  b: "the array package's b{width} (bottom-aligned) column is out of scope; use p{width}",
+  X: "tabularx's X column is out of scope; give the column an explicit p{width}",
+  "@": "the @{...} inter-column material of a column specification is not implemented",
+  "!": "the array package's !{...} inter-column material is not implemented",
+  ">": "the array package's >{...} cell prefix is not implemented",
+  "<": "the array package's <{...} cell suffix is not implemented",
+  "*": "the *{n}{cols} repetition of a column specification is not implemented; write the columns out",
+};
+
+interface TableBody {
+  rows: TableRow[];
+  rulesBelow: TableRule[];
+}
+
+/**
+ * The grid: cells split at `&`, rows at `\\`, with `\hline`/`\cline` collected
+ * at row boundaries and `\multicolumn` read at the start of a cell.
+ *
+ * `&` arrives as its own `text` node (`"&"`) and `\&` as an `escaped` node, so
+ * an escaped ampersand inside a cell is never mistaken for a separator. Text
+ * values are still split on `&` defensively: nothing in the parser's contract
+ * promises the separator always gets a node of its own.
+ */
+function readTableBody(
+  env: EnvironmentNode,
+  spec: TableColumnSpec,
+  st: BuildState,
+  depth: number,
+): TableBody {
+  const rows: TableRow[] = [];
+  let pendingRules: TableRule[] = [];
+  let cells: TableCell[] = [];
+  let cellNodes: LatexNode[] = [];
+  let override: { span: number; column: TableColumn | null; rulesAfter: number } | null = null;
+  let rowLoc: SourceRef = env.loc.start;
+  let cellLoc: SourceRef = env.loc.start;
+
+  const atRowStart = (): boolean => cells.length === 0 && cellNodes.length === 0 && override === null;
+
+  const note = (at: SourceRef): void => {
+    if (atRowStart()) rowLoc = at;
+    if (cellNodes.length === 0) cellLoc = at;
+  };
+
+  const endCell = (): void => {
+    cells.push({
+      content: walkInlines(cellNodes, st, DEFAULT_TEXT_STYLE, `a \`${env.name}\` cell`, depth + 1),
+      span: override?.span ?? 1,
+      override: override?.column ?? null,
+      overrideRulesAfter: override?.rulesAfter ?? 0,
+      loc: cellLoc,
+    });
+    cellNodes = [];
+    override = null;
+  };
+
+  const endRow = (final: boolean): void => {
+    endCell();
+    /*
+     * A `\\` at the very end of a `tabular` is idiomatic and does not begin a
+     * row, so the empty row it would otherwise produce is dropped — but any
+     * `\hline` written after it is kept, as `rulesBelow`. Dropping a row that
+     * has content would be a silent loss, which is why the test is "one empty
+     * unspanned cell" rather than "no cells".
+     */
+    const empty = cells.length === 1 && cells[0]!.content.length === 0 && cells[0]!.span === 1;
+    if (final && empty) {
+      cells = [];
+      return;
+    }
+    const used = cells.reduce((total, cell) => total + cell.span, 0);
+    if (spec.columns.length > 0 && used > spec.columns.length) {
+      st.diagnostics.push(
+        error(
+          "syntax",
+          rowLoc,
+          `this \`${env.name}\` row has ${used} cells but the column specification declares ${spec.columns.length}`,
+          env.name,
+        ),
+      );
+    }
+    rows.push({ cells, rulesAbove: pendingRules, loc: rowLoc });
+    pendingRules = [];
+    cells = [];
+  };
+
+  for (let i = 0; i < env.body.length; i++) {
+    if (!spend(st.budget)) {
+      reportStop(st, env.body[i]?.loc.start);
+      break;
+    }
+    const node = env.body[i]!;
+    if (node.type === "text" && node.value.includes("&")) {
+      const parts = node.value.split("&");
+      for (let p = 0; p < parts.length; p++) {
+        if (p > 0) endCell();
+        const value = parts[p]!;
+        if (value.length === 0) continue;
+        note(node.loc.start);
+        cellNodes.push({ ...node, value });
+      }
+      continue;
+    }
+    if (node.type === "command") {
+      if (node.name === "\\" || node.name === "tabularnewline") {
+        if (node.args.some((a) => a.bracket === "[")) {
+          st.diagnostics.push(
+            unsupported(node.loc.start, "\\\\[...]", "extra vertical space between table rows is not implemented"),
+          );
+        }
+        endRow(i === lastContentIndex(env.body));
+        continue;
+      }
+      if (node.name === "hline") {
+        if (!atRowStart()) {
+          st.diagnostics.push(
+            error(
+              "syntax",
+              node.loc.start,
+              "\\hline may only appear at the start of a row, before any cell content",
+              "\\hline",
+            ),
+          );
+          continue;
+        }
+        pendingRules.push({ from: null, to: null, loc: node.loc.start });
+        continue;
+      }
+      if (node.name === "cline") {
+        const consumed = readCline(env, node, i, spec, st);
+        if (consumed.rule !== null) {
+          if (!atRowStart()) {
+            st.diagnostics.push(
+              error(
+                "syntax",
+                node.loc.start,
+                "\\cline may only appear at the start of a row, before any cell content",
+                "\\cline",
+              ),
+            );
+          } else {
+            pendingRules.push(consumed.rule);
+          }
+        }
+        i += consumed.skip;
+        continue;
+      }
+      if (node.name === "multicolumn") {
+        const spanning = readMulticolumn(node, st);
+        if (spanning === null) continue;
+        if (cellNodes.some((n) => n.type !== "whitespace" && n.type !== "comment")) {
+          st.diagnostics.push(
+            error(
+              "syntax",
+              node.loc.start,
+              "\\multicolumn must be the first thing in its cell",
+              "\\multicolumn",
+            ),
+          );
+          continue;
+        }
+        note(node.loc.start);
+        override = { span: spanning.span, column: spanning.column, rulesAfter: spanning.rulesAfter };
+        cellNodes = [...spanning.content];
+        continue;
+      }
+    }
+    if (node.type === "whitespace" && cellNodes.length === 0 && override === null) {
+      // Leading space in a cell is not content; LaTeX discards it too, and
+      // keeping it would make every cell's measured width a space too wide.
+      continue;
+    }
+    note(node.loc.start);
+    cellNodes.push(node);
+  }
+  endRow(true);
+
+  return { rows, rulesBelow: pendingRules };
+}
+
+/**
+ * The last node in a body that is not trailing whitespace or a comment — so a
+ * `\\` followed only by a newline is recognised as the trailing one it is.
+ */
+function lastContentIndex(nodes: readonly LatexNode[]): number {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const type = nodes[i]!.type;
+    if (type !== "whitespace" && type !== "comment" && type !== "parbreak") return i;
+  }
+  return -1;
+}
+
+/**
+ * `\cline{2-3}`. `@unified-latex` has no signature for `\cline`, so its
+ * argument arrives as a sibling group (see `ast.ts`) — which is why this takes
+ * the body and an index rather than just the command.
+ */
+function readCline(
+  env: EnvironmentNode,
+  cmd: CommandNode,
+  index: number,
+  spec: TableColumnSpec,
+  st: BuildState,
+): { rule: TableRule | null; skip: number } {
+  const at = cmd.loc.start;
+  const own = cmd.args.find((a) => a.bracket === "{");
+  const sibling = own === undefined ? env.body[index + 1] : undefined;
+  const text =
+    own !== undefined
+      ? plainText(own.content)
+      : sibling !== undefined && sibling.type === "group"
+        ? plainText(sibling.body)
+        : null;
+  const skip = own === undefined && text !== null ? 1 : 0;
+  if (text === null) {
+    st.diagnostics.push(error("syntax", at, "\\cline needs a column range, e.g. \\cline{2-3}", "\\cline"));
+    return { rule: null, skip };
+  }
+  const match = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(text);
+  if (match === null) {
+    st.diagnostics.push(
+      error("syntax", at, `\\cline{${text.trim()}} is not a column range like 2-3`, "\\cline"),
+    );
+    return { rule: null, skip };
+  }
+  const from = Number(match[1]);
+  const to = Number(match[2]);
+  const columns = spec.columns.length;
+  if (from < 1 || to < from || (columns > 0 && to > columns)) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `\\cline{${from}-${to}} is outside this \`${env.name}\`'s ${columns} columns`,
+        "\\cline",
+      ),
+    );
+    return { rule: null, skip };
+  }
+  return { rule: { from, to, loc: at }, skip };
+}
+
+/** What a `\multicolumn` says about the cell it opens. */
+interface SpanningCell {
+  span: number;
+  /** `\multicolumn`'s own one-column spec, which overrides the table's here. */
+  column: TableColumn | null;
+  rulesAfter: number;
+  content: readonly LatexNode[];
+}
+
+/** `\multicolumn{2}{|c|}{content}` — a cell that occupies more than one column. */
+function readMulticolumn(cmd: CommandNode, st: BuildState): SpanningCell | null {
+  const at = cmd.loc.start;
+  const args = cmd.args.filter((a) => a.bracket === "{");
+  if (args.length < 3) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        "\\multicolumn needs three arguments: \\multicolumn{columns}{alignment}{content}",
+        "\\multicolumn",
+      ),
+    );
+    return null;
+  }
+  const span = Number(plainText(args[0]!.content).trim());
+  if (!Number.isInteger(span) || span < 1) {
+    st.diagnostics.push(
+      error("syntax", at, "\\multicolumn's first argument must be a whole number of columns", "\\multicolumn"),
+    );
+    return null;
+  }
+  const spec = readColumnSpec(args[1]!.content, at, "\\multicolumn", st);
+  if (spec.columns.length !== 1) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `\\multicolumn's alignment argument must name exactly one column, not ${spec.columns.length}`,
+        "\\multicolumn",
+      ),
+    );
+  }
+  return { span, column: spec.columns[0] ?? null, rulesAfter: spec.rulesAfter, content: args[2]!.content };
+}
+
+// --- bibliography -----------------------------------------------------------
+
+/** Which `\cite` variant produced a citation. They differ only in how they print. */
+const CITATION_STYLES: Readonly<Record<"cite" | "citep" | "citet" | "nocite", CitationStyle>> = {
+  cite: "plain",
+  citep: "parenthetical",
+  citet: "textual",
+  nocite: "silent",
+};
+
+/**
+ * `\cite{a,b}`, `\citep`, `\citet`, `\nocite`. The keys are recorded raw; what
+ * each prints is filled in by `resolveCitations` in `doc/bib.ts` during the same
+ * second pass `\ref` already uses.
+ */
+function applyCitation(
+  id: "cite" | "citep" | "citet" | "nocite",
+  cmd: CommandNode,
+  sink: Sink,
+  st: BuildState,
+): void {
+  const at = cmd.loc.start;
+  const arg = mandatoryArgument(cmd);
+  const keys = (arg === null ? "" : plainText(arg.content))
+    .split(",")
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+  if (keys.length === 0) {
+    st.diagnostics.push(
+      error("syntax", at, `\\${cmd.name} needs at least one citation key`, `\\${cmd.name}`),
+    );
+  }
+  const citation: CitationInline = {
+    kind: "citation",
+    style: CITATION_STYLES[id],
+    construct: `\\${cmd.name}`,
+    keys,
+    // `\nocite` prints nothing; every other form shows `[?]` until the
+    // bibliography resolves it, the way `\ref` shows `??`.
+    text: id === "nocite" ? "" : UNRESOLVED_CITATION,
+    textStyle: cloneStyle(sink.style),
+    loc: at,
+  };
+  // Recorded even with no keys, so the site itself is still reported by the
+  // bibliography pass rather than disappearing with its diagnostic.
+  st.citations.push(citation);
+  if (id !== "nocite") emit(sink, citation);
+}
+
+/**
+ * The commands whose real argument the parser hands back as a sibling group,
+ * with the argument spliced in where `applySpecial` will look for it.
+ *
+ * Two shapes need this, both verified against the parser (2026-08-28):
+ *
+ * - `\citep`, `\citet` and `\nocite` have no signature at all — unlike
+ *   `\cite`, which does — so they arrive with `args: []` and their `{keys}` as
+ *   the next sibling. natbib's optional notes arrive with them, as literal
+ *   `[`…`]` text, and are refused rather than set.
+ * - `\caption*{Text}` parses as `\caption` *whose mandatory argument is the
+ *   star*, with `{Text}` as the next sibling. Left alone, the caption's text
+ *   became `*` and the real text was set as a stray paragraph inside the float
+ *   — a silent loss, so the star is reported and the group adopted.
+ *
+ * Returns null, consuming nothing, unless there is really something to adopt: an
+ * ordinary `[1]` after a citation must stay ordinary text.
+ */
+function adoptSiblingGroup(
+  nodes: readonly LatexNode[],
+  index: number,
+  st: BuildState,
+): { cmd: CommandNode; consumed: number } | null {
+  const node = nodes[index]!;
+  if (node.type !== "command") return null;
+  if (node.name === "caption") return adoptStarredCaption(nodes, index, st);
+  if (!CITATION_ADOPTS_SIBLING.has(node.name)) return null;
+  if (node.args.some((a) => a.bracket === "{")) return null;
+
+  let at = index + 1;
+  let notes = 0;
+  for (;;) {
+    const close = closingBracket(nodes, at);
+    if (close === null) break;
+    notes += 1;
+    at = close + 1;
+  }
+  const group = nodes[at];
+  if (group === undefined || group.type !== "group") return null;
+  if (notes > 0) {
+    st.diagnostics.push(
+      unsupported(
+        node.loc.start,
+        `\\${node.name}[...]`,
+        "natbib's optional before/after citation notes are not implemented; they are dropped rather than set as text",
+      ),
+    );
+  }
+  const adopted: CommandNode = {
+    ...node,
+    args: [...node.args, { bracket: "{", content: (group as GroupNode).body, loc: group.loc }],
+  };
+  return { cmd: adopted, consumed: at - index };
+}
+
+const CITATION_ADOPTS_SIBLING: ReadonlySet<string> = new Set(["citep", "citet", "nocite"]);
+
+/** The `\caption*` half of `adoptSiblingGroup` — see its doc comment. */
+function adoptStarredCaption(
+  nodes: readonly LatexNode[],
+  index: number,
+  st: BuildState,
+): { cmd: CommandNode; consumed: number } | null {
+  const node = nodes[index] as CommandNode;
+  const arg = mandatoryArgument(node);
+  if (arg === null || plainText(arg.content).trim() !== "*") return null;
+  st.diagnostics.push(
+    unsupported(
+      node.loc.start,
+      "\\caption*",
+      "the unnumbered \\caption* form is not implemented; this caption is numbered like any other",
+    ),
+  );
+  const group = nodes[index + 1];
+  const body = group !== undefined && group.type === "group" ? (group as GroupNode).body : [];
+  return {
+    // The star's slot becomes the caption's real text, so `applyCaption` sees
+    // the same shape it would have seen from an unstarred `\caption`.
+    cmd: { ...node, args: node.args.map((a) => (a === arg ? { ...a, content: body } : a)) },
+    consumed: body.length > 0 || (group !== undefined && group.type === "group") ? 1 : 0,
+  };
+}
+
+/** Where a `[`…`]` run starting at `from` closes, or null if it does not look like one. */
+function closingBracket(nodes: readonly LatexNode[], from: number): number | null {
+  const first = nodes[from];
+  if (first === undefined || first.type !== "text" || !first.value.startsWith("[")) return null;
+  // A citation note is short. Past this the `[` is ordinary text that happens
+  // to follow a citation, and consuming to a distant `]` would eat a sentence.
+  const LIMIT = 32;
+  for (let i = from; i < nodes.length && i - from < LIMIT; i++) {
+    const node = nodes[i]!;
+    if (node.type === "text" && node.value.includes("]")) return i;
+  }
+  return null;
+}
+
+/** `\bibliography{refs}` — the reference list built from `.bib` files. */
+function applyBibliographyCommand(cmd: CommandNode, sink: Sink, st: BuildState): void {
+  const at = cmd.loc.start;
+  const arg = mandatoryArgument(cmd);
+  const bibFiles = (arg === null ? "" : plainText(arg.content))
+    .split(",")
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  if (bibFiles.length === 0) {
+    st.diagnostics.push(
+      error("syntax", at, "\\bibliography needs at least one .bib file name", "\\bibliography"),
+    );
+  }
+  const block: BibliographyBlock = {
+    kind: "bibliography",
+    construct: "\\bibliography",
+    source: "bibfile",
+    bibFiles,
+    // Filled in again by `doc/index.ts` before formatting: a
+    // `\bibliographystyle` written *after* the `\bibliography` still counts.
+    style: st.bibliographyStyle,
+    widestLabel: null,
+    entries: [],
+    content: [],
+    loc: at,
+  };
+  st.bibliographies.push(block);
+  pushBlock(sink, block);
+}
+
+/**
+ * `thebibliography` — the reference list written out by hand. Its `\bibitem`s
+ * are consumed structurally here, the same way `applyList` consumes `\item`,
+ * which is why `\bibitem` keeps an `unsupported` row in `macro/builtins.ts`:
+ * that row is reached only by a `\bibitem` written outside any such
+ * environment, where nothing implements it.
+ */
+function applyThebibliography(env: EnvironmentNode, sink: Sink, st: BuildState, depth: number): void {
+  const at = env.loc.start;
+  const widestArg = env.args.find((a) => a.bracket === "{");
+  // Empty as well as absent: `\begin{thebibliography}` with no argument makes
+  // the parser take whatever follows as one — the first `\bibitem`, in a real
+  // document — and `plainText` of that is empty, so the missing argument shows
+  // up here as an empty one rather than as none.
+  const widestLabel = widestArg === undefined ? "" : plainText(widestArg.content).trim();
+  if (widestLabel.length === 0) {
+    st.diagnostics.push(
+      error(
+        "syntax",
+        at,
+        `\`${env.name}\` needs its widest-label argument, e.g. \\begin{${env.name}}{9}`,
+        env.name,
+      ),
+    );
+  }
+  const entries: BibItem[] = [];
+  for (const node of env.body) {
+    if (!spend(st.budget)) {
+      reportStop(st, node.loc.start);
+      break;
+    }
+    if (node.type === "whitespace" || node.type === "parbreak" || node.type === "comment") continue;
+    if (node.type === "command" && node.name === "bibitem") {
+      entries.push(buildBibItem(node, st, depth + 1));
+      continue;
+    }
+    // `\bibitem`'s signature gobbles everything up to the next one, so anything
+    // still sitting directly in the body was written before the first entry.
+    st.diagnostics.push(
+      error("syntax", node.loc.start, `content in \`${env.name}\` before the first \\bibitem`, env.name),
+    );
+  }
+  if (entries.length === 0) {
+    st.diagnostics.push(warning("syntax", at, `\`${env.name}\` has no \\bibitem`, env.name));
+  }
+  const block: BibliographyBlock = {
+    kind: "bibliography",
+    construct: env.name,
+    source: "thebibliography",
+    bibFiles: [],
+    style: st.bibliographyStyle,
+    widestLabel: widestLabel.length === 0 ? null : widestLabel,
+    entries,
+    content: [],
+    loc: at,
+  };
+  st.bibliographies.push(block);
+  pushBlock(sink, block);
+}
+
+function buildBibItem(cmd: CommandNode, st: BuildState, depth: number): BibItem {
+  const at = cmd.loc.start;
+  const braced = cmd.args.filter((a) => a.bracket === "{");
+  const key = braced.length > 0 ? plainText(braced[0]!.content).trim() : "";
+  if (key.length === 0) {
+    st.diagnostics.push(error("syntax", at, "\\bibitem needs a citation key", "\\bibitem"));
+  }
+  const optional = cmd.args.find((a) => a.bracket === "[");
+  // The trailing gobbled slot: `\bibitem`'s signature swallows everything up to
+  // the next `\bibitem` or `\end`, exactly as `\item`'s does.
+  const last = cmd.args.length > 0 ? cmd.args[cmd.args.length - 1]! : undefined;
+  const bodyNodes = last !== undefined && last.bracket === null ? last.content : [];
+  return {
+    key,
+    label: optional === undefined ? null : walkInlines(optional.content, st, DEFAULT_TEXT_STYLE, "\\bibitem[...]", depth),
+    content: walkBlocks(bodyNodes, st, DEFAULT_TEXT_STYLE, depth),
+    loc: at,
+  };
 }
 
 function boldStyle(): TextStyle {

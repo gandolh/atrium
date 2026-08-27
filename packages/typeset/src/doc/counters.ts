@@ -1,4 +1,4 @@
-import type { HeadingLevel } from "./model.ts";
+import type { FloatClass, HeadingLevel } from "./model.ts";
 import { HEADING_DEPTH, SECTION_NUMBER_DEPTH } from "./model.ts";
 
 /**
@@ -18,6 +18,8 @@ export type CounterName =
   | "subsubsection"
   | "paragraph"
   | "footnote"
+  | "figure"
+  | "table"
   | "enumi"
   | "enumii"
   | "enumiii"
@@ -30,6 +32,12 @@ const SUBORDINATES: Readonly<Record<CounterName, readonly CounterName[]>> = {
   subsubsection: ["paragraph"],
   paragraph: [],
   footnote: [],
+  // `article.cls` numbers figures and tables straight through the document
+  // (`\@addtoreset` is only used for `equation` there), so neither is reset by
+  // a `\section` and neither resets anything. Copying `report.cls`'s
+  // chapter-relative behaviour here would renumber every caption in a paper.
+  figure: [],
+  table: [],
   enumi: ["enumii", "enumiii", "enumiv"],
   enumii: ["enumiii", "enumiv"],
   enumiii: ["enumiv"],
@@ -45,6 +53,8 @@ export function createCounters(): Counters {
     subsubsection: 0,
     paragraph: 0,
     footnote: 0,
+    figure: 0,
+    table: 0,
     enumi: 0,
     enumii: 0,
     enumiii: 0,
@@ -187,4 +197,31 @@ export function enumReferenceText(counters: Counters, depth: number): string {
     out += level === 2 && level < d ? `(${text})` : text;
   }
   return out;
+}
+
+// --- floats -----------------------------------------------------------------
+
+/**
+ * `FloatClass` itself lives in `model.ts` with the blocks that carry it: it is
+ * document vocabulary, and a float's class decides three things at once (which
+ * counter steps, which `\listof...` collects it, which name its caption gets).
+ */
+
+const FLOAT_COUNTER: Readonly<Record<FloatClass, CounterName>> = {
+  figure: "figure",
+  table: "table",
+};
+
+export function floatCounter(floatClass: FloatClass): CounterName {
+  return FLOAT_COUNTER[floatClass];
+}
+
+/**
+ * `\thefigure` / `\thetable` — plain arabic in `article`, with no section
+ * prefix. This is also exactly what a `\ref` to the caption prints, which is
+ * why there is one function rather than a label form and a reference form (see
+ * `enumReferenceText` for the case where LaTeX really does distinguish them).
+ */
+export function formatFloatNumber(counters: Counters, floatClass: FloatClass): string {
+  return String(counters[floatCounter(floatClass)]);
 }

@@ -248,7 +248,7 @@ function compileProject(
   // pass re-shapes almost exactly the same words as the first.
   const shaper = createShaper();
 
-  const laid = layoutDocument(build, design, fonts, shaper, budget, entrypoint, opts);
+  const laid = layoutDocument(build, design, fonts, shaper, budget, entrypoint, opts, files);
   for (const d of laid.diagnostics) diagnostics.push(d);
 
   if (budget.stopped && !budget.reported) {
@@ -327,6 +327,8 @@ function layoutDocument(
   budget: Budget,
   entrypoint: string,
   opts: ResolvedCompileOptions,
+  /** The project's bytes, undecoded — `\includegraphics` resolves against these. */
+  files: Record<string, Uint8Array>,
 ): LaidOutDocument {
   let known: ReadonlyMap<string, number> = new Map();
   let referenceDiagnostics: Diagnostic[] = [];
@@ -335,11 +337,16 @@ function layoutDocument(
 
   for (let pass = 1; pass <= MAX_LAYOUT_PASSES; pass++) {
     const passDiagnostics: Diagnostic[] = [];
-    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known);
+    // `files` reaches layout because an image is an input like any other (D38):
+    // `\includegraphics` resolves its name against this map and nothing else.
+    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known, files);
     const list = buildVerticalList(build.document, ctx);
     const built = buildPages(list, {
       design,
       footnotes: ctx.footnotes,
+      // The float queue's input (brief 39, chunk 39.4). Keyed by the marker
+      // `vlist.ts` left where each float was written, in document order.
+      floats: ctx.floats,
       fonts,
       shaper,
       budget,

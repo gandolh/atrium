@@ -1,4 +1,4 @@
-import type { FontSelection, HeadingLevel, ListVariant } from "../doc/model.ts";
+import type { FloatClass, FontSelection, HeadingLevel, ListVariant } from "../doc/model.ts";
 
 /**
  * The builtin command and environment tables (brief 37, chunk 6).
@@ -29,6 +29,16 @@ export type SpecialId =
   | "date"
   | "maketitle"
   | "tableofcontents"
+  | "listoffigures"
+  | "listoftables"
+  | "caption"
+  | "includegraphics"
+  | "cite"
+  | "citep"
+  | "citet"
+  | "nocite"
+  | "bibliography"
+  | "bibliographystyle"
   | "label"
   | "ref"
   | "pageref"
@@ -100,6 +110,20 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   maketitle: { role: "special", id: "maketitle" },
   tableofcontents: { role: "special", id: "tableofcontents" },
   item: { role: "special", id: "item" },
+
+  // --- floats (brief 39) ---
+  caption: { role: "special", id: "caption" },
+  listoffigures: { role: "special", id: "listoffigures" },
+  listoftables: { role: "special", id: "listoftables" },
+  includegraphics: { role: "special", id: "includegraphics" },
+
+  // --- bibliography (brief 39) ---
+  cite: { role: "special", id: "cite" },
+  citep: { role: "special", id: "citep" },
+  citet: { role: "special", id: "citet" },
+  nocite: { role: "special", id: "nocite" },
+  bibliography: { role: "special", id: "bibliography" },
+  bibliographystyle: { role: "special", id: "bibliographystyle" },
 
   // --- cross-references ---
   label: { role: "special", id: "label" },
@@ -196,16 +220,14 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   ignorespaces: { role: "special", id: "ignore" },
 
   // --- real LaTeX we do not implement (brief-scoped) ---
-  includegraphics: unimplemented("images are out of scope for brief 37"),
-  caption: unimplemented("floats and their captions are out of scope for brief 37"),
   centering: unimplemented("centred text is out of scope for brief 37"),
-  cite: unimplemented("bibliographies are brief 39"),
-  citep: unimplemented("bibliographies are brief 39"),
-  citet: unimplemented("bibliographies are brief 39"),
-  nocite: unimplemented("bibliographies are brief 39"),
-  bibliography: unimplemented("bibliographies are brief 39"),
-  bibliographystyle: unimplemented("bibliographies are brief 39"),
-  bibitem: unimplemented("bibliographies are brief 39"),
+  // `\bibitem` is real LaTeX, and inside `thebibliography` it *is* implemented
+  // — but never through this table: `applyBibliography` in `doc/build.ts` reads
+  // the environment's body and consumes each `\bibitem` node structurally, the
+  // same way `applyList` consumes `\item`. So this row is reached only by a
+  // `\bibitem` written outside any `thebibliography`, where the honest answer
+  // is that nothing implements it.
+  bibitem: unimplemented("\\bibitem is only recognised inside a thebibliography environment"),
   textsc: unimplemented("the engine ships no small-caps face"),
   textsl: unimplemented("the engine ships no slanted face distinct from italic"),
   scshape: unimplemented("the engine ships no small-caps face"),
@@ -226,6 +248,14 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   nolinebreak: unimplemented("break suppression is out of scope for brief 37"),
   pagestyle: unimplemented("page styles are out of scope for brief 37"),
   thispagestyle: unimplemented("page styles are out of scope for brief 37"),
+  // Readable inside `\includegraphics`'s `width=`/`height=` keys and a `p{}`
+  // column, where `doc/build.ts` reads the register out of the raw nodes
+  // without ever consulting this table. On its own it is a length register,
+  // and length registers are out of scope.
+  textwidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
+  linewidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
+  columnwidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
+  textheight: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
   setlength: unimplemented("length registers are out of scope"),
   addtolength: unimplemented("length registers are out of scope"),
   newcounter: unimplemented("user counters are out of scope for brief 37"),
@@ -244,6 +274,27 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   textcolor: unimplemented("colour is out of scope for brief 37"),
   href: unimplemented("hyperlinks are out of scope for brief 37"),
   url: unimplemented("hyperlinks are out of scope for brief 37"),
+
+  // --- real LaTeX we do not implement (brief 39's Out list, chunk 39.6) ---
+  // These four command names were, until this chunk, in no table at all —
+  // which made them `undefined-command`, telling an author that `\rotatebox`
+  // or `\multirow` are not real LaTeX. They are: `\rotatebox` is graphicx,
+  // `\multirow` is the multirow package, and `\toprule`/`\midrule`/
+  // `\bottomrule`/`\cmidrule` are booktabs. Brief 39 lists all of them as
+  // things this engine deliberately declined, so the honest diagnostic is
+  // `unsupported`, matching how `wrapfigure`/`tabularx`/`longtable` (a few
+  // rows and one table up) already report. `detail` says *why brief 39
+  // stops here*, not "not yet" — there is no brief that picks this back up.
+  rotatebox: unimplemented("graphicx's \\rotatebox is out of scope for brief 39; images are placed unrotated"),
+  toprule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
+  midrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
+  bottomrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
+  cmidrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
+  multirow: unimplemented("the multirow package is out of scope for brief 39; every cell spans exactly one row"),
+  // `subcaption` (the package's per-image `\subcaption` command) is here;
+  // its `subfigure` *environment* is the matching row in
+  // `BUILTIN_ENVIRONMENTS` below.
+  subcaption: unimplemented("the subcaption package is out of scope for brief 39"),
 
   // --- TeX programming: permanently out of scope ---
   def: texProgramming(),
@@ -321,7 +372,13 @@ export const FORMATTING_HOOKS: ReadonlySet<string> = new Set([
 
 export type EnvironmentSpec =
   | { role: "list"; variant: ListVariant }
-  | { role: "special"; id: "document" | "abstract" | "verbatim" }
+  /**
+   * A float environment. `class` picks the counter, the `\listof...` and the
+   * caption name; `spanning` is the `*` form. A role rather than four `special`
+   * ids because the four differ only in these two flags.
+   */
+  | { role: "float"; class: FloatClass; spanning: boolean }
+  | { role: "special"; id: "document" | "abstract" | "verbatim" | "tabular" | "thebibliography" }
   | { role: "unsupported"; detail: string };
 
 export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
@@ -332,15 +389,23 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   enumerate: { role: "list", variant: "enumerate" },
   description: { role: "list", variant: "description" },
 
+  // --- brief 39 ---
+  figure: { role: "float", class: "figure", spanning: false },
+  "figure*": { role: "float", class: "figure", spanning: true },
+  table: { role: "float", class: "table", spanning: false },
+  "table*": { role: "float", class: "table", spanning: true },
+  tabular: { role: "special", id: "tabular" },
+  thebibliography: { role: "special", id: "thebibliography" },
+
   // Known LaTeX, deliberately not implemented.
-  figure: { role: "unsupported", detail: "floats are out of scope for brief 37" },
-  "figure*": { role: "unsupported", detail: "floats are out of scope for brief 37" },
-  table: { role: "unsupported", detail: "floats are out of scope for brief 37" },
-  "table*": { role: "unsupported", detail: "floats are out of scope for brief 37" },
-  wrapfigure: { role: "unsupported", detail: "floats are out of scope for brief 37" },
-  tabular: { role: "unsupported", detail: "tables are out of scope for brief 37" },
-  tabularx: { role: "unsupported", detail: "tables are out of scope for brief 37" },
-  longtable: { role: "unsupported", detail: "tables are out of scope for brief 37" },
+  wrapfigure: { role: "unsupported", detail: "text wrapped around a float is out of scope (brief 39's Out list)" },
+  tabularx: { role: "unsupported", detail: "only plain tabular is implemented (brief 39's Out list)" },
+  longtable: { role: "unsupported", detail: "only plain tabular is implemented (brief 39's Out list)" },
+  // The subcaption package's environment (its `\subcaption` command is the
+  // matching row in `BUILTIN_COMMANDS` above). Was previously in no table at
+  // all, which reported `undefined-environment` — a false claim that no such
+  // environment exists, for a package brief 39 names as declined on purpose.
+  subfigure: { role: "unsupported", detail: "the subcaption package is out of scope for brief 39" },
   array: { role: "unsupported", detail: "math is brief 40" },
   equation: { role: "unsupported", detail: "math is brief 40" },
   "equation*": { role: "unsupported", detail: "math is brief 40" },
@@ -350,7 +415,6 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   eqnarray: { role: "unsupported", detail: "math is brief 40" },
   displaymath: { role: "unsupported", detail: "math is brief 40" },
   math: { role: "unsupported", detail: "math is brief 40" },
-  thebibliography: { role: "unsupported", detail: "bibliographies are brief 39" },
   center: { role: "unsupported", detail: "centred text is out of scope for brief 37" },
   flushleft: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },
   flushright: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },

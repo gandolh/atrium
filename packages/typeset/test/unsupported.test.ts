@@ -44,15 +44,23 @@ function unsupportedFor(result: CompileResult, construct: string): Diagnostic | 
 // --- 1. commands: real LaTeX, deliberately not implemented ------------------
 
 const UNSUPPORTED_COMMANDS = [
-  "includegraphics",
-  "caption",
+  // `caption` is not here: chunk 39.4 sets captions for real. Bare — which is
+  // how this list calls every name — it is a caption with no float to number,
+  // and that is a permanent authoring error rather than a missing capability,
+  // so what it reports is `syntax`, not `unsupported`. See
+  // `figures-tables-bib.test.ts`'s "a \caption outside a float is refused".
   "centering",
   "cite",
   "citep",
   "citet",
   "nocite",
   "bibliography",
-  "bibliographystyle",
+  // `bibliographystyle` is not here: chunk 39.5 implemented it for real. A
+  // bare `\bibliographystyle` (this list's fixture calls every name bare, with
+  // no argument) is now purely a `syntax` error ("needs a style name"); the
+  // `unsupported` diagnostic only fires for a *named*, unrecognised style
+  // (e.g. `\bibliographystyle{apalike}`, covered in `figures-tables-bib.test.ts`),
+  // which this bare-invocation harness cannot exercise.
   "bibitem",
   "textsc",
   "scshape",
@@ -156,16 +164,21 @@ test("every TeX-programming primitive reports `unsupported`, permanently out of 
  * further down, which documents why they currently fail this contract.
  */
 const UNSUPPORTED_ENVIRONMENTS = [
-  "figure",
-  "figure*",
-  "table",
-  "table*",
+  // `figure`, `figure*`, `table` and `table*` are gone from this inventory:
+  // chunk 39.4 places floats for real, so a well-formed one now reports
+  // nothing at all. `test/floats.test.ts` covers what they do instead.
+  // `wrapfigure` stays — text wrapped around a float is on brief 39's Out list.
   "wrapfigure",
-  "tabular",
   "tabularx",
   "longtable",
   "array",
   "eqnarray",
+  // `thebibliography` stays here for the one shape this inventory exercises
+  // (a plain `\begin{thebibliography}...x...\end{thebibliography}` with no
+  // real `\bibitem`, so 0 entries): chunk 39.5 still reports `unsupported`
+  // for an empty list, because there is genuinely nothing to format. A
+  // non-empty `thebibliography` is fully implemented and reports nothing —
+  // see `figures-tables-bib.test.ts`'s bibliography section for that case.
   "thebibliography",
   "center",
   "flushleft",
@@ -377,8 +390,12 @@ test("\\maketitle with no \\date is a warning, not an error", () => {
 // --- 6. unsupported vs undefined --------------------------------------------
 
 test("a genuine LaTeX command reports `unsupported`; an invented one reports `undefined-command`", () => {
-  const real = compileSource(doc("\\includegraphics{x}"));
-  assert.equal(real.diagnostics.find((d) => d.construct === "\\includegraphics")?.code, "unsupported");
+  // `\includegraphics` used to be this suite's stock exemplar of "real LaTeX,
+  // deliberately not implemented" — chunk 39.2 implemented it for real, so it
+  // now reports `missing-file`/a decode diagnostic instead. `\textsc` takes
+  // over the role: it is still genuinely unsupported (no small-caps face).
+  const real = compileSource(doc("\\textsc{x}"));
+  assert.equal(real.diagnostics.find((d) => d.construct === "\\textsc")?.code, "unsupported");
 
   const fake = compileSource(doc("\\notarealcommand"));
   const fakeDiag = fake.diagnostics.find((d) => d.construct === "\\notarealcommand");
@@ -388,8 +405,11 @@ test("a genuine LaTeX command reports `unsupported`; an invented one reports `un
 });
 
 test("a genuine LaTeX environment reports `unsupported`; an invented one reports `undefined-environment`", () => {
-  const real = compileSource(doc("\\begin{tabular}{c}\nx\n\\end{tabular}"));
-  assert.equal(real.diagnostics.find((d) => d.construct === "tabular")?.code, "unsupported");
+  // Same swap as above, for environments: `tabular` is chunk 39.3's, and a
+  // valid one (as this fixture now is) sets for real with no diagnostic at
+  // all. `longtable` is still genuinely out of scope.
+  const real = compileSource(doc("\\begin{longtable}{c}\nx\n\\end{longtable}"));
+  assert.equal(real.diagnostics.find((d) => d.construct === "longtable")?.code, "unsupported");
 
   const fake = compileSource(doc("\\begin{notarealenv}\nx\n\\end{notarealenv}"));
   const fakeDiag = fake.diagnostics.find((d) => d.construct === "notarealenv");
@@ -400,17 +420,19 @@ test("a genuine LaTeX environment reports `unsupported`; an invented one reports
 // --- 7. positions ------------------------------------------------------------
 
 test("an unsupported construct several lines into a document reports the right line", () => {
+  // `\textsc` replaces `\includegraphics` as the exemplar here too — see the
+  // "unsupported vs undefined" tests above for why.
   const src = [
     "\\documentclass{article}",
     "\\begin{document}",
     "Line three text.",
     "Line four text.",
-    "\\includegraphics{cat.png}",
+    "\\textsc{cat}",
     "\\end{document}",
     "",
   ].join("\n");
   const result = compileSource(src);
-  const hit = unsupportedFor(result, "\\includegraphics");
+  const hit = unsupportedFor(result, "\\textsc");
   assert.ok(hit !== undefined);
   assert.equal(hit.line, 5);
 });
@@ -418,7 +440,7 @@ test("an unsupported construct several lines into a document reports the right l
 test("an unsupported construct inside a \\newcommand body reports the definition's line, not the call site's", () => {
   const src = [
     "\\documentclass{article}", // 1
-    "\\newcommand{\\foo}{\\includegraphics{x}}", // 2 - the construct is written here
+    "\\newcommand{\\foo}{\\textsc{x}}", // 2 - the construct is written here
     "\\begin{document}", // 3
     "Some text here.", // 4
     "More text.", // 5
@@ -427,12 +449,17 @@ test("an unsupported construct inside a \\newcommand body reports the definition
     "",
   ].join("\n");
   const result = compileSource(src);
-  const hit = unsupportedFor(result, "\\includegraphics");
+  const hit = unsupportedFor(result, "\\textsc");
   assert.ok(hit !== undefined);
   assert.equal(hit.line, 2, "the diagnostic should point at the source line the construct is literally written on");
 });
 
 test("a document made entirely of unsupported constructs reports every one of them, not just the first", () => {
+  // `\includegraphics` is left in the fixture (chunk 39.2's own suite covers
+  // its new behaviour): it now reports `missing-file` rather than
+  // `unsupported`, so it drops out of the Set below, but the per-construct
+  // line assertion after it still holds — a diagnostic still names it, on
+  // the right line, whatever its code.
   const src = [
     "\\documentclass{article}",
     "\\begin{document}",
@@ -445,10 +472,7 @@ test("a document made entirely of unsupported constructs reports every one of th
   ].join("\n");
   const result = compileSource(src);
   const unsupportedConstructs = result.diagnostics.filter((d) => d.code === "unsupported").map((d) => d.construct);
-  assert.deepEqual(
-    new Set(unsupportedConstructs),
-    new Set(["\\includegraphics", "\\centering", "\\thanks", "\\href"]),
-  );
+  assert.deepEqual(new Set(unsupportedConstructs), new Set(["\\centering", "\\thanks", "\\href"]));
   // And each on its own correct line.
   assert.equal(result.diagnostics.find((d) => d.construct === "\\includegraphics")?.line, 3);
   assert.equal(result.diagnostics.find((d) => d.construct === "\\centering")?.line, 4);

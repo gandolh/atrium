@@ -1,6 +1,6 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontHandle } from "../font/handle.ts";
-import type { GlyphRun, Page, PlacedRule } from "../layout/page.ts";
+import type { GlyphRun, Page, PlacedImage, PlacedRule } from "../layout/page.ts";
 import type { SourceRef } from "../diagnostics.ts";
 import { error } from "../diagnostics.ts";
 import { formatNumber, roundToOutput, toGlyphSpace } from "./numbers.ts";
@@ -30,6 +30,16 @@ import type { FontSubset } from "./subset.ts";
 export interface FontRegistry {
   /** The subset for this face, created on first use, in document order. */
   use(handle: FontHandle): FontSubset;
+}
+
+/**
+ * The resource name (`Im0`) an image's `XObject` was registered under.
+ * `pdf/render.ts` embeds the images before any content stream is built, so this
+ * is a lookup and never a failure — an unknown path is an engine bug and says
+ * so rather than emitting a `Do` for a resource that is not in the dictionary.
+ */
+export interface ImageRegistry {
+  use(path: string): string | undefined;
 }
 
 export interface PageContent {
@@ -88,6 +98,27 @@ function emitRule(rule: PlacedRule, page: Page, out: string[]): void {
   const x = formatNumber(rule.x);
   const y = formatNumber(pdfY(page, rule.y + rule.height));
   out.push(`${x} ${y} ${formatNumber(rule.width)} ${formatNumber(rule.height)} re f`);
+}
+
+/**
+ * An image is painted by scaling the unit square: PDF's image space is always
+ * one unit wide and one unit tall with its origin at the *bottom* left, so the
+ * `cm` below is the whole of the placement — `width` and `height` on the
+ * diagonal, and the bottom-left corner as the translation.
+ *
+ * `q`/`Q` bracket it because `cm` multiplies the current transformation matrix:
+ * without the save and restore, the second image on a page would be placed
+ * inside the first one's coordinate system.
+ */
+function emitImage(item: PlacedImage, page: Page, resource: string, out: string[]): void {
+  const x = formatNumber(item.x);
+  // `item.y` is the top edge and the picture grows downwards, so the PDF origin
+  // is its bottom edge — the same conversion `emitRule` makes.
+  const y = formatNumber(pdfY(page, item.y + item.height));
+  out.push("q");
+  out.push(`${formatNumber(item.width)} 0 0 ${formatNumber(item.height)} ${x} ${y} cm`);
+  out.push(`/${resource} Do`);
+  out.push("Q");
 }
 
 function emitRun(run: GlyphRun, page: Page, font: FontSubset, out: string[]): void {
@@ -160,7 +191,12 @@ function emitRun(run: GlyphRun, page: Page, font: FontSubset, out: string[]): vo
   out.push("ET");
 }
 
-export function buildPageContent(page: Page, registry: FontRegistry, at: SourceRef): PageContent {
+export function buildPageContent(
+  page: Page,
+  registry: FontRegistry,
+  images: ImageRegistry,
+  at: SourceRef,
+): PageContent {
   const diagnostics: Diagnostic[] = [];
   // Fill colour is explicit rather than inherited: a content stream's initial
   // graphics state is black by spec, but saying so costs three bytes and makes
@@ -189,6 +225,28 @@ export function buildPageContent(page: Page, registry: FontRegistry, at: SourceR
       }
       if (item.width === 0 || item.height === 0) continue;
       emitRule(item, page, out);
+      continue;
+    }
+
+    if (item.kind === "image") {
+      if (!allFinite([item.x, item.y, item.width, item.height])) {
+        diagnostics.push(
+          error("internal", at, `page ${page.number} carries an image with a non-finite dimension`),
+        );
+        continue;
+      }
+      // A zero-sized image paints nothing, and `placeImage` refuses to produce
+      // one; skipping rather than emitting keeps a degenerate `cm` out of the
+      // stream either way.
+      if (item.width === 0 || item.height === 0) continue;
+      const resource = images.use(item.path);
+      if (resource === undefined) {
+        diagnostics.push(
+          error("internal", at, `page ${page.number} names the image \`${item.path}\`, which was not embedded`),
+        );
+        continue;
+      }
+      emitImage(item, page, resource, out);
       continue;
     }
 

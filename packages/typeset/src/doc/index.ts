@@ -8,7 +8,9 @@ import type { Budget } from "../macro/budget.ts";
 import { createExpandContext, expandMacros } from "../macro/expand.ts";
 import type { BuildState } from "./build.ts";
 import { createBuildState, plainText, readPreamble, walkBlocks } from "./build.ts";
-import type { Block, LatexDocument, ReferenceInline } from "./model.ts";
+import type { BibContext } from "./bib.ts";
+import { formatBibliography, resolveCitations } from "./bib.ts";
+import type { Block, CitationInline, LatexDocument, ReferenceInline } from "./model.ts";
 import { DEFAULT_TEXT_STYLE, UNRESOLVED_REFERENCE } from "./model.ts";
 
 /**
@@ -43,6 +45,13 @@ export interface BuildResult {
   steps: number;
   /** Every `\ref`/`\pageref` in the document, in source order. */
   references: readonly ReferenceInline[];
+  /**
+   * Every `\cite`/`\citep`/`\citet`/`\nocite`, in source order — beside
+   * `references` rather than on the document for the same reason: they are the
+   * *inputs* to a resolution pass, not part of what the document means.
+   * `\nocite` sites are here too, and print nothing.
+   */
+  citations: readonly CitationInline[];
   /**
    * The half of the two-pass cycle that only layout can close.
    *
@@ -111,6 +120,7 @@ export function buildDocument(
 
   const blocks: Block[] = walkBlocks(body, st, DEFAULT_TEXT_STYLE);
   resolveReferences(st);
+  resolveBibliography(files, st, budget);
 
   const document: LatexDocument = {
     documentClass: st.documentClass ?? "article",
@@ -119,6 +129,7 @@ export function buildDocument(
     packages: st.packages,
     blocks,
     toc: st.toc,
+    floatList: st.floatList,
     labels: st.labels,
     footnotes: st.footnotes,
   };
@@ -128,6 +139,7 @@ export function buildDocument(
     diagnostics,
     steps: budget.spent,
     references: st.references,
+    citations: st.citations,
     resolvePageNumbers: (pages) => applyPageNumbers(st, pages),
   };
 }
@@ -141,12 +153,14 @@ function emptyResult(diagnostics: Diagnostic[], budget: Budget): BuildResult {
       packages: [],
       blocks: [],
       toc: [],
+      floatList: [],
       labels: new Map(),
       footnotes: [],
     },
     diagnostics,
     steps: budget.spent,
     references: [],
+    citations: [],
     resolvePageNumbers: () => [],
   };
 }
@@ -315,6 +329,39 @@ function resolveReferences(st: BuildState): void {
   }
 }
 
+/**
+ * The bibliography half of pass 2 (brief 39). Runs right after
+ * `resolveReferences` and for the same reason: every key in the document is
+ * known once the whole thing has been walked, and neither answer needs layout.
+ *
+ * The reference list is formatted *before* the citations are resolved, because
+ * a numeric citation prints the entry's position in that list — the order is
+ * the answer, so it has to exist first.
+ *
+ * Both halves are seams `doc/bib.ts` owns (chunk 39.5); this function is only
+ * the order they run in and where their inputs come from.
+ */
+function resolveBibliography(files: SourceFiles, st: BuildState, budget: Budget): void {
+  const ctx: BibContext = {
+    files,
+    citations: st.citations,
+    diagnostics: st.diagnostics,
+    budget,
+    file: st.file,
+  };
+  for (const block of st.bibliographies) {
+    // Re-read here rather than trusting what the block was built with: a
+    // `\bibliographystyle` may be written *after* the `\bibliography` it
+    // applies to, and in a real document usually is (it sits in the preamble
+    // only by convention).
+    block.style = st.bibliographyStyle;
+    const formatted = formatBibliography(block, ctx);
+    block.content.length = 0;
+    for (const produced of formatted) block.content.push(produced);
+  }
+  resolveCitations(ctx);
+}
+
 function applyPageNumbers(st: BuildState, pages: ReadonlyMap<string, number>): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   for (const reference of st.references) {
@@ -339,24 +386,42 @@ function applyPageNumbers(st: BuildState, pages: ReadonlyMap<string, number>): D
 }
 
 export {
+  DEFAULT_FLOAT_PLACEMENT,
   DEFAULT_TEXT_STYLE,
+  UNRESOLVED_CITATION,
   UNRESOLVED_REFERENCE,
   HEADING_DEPTH,
   SECTION_NUMBER_DEPTH,
+  captionMarker,
   cloneStyle,
   headingMarker,
   labelMarker,
 } from "./model.ts";
 export type {
   AbstractBlock,
+  BibItem,
+  BibliographyBlock,
   Block,
+  CaptionBlock,
+  CitationInline,
+  CitationStyle,
+  DocumentLength,
+  FloatBlock,
+  FloatClass,
+  FloatListEntry,
+  FloatPlacement,
+  FloatPlacementLetter,
   FontSelection,
   FootnoteInline,
   HeadingBlock,
   HeadingLevel,
+  ImageInline,
+  ImageSizing,
   Inline,
   LabelInfo,
   LatexDocument,
+  LengthRegister,
+  ListOfBlock,
   LineBreakInline,
   ListBlock,
   ListItem,
@@ -368,6 +433,13 @@ export type {
   ParagraphBlock,
   ReferenceInline,
   SpaceInline,
+  TableBlock,
+  TableCell,
+  TableColumn,
+  TableColumnAlign,
+  TableColumnSpec,
+  TableRow,
+  TableRule,
   TextInline,
   TextStyle,
   TieInline,

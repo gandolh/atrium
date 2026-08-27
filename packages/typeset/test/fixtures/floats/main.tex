@@ -1,0 +1,30 @@
+\documentclass{article}
+\begin{document}
+\listoffigures
+
+\section{Results}
+
+The plot in Figure~\ref{fig:plot} is on page~\pageref{fig:plot}, and the
+numbers beside it are in Table~\ref{tab:n}.
+
+\begin{figure}[t]
+\includegraphics[width=0.4\textwidth]{plot.png}
+\caption{A picture of something}
+\label{fig:plot}
+\end{figure}
+
+\begin{table}[h]
+\begin{tabular}{|l|r|}
+\hline
+Name & Value \\
+\hline
+alpha & 1 \\
+\hline
+\end{tabular}
+\caption{Numbers}
+\label{tab:n}
+\end{table}
+
+The table above sits where it was written, because it asked for [h] and there
+was room for it there.
+\end{document}

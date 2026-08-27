@@ -1,6 +1,6 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { error, warning, wholeFile } from "../diagnostics.ts";
-import type { HeadingLevel, LatexDocument } from "../doc/model.ts";
+import type { DocumentLength, HeadingLevel, LatexDocument } from "../doc/model.ts";
 
 /**
  * Page design: the numbers `article.cls` would have supplied.
@@ -495,6 +495,53 @@ function applyGeometry(
  * A TeX dimension in PDF points. `in` is 72 points here rather than 72.27,
  * for the reason in this file's header: the engine's point *is* the PDF point.
  */
+/**
+ * What a `DocumentLength` comes to in points, here on this page.
+ *
+ * The document model records `width=0.8\textwidth` and `p{3cm}` unresolved on
+ * purpose (see `DocumentLength`): only the page design knows what `\textwidth`
+ * is, and the same model is laid out up to three times. This is the one place
+ * that answers the question, so `\includegraphics`'s width (chunk 39.2) and a
+ * `p{}` column's (chunk 39.3) cannot drift apart.
+ *
+ * `ex` uses the same 0.431em x-height ratio `parseDimension` does, for the same
+ * reason: it is Latin Modern Roman's, and this engine sets Latin Modern.
+ */
+export function resolveDocumentLength(length: DocumentLength, ctx: LengthContext): number {
+  switch (length.kind) {
+    case "points":
+      return length.value;
+    case "font":
+      return length.value * ctx.size * (length.unit === "ex" ? 0.431 : 1);
+    case "relative":
+      switch (length.of) {
+        // `\linewidth` is the measure *in force* — narrower than `\textwidth`
+        // inside a list or a float's caption — while `\columnwidth` equals
+        // `\textwidth` in the one-column article this engine sets.
+        case "linewidth":
+          return length.factor * ctx.measure;
+        case "textwidth":
+        case "columnwidth":
+          return length.factor * ctx.design.textWidth;
+        case "textheight":
+          return length.factor * ctx.design.textHeight;
+        case "paperwidth":
+          return length.factor * ctx.design.paperWidth;
+        case "paperheight":
+          return length.factor * ctx.design.paperHeight;
+      }
+  }
+}
+
+/** What `resolveDocumentLength` needs beyond the length itself. */
+export interface LengthContext {
+  design: PageDesign;
+  /** `\linewidth`: the measure in force where the construct sits, not the page's. */
+  measure: number;
+  /** The type size in force, for an `em`/`ex` length. */
+  size: number;
+}
+
 export function parseDimension(text: string, em: number): number | null {
   const match = /^([+-]?(?:\d+\.?\d*|\.\d+))\s*(pt|bp|in|cm|mm|pc|em|ex|sp)?$/.exec(text);
   if (match === null) return null;

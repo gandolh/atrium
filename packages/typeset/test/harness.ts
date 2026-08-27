@@ -107,6 +107,15 @@ export function dumpResult(result: CompileResult, entrypoint: string): string {
           `  glyphs  x=${col(item.x)} y=${col(item.y)} w=${col(item.width)}` +
             `  ${item.font.id}@${num(item.size)}  ${quote(item.text)}`,
         );
+      } else if (item.kind === "image") {
+        // Same fixed columns as a rule (`y` is likewise the top edge), plus
+        // the file-map path at the end — the one field a human reads to check
+        // the right image landed. Without this arm a `PlacedImage` falls into
+        // the `rule` branch below and prints as an untitled rectangle, which
+        // would silently mislabel every image once a golden contains one.
+        out.push(
+          `  image   x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}  ${quote(item.path)}`,
+        );
       } else {
         out.push(
           `  rule    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}`,

@@ -1,4 +1,9 @@
 import type { FontHandle, PositionedGlyph } from "../font/handle.ts";
+// Type-only, and it has to be: `image/index.ts` imports `HBox` back from here,
+// so a value import either way would be a real runtime cycle. `import type`
+// erases entirely under `verbatimModuleSyntax`, which is what makes the two
+// files able to name each other's shapes without depending on each other.
+import type { DecodedImage } from "../image/index.ts";
 
 /**
  * The box-and-glue model — the engine's core vocabulary, and TeX's.
@@ -148,6 +153,34 @@ export interface RuleNode {
 }
 
 /**
+ * A decoded picture, placed at a size — `\includegraphics` (brief 39).
+ *
+ * It is a *horizontal* node and not a vertical one because that is what LaTeX
+ * makes of a graphic: it sits in a paragraph, takes part in line breaking like
+ * a very wide unbreakable word, and a `figure` puts it in a paragraph of its
+ * own rather than into the page's vertical list directly.
+ *
+ * **`width`/`height` are the placed size in points, not the pixel grid** — the
+ * sizing keys have already been applied by `image/placeImage`. `depth` is
+ * always zero: LaTeX sets a graphic sitting *on* the baseline, so the whole of
+ * it is height and a line that carries one is as tall as the picture.
+ *
+ * The bytes ride along rather than being looked up again at emission time,
+ * because the engine has nothing to look them up in — the file map belongs to
+ * `compile()`'s caller and never reaches `pdf/`. `path` is the file-map key they
+ * came from, which is how emission knows that one figure used twice is one
+ * `XObject`.
+ */
+export interface ImageNode {
+  readonly kind: "image";
+  width: number;
+  height: number;
+  depth: number;
+  path: string;
+  image: DecodedImage;
+}
+
+/**
  * A zero-size tag that rides through layout so the page builder can report
  * where it landed. This is how `\pageref` works: `\label` drops a marker, and
  * the page it ends up on is the answer the second pass needs.
@@ -158,7 +191,17 @@ export interface Marker {
 }
 
 /** What may appear in a paragraph. */
-export type HNode = GlyphNode | HBox | VBox | RuleNode | Glue | Kern | Penalty | Discretionary | Marker;
+export type HNode =
+  | GlyphNode
+  | HBox
+  | VBox
+  | RuleNode
+  | ImageNode
+  | Glue
+  | Kern
+  | Penalty
+  | Discretionary
+  | Marker;
 /** What may appear in a column. No discretionaries: nothing hyphenates vertically. */
 export type VNode = HBox | VBox | RuleNode | Glue | Kern | Penalty | Marker;
 

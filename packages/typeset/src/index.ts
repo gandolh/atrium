@@ -48,6 +48,7 @@ export type {
   HBox,
   HList,
   HNode,
+  ImageNode,
   Kern,
   Marker,
   Penalty,
@@ -63,6 +64,7 @@ export type {
   Page,
   PageBuildOptions,
   PageBuildResult,
+  PlacedImage,
   PlacedItem,
   PlacedRule,
 } from "./layout/page.ts";
@@ -76,13 +78,53 @@ export {
   itemizeLabel,
   listSpacing,
   parseDimension,
+  resolveDocumentLength,
   tocIndent,
 } from "./layout/design.ts";
-export type { FontSize, ListSpacing, PageDesign, SizeLadder } from "./layout/design.ts";
+export type { FontSize, LengthContext, ListSpacing, PageDesign, SizeLadder } from "./layout/design.ts";
 
 /** Vertical-list assembly: the document model becomes one tall column. */
-export { buildVerticalList, createLayoutContext, footnoteMarker } from "./layout/vlist.ts";
+export { buildVerticalList, createLayoutContext, floatMarker, footnoteMarker } from "./layout/vlist.ts";
 export type { LayoutContext, PreparedFootnote } from "./layout/vlist.ts";
+
+/**
+ * Brief 39's remaining seams, each a stub a later chunk fills in: float
+ * placement (39.4), table setting (39.3), and `.bib` parsing with the numeric
+ * style (39.5). Exported so each chunk can drive its own seam from a test
+ * without paying for a whole compile.
+ */
+export { FLOAT_NAME, prepareFloat } from "./layout/float.ts";
+export type { FloatContext, PreparedFloat } from "./layout/float.ts";
+export { setTable } from "./layout/table.ts";
+export type { TableContext } from "./layout/table.ts";
+/**
+ * Images (chunk 39.2, landed). `decodeImage` and `imageStream` are the two
+ * halves — bytes to an intrinsic size, and that size to a PDF `XObject`
+ * description — and both are exported because they are separately testable and
+ * separately useful: a caller can ask how big a figure is without laying out a
+ * document.
+ */
+export {
+  decodeImage,
+  imageStream,
+  placeImage,
+  placedImageSize,
+  resolveImageFile,
+  unfilterScanlines,
+} from "./image/index.ts";
+export type {
+  DecodedImage,
+  ImageColorSpace,
+  ImageContext,
+  ImageFiles,
+  ImageFormat,
+  ImageStream,
+  Inflate,
+  PngPredictor,
+  ResolvedImageFile,
+} from "./image/index.ts";
+export { IMPLEMENTED_BIB_STYLE, formatBibliography, resolveCitations } from "./doc/bib.ts";
+export type { BibContext, BibFiles } from "./doc/bib.ts";
 
 export {
   LATIN_MODERN_FACE_IDS,
@@ -121,27 +163,45 @@ export type { Argument, LatexNode, ParseResult, SourceSpan } from "./parse/index
 export { buildDocument } from "./doc/index.ts";
 export type { BuildDocumentOptions, BuildResult, SourceFiles } from "./doc/index.ts";
 export {
+  DEFAULT_FLOAT_PLACEMENT,
   DEFAULT_TEXT_STYLE,
   HEADING_DEPTH,
   SECTION_NUMBER_DEPTH,
+  UNRESOLVED_CITATION,
   UNRESOLVED_REFERENCE,
+  captionMarker,
   cloneStyle,
   headingMarker,
   labelMarker,
 } from "./doc/model.ts";
 export type {
   AbstractBlock,
+  BibItem,
+  BibliographyBlock,
   Block,
+  CaptionBlock,
+  CitationInline,
+  CitationStyle,
+  DocumentLength,
+  FloatBlock,
+  FloatClass,
+  FloatListEntry,
+  FloatPlacement,
+  FloatPlacementLetter,
   FontSelection,
   FootnoteInline,
   HeadingBlock,
   HeadingLevel,
+  ImageInline,
+  ImageSizing,
   Inline,
   LabelInfo,
   LatexDocument,
+  LengthRegister,
   LineBreakInline,
   ListBlock,
   ListItem,
+  ListOfBlock,
   ListVariant,
   MarkerBlock,
   MarkerInline,
@@ -150,6 +210,13 @@ export type {
   ParagraphBlock,
   ReferenceInline,
   SpaceInline,
+  TableBlock,
+  TableCell,
+  TableColumn,
+  TableColumnAlign,
+  TableColumnSpec,
+  TableRow,
+  TableRule,
   TextInline,
   TextStyle,
   TieInline,

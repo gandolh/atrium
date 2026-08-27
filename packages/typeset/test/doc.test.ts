@@ -437,14 +437,21 @@ test("display math is unsupported too, and named as such", () => {
 });
 
 test("an unimplemented environment is `unsupported`, an unknown one is `undefined-environment`", () => {
-  assert.deepEqual(codes(build("\\begin{tabular}{ll}a\\end{tabular}").diagnostics), ["unsupported"]);
+  // `tabular` used to be this exemplar: chunk 39.3 implemented it for real,
+  // so a valid one (as this fixture is) now sets quietly instead. `longtable`
+  // is still genuinely unsupported.
+  assert.deepEqual(codes(build("\\begin{longtable}{ll}a\\end{longtable}").diagnostics), ["unsupported"]);
   assert.deepEqual(codes(build("\\begin{frobnicate}a\\end{frobnicate}").diagnostics), [
     "undefined-environment",
   ]);
 });
 
 test("an unimplemented command is `unsupported`, an unknown one is `undefined-command`", () => {
-  assert.deepEqual(codes(build("\\includegraphics{a.png}").diagnostics), ["unsupported"]);
+  // `\includegraphics` used to be this exemplar: chunk 39.2 implemented it
+  // for real, so it now produces no document-layer diagnostic at all (the
+  // image is decoded and placed at layout time instead). `\textsc` is still
+  // genuinely unsupported.
+  assert.deepEqual(codes(build("\\textsc{s}").diagnostics), ["unsupported"]);
   assert.deepEqual(codes(build("\\frobnicate{x}").diagnostics), ["undefined-command"]);
 });
 
@@ -474,11 +481,18 @@ test("a class other than article is unsupported", () => {
 });
 
 test("every unsupported diagnostic carries a file, a line and the construct", () => {
+  // The fixture keeps `\includegraphics` and `tabular` for historical
+  // continuity, but neither contributes an `unsupported` diagnostic here any
+  // more: both are chunk 39.2/39.3 constructs that are genuinely implemented
+  // now (a valid, single-cell `tabular` sets quietly; a bare `\includegraphics{a}`
+  // is only wrong at layout time, over a missing file, which this
+  // document-layer-only `build()` never reaches). Only `$x$`, `\textsc` and
+  // `\hspace` are still unimplemented, so the count is 3, not 5.
   const result = build(
     "\\includegraphics{a}\n\\begin{tabular}{l}x\\end{tabular}\n$x$\n\\textsc{s}\n\\hspace{1cm}",
   );
   const unsupported = result.diagnostics.filter((d) => d.code === "unsupported");
-  assert.equal(unsupported.length, 5);
+  assert.equal(unsupported.length, 3);
   for (const d of unsupported) {
     assert.equal(d.file, "main.tex");
     assert.ok(d.line > 0, `${d.message} has no line`);

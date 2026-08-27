@@ -3,20 +3,32 @@ import { error, warning } from "../diagnostics.ts";
 import type { FontProvider } from "../font/handle.ts";
 import type {
   AbstractBlock,
+  BibliographyBlock,
   Block,
+  FloatBlock,
+  FloatClass,
+  FloatListEntry,
   FontSelection,
   FootnoteInline,
   HeadingBlock,
+  ImageInline,
   Inline,
   LatexDocument,
   ListBlock,
   ListItem,
   ParagraphBlock,
+  TableBlock,
   TextStyle,
   TitleBlock,
   TocEntry,
   VerbatimBlock,
 } from "../doc/model.ts";
+import type { ImageContext, ImageFiles } from "../image/index.ts";
+import { placeImage } from "../image/index.ts";
+import type { FloatContext, PreparedFloat } from "./float.ts";
+import { prepareFloat } from "./float.ts";
+import type { TableContext } from "./table.ts";
+import { setTable } from "./table.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { FontSize, PageDesign } from "./design.ts";
@@ -26,7 +38,7 @@ import type { Shaper, TextFace } from "./hlist.ts";
 import { fontSpacing, paragraphIndent, shapeRun, spaceGlue, textToHList } from "./hlist.ts";
 import type { LineBreakParams } from "./linebreak.ts";
 import { breakParagraph } from "./linebreak.ts";
-import type { HBox, HList, HNode, VList, VNode } from "./model.ts";
+import type { HBox, HList, HNode, VBox, VList, VNode } from "./model.ts";
 import { EJECT_PENALTY, INFINITE_PENALTY, glue, kern, penalty } from "./model.ts";
 
 /**
@@ -81,6 +93,22 @@ export interface LayoutContext {
   pageOf: ReadonlyMap<string, number>;
   /** Footnotes discovered while building, keyed by the marker that carries them. */
   footnotes: Map<string, PreparedFootnote>;
+  /**
+   * Floats discovered while building, keyed by the marker that rides in the
+   * vertical list where the author wrote them — the same mechanism as
+   * `footnotes` above, which is why deferring a float needs no new node kind.
+   * `layout/page.ts` (chunk 39.4) is what reads this.
+   */
+  floats: Map<string, PreparedFloat>;
+  /**
+   * The project's files, for `\includegraphics`. An image is an input like the
+   * `.tex` itself (D38): the engine opens nothing, so the bytes have to be
+   * handed in. Empty when a caller lays out without them, which every image
+   * then reports as a missing file rather than guessing a size.
+   */
+  files: ImageFiles;
+  /** Image paths already reported as unusable, so one bad file is one diagnostic. */
+  reportedImages: Set<string>;
   /** Faces already reported as missing, so one absent face is one diagnostic. */
   missingFaces: Set<string>;
   /** `font id + codepoint` pairs already reported missing, so one is one diagnostic. */
@@ -95,6 +123,12 @@ export function createLayoutContext(
   diagnostics: Diagnostic[],
   file: string,
   pageOf: ReadonlyMap<string, number>,
+  /**
+   * The project's files, for `\includegraphics`. Optional so a caller that
+   * lays out text alone (`test/fidelity.test.ts` does) needs no file map;
+   * `compile()` always passes the real one.
+   */
+  files: ImageFiles = {},
 ): LayoutContext {
   const missingGlyphs = new Set<string>();
   return {
@@ -106,6 +140,9 @@ export function createLayoutContext(
     file,
     pageOf,
     footnotes: new Map(),
+    floats: new Map(),
+    files,
+    reportedImages: new Set(),
     missingFaces: new Set(),
     missingGlyphs,
   };
@@ -183,6 +220,16 @@ export function footnoteMarker(number: number): string {
   return `footnote:${number}`;
 }
 
+/**
+ * The marker left in the vertical list where a float was written (0-based, in
+ * the order the floats were reached). The page builder reads
+ * `LayoutContext.floats` under this name to learn what to place and, for `[h]`,
+ * where the author wanted it.
+ */
+export function floatMarker(index: number): string {
+  return `float:${index}`;
+}
+
 /** What `\pageref` and the table of contents print for a page nobody recorded. */
 const UNKNOWN_PAGE = "??";
 
@@ -230,11 +277,14 @@ function newColumn(design: PageDesign): Column {
  * displacement in a vertical one is exactly the kind of convention that reads
  * fine and places text 25 points off.
  */
-function pushBox(col: Column, box: HBox, baselineSkip: number, left: number): void {
+function pushBox(col: Column, box: HBox | VBox, baselineSkip: number, left: number): void {
   const prefix = col.pendingPrefix;
   col.pendingPrefix = null;
 
-  let placed = box;
+  // `HBox | VBox` because a `tabular` (chunk 39.3) and a float (chunk 39.4) are
+  // vertical boxes appended exactly as a set line is; every field read below is
+  // common to both, and `hpack` already takes either as horizontal material.
+  let placed: HBox | VBox = box;
   if (prefix !== null) {
     placed = hpack([...prefix, box], "natural").box;
   } else if (left !== 0) {
@@ -404,10 +454,31 @@ function inlinesToHList(inlines: readonly Inline[], ctx: LayoutContext, opts: In
         flush();
         appendFootnote(out, inline, ctx, opts);
         break;
+      case "citation":
+        // Read at shaping time for the same reason a `\ref` is: the
+        // bibliography pass rewrites `text` in place, and `\nocite` leaves it
+        // empty on purpose because it sets nothing.
+        if (inline.text !== "") append(inline.text, inline.textStyle);
+        break;
+      case "image":
+        flush();
+        appendImage(out, inline, ctx, opts);
+        break;
     }
   }
   flush();
   return out;
+}
+
+/**
+ * `\includegraphics`, placed — or not, in which case nothing is added and the
+ * seam has said why. An image takes part in line breaking as a single
+ * unbreakable box, exactly as `\underline`'s does.
+ */
+function appendImage(out: HList, image: ImageInline, ctx: LayoutContext, opts: InlineOptions): void {
+  const box = placeImage(image, imageContext(ctx, opts.size, ctx.design.textWidth));
+  if (box === null) return;
+  out.push(box);
 }
 
 function sameStyle(a: TextStyle, b: TextStyle): boolean {
@@ -1302,6 +1373,201 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
   return { number: note.number, list: col.list, height: measureNodes(col.list, "v").natural, loc: note.loc };
 }
 
+// --- brief 39: floats, tables, images, bibliography ------------------------
+
+/*
+ * The vertical list's side of brief 39's syntax half (chunk 39.1). Each of the
+ * three capabilities below is a *seam*: this file works out what the material
+ * is, how wide it may be and which faces are in force, then hands that to the
+ * file whose chunk owns the capability. None of them can be filled in from
+ * here, and none of them needs anything from here except through the callbacks
+ * these context builders supply — deliberately, because a mutual import
+ * between this file and `float.ts`/`table.ts` would be a real cycle.
+ */
+
+/** Everything `layout/float.ts` (chunk 39.4) needs, including this file's own setters. */
+function floatContext(ctx: LayoutContext, env: BlockEnv): FloatContext {
+  return {
+    design: ctx.design,
+    measure: env.measure,
+    size: env.size.size,
+    bodySize: env.size,
+    shaper: ctx.shaper,
+    budget: ctx.budget,
+    diagnostics: ctx.diagnostics,
+    file: ctx.file,
+    setBlocks: (blocks, measure) => setBlocksAsVList(blocks, ctx, env, measure),
+    setInlines: (inlines, size, at) =>
+      inlinesToHList(inlines, ctx, {
+        size,
+        at,
+        // A `\footnote` inside a float would have to be set at the foot of
+        // whatever page the float lands on, which is not known until the float
+        // is placed — LaTeX has the same problem and answers it with
+        // `\footnotetext` inside the float. Refused rather than misplaced.
+        allowFootnotes: false,
+        footnotesRefusedIn: "a float",
+      }),
+  };
+}
+
+/** Everything `layout/table.ts` (chunk 39.3) needs, including this file's own setters. */
+function tableContext(ctx: LayoutContext, env: BlockEnv): TableContext {
+  return {
+    design: ctx.design,
+    measure: env.measure,
+    size: env.size.size,
+    bodySize: env.size,
+    shaper: ctx.shaper,
+    budget: ctx.budget,
+    diagnostics: ctx.diagnostics,
+    file: ctx.file,
+    setInlines: (inlines, size, at) =>
+      inlinesToHList(inlines, ctx, {
+        size,
+        at,
+        // Same reason as a float's: a note's text has nowhere to go from inside
+        // a cell, and LaTeX needs `\footnotemark`/`\footnotetext` there too.
+        allowFootnotes: false,
+        footnotesRefusedIn: "a table cell",
+      }),
+    breakCell: (hlist, width, at) => {
+      const result = breakParagraph(hlist, width, breakOptions(ctx, at));
+      for (const d of result.diagnostics) ctx.diagnostics.push(d);
+      spend(ctx.budget, result.steps);
+      return result.lines;
+    },
+  };
+}
+
+/** Everything `src/image/` (chunk 39.2) needs to place one graphic. */
+function imageContext(ctx: LayoutContext, size: number, measure: number): ImageContext {
+  return {
+    design: ctx.design,
+    measure,
+    size,
+    files: ctx.files,
+    diagnostics: ctx.diagnostics,
+    file: ctx.file,
+    reported: ctx.reportedImages,
+  };
+}
+
+/**
+ * A list of blocks as vertical material of its own — a float's content, and
+ * whatever else a seam needs set without knowing how this file sets things.
+ *
+ * A fresh `Column`, not the one being built: the material is going into a box
+ * that will be placed somewhere else entirely, so it must not inherit the
+ * running `\prevdepth` or contribute interline glue to the main list.
+ */
+function setBlocksAsVList(
+  blocks: readonly Block[],
+  ctx: LayoutContext,
+  env: BlockEnv,
+  measure: number,
+): VList {
+  const col = newColumn(ctx.design);
+  layoutBlocks(blocks, col, ctx, { ...env, measure, left: 0 });
+  return col.list;
+}
+
+/**
+ * A float: prepared, parked under a marker, and left for the page builder.
+ *
+ * The `Marker` node is the whole mechanism. It costs no height, so a document
+ * whose floats are all deferred sets exactly as it would with the floats
+ * removed, and it records *where the author wrote the float*, which is what
+ * `[h]` means and the line a float must never be placed above.
+ */
+function layoutFloat(block: FloatBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+  const prepared = prepareFloat(block, floatContext(ctx, env));
+  if (prepared === null) return;
+  const marker = floatMarker(ctx.floats.size);
+  ctx.floats.set(marker, prepared);
+  col.list.push({ kind: "marker", name: marker });
+}
+
+function layoutTable(block: TableBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+  const box = setTable(block, tableContext(ctx, env));
+  if (box === null) return;
+  // `\@tabular` puts a table in a box of its own and the surrounding vertical
+  // list appends it like any other; the space around it is the paragraph
+  // spacing already in force, which is why nothing is added here.
+  pushBox(col, box, env.size.baselineSkip, env.left);
+}
+
+/**
+ * The reference list. `BibliographyBlock.content` is ordinary blocks, produced
+ * by `doc/bib.ts` (chunk 39.5) — so there is no bibliography layout here at
+ * all, by design: a numbered reference list is paragraphs with a hanging label,
+ * and this file already sets those.
+ *
+ * Empty until that chunk lands. Not a silent nothing: `formatBibliography`
+ * reported the gap at the `\bibliography`'s own line while the document was
+ * being built, which is where an author can act on it.
+ */
+function layoutBibliography(block: BibliographyBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+  if (block.content.length === 0) return;
+  layoutBlocks(block.content, col, ctx, env);
+}
+
+/**
+ * `\listoffigures` / `\listoftables`, set exactly as the table of contents is.
+ *
+ * `article.cls` defines `\l@figure` as `\@dottedtocline{1}{1.5em}{2.3em}` —
+ * the same indent and number width as `\l@subsection`, and the same dotted
+ * connector — so the entries go through the ToC's own entry setter at that
+ * level rather than through a second implementation of the same thing. The
+ * *heading* is a `\section*`, as `\listoffigures` writes it.
+ */
+function layoutFloatList(
+  document: LatexDocument,
+  floatClass: FloatClass,
+  col: Column,
+  ctx: LayoutContext,
+  env: BlockEnv,
+  at: SourceRef,
+): void {
+  layoutHeading(
+    {
+      kind: "heading",
+      level: "section",
+      number: null,
+      title: [
+        {
+          kind: "text",
+          text: floatClass === "figure" ? "List of Figures" : "List of Tables",
+          style: { font: { family: "serif", weight: "bold", slant: "upright" }, underline: false },
+          loc: at,
+        },
+      ],
+      marker: `listof:${floatClass}`,
+      loc: at,
+    },
+    col,
+    ctx,
+    env,
+  );
+
+  const pnumWidth = TOC_PAGE_NUMBER_WIDTH_EM * ctx.design.sizes.normalsize.size;
+  for (const entry of document.floatList) {
+    if (!spend(ctx.budget)) break;
+    if (entry.floatClass !== floatClass) continue;
+    pushTocEntry(floatListEntry(entry), col, ctx, env, pnumWidth, at);
+  }
+}
+
+/**
+ * A float-list entry as a ToC entry. `subsection` is not a claim that a caption
+ * is a subsection: it is the level whose `\@dottedtocline` parameters
+ * `\l@figure` shares (see `layoutFloatList`), and the only thing `pushTocEntry`
+ * reads the level for.
+ */
+function floatListEntry(entry: FloatListEntry): TocEntry {
+  return { level: "subsection", number: entry.number, title: entry.title, marker: entry.marker };
+}
+
 // --- the dispatcher ---------------------------------------------------------
 
 function layoutBlocks(blocks: readonly Block[], col: Column, ctx: LayoutContext, env: BlockEnv): void {
@@ -1384,6 +1650,60 @@ function layoutBlock(block: Block, col: Column, ctx: LayoutContext, env: BlockEn
     case "pagebreak":
       pushPenalty(col, EJECT_PENALTY);
       return;
+    case "float":
+      col.suppressIndent = false;
+      layoutFloat(block, col, ctx, env);
+      return;
+    case "table":
+      col.suppressIndent = false;
+      layoutTable(block, col, ctx, env);
+      return;
+    case "bibliography":
+      col.suppressIndent = false;
+      layoutBibliography(block, col, ctx, env);
+      return;
+    case "caption":
+      /*
+       * A caption is set as part of the float that owns it, so this arm is not
+       * the path a well-formed document takes: `doc/build.ts` only ever builds
+       * a `CaptionBlock` inside a `FloatBlock.content`, and chunk 39.4's
+       * `prepareFloat` sets that content itself. The arm exists because the
+       * dispatcher is exhaustive by contract (a new `Block` member must be
+       * handled here, not defaulted away) and because `FloatContext.setBlocks`
+       * hands float content straight back to this dispatcher.
+       *
+       * Chunk 39.4 has since landed and took the other of the two designs it
+       * was offered: `prepareFloat` sets captions itself and splits the float's
+       * content around them, because `\@makecaption` centres a one-line caption
+       * and only line-breaks a longer one — a branch that has to be taken after
+       * measuring, which a dispatcher handing back a finished vertical list
+       * cannot do. So no caption reaches this arm from a well-formed document,
+       * and it stays what it always was: the refusal that keeps a stray one
+       * from being dropped in silence.
+       */
+      ctx.diagnostics.push(
+        warning(
+          "unsupported",
+          block.loc,
+          "\\caption reached the main vertical list rather than the float that owns it; it sets nothing here",
+          "\\caption",
+        ),
+      );
+      return;
+    case "listof":
+      // Only `buildVerticalList` has `document.floatList` in scope, so it
+      // intercepts the top-level case before dispatching here — exactly as it
+      // does for `toc`. Anything reaching this arm is nested inside another
+      // block, which is refused rather than dropped (D38).
+      ctx.diagnostics.push(
+        warning(
+          "unsupported",
+          block.loc,
+          `\\listof${block.floatClass === "figure" ? "figures" : "tables"} inside another environment is not implemented; it sets nothing here`,
+          `\\listof${block.floatClass === "figure" ? "figures" : "tables"}`,
+        ),
+      );
+      return;
   }
 }
 
@@ -1402,6 +1722,10 @@ export function buildVerticalList(document: LatexDocument, ctx: LayoutContext): 
     const block = document.blocks[i] as Block;
     if (block.kind === "toc") {
       layoutToc(document, col, ctx, env, block.loc);
+      continue;
+    }
+    if (block.kind === "listof") {
+      layoutFloatList(document, block.floatClass, col, ctx, env, block.loc);
       continue;
     }
     if (i > 0 && block.kind === "paragraph" && (document.blocks[i - 1] as Block).kind === "paragraph") {

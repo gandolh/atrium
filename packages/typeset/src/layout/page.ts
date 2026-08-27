@@ -1,15 +1,33 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontHandle, FontProvider, PositionedGlyph } from "../font/handle.ts";
-import { error, warning, wholeFile } from "../diagnostics.ts";
+// Type-only: a placed image carries its decoded bytes, and nothing here calls
+// into `image/`.
+import type { DecodedImage } from "../image/index.ts";
+import { error, unsupported, warning, wholeFile } from "../diagnostics.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { PageDesign } from "./design.ts";
+// Type-only: a queued float is prepared entirely by `float.ts`; this file
+// only ever asks how tall it is and which positions it will accept.
+import type { PreparedFloat } from "./float.ts";
+import {
+  BOTTOM_FRACTION,
+  FLOAT_SEP,
+  FP_SEP,
+  INTEXT_SEP,
+  TEXT_FLOAT_SEP,
+  TEXT_FRACTION,
+  TOP_FRACTION,
+  floatBox,
+  onlyPlacement,
+  placementOrder,
+} from "./float.ts";
 import type { Extent } from "./glue.ts";
 import { AWFUL_BAD, INF_BAD, addNodeExtent, computeGlueSet, hpack, setWidth, zeroExtent } from "./glue.ts";
 import type { Shaper } from "./hlist.ts";
 import { shapeRun } from "./hlist.ts";
 import type { GlueSet, HBox, HNode, VList, VNode } from "./model.ts";
-import { EJECT_PENALTY, INFINITE_PENALTY } from "./model.ts";
+import { EJECT_PENALTY, INFINITE_PENALTY, kern } from "./model.ts";
 import type { PreparedFootnote } from "./vlist.ts";
 
 /**
@@ -52,7 +70,28 @@ export interface PlacedRule {
   height: number;
 }
 
-export type PlacedItem = GlyphRun | PlacedRule;
+/**
+ * A picture placed on a page — `\includegraphics` (brief 39). `y` is its **top**
+ * edge, like a rule's, and `width`/`height` are the size it was placed at, not
+ * its pixel grid.
+ *
+ * The decoded image rides along instead of being fetched at emission time
+ * because emission has no file map to fetch from (the engine performs no I/O,
+ * D38). `path` is the file-map key, and `pdf/render.ts` embeds one `XObject` per
+ * distinct `path` — so a logo on forty pages is forty of these items and one
+ * copy of the bytes.
+ */
+export interface PlacedImage {
+  readonly kind: "image";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  path: string;
+  image: DecodedImage;
+}
+
+export type PlacedItem = GlyphRun | PlacedRule | PlacedImage;
 
 export interface Page {
   /** 1-based, in document order. */
@@ -86,6 +125,25 @@ export interface Page {
  * below what has already accumulated, the cost goes infinite, and the page
  * fires at the last break *before* the referencing line — carrying line and
  * note to the next page together.
+ *
+ * **Floats (brief 39, chunk 39.4) reuse that machinery and add one thing to
+ * it: they may move forward.** A `figure` rides as a zero-height `Marker` in
+ * the vertical list at the point the author wrote it, its material parked on
+ * `LayoutContext.floats`; reaching that marker offers the float to the page
+ * being built, and accepting it shrinks the goal exactly as a footnote's does.
+ * The difference is what happens when it is *not* accepted: a footnote can
+ * only drag its own line to the next page, while a float stays in a **queue**
+ * and is offered again at the top of every subsequent page until some page
+ * takes it. The queue is strictly first-in-first-out and placement always
+ * consumes a *prefix* of it, which is why `Figure 2` can never appear before
+ * `Figure 1` — the ordering guarantee is a property of the data structure
+ * rather than a check anyone has to remember to write.
+ *
+ * **A document with no floats is byte-for-byte the document this file built
+ * before floats existed.** Every addition below is either inside a
+ * `node.kind === "marker"` arm that no name matches, or behind a length check
+ * on a queue that is empty, or an argument that is an empty array. Brief 37's
+ * goldens are the proof and they are checked on every run.
  */
 
 /** TeX's `deplorable` (§1005): worse than any finite badness, better than awful. */
@@ -95,6 +153,17 @@ export interface PageBuildOptions {
   design: PageDesign;
   /** Footnote material, keyed by the marker `vlist.ts` put beside each mark. */
   footnotes: ReadonlyMap<string, PreparedFootnote>;
+  /**
+   * Float material, keyed by the marker `vlist.ts` put where the float was
+   * written. **Iteration order is document order** — `vlist.ts` names them
+   * `float:0`, `float:1`, … as it reaches them and a `Map` preserves insertion
+   * order — which is the whole basis of the no-reordering guarantee.
+   *
+   * Optional so that a caller laying out prose alone (and every test that
+   * predates floats) needs no empty map; `compile()` always passes the real
+   * one. An absent or empty map switches the queue off entirely.
+   */
+  floats?: ReadonlyMap<string, PreparedFloat>;
   fonts: FontProvider;
   shaper: Shaper;
   budget: Budget;
@@ -116,6 +185,25 @@ interface PendingNote {
   note: PreparedFootnote;
 }
 
+/** Where on a page a float was accepted. `"page"` floats get a sheet of their own. */
+type FloatSlot = "here" | "top" | "bottom";
+
+/** A float accepted onto the page being built, and the position that took it. */
+interface PlacedFloat {
+  float: PreparedFloat;
+  where: FloatSlot;
+  /**
+   * The vertical-list index that pulled it onto this page — its own marker's
+   * position. Exactly `PendingNote.index`'s role, and used for exactly the same
+   * thing: when the page fires at an earlier breakpoint, anything whose index
+   * fell beyond the cut was never really on this page and goes back.
+   */
+  index: number;
+}
+
+/** Shared by every caller that has no floats, so the no-float path allocates nothing. */
+const NO_FLOATS: ReadonlyMap<string, PreparedFloat> = new Map();
+
 export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult {
   const { design } = opts;
   const pages: Page[] = [];
@@ -132,6 +220,28 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
   let bestCost = AWFUL_BAD;
   let truncated = false;
 
+  // --- the float queue ------------------------------------------------------
+  //
+  // `queue` is every float in document order and `settled` is how many of them
+  // have been committed to a page already, so the queue proper is
+  // `queue.slice(settled)` and its head is `queue[settled]`. Floats are only
+  // ever taken from that head, and `pageFloats` holds the run taken for the
+  // page currently being built — which is what makes the placed floats a
+  // *prefix* of document order at every moment, and therefore makes
+  // "same-class floats never reorder" true by construction.
+  //
+  // `markerIndex[k]` is where float `k`'s marker sits in `list`, filled in as
+  // the scan reaches it. A float may not be placed before it has been written:
+  // that is the difference between a float and a footnote, and the reason
+  // "here" means anything at all.
+  const floats = opts.floats ?? NO_FLOATS;
+  const queue: PreparedFloat[] = [...floats.values()];
+  const floatOrdinal = new Map<string, number>();
+  for (const name of floats.keys()) floatOrdinal.set(name, floatOrdinal.size);
+  const markerIndex: number[] = [];
+  let settled = 0;
+  let pageFloats: PlacedFloat[] = [];
+
   const reset = (from: number): void => {
     start = from;
     index = from;
@@ -139,16 +249,117 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
     boxes = 0;
     notes = [];
     insertHeight = 0;
+    pageFloats = [];
     best = -1;
     bestCost = AWFUL_BAD;
+  };
+
+  /**
+   * Offer the head of the queue to the page being built, over and over until
+   * one is refused. Stopping at the *first* refusal rather than skipping past
+   * it is the ordering guarantee: a float that has to wait holds everything
+   * behind it back, exactly as LaTeX's does.
+   *
+   * `here` is the marker index when the scan is standing on a float's own
+   * marker, and `null` otherwise — a float being reconsidered at the top of a
+   * later page is no longer anywhere near where it was written, so `[h]` is
+   * not on offer to it.
+   */
+  const offerQueue = (upto: number, here: number | null): void => {
+    while (settled + pageFloats.length < queue.length) {
+      const k = settled + pageFloats.length;
+      const written = markerIndex[k];
+      if (written === undefined || written > upto) break;
+      const float = queue[k] as PreparedFloat;
+      const where = choosePosition(float, here === written, pageFloats, extent.natural + insertHeight, design);
+      if (where === null) break;
+      insertHeight += reserveFor(float, where, pageFloats);
+      pageFloats.push({ float, where, index: written });
+    }
+  };
+
+  /**
+   * A float page: `\@fpsep`-separated floats and nothing else, written out
+   * *before* the text page that is currently being opened.
+   *
+   * Only ever called with `pageFloats` empty, and that is load-bearing. The
+   * page it emits comes earlier in the document than the page being opened, so
+   * a float on it must be earlier in the queue than anything the opening page
+   * has already accepted — which is only guaranteed while the opening page has
+   * accepted nothing.
+   */
+  const emitFloatPage = (before: number, relax: boolean): boolean => {
+    if (settled >= queue.length || pages.length >= opts.maxPages) return false;
+    const head = queue[settled] as PreparedFloat;
+    if (!relax && !placementOrder(head.placement).includes("p")) return false;
+
+    const taken: PreparedFloat[] = [];
+    let height = 0;
+    while (settled + taken.length < queue.length) {
+      const k = settled + taken.length;
+      const written = markerIndex[k];
+      if (!relax && (written === undefined || written >= before)) break;
+      const float = queue[k] as PreparedFloat;
+      // Mid-document a float page is only for floats that asked for `p`. At
+      // `\clearpage` it is for everything left, bar an `[h]`-only float — which
+      // the caller reports and steps over rather than moving somewhere the
+      // source forbade.
+      const eligible = relax
+        ? taken.length === 0 || !onlyPlacement(float.placement, "h")
+        : placementOrder(float.placement).includes("p");
+      if (!eligible) break;
+      const need = float.height + (taken.length === 0 ? 0 : FP_SEP);
+      // The first float always goes on, however tall: a float page is the last
+      // place left, and a page overflowed by a monstrous figure is a better
+      // outcome — and a louder one, see `reportOverflowingFloat` — than a
+      // figure that is nowhere in the PDF at all.
+      if (taken.length > 0 && height + need > design.textHeight) break;
+      taken.push(float);
+      height += need;
+    }
+    if (taken.length === 0) return false;
+
+    for (const float of taken) reportOverflowingFloat(float, design, opts.diagnostics);
+    pages.push(placeFloatPage(taken, pages.length + 1, opts, markerPages));
+    settled += taken.length;
+    return true;
+  };
+
+  /**
+   * Open a fresh text page: give every float still waiting its chance at the
+   * top of it, and hand a whole sheet to any that still cannot go anywhere.
+   *
+   * The loop alternates because the two feed each other — a float page that
+   * clears the head of the queue may expose a float that fits at the top of
+   * the text page — and terminates because each turn either accepts a float
+   * onto the page (bounded by the queue) or emits a float page (which consumes
+   * at least one float) or stops.
+   */
+  const openPage = (): void => {
+    if (queue.length === 0) return;
+    for (;;) {
+      offerQueue(start, null);
+      if (pageFloats.length > 0) return;
+      if (!emitFloatPage(start, false)) return;
+    }
   };
 
   const fire = (breakAt: number): void => {
     const cut = breakAt < 0 ? index : breakAt;
     const carried = notes.filter((n) => n.index < cut).map((n) => n.note);
-    pages.push(placePage(list.slice(start, cut), pages.length + 1, carried, opts, markerPages));
+    // The same rule for floats, for the same reason. `pageFloats` is in
+    // non-decreasing `index` order — the offers made while opening the page all
+    // name markers from *before* it, and every offer after that is made at a
+    // scan position that only ever grows — so the filter keeps a prefix and
+    // `settled` may simply advance by its length.
+    const carriedFloats = pageFloats.filter((f) => f.index < cut);
+    settled += carriedFloats.length;
+    pages.push(placePage(list.slice(start, cut), pages.length + 1, carried, carriedFloats, start, opts, markerPages));
     reset(skipDiscardable(list, cut));
+    openPage();
   };
+
+  openPage();
 
   while (index < list.length) {
     if (!spend(opts.budget)) break;
@@ -168,6 +379,19 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
       if (cost === AWFUL_BAD || p <= EJECT_PENALTY) {
         fire(best);
         continue;
+      }
+    }
+
+    // A float's marker: the point the author wrote it, and the first moment it
+    // may be placed. Re-scanning after a page fires re-runs this with the same
+    // values, which is why recording the index is idempotent. `floatOrdinal` is
+    // empty for a document with no floats, so this arm is a `Map.get` returning
+    // `undefined` and nothing else.
+    if (node.kind === "marker") {
+      const k = floatOrdinal.get(node.name);
+      if (k !== undefined) {
+        markerIndex[k] = index;
+        offerQueue(index, index);
       }
     }
 
@@ -197,7 +421,11 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
   if (index > start || boxes > 0) {
     const carried = notes.map((n) => n.note);
     if (pages.length < opts.maxPages) {
-      pages.push(placePage(list.slice(start, index), pages.length + 1, carried, opts, markerPages));
+      const carriedFloats = pageFloats.filter((f) => f.index < index);
+      settled += carriedFloats.length;
+      pages.push(
+        placePage(list.slice(start, index), pages.length + 1, carried, carriedFloats, start, opts, markerPages),
+      );
     } else {
       truncated = true;
     }
@@ -206,7 +434,68 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
   // A document that set nothing still gets a page: `\documentclass{article}`
   // with an empty body produces one blank sheet in LaTeX too, and a PDF with
   // no pages at all is not a valid file.
-  if (pages.length === 0) pages.push(placePage([], 1, [], opts, markerPages));
+  if (pages.length === 0) pages.push(placePage([], 1, [], [], 0, opts, markerPages));
+
+  /*
+   * `\end{document}` is a `\clearpage`, and `\clearpage` is the promise that
+   * no float is ever lost: whatever is still queued is written out on float
+   * pages of its own, in document order, before the run ends.
+   *
+   * What survives that is genuinely unplaceable, and D38 says so out loud
+   * rather than letting a page come up a figure short:
+   *
+   *  - **`[h]` and nothing else.** The author named exactly one position and
+   *    the float did not fit there. Moving it anyway would put it somewhere
+   *    the source forbade, so it is refused — `unsupported`, an error, naming
+   *    the environment at its own line. This is the one case where a float
+   *    really does set nothing, and it is the loudest diagnostic in the file.
+   *  - **The page cap.** Nothing more can be emitted; `limit-exceeded` below
+   *    already says the document was truncated, and each float still holding
+   *    material says so at its own line so the author can see what was lost.
+   *
+   * A float taller than `\textheight` is *not* in this list. It is placed, on a
+   * float page of its own, and warned about where it is placed — see
+   * `reportOverflowingFloat`, which follows `reportOverflowingFootnotes`'
+   * precedent exactly: overflowing the sheet is visible, and a reader can act
+   * on it, in a way that a silently absent figure never is.
+   */
+  while (settled < queue.length) {
+    if (!spend(opts.budget)) break;
+    const float = queue[settled] as PreparedFloat;
+    if (onlyPlacement(float.placement, "h")) {
+      opts.diagnostics.push(
+        unsupported(
+          float.loc,
+          float.construct,
+          `this float asks for [h] and nothing else, and it does not fit at the point it was written ` +
+            `(${float.height.toFixed(1)}pt of material); there is no other position it is allowed to take, ` +
+            `so it sets nothing — give it [ht] or [htbp] to let it move`,
+        ),
+      );
+      settled++;
+      continue;
+    }
+    if (pages.length >= opts.maxPages) {
+      truncated = true;
+      break;
+    }
+    // `relax`: past the last text page every remaining float is behind us, and
+    // `\clearpage` does not consult `[htbp]` any more — it has run out of
+    // alternatives to offer. The one letter it still respects is the `[h]`-only
+    // refusal handled above.
+    if (!emitFloatPage(list.length + 1, true)) break;
+  }
+  for (let k = settled; k < queue.length; k++) {
+    const float = queue[k] as PreparedFloat;
+    opts.diagnostics.push(
+      warning(
+        "limit-exceeded",
+        float.loc,
+        `this ${float.construct} was still waiting for a page when the document ran out of them; it is not in the output`,
+        float.construct,
+      ),
+    );
+  }
 
   if (truncated) {
     opts.diagnostics.push(
@@ -221,6 +510,24 @@ function footnoteBlockOverhead(design: PageDesign): number {
   return (
     design.footnoteSkip + design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow
   );
+}
+
+/**
+ * How tall the footnote block on a page comes out — the rule and its kerns,
+ * every note, and a `\footnotesep` gap between each pair.
+ *
+ * Read twice: `placeFootnotes` anchors the block to the foot of the text body
+ * with it, and `placePage` stacks bottom floats directly on top of it. Zero for
+ * a page with no notes, which is what makes the second reader a one-line
+ * addition rather than a special case.
+ */
+function footnoteBlockHeight(notes: readonly PreparedFootnote[], design: PageDesign): number {
+  if (notes.length === 0) return 0;
+  let height = design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow;
+  for (let i = 0; i < notes.length; i++) {
+    height += (notes[i] as PreparedFootnote).height + (i === 0 ? 0 : FOOTNOTE_GAP);
+  }
+  return height;
 }
 
 /**
@@ -288,6 +595,10 @@ function placePage(
   body: VList,
   number: number,
   notes: readonly PreparedFootnote[],
+  /** Floats this page accepted, in queue order. Empty for a document with none. */
+  floats: readonly PlacedFloat[],
+  /** Index in the whole vertical list that `body[0]` came from, for `[h]` splicing. */
+  bodyStart: number,
   opts: PageBuildOptions,
   markerPages: Map<string, number>,
 ): Page {
@@ -303,21 +614,233 @@ function placePage(
     if (!markerPages.has(name)) markerPages.set(name, number);
   };
 
-  placeVertical(body, design.marginLeft, design.marginTop, items, onMarker, design.topSkip);
+  const tops = floats.filter((f) => f.where === "top");
+  const bottoms = floats.filter((f) => f.where === "bottom");
+
+  // Top floats sit at the very top of the text body, `\textfloatsep` above the
+  // text. `\topskip` then belongs to the *float*, not to the first line of
+  // prose, which is why the body is placed with none: LaTeX's page box puts the
+  // float block first and the text follows it directly.
+  let bodyTop = design.marginTop;
+  for (let i = 0; i < tops.length; i++) {
+    const float = (tops[i] as PlacedFloat).float;
+    if (i > 0) bodyTop += FLOAT_SEP;
+    placeVertical(float.list, design.marginLeft, bodyTop, items, onMarker, 0);
+    bodyTop += float.height;
+  }
+  if (tops.length > 0) bodyTop += TEXT_FLOAT_SEP;
+
+  placeVertical(
+    spliceHereFloats(body, bodyStart, floats),
+    design.marginLeft,
+    bodyTop,
+    items,
+    onMarker,
+    tops.length > 0 ? 0 : design.topSkip,
+  );
+
+  // Bottom floats hug the bottom of the text body, above the footnote block —
+  // `\output`'s order is text, bottom floats, `\footnoterule`, notes.
+  if (bottoms.length > 0) {
+    let height = FLOAT_SEP * (bottoms.length - 1);
+    for (const slot of bottoms) height += slot.float.height;
+    let y = design.marginTop + design.textHeight - footnoteBlockHeight(notes, design) - height;
+    for (let i = 0; i < bottoms.length; i++) {
+      const float = (bottoms[i] as PlacedFloat).float;
+      if (i > 0) y += FLOAT_SEP;
+      placeVertical(float.list, design.marginLeft, y, items, onMarker, 0);
+      y += float.height;
+    }
+  }
 
   if (notes.length > 0) {
     placeFootnotes(notes, opts, items, onMarker);
   }
 
-  const folio = renderFolio(number, opts);
-  if (folio !== null) {
-    // `\ps@plain`: the folio is centred in the text measure, on a baseline
-    // `\footskip` below the bottom of the text body.
-    const x = design.marginLeft + (design.textWidth - folio.width) / 2;
-    placeHorizontal(folio, x, design.marginTop + design.textHeight + design.footSkip, items, onMarker);
-  }
+  placeFolio(number, opts, items, onMarker);
 
   return { number, width: design.paperWidth, height: design.paperHeight, items };
+}
+
+/**
+ * The body of a page with `[h]` floats spliced back into it.
+ *
+ * A "here" float is the one position whose whole meaning is *the point the
+ * author wrote it*, so its material goes into the vertical list at its own
+ * marker rather than being anchored to an edge of the page. The marker node is
+ * left in place — it costs nothing and `\pageref` to a `\label` beside the
+ * float still resolves — and `\intextsep` goes either side of the box, which
+ * is what `\@bsphack`'s in-text float branch inserts.
+ *
+ * **The identity path matters more than the splice.** With no here-floats this
+ * returns the caller's own array, untouched and unallocated, so a document with
+ * no floats reaches `placeVertical` with byte-identical input.
+ */
+function spliceHereFloats(body: VList, bodyStart: number, floats: readonly PlacedFloat[]): VList {
+  const here = floats.filter((f) => f.where === "here");
+  if (here.length === 0) return body;
+  const out: VNode[] = [];
+  for (let i = 0; i < body.length; i++) {
+    out.push(body[i] as VNode);
+    for (const slot of here) {
+      if (slot.index - bodyStart !== i) continue;
+      out.push(kern(INTEXT_SEP), floatBox(slot.float), kern(INTEXT_SEP));
+    }
+  }
+  return out;
+}
+
+/** The page number, placed as `\ps@plain` places it. */
+function placeFolio(
+  number: number,
+  opts: PageBuildOptions,
+  items: PlacedItem[],
+  onMarker: (name: string) => void,
+): void {
+  const folio = renderFolio(number, opts);
+  if (folio === null) return;
+  const { design } = opts;
+  // `\ps@plain`: the folio is centred in the text measure, on a baseline
+  // `\footskip` below the bottom of the text body.
+  const x = design.marginLeft + (design.textWidth - folio.width) / 2;
+  placeHorizontal(folio, x, design.marginTop + design.textHeight + design.footSkip, items, onMarker);
+}
+
+/**
+ * A float page: `\@floatpagefraction`'s reward, and the last position LaTeX
+ * has to offer. Nothing but floats, `\@fpsep` apart.
+ *
+ * `\@fptop`, `\@fpsep` and `\@fpbot` are `0pt plus 1fil`, `8pt plus 2fil` and
+ * `0pt plus 1fil`: equal infinite stretch above and below, so the block of
+ * floats is **vertically centred** in the text body. That is computed here
+ * rather than left to glue because `placeVertical` sets vertical glue at its
+ * natural size (this engine is `\raggedbottom`), so a `fil` in the list would
+ * come out as nothing and every float page would be top-aligned.
+ */
+function placeFloatPage(
+  floats: readonly PreparedFloat[],
+  number: number,
+  opts: PageBuildOptions,
+  markerPages: Map<string, number>,
+): Page {
+  const { design } = opts;
+  const items: PlacedItem[] = [];
+  const onMarker = (name: string): void => {
+    if (!markerPages.has(name)) markerPages.set(name, number);
+  };
+
+  let height = FP_SEP * (floats.length - 1);
+  for (const float of floats) height += float.height;
+  // `Math.max(…, 0)` for the float too tall to fit at all: it starts at the top
+  // of the text body and runs off the foot, rather than off both edges at once.
+  let y = design.marginTop + Math.max((design.textHeight - height) / 2, 0);
+  for (let i = 0; i < floats.length; i++) {
+    const float = floats[i] as PreparedFloat;
+    if (i > 0) y += FP_SEP;
+    placeVertical(float.list, design.marginLeft, y, items, onMarker, 0);
+    y += float.height;
+  }
+
+  placeFolio(number, opts, items, onMarker);
+  return { number, width: design.paperWidth, height: design.paperHeight, items };
+}
+
+// --- choosing a position ----------------------------------------------------
+
+/**
+ * `\@addtocurcol`: the first position in h → t → b order that this page can
+ * still afford, or `null` for "not on this page" — which is what puts the float
+ * back at the head of the queue for the next one.
+ *
+ * `p` is deliberately absent from the search. A float page is not a position on
+ * *this* page; it is a page of its own, and `buildPages` writes it between two
+ * text pages once the queue's head has run out of alternatives.
+ *
+ * Two independent tests have to pass. **Room** — the float plus its separation
+ * must fit in what is left of `\textheight` after the body already contributed
+ * and after every other insert reserved its share. And **proportion** —
+ * `\topfraction`, `\bottomfraction` and `\textfraction`, the class's opinion
+ * that a page with a figure on it should still be a page of text. `[!]`
+ * (`FloatPlacement.override`) suspends the second and only the second: `!` in
+ * LaTeX means "ignore the aesthetic rules", never "ignore the paper size".
+ */
+function choosePosition(
+  float: PreparedFloat,
+  atItsOwnMarker: boolean,
+  taken: readonly PlacedFloat[],
+  used: number,
+  design: PageDesign,
+): FloatSlot | null {
+  for (const letter of placementOrder(float.placement)) {
+    if (letter === "p") return null;
+    if (letter === "h" && !atItsOwnMarker) continue;
+    const where: FloatSlot = letter === "h" ? "here" : letter === "t" ? "top" : "bottom";
+    if (used + reserveFor(float, where, taken) > design.textHeight) continue;
+    if (!float.placement.override && !withinFractions(float, where, taken, design)) continue;
+    return where;
+  }
+  return null;
+}
+
+/**
+ * How much of `\textheight` accepting this float costs — its own height plus
+ * the separation it brings with it.
+ *
+ * The separation depends on what is already at that end of the page:
+ * `\textfloatsep` between the float block and the text, `\floatsep` between
+ * two floats inside the block. Summed over a block of *n* floats this comes to
+ * exactly what `placePage` then lays out, which is what keeps a page that the
+ * builder said would fit from overflowing when it is placed.
+ */
+function reserveFor(float: PreparedFloat, where: FloatSlot, taken: readonly PlacedFloat[]): number {
+  if (where === "here") return float.height + 2 * INTEXT_SEP;
+  const already = taken.some((slot) => slot.where === where);
+  return float.height + (already ? FLOAT_SEP : TEXT_FLOAT_SEP);
+}
+
+/** `\topfraction` / `\bottomfraction` / `\textfraction`, as `article.cls` sets them. */
+function withinFractions(
+  float: PreparedFloat,
+  where: FloatSlot,
+  taken: readonly PlacedFloat[],
+  design: PageDesign,
+): boolean {
+  let atEnd = float.height;
+  let anywhere = float.height;
+  for (const slot of taken) {
+    anywhere += slot.float.height;
+    if (slot.where === where) atEnd += slot.float.height;
+  }
+  if (where === "top" && atEnd > TOP_FRACTION * design.textHeight) return false;
+  if (where === "bottom" && atEnd > BOTTOM_FRACTION * design.textHeight) return false;
+  // `\textfraction`: at least a fifth of every *text* page stays text. A float
+  // placed `[h]` is text-page material like the others, so it counts too.
+  return anywhere <= (1 - TEXT_FRACTION) * design.textHeight;
+}
+
+/**
+ * A float taller than the page it is on — placed anyway, and said so.
+ *
+ * Identical reasoning to `reportOverflowingFootnotes` below, and deliberately
+ * the same `overfull-box` code and `warning` severity: a box that cannot be
+ * shrunk to fit its allotted space is what that code means, and one page
+ * rendering badly is not a reason to refuse the whole document a PDF. The
+ * alternative — dropping it — is the silent loss D38 exists to prevent, and a
+ * figure that runs off the foot of its own page is at least a figure the author
+ * can see and resize.
+ */
+function reportOverflowingFloat(float: PreparedFloat, design: PageDesign, diagnostics: Diagnostic[]): void {
+  if (float.height <= design.textHeight) return;
+  diagnostics.push(
+    warning(
+      "overfull-box",
+      float.loc,
+      `this ${float.construct} is ${float.height.toFixed(1)}pt tall, taller than the ` +
+        `${design.textHeight.toFixed(1)}pt of a whole page; it is placed on a page of its own anyway and ` +
+        `overflows it — floats are never split across pages`,
+      float.construct,
+    ),
+  );
 }
 
 function placeFootnotes(
@@ -328,10 +851,7 @@ function placeFootnotes(
 ): void {
   const { design } = opts;
   const ruleOverhead = design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow;
-  let height = ruleOverhead;
-  for (let i = 0; i < notes.length; i++) {
-    height += (notes[i] as PreparedFootnote).height + (i === 0 ? 0 : FOOTNOTE_GAP);
-  }
+  const height = footnoteBlockHeight(notes, design);
 
   reportOverflowingFootnotes(notes, design.textHeight - ruleOverhead, opts.diagnostics);
 
@@ -518,6 +1038,22 @@ function placeHNodes(
         // A rule's `y` is its top edge and it grows downward, so a rule with a
         // negative height (an underline) is drawn below the baseline.
         items.push({ kind: "rule", x: pen, y: baseline - node.height, width: node.width, height: node.height + node.depth });
+        pen += node.width;
+        break;
+      // An image sits on the baseline (`ImageNode.depth` is always 0), so its
+      // top edge is one height above it. Nothing else about the page builder
+      // changes for an image: it is a rigid box in a horizontal list, which is
+      // what the line breaker and `addNodeExtent` already handle.
+      case "image":
+        items.push({
+          kind: "image",
+          x: pen,
+          y: baseline - node.height,
+          width: node.width,
+          height: node.height,
+          path: node.path,
+          image: node.image,
+        });
         pen += node.width;
         break;
       case "hbox":

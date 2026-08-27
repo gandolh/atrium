@@ -261,7 +261,11 @@ test("maxOutputBytes caps the PDF", () => {
 });
 
 test("an unsupported construct keeps its error and produces no PDF", () => {
-  const { files, entrypoint } = project("\\includegraphics{cat.png}");
+  // `\includegraphics` used to be the exemplar here; chunk 39.2 implemented it
+  // for real (a missing file is now `missing-file`, not `unsupported`, and a
+  // resolvable one places into the PDF), so `\textsc` — still genuinely
+  // unsupported — takes over the role this test actually needs.
+  const { files, entrypoint } = project("\\textsc{cat}");
   const result = compile(files, entrypoint, { fonts });
   assert.equal(result.pdf, null);
   assert.ok(result.diagnostics.some((d) => d.code === "unsupported"));

@@ -1,6 +1,6 @@
 # Task 39 — Typesetting engine: figures, tables, bibliography
 
-**Third of four.** [37](37-engine-foundation.md) → [38](38-latex-editor.md) →
+**Third of four.** [37](../done/37-engine-foundation.md) → [38](38-latex-editor.md) →
 **39** → [40](40-engine-math.md).
 
 **Requires brief 37.** Read its "What this is, and what it is deliberately not",
@@ -65,7 +65,9 @@ styles, and everything brief 37 listed as permanently out.
 - `packages/typeset/src/layout/table.ts` — column measurement and grid setting
 - `packages/typeset/src/doc/bib.ts` — `.bib` parsing and the numeric style
 - `packages/typeset/src/image/` — **new**: PNG/JPEG decode to intrinsic size
-  and PDF `XObject` embedding via `pdfkit`
+  and PDF `XObject` embedding via **`pdf-lib`** (corrected 2026-08-26: this
+  brief was written naming `pdfkit`, which brief 37 then ruled out — it reads
+  files from disk during document construction, which `src/` cannot do)
 - `packages/typeset/src/macro/` — the new command and environment entries
 - `packages/typeset/src/layout/page.ts` — extended to accept deferred floats
 - `packages/typeset/test/` — fixtures and goldens for everything above

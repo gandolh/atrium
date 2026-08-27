@@ -26,6 +26,7 @@ Catalog generated from each page's `summary:` frontmatter — run
 - [reader.md](wiki/reader.md) — The reader experience — PDF + EPUB renderers sharing one Kindle-style frame: nav, TOC, search, themes, progress rail, resume, a paged⇄scroll mode toggle, and a shared running header.
 - [status-history.md](wiki/status-history.md) — Archive of Atrium's shipped phases before brief 35 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
 - [status.md](wiki/status.md) — Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
+- [typeset.md](wiki/typeset.md) — The typesetting engine — Atrium's own TypeScript LaTeX-subset compiler. Pipeline, the scope line, the loud-failure contract, and why it performs no I/O.
 <!-- END wiki-catalog -->
 
 Triage on the summaries: read `index.md`, then **at most 2–3** wiki pages

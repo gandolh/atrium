@@ -1,8 +1,8 @@
 # Task 37 — Typesetting engine: foundation
 
-**First of four.** 37 (foundation) → [38](38-latex-editor.md) (editor) →
-[39](39-engine-figures-tables-bib.md) (figures, tables, bibliography) →
-[40](40-engine-math.md) (math). This brief carries the design rationale the
+**First of four.** 37 (foundation) → [38](../todo/38-latex-editor.md) (editor) →
+[39](../todo/39-engine-figures-tables-bib.md) (figures, tables, bibliography) →
+[40](../todo/40-engine-math.md) (math). This brief carries the design rationale the
 other three refer back to.
 
 ## Context
@@ -210,3 +210,62 @@ the scope table and the loud-failure contract; update
   Node-only API in its own source.
 - Typecheck + build + the new test suite are clean.
 - **No UI.** `apps/web` and `apps/api` are unchanged by this brief.
+
+## Outcome (2026-08-26 — shipped)
+
+Built via plan-split-dispatch: 9 chunks, 5 waves, 5 senior / 4 junior, then 3
+scoped review finders and 2 fix rounds. **10,708 lines of engine, 5,335 of
+tests, 332 tests green.** `compile()` takes `.tex` and returns a PDF that looks
+like a LaTeX document — verified by rendering and looking, not only by golden.
+
+M0, M1 and M2 all landed. Chunk 7 absorbed most of what M2 was scoped as, so
+chunk 8 was re-scoped mid-run to the fidelity gaps and the three real bugs
+chunk 7 found and correctly refused to patch outside its lane.
+
+**Deviations from the brief, all deliberate:**
+
+- **`pdf-lib`, not `pdfkit`.** The brief named pdfkit. Measured before
+  dispatching: it calls `readFileSync` on its bundled `Helvetica.cjs` during
+  *document construction*, even when only a custom font is embedded — which
+  would have put filesystem access inside `src/` and closed the browser path.
+  `pdf-lib` does zero filesystem calls. Cost accepted: it was last published in
+  2022, which is a real staleness bet on a frozen spec.
+- **`CompileResult` gained `pages`** beyond the brief's signature, because
+  goldens need positioned layout and PDF bytes are not reproducible.
+- **`.ts` import suffixes inside `src/`**, diverging from `apps/api`'s `.js`
+  convention: Node's type stripping does not rewrite specifiers, `tsc` does on
+  emit.
+- **Node's built-in test runner**, no framework and no new dependency.
+
+**Bugs found by attacking the engine rather than confirming it** — seven, none
+caught by the gates:
+
+- `\label` in a section title made `\pageref` print the ToC's page (Critical).
+- `egin{equation}` reported `undefined-environment` instead of `unsupported`,
+  and stuffed a non-string into a field the shared schema validates at brief
+  38's API boundary.
+- A budget latch keyed on a diagnostic code two unrelated failures also used —
+  a circular `\input` could swallow a genuine exhaustion, truncating a document
+  silently. **This was a defect in the controller's own earlier fix.**
+- A `ootnote` in a heading typeset twice, under a diagnostic that was false on
+  both counts.
+- An `\item` opening with a nested list lost its bullet silently.
+- `ef` to a nested enumerate item printed `1(a)` for `1a`.
+- Control words did not gobble following whitespace.
+
+**Upstream bug fixed, not worked around:** `@pdf-lib/fontkit` writes
+`cff.length` into the CFF header's `offSize` byte — 6 for every Latin Modern
+face, where the spec allows 1–4. Measured consequence: poppler rendered **every
+page in a substitute typeface** and pdf.js could not detect the font type. A
+silent catastrophic failure no layout test could have caught.
+
+**Left for later, knowingly:** footnotes are never split across pages (a
+too-tall note now reports rather than overflowing silently); `aggedbottom` is
+hard-coded; ToC dot leaders are an approximation that falls back to `\hfil` when
+an entry wraps; a second `\documentclass` overwrites the first's options while
+keeping the first's name; `geometry` validates paper but not text dimensions.
+
+The verify gate held throughout: three chunks died to transient 529s and one to
+a session limit, all resumed or re-dispatched with no partial writes to
+untangle — because dependencies were staged centrally and every chunk was
+fenced off `src/index.ts` and `package.json`.

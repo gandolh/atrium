@@ -3,7 +3,7 @@
 > typesetting engine (**D38**). The editor, projects, publish and versions design
 > was owner-confirmed and survives unchanged in
 > [brief 38](../todo/38-latex-editor.md); the engine is
-> [brief 37](../todo/37-engine-foundation.md),
+> [brief 37](../done/37-engine-foundation.md),
 > [39](../todo/39-engine-figures-tables-bib.md) and
 > [40](../todo/40-engine-math.md). Kept because it records the Tectonic
 > reasoning D38 had to answer.

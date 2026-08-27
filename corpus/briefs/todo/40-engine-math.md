@@ -1,6 +1,6 @@
 # Task 40 — Typesetting engine: math
 
-**Fourth of four.** [37](37-engine-foundation.md) → [38](38-latex-editor.md) →
+**Fourth of four.** [37](../done/37-engine-foundation.md) → [38](38-latex-editor.md) →
 [39](39-engine-figures-tables-bib.md) → **40**.
 
 **Requires brief 37.** Its scope line (syntax, not semantics), failure contract
@@ -35,12 +35,18 @@ alternative and is **deliberately deferred**: it is months of subtle work for
 output a reader cannot distinguish, and it can replace this layer later behind
 the same interface without touching anything else.
 
-**Why our own emitter and not `svg-to-pdfkit`.** That package is MIT and would
-work, but it was last published in **2022** and this path is load-bearing for
-every equation in every published document. What we actually need is narrow —
-`<path>` data, transforms, and `<use>` resolution against `<defs>` — which is a
-few hundred lines against `pdfkit`'s path API, fully under our own tests. A
+**Why our own emitter and not an off-the-shelf SVG converter.** `svg-to-pdfkit`
+is the obvious candidate and it is MIT, but it was last published in **2022**,
+and — decisively — it targets `pdfkit`, which brief 37 ruled out: pdfkit reads
+its bundled standard-font data from disk during document construction, which
+`src/` cannot do. What we actually need is narrow: `<path>` data, transforms,
+and `<use>` resolution against `<defs>`. That is a few hundred lines against
+**`pdf-lib`**'s content-stream operators, fully under our own tests, and it sits
+beside the glyph emitter brief 37 already wrote for exactly that reason. A
 general SVG converter is a much larger surface than the job requires.
+
+*(Corrected 2026-08-26: this brief was written naming `pdfkit` before brief 37's
+measurement disqualified it.)*
 
 **The cost to accept:** `mathjax-full` is a large dependency. It runs
 **server-side only** (brief 38 compiles in Node), so it costs no browser

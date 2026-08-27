@@ -1,5 +1,61 @@
 # Log
 
+## [2026-08-26] build | Brief 37 shipped — Atrium's own typesetting engine (D38)
+
+`compile()` takes a `.tex` file map and returns a PDF. Ours, in TypeScript, no
+TeX involved. **10,708 lines of engine, 5,335 of tests, 332 tests green** — and
+the repo's first test suite, because a typesetting engine without golden tests
+is unmaintainable: every layout change silently moves every line on every page.
+Built via plan-split-dispatch: 9 chunks, 5 waves, then 3 scoped finders and 2
+fix rounds. Verified by rendering pages and looking at them, not only by golden.
+
+**Purity replaced sandboxing.** Brief 36 spent a section on confining Tectonic.
+A pure no-I/O function *deletes* that problem: no shell escape is written, so
+`\write18` cannot exist; `\input` resolves against an in-memory map, so
+`/etc/passwd` has nothing to reach. A deterministic step budget replaces the
+wall clock — reproducible where a timer is not.
+
+**The brief named `pdfkit` and it was wrong.** Measured before dispatching: it
+`readFileSync`s its bundled `Helvetica.cjs` during *document construction*, even
+when only a custom font is embedded. That would have put filesystem access
+inside `src/` and closed the browser path. Switched to `pdf-lib`, which does
+zero filesystem calls. **Briefs 39 and 40 were written naming pdfkit too and
+have been corrected in place** — an unstarted brief carrying a disproven
+dependency is a trap, not a record.
+
+**Two upstream bugs found and fixed rather than worked around.**
+`@pdf-lib/fontkit` writes `cff.length` into the CFF header's `offSize` byte — 6
+for every Latin Modern face, where the spec allows 1–4 — which made poppler
+render **every page in a substitute typeface**. Silent, catastrophic, and
+invisible to any layout test. `@unified-latex` parses a CRLF as a paragraph
+break and drops position data on boundary whitespace inside macro-gathered
+arguments; both fixes are exact rather than approximate.
+
+**Seven bugs came from attacking the engine, none from the gates.** The worst:
+`\label` inside a `\section{}` title made `\pageref` print the table of
+contents' page — three chunks each correct alone, sharing one `Inline[]` between
+a heading and its ToC entry. And `\begin{equation}` reported
+`undefined-environment` ("not a thing") instead of `unsupported` ("not yet"),
+while stuffing a non-string into a field the shared schema validates at brief
+38's API boundary — it would have surfaced as a serialization failure in a
+different package entirely.
+
+**The recurring lesson, now three briefs running (34, 35, 37): every serious
+finding spanned files owned by different chunks, and none tripped the gates.**
+Per-chunk verification was honest and still insufficient, because each chunk was
+right about its own half. Two of this brief's findings were defects in the
+controller's *own* fix — latching "already reported" on a diagnostic code that
+two unrelated failures also used, which could swallow a genuine budget
+exhaustion and truncate a document silently. Budget the scoped review on 39 and
+40 accordingly; it is not optional.
+
+**Left knowingly:** footnotes never split across pages (a too-tall note now
+reports rather than overflowing silently), `\raggedbottom` is hard-coded, ToC
+dot leaders fall back to `\hfil` when an entry wraps, and `geometry` validates
+paper but not text dimensions.
+
+New `wiki/typeset.md`. Brief 38 (the editor) is unblocked and next.
+
 ## [2026-08-26] decision | Atrium will write its own typesetting engine (D38, brief 37)
 
 **D37's engine clause is revised before a line of brief 36 was built.** The

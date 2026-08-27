@@ -5,7 +5,21 @@ updated: 2026-08-26
 
 # Status — 2026-08-26
 
-**Latest (2026-08-26):** ✅ **Brief 34 shipped — Convert.** A PDF now offers a
+**Latest (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
+Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and
+not any TeX: `packages/typeset` takes a `.tex` file map and returns PDF bytes as
+a pure function with no filesystem, network or processes. That purity *is* the
+sandbox — `\write18` cannot execute because no shell escape is written, and
+`\input{/etc/passwd}` has no filesystem to reach. 10,708 lines of engine, 5,335
+of tests, **332 tests** — the repo's first test suite. Prose, sections, ToC,
+lists, footnotes, cross-references, `\newcommand` and verbatim all set
+correctly; figures/tables/bibliography are brief 39 and math is brief 40, and
+every construct outside the subset reports a diagnostic with file and line
+rather than failing silently. Details in
+[briefs/done/37-engine-foundation.md](../briefs/done/37-engine-foundation.md)
+and [typeset.md](typeset.md).
+
+**Earlier (2026-08-26):** ✅ **Brief 34 shipped — Convert.** A PDF now offers a
 reflowable EPUB twin and an EPUB offers a PDF, as **linked `books` rows** (D34)
 — one card per book, each format with its own resume position, and reopening
 lands in the format that reader last used. Conversion is an async job: one at a
@@ -84,7 +98,7 @@ The dashboard is what is true *now*; the archive is how it got here.
 | 34 | Convert: the same book in either format (linked rows, D34) | **done (2026-08-25)** |
 | 35 | Profiles: several readers behind one account (household model, D35) | **done (2026-08-25)** |
 | 36 | LaTeX: write, compile, publish (Tectonic) | **superseded by 37–40 (2026-08-26)** |
-| 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **todo — next** |
-| 38 | LaTeX editor: projects, compile, publish, versions (needs 37) | **todo** |
+| 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
+| 38 | LaTeX editor: projects, compile, publish, versions | **todo — next, unblocked** |
 | 39 | Engine: figures, tables, bibliography | **todo** |
 | 40 | Engine: math (MathJax SVG → PDF) | **todo** |

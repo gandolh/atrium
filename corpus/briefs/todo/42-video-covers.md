@@ -120,6 +120,18 @@ geometry for books or audio.
    gives every tagged mp4 a real cover immediately. It also proves the whole
    downstream path (storage → serving → `hasCover` → card) works for a video
    before any browser capture exists.
+
+   *(Observed 2026-08-27, running the app after brief 41.)* **There is already a
+   real video cover sitting on disk.** The owner's one video carries a
+   640×1138 JPEG whose encoder comment reads `Lavc58.134.100` — libavcodec, so
+   an ffmpeg-produced frame from 2026-07-21, before brief 23 declined that
+   dependency. Since brief 41 made `hasCover` a disk check, the API **already
+   reports `hasCover: true`** for it; the card still draws the typographic tile
+   purely because of the client gate in step 2. So step 2 alone turns a real
+   cover on, on real data, with no capture code written yet — do it early and
+   look at it, because it also proves the geometry decision (this frame is
+   portrait, not 16:9, so it exercises the letterboxing rule rather than the
+   easy case).
 2. **The card gate**, so a stored video cover actually renders. After steps 1–2
    a tagged mp4 has a working cover end to end.
 3. **The route**, with the sharp re-encode.

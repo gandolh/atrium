@@ -167,6 +167,11 @@ export function buildPageContent(page: Page, registry: FontRegistry, at: SourceR
   // the stream readable on its own.
   const out: string[] = ["0 g"];
 
+  // A backstop, and `internal` on purpose. The one thing a *document* can do
+  // to produce an impossible page — `\usepackage[paperwidth=0pt]{geometry}` —
+  // is refused where the option is read (`applyGeometry` in `layout/design.ts`)
+  // and reported there as the author's error, with the line it is on. Anything
+  // still reaching here is a `PageDesign` no document asked for: an engine bug.
   if (!allFinite([page.width, page.height]) || page.width <= 0 || page.height <= 0) {
     diagnostics.push(
       error("internal", at, `page ${page.number} has a non-finite or empty media box`),

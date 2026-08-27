@@ -309,8 +309,18 @@ interface InlineOptions {
   size: number;
   /** Where this material came from, for diagnostics. */
   at: SourceRef;
-  /** `false` inside a footnote: LaTeX refuses nested footnotes too. */
+  /**
+   * `false` where a note's text has nowhere to go: inside another footnote
+   * (LaTeX does not nest footnotes either — `\footnote` within `\footnote`
+   * needs a package such as `bigfoot`), and inside an `\item[...]` label.
+   */
   allowFootnotes: boolean;
+  /**
+   * The construct that refused, phrased to follow "a `\footnote` …" — read
+   * only when `allowFootnotes` is false, so the refusal names the real reason
+   * instead of assuming one.
+   */
+  footnotesRefusedIn?: string;
   /** Nodes placed before the first inline — a footnote's mark, a section number. */
   prefix?: HNode[];
 }
@@ -448,10 +458,18 @@ function appendStyledText(
  * The footnote's *mark*, plus the marker that tells the page builder which line
  * carries it. The note's own text is laid out here too and parked in
  * `ctx.footnotes`; where it ends up is a page-breaking question.
+ *
+ * When the surrounding material refuses footnotes (`allowFootnotes: false` —
+ * a footnote's own text, or an `\item[...]` label), the mark is still set so
+ * the reference does not silently vanish, but nothing is registered: no note
+ * to place, and therefore no marker, because the marker's only job is to tell
+ * the page builder which line a note has to follow. The refusal is reported
+ * with `opts.footnotesRefusedIn` naming the construct that did the refusing,
+ * so the diagnostic says something true rather than guessing at the cause.
  */
 function appendFootnote(out: HList, note: FootnoteInline, ctx: LayoutContext, opts: InlineOptions): void {
   const name = footnoteMarker(note.number);
-  out.push({ kind: "marker", name });
+  if (opts.allowFootnotes) out.push({ kind: "marker", name });
 
   const face = resolveFace(ctx, note.style.font, ctx.design.sizes.scriptsize.size);
   if (face !== null) {
@@ -463,8 +481,14 @@ function appendFootnote(out: HList, note: FootnoteInline, ctx: LayoutContext, op
   }
 
   if (!opts.allowFootnotes) {
+    const where = opts.footnotesRefusedIn ?? "in material that cannot carry one";
     ctx.diagnostics.push(
-      warning("unsupported", note.loc, "a \\footnote inside a footnote is dropped; LaTeX refuses it too", "\\footnote"),
+      warning(
+        "unsupported",
+        note.loc,
+        `a \\footnote ${where}: the mark is set where it stands, but this engine does not place the note's text at the foot of any page`,
+        "\\footnote",
+      ),
     );
     return;
   }
@@ -495,9 +519,17 @@ interface BlockEnv {
   /** Vertical space between paragraphs: `\parskip`, or a list's `\parsep`. */
   parSkip: number;
   parSkipStretch: number;
+  /**
+   * `\parskip` has no shrink component in `latex.ltx` (`0pt plus 1pt`), but a
+   * list's `\parsep` does — `4pt plus2pt minus1pt` at depth 1 — so the shrink
+   * is carried separately rather than being assumed symmetric with the stretch.
+   */
+  parSkipShrink: number;
   /** Nesting depth of enclosing lists, for `size10.clo`'s spacing tables. */
   listDepth: number;
   allowFootnotes: boolean;
+  /** `InlineOptions.footnotesRefusedIn`, carried down to every inline list. */
+  footnotesRefusedIn?: string;
 }
 
 function bodyEnv(design: PageDesign): BlockEnv {
@@ -508,6 +540,7 @@ function bodyEnv(design: PageDesign): BlockEnv {
     parIndent: design.parIndent,
     parSkip: 0,
     parSkipStretch: design.parSkipStretch,
+    parSkipShrink: 0,
     listDepth: 0,
     allowFootnotes: true,
   };
@@ -550,6 +583,7 @@ function layoutParagraph(block: ParagraphBlock, col: Column, ctx: LayoutContext,
     size: env.size.size,
     at: block.loc,
     allowFootnotes: env.allowFootnotes,
+    footnotesRefusedIn: env.footnotesRefusedIn,
     prefix,
   });
   if (hlist.length === prefix.length) return;
@@ -588,6 +622,7 @@ function layoutHeading(block: HeadingBlock, col: Column, ctx: LayoutContext, env
     size: size.size,
     at: block.loc,
     allowFootnotes: env.allowFootnotes,
+    footnotesRefusedIn: env.footnotesRefusedIn,
     prefix,
   });
   const headingEnv: BlockEnv = { ...env, size };
@@ -677,6 +712,7 @@ function layoutRunInParagraph(
     size: env.size.size,
     at: heading.loc,
     allowFootnotes: env.allowFootnotes,
+    footnotesRefusedIn: env.footnotesRefusedIn,
     prefix,
   });
   pushParagraph(col, ctx, hlist, env, heading.loc);
@@ -684,7 +720,33 @@ function layoutRunInParagraph(
 
 // --- lists ------------------------------------------------------------------
 
+/**
+ * Emit a label that never found a box to sit beside, on a line of its own.
+ *
+ * `col.pendingPrefix` holds an `\item`'s label until the first box of the
+ * item's body comes along for it to hang beside. Two things can mean that box
+ * never arrives: an item with an empty body, and — the case this exists for —
+ * an item whose body *starts with a nested list*, whose own first `\item`
+ * would otherwise overwrite the outstanding label and lose it silently.
+ *
+ * Real LaTeX puts the outer label on a line of its own there: `\item` starts
+ * a paragraph, the nested `\list` ends it (`\par` inside `\@trivlist`), and
+ * that paragraph — the label and nothing else — is set before the inner list's
+ * `\topsep` opens. Hence the flush at the top of `layoutList`, ahead of its
+ * own vertical space, rather than at the point of overwrite.
+ */
+function flushPendingPrefix(col: Column, baselineSkip: number): void {
+  const prefix = col.pendingPrefix;
+  if (prefix === null) return;
+  col.pendingPrefix = null;
+  pushBox(col, hpack(prefix, "natural").box, baselineSkip, 0);
+}
+
 function layoutList(block: ListBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+  // `env` is the *enclosing* environment — an outer item's, when this list is
+  // nested inside one — so this sets the stranded label at the size and
+  // baseline the item it belongs to is being set at.
+  flushPendingPrefix(col, env.size.baselineSkip);
   const spacing = listSpacing(ctx.design, block.depth);
   addVspace(col, spacing.topSep, spacing.topStretch, spacing.topShrink);
 
@@ -693,13 +755,17 @@ function layoutList(block: ListBlock, col: Column, ctx: LayoutContext, env: Bloc
     measure: env.measure - spacing.leftMargin,
     left: env.left + spacing.leftMargin,
     parSkip: spacing.parSep,
-    parSkipStretch: 0,
+    parSkipStretch: spacing.parStretch,
+    parSkipShrink: spacing.parShrink,
     listDepth: block.depth,
   };
 
   for (let i = 0; i < block.items.length; i++) {
     if (!spend(ctx.budget)) break;
-    if (i > 0) addVspace(col, spacing.itemSep, spacing.parSep / 2, spacing.parSep / 2);
+    // `\itemsep` with its own stretch and shrink from `size10.clo` — which are
+    // asymmetric (`4pt plus2pt minus1pt` at depth 1), so neither is a function
+    // of the other or of `\parsep`.
+    if (i > 0) addVspace(col, spacing.itemSep, spacing.itemStretch, spacing.itemShrink);
     layoutItem(block, block.items[i] as ListItem, col, ctx, inner, spacing.labelWidth, spacing.labelSep);
   }
 
@@ -735,11 +801,7 @@ function layoutItem(
   layoutBlocks(item.content, col, ctx, env);
   col.suppressIndent = false;
   // An item whose body produced nothing would strand the label; emit it alone.
-  if (col.pendingPrefix !== null) {
-    const prefix = col.pendingPrefix;
-    col.pendingPrefix = null;
-    pushBox(col, hpack(prefix, "natural").box, env.size.baselineSkip, 0);
-  }
+  flushPendingPrefix(col, env.size.baselineSkip);
 }
 
 /**
@@ -796,6 +858,7 @@ function layoutDescriptionItem(
     size: env.size.size,
     at: first.loc,
     allowFootnotes: env.allowFootnotes,
+    footnotesRefusedIn: env.footnotesRefusedIn,
   });
   if (hlist.length > 0) {
     const result = breakParagraph(hlist, [env.measure + leftMargin, env.measure], breakOptions(ctx, first.loc));
@@ -816,7 +879,12 @@ function itemLabel(block: ListBlock, item: ListItem, ctx: LayoutContext, size: n
     if (face === null) return null;
     return hpack([shapeRun(face, itemizeLabel(block.variantDepth), ctx.shaper)], "natural").box;
   }
-  const nodes = inlinesToHList(item.label, ctx, { size, at: item.loc, allowFootnotes: false });
+  const nodes = inlinesToHList(item.label, ctx, {
+    size,
+    at: item.loc,
+    allowFootnotes: false,
+    footnotesRefusedIn: "in a list item's own \\item[...] label",
+  });
   if (nodes.length === 0) return null;
   return hpack(nodes, "natural").box;
 }
@@ -900,7 +968,12 @@ function pushCentred(
   size: FontSize,
   at: SourceRef,
 ): void {
-  const hlist = inlinesToHList(inlines, ctx, { size: size.size, at, allowFootnotes: env.allowFootnotes });
+  const hlist = inlinesToHList(inlines, ctx, {
+    size: size.size,
+    at,
+    allowFootnotes: env.allowFootnotes,
+    footnotesRefusedIn: env.footnotesRefusedIn,
+  });
   while (hlist.length > 0 && (hlist[hlist.length - 1] as HNode).kind === "glue") hlist.pop();
   if (hlist.length === 0) return;
   const fil = glue(0, 1, 0, 1, 0);
@@ -998,6 +1071,54 @@ function layoutToc(document: LatexDocument, col: Column, ctx: LayoutContext, env
   }
 }
 
+/**
+ * The heading's title as a *table-of-contents entry*.
+ *
+ * A ToC entry is a **reference to** the heading, not a second occurrence of
+ * it, and `entry.title` is the very same `Inline[]` the heading itself is set
+ * from (`applySection` in `doc/build.ts` pushes the array, not a copy). So
+ * everything in it that is an *occurrence* rather than *text* is dropped here
+ * rather than copied through:
+ *
+ * - a `MarkerInline` — what `\label{k}` inside `\section{...}` leaves behind.
+ *   Copied through, the ToC line carried a second `{kind:"marker"}` node, the
+ *   page builder saw the name for the first time on the ToC's own page, and
+ *   `\pageref{k}` then printed the ToC's page instead of the heading's.
+ * - a `FootnoteInline`. It carries the note's number and marker, so copying it
+ *   registered *one* note against *two* lines and the note's text was set at
+ *   the foot of the ToC's page as well as the heading's. Real LaTeX does
+ *   repeat the note in the ToC (a `\footnote` in a moving argument is a known
+ *   trap authors reach for `\protect\footnotemark` to avoid); this engine
+ *   sets it once, at the heading, and says so.
+ *
+ * `ReferenceInline`s are kept: `\ref` prints the same text wherever it is set,
+ * and passing the very same object through means the resolution pass fills in
+ * both appearances at once.
+ */
+function tocTitle(entry: TocEntry, weight: "bold" | "regular", ctx: LayoutContext): Inline[] {
+  const title: Inline[] = [];
+  for (const inline of entry.title) {
+    if (inline.kind === "marker") continue;
+    if (inline.kind === "footnote") {
+      ctx.diagnostics.push(
+        warning(
+          "unsupported",
+          inline.loc,
+          "a \\footnote in a section title is set at the heading only; this engine does not repeat it in the table of contents",
+          "\\footnote",
+        ),
+      );
+      continue;
+    }
+    title.push(
+      inline.kind === "text"
+        ? { ...inline, style: { ...inline.style, font: { ...inline.style.font, weight } } }
+        : inline,
+    );
+  }
+  return title;
+}
+
 function pushTocEntry(
   entry: TocEntry,
   col: Column,
@@ -1037,11 +1158,9 @@ function pushTocEntry(
   // which is exactly the bug this fixes (subsection/subsubsection entries
   // rendering bold in the ToC).
   const tocWeight: "bold" | "regular" = bold ? "bold" : "regular";
-  const title = entry.title.map((inline) =>
-    inline.kind === "text"
-      ? { ...inline, style: { ...inline.style, font: { ...inline.style.font, weight: tocWeight } } }
-      : inline,
-  );
+  const title = tocTitle(entry, tocWeight, ctx);
+  // `allowFootnotes` is moot now that `tocTitle` drops footnotes outright, but
+  // it stays false: a ToC entry is never the right place for a note's text.
   const hlist = inlinesToHList(title, ctx, { size: size.size, at, allowFootnotes: false, prefix });
   while (hlist.length > 0 && (hlist[hlist.length - 1] as HNode).kind === "glue") hlist.pop();
 
@@ -1149,8 +1268,10 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
     parIndent: em,
     parSkip: 0,
     parSkipStretch: 0,
+    parSkipShrink: 0,
     listDepth: 0,
     allowFootnotes: false,
+    footnotesRefusedIn: "inside another footnote's text",
   };
 
   // `\@makefntext` for `article`: `\noindent\hb@xt@1.8em{\hss\@makefnmark}`,
@@ -1167,7 +1288,8 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
     const hlist = inlinesToHList(first.content, ctx, {
       size: size.size,
       at: note.loc,
-      allowFootnotes: false,
+      allowFootnotes: env.allowFootnotes,
+      footnotesRefusedIn: env.footnotesRefusedIn,
       prefix: markBox,
     });
     pushParagraph(col, ctx, hlist, env, note.loc);
@@ -1187,7 +1309,7 @@ function layoutBlocks(blocks: readonly Block[], col: Column, ctx: LayoutContext,
     if (!spend(ctx.budget)) return;
     const block = blocks[i] as Block;
     if (i > 0 && block.kind === "paragraph" && (blocks[i - 1] as Block).kind === "paragraph") {
-      pushGlue(col, env.parSkip, env.parSkipStretch, 0);
+      pushGlue(col, env.parSkip, env.parSkipStretch, env.parSkipShrink);
     }
     // `\paragraph` is a run-in heading (see `layoutRunInParagraph`'s doc
     // comment): when a paragraph genuinely follows, the two merge into one
@@ -1283,7 +1405,7 @@ export function buildVerticalList(document: LatexDocument, ctx: LayoutContext): 
       continue;
     }
     if (i > 0 && block.kind === "paragraph" && (document.blocks[i - 1] as Block).kind === "paragraph") {
-      pushGlue(col, env.parSkip, env.parSkipStretch, 0);
+      pushGlue(col, env.parSkip, env.parSkipStretch, env.parSkipShrink);
     }
     // Same run-in merge `layoutBlocks` does below — duplicated rather than
     // shared because this loop also owns the `toc` interception `layoutBlocks`

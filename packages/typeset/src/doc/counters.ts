@@ -156,14 +156,35 @@ export function formatEnumLabel(depth: number, value: number): string {
   return Math.min(Math.max(depth, 1), 4) === 2 ? `(${text})` : `${text}.`;
 }
 
-/** `\p@enumN\theenumN` — what a `\ref` to this item prints. */
+/**
+ * `\p@enumN\theenumN` — what a `\ref` to this item prints.
+ *
+ * The reference prefixes in `classes.dtx` (`article.cls`) are:
+ * ```
+ * \renewcommand\p@enumii{\theenumi}
+ * \renewcommand\p@enumiii{\theenumi(\theenumii)}
+ * \renewcommand\p@enumiv{\p@enumiii\theenumiii}
+ * ```
+ * (`\p@enumi` is `\@empty`, LaTeX's default.) So the parentheses around the
+ * second level are *not* part of `\theenumii`: they are literal text inside
+ * `\p@enumiii`, which is why a `\ref` to a second-level item prints `1a`
+ * while a `\ref` to a third-level one prints `1(a)i`. The parenthesised form
+ * an author sees in the margin comes from `\labelenumii{(\theenumii)}`
+ * instead — a different macro, handled by `formatEnumLabel`.
+ *
+ * Concretely: `1`, `1a`, `1(a)i`, `1(a)iA`.
+ */
 export function enumReferenceText(counters: Counters, depth: number): string {
   const d = Math.min(Math.max(depth, 1), 4);
   let out = "";
   for (let level = 1; level <= d; level++) {
     const value = counters[enumCounter(level)];
     const text = formatEnumValue(level, value);
-    out += level === 2 ? `(${text})` : text;
+    // `(`…`)` only when level 2 is being written as part of a *prefix*
+    // (`\p@enumiii` and, through it, `\p@enumiv`) — never when it is the
+    // level actually being referred to, where `\p@enumii\theenumii` is a
+    // bare `\theenumi\theenumii`.
+    out += level === 2 && level < d ? `(${text})` : text;
   }
   return out;
 }

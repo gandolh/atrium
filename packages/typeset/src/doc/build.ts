@@ -95,6 +95,7 @@ interface BuildState {
   packages: PackageUse[];
   documentClass: string | null;
   classOptions: string;
+  classLoc: SourceRef | null;
   listDepth: number;
   /** Per-variant nesting, tracked separately because LaTeX's labels are. */
   variantDepth: Record<ListVariant, number>;
@@ -119,6 +120,7 @@ export function createBuildState(file: string, diagnostics: Diagnostic[], budget
     packages: [],
     documentClass: null,
     classOptions: "",
+    classLoc: null,
     listDepth: 0,
     variantDepth: { itemize: 0, enumerate: 0, description: 0 },
   };
@@ -819,6 +821,9 @@ function readDocumentClass(cmd: CommandNode, st: BuildState): void {
   const name = arg === null ? "" : plainText(arg.content).trim();
   const options = cmd.args.find((a) => a.bracket === "[");
   st.classOptions = options === undefined ? "" : plainText(options.content).trim();
+  // Kept with the options themselves: `documentDesign` reports an option it
+  // cannot honour, and brief 37 treats a wrong line number as a bug.
+  st.classLoc = at;
   if (st.documentClass !== null) {
     st.diagnostics.push(error("syntax", at, "a document has only one \\documentclass", "\\documentclass"));
     return;

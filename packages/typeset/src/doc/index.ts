@@ -115,6 +115,7 @@ export function buildDocument(
   const document: LatexDocument = {
     documentClass: st.documentClass ?? "article",
     classOptions: st.classOptions,
+    classLoc: st.classLoc,
     packages: st.packages,
     blocks,
     toc: st.toc,
@@ -136,6 +137,7 @@ function emptyResult(diagnostics: Diagnostic[], budget: Budget): BuildResult {
     document: {
       documentClass: "article",
       classOptions: "",
+      classLoc: null,
       packages: [],
       blocks: [],
       toc: [],

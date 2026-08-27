@@ -317,6 +317,23 @@ test("\\label inside an enumerate item refers to the item, not the section", () 
   assert.equal(result.document.labels.get("i")!.text, "1");
 });
 
+test("\\ref to a nested enumerate item follows \\p@enumN, which parenthesises nothing at level 2", () => {
+  // `classes.dtx`: `\p@enumii{\theenumi}`, `\p@enumiii{\theenumi(\theenumii)}`,
+  // `\p@enumiv{\p@enumiii\theenumiii}`. The parentheses at level 2 belong to
+  // `\labelenumii` — what the item prints in its own margin — and to the
+  // *prefix* `\p@enumiii`, never to a reference that stops at level 2.
+  const two = build(
+    "\\begin{enumerate}\\item a\n\\begin{enumerate}\\item b\\label{deep}\\end{enumerate}\\end{enumerate}\n\n\\ref{deep}",
+  );
+  assert.equal(two.document.labels.get("deep")!.text, "1a");
+
+  const three = build(
+    "\\begin{enumerate}\\item a\n\\begin{enumerate}\\item b\n\\begin{enumerate}\\item c\\label{deeper}" +
+      "\\end{enumerate}\\end{enumerate}\\end{enumerate}\n\n\\ref{deeper}",
+  );
+  assert.equal(three.document.labels.get("deeper")!.text, "1(a)i");
+});
+
 test("\\label inside a footnote refers to the footnote", () => {
   const result = build("a\\footnote{n\\label{f}}");
   assert.equal(result.document.labels.get("f")!.text, "1");

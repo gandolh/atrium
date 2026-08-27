@@ -137,15 +137,25 @@ export type CompileFn = (
  *    with no `try`. Bugs are caught at this boundary and reported with code
  *    `internal`; that is the only thing the `catch` below is for.
  *
- * 2. **It performs no I/O.** No filesystem, no network, no child process, no
- *    `eval`. This is the engine's entire security design (D38) rather than a
- *    style preference: `\write18` cannot execute because no shell escape exists,
- *    and `\input{/etc/passwd}` cannot read anything because there is nothing to
- *    read from — `\input` resolves against `files` or it is a diagnostic. Path
- *    traversal and sandbox escape stop being engine concerns. Anything added
- *    under `src/` that reaches outside this function's arguments breaks the
- *    contract, and `tsconfig.json` withholds the Node types so it cannot be
- *    added by accident.
+ * 2. **It performs no I/O of its own, and nothing the document says can cause
+ *    any.** No file, no socket, no child process, no `eval` is opened by code
+ *    under `src/`: every byte the engine reads arrives as an argument to this
+ *    function, and `tsconfig.json` withholds the Node types so `fs`, `process`
+ *    and `Buffer` cannot even be *named* there — the guarantee is enforced by
+ *    the compiler rather than by review. This is the engine's entire security
+ *    design (D38) rather than a style preference: `\write18` cannot execute
+ *    because no shell escape exists, and `\input{/etc/passwd}` cannot read
+ *    anything because there is nothing to read from — `\input` resolves
+ *    against `files` or it is a diagnostic. No path, name or byte a document
+ *    controls reaches a host API, so path traversal and sandbox escape stop
+ *    being engine concerns.
+ *
+ *    Stated precisely, because the weaker claim is the true one: this is a
+ *    guarantee about *first-party* code and about *reachability from the
+ *    document*, not a claim that `node:fs` is absent from the module graph.
+ *    It is not — `fontkit`, the third-party font parser, imports it. See the
+ *    known limitation in `font/fontkit-handle.ts`, which also explains why no
+ *    input can reach it.
  *
  * Unsupported LaTeX is never silently skipped: it produces a diagnostic naming
  * the construct, with a file and a line (the loud-failure contract, D38).

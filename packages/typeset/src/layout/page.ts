@@ -293,6 +293,12 @@ function placePage(
 ): Page {
   const { design } = opts;
   const items: PlacedItem[] = [];
+  // First sighting wins. Every marker name is *placed once* — `\label` emits
+  // one marker at its own position and nothing copies it (a ToC entry strips
+  // the markers out of the heading title it renders, see `tocTitle` in
+  // `vlist.ts`, precisely so that this stays true) — so first-wins and
+  // last-wins agree, and the guard exists only so that a marker somehow
+  // placed twice cannot make `\pageref` depend on which page was built last.
   const onMarker = (name: string): void => {
     if (!markerPages.has(name)) markerPages.set(name, number);
   };

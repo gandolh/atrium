@@ -7,14 +7,40 @@ import type { FontHandle, PositionedGlyph, ShapedText } from "./handle.ts";
  * A `FontHandle` over fontkit. This is the only file in the engine that knows
  * what an OpenType table is.
  *
- * It takes **bytes, not a path**. The engine does no I/O (D38), so acquiring
- * the bytes is the caller's problem: in Node that is
+ * It takes **bytes, not a path**. The engine does no I/O of its own (D38), so
+ * acquiring the bytes is the caller's problem: in Node that is
  * `@ebook-reader/typeset/fonts/node`, in a browser it would be `fetch()`.
  *
  * fontkit is the same library pdfkit embeds and subsets with, so the handle a
  * layout run measures with and the font PDF emission writes out are parsed by
  * identical code — the width in the layout cannot disagree with the width in
  * the file.
+ *
+ * ## Known limitation: `node:fs` is in the module graph, through fontkit
+ *
+ * `compile()`'s no-I/O guarantee is about *first-party* code and about what a
+ * document can reach — not about the module graph, which is not fs-free.
+ * `fontkit@2.0.4`'s `exports` map sends Node's ESM resolver to
+ * `dist/module.mjs`, and its second line is `import fs from "fs"`. That import
+ * backs `fontkit.open()`/`openSync()`, the path-taking entry points; this file
+ * calls **only** `fontkit.create(bytes)` — the two call sites below are the
+ * whole of this engine's use of the library — so the `fs` import is loaded and
+ * never used, and no LaTeX input reaches it: nothing a document writes becomes
+ * a path, and `\input` resolves against the in-memory file map or becomes a
+ * diagnostic.
+ *
+ * What follows from it, recorded rather than fixed:
+ *
+ * - A host that bans the `fs` *module itself* — an import policy, a loader
+ *   hook, a runtime with no `node:` builtins — cannot load this file's
+ *   dependency, and therefore cannot run the engine with real fonts. (Node's
+ *   `--permission` model is *not* such a host: it gates fs operations, which
+ *   the engine never performs, not the import.)
+ * - A browser bundle is unaffected: without Node's `node` export condition the
+ *   same package resolves to `dist/browser-module.mjs`, which imports no `fs`.
+ * - Removing the dependency would mean vendoring or forking fontkit's OpenType
+ *   parser — a much larger correctness risk than the unused import it deletes,
+ *   which is why this is documented instead.
  */
 
 /**

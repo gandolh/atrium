@@ -291,6 +291,14 @@ export interface LatexDocument {
   documentClass: string;
   /** The raw `[...]` text of `\documentclass`, unparsed. */
   classOptions: string;
+  /**
+   * Where the `\documentclass` line is, so a complaint about a class option
+   * points at the line the author wrote — `PackageUse.loc` is the same field
+   * for `\usepackage`, and the two are read side by side when the page design
+   * is worked out. `null` only when the document has no `\documentclass` at
+   * all, which is itself an error and leaves no options to complain about.
+   */
+  classLoc: SourceRef | null;
   packages: PackageUse[];
   blocks: Block[];
   /** In document order, whether or not a `\tableofcontents` asked for them. */

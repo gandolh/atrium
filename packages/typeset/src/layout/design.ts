@@ -1,5 +1,5 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
-import { warning } from "../diagnostics.ts";
+import { error, warning, wholeFile } from "../diagnostics.ts";
 import type { HeadingLevel, LatexDocument } from "../doc/model.ts";
 
 /**
@@ -109,11 +109,32 @@ const LIST_LEFT_MARGIN_EM = [2.5, 2.2, 1.87, 1.7, 1, 1] as const;
  * `\@listi` … `\@listiii` from `size10.clo`: `\topsep`, `\parsep` and
  * `\itemsep` per nesting depth, in points. Depths past the third reuse the
  * third, as LaTeX's `\@listiii` does.
+ *
+ * Each of the three is *rubber*, and the stretch and shrink components are
+ * transcribed here with the natural width because they are as much a part of
+ * the citation as it is — a list whose glue cannot give is a list the page
+ * builder has to break somewhere worse. Verbatim from `size10.clo`:
+ * ```
+ * \def\@listi{\leftmargin\leftmargini
+ *             \parsep 4\p@ \@plus2\p@ \@minus\p@
+ *             \topsep 8\p@ \@plus2\p@ \@minus4\p@
+ *             \itemsep4\p@ \@plus2\p@ \@minus\p@}
+ * \def\@listii {… \topsep 4\p@ \@plus2\p@ \@minus\p@
+ *               \parsep 2\p@ \@plus\p@  \@minus\p@
+ *               \itemsep\parsep}
+ * \def\@listiii{… \topsep 2\p@ \@plus\p@\@minus\p@
+ *               \parsep \z@
+ *               \itemsep\topsep}
+ * ```
+ * Note `\itemsep` is not `\parsep` at every depth: it equals `\parsep` at
+ * depths 1 and 2 but `\topsep` at depth 3, where `\parsep` is flatly zero.
+ * (`\@listiii`'s `\partopsep` is not carried: this engine does not implement
+ * the extra space a list gets when it starts a paragraph.)
  */
 const LIST_SPACING = [
-  { top: 8, topStretch: 2, topShrink: 4, par: 4, parStretch: 2, parShrink: 1, item: 4 },
-  { top: 4, topStretch: 2, topShrink: 1, par: 2, parStretch: 1, parShrink: 1, item: 2 },
-  { top: 2, topStretch: 1, topShrink: 1, par: 0, parStretch: 0, parShrink: 0, item: 2 },
+  { top: 8, topStretch: 2, topShrink: 4, par: 4, parStretch: 2, parShrink: 1, item: 4, itemStretch: 2, itemShrink: 1 },
+  { top: 4, topStretch: 2, topShrink: 1, par: 2, parStretch: 1, parShrink: 1, item: 2, itemStretch: 1, itemShrink: 1 },
+  { top: 2, topStretch: 1, topShrink: 1, par: 0, parStretch: 0, parShrink: 0, item: 2, itemStretch: 1, itemShrink: 1 },
 ] as const;
 
 export interface ListSpacing {
@@ -123,11 +144,18 @@ export interface ListSpacing {
   labelSep: number;
   /** `\labelwidth` — `\leftmargin` minus `\labelsep`. */
   labelWidth: number;
+  /** `\topsep`, with the stretch and shrink `size10.clo` gives it. */
   topSep: number;
   topStretch: number;
   topShrink: number;
+  /** `\parsep`: between paragraphs *within* one item. */
   parSep: number;
+  parStretch: number;
+  parShrink: number;
+  /** `\itemsep`: between one item and the next, on top of `\parsep`'s share. */
   itemSep: number;
+  itemStretch: number;
+  itemShrink: number;
 }
 
 /**
@@ -243,7 +271,11 @@ export function listSpacing(design: PageDesign, depth: number): ListSpacing {
     topStretch: spacing.topStretch,
     topShrink: spacing.topShrink,
     parSep: spacing.par,
+    parStretch: spacing.parStretch,
+    parShrink: spacing.parShrink,
     itemSep: spacing.item,
+    itemStretch: spacing.itemStretch,
+    itemShrink: spacing.itemShrink,
   };
 }
 
@@ -283,7 +315,10 @@ export function documentDesign(
   diagnostics: Diagnostic[],
 ): PageDesign {
   const design = defaultDesign();
-  const at: SourceRef = { file, line: 0 };
+  // The `\documentclass` line itself when the document has one. `wholeFile` is
+  // the fallback for a document that has none — which is an error in its own
+  // right and carries no class options for this function to report on.
+  const at: SourceRef = document.classLoc ?? wholeFile(file);
 
   applyPaperOptions(design, splitOptions(document.classOptions));
   for (const option of splitOptions(document.classOptions)) {
@@ -413,12 +448,30 @@ function applyGeometry(
       case "height":
         textHeight = value;
         break;
+      // A paper dimension is the one geometry option that can produce a design
+      // no PDF can express. It is checked *here*, where the document's own
+      // request is still in hand, so the diagnostic can name the option, quote
+      // the line it is on and be reported as what it is — the document asking
+      // for an impossible page. `pdf/content.ts` checks the media box again
+      // before it writes one, but by then the only thing a bad value could
+      // mean is an engine bug, which is what it reports it as.
       case "paperwidth":
-        setPaper(design, value, design.paperHeight);
+      case "paperheight": {
+        if (!Number.isFinite(value) || value <= 0) {
+          diagnostics.push(
+            error(
+              "syntax",
+              loc,
+              `geometry option \`${option}\` asks for a page with no area — ${key} must be a positive length`,
+              "geometry",
+            ),
+          );
+          break;
+        }
+        if (key === "paperwidth") setPaper(design, value, design.paperHeight);
+        else setPaper(design, design.paperWidth, value);
         break;
-      case "paperheight":
-        setPaper(design, design.paperWidth, value);
-        break;
+      }
       case "footskip":
         design.footSkip = value;
         break;

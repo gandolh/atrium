@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { CompileResult } from "../src/index.ts";
-import { compile, createLatinModernProvider } from "../src/index.ts";
+import { buildDocument, compile, createLatinModernProvider } from "../src/index.ts";
 import { loadLatinModernBytes } from "../node/fonts.ts";
 import { loadFixture } from "./harness.ts";
 
@@ -71,32 +71,22 @@ test("a step budget large enough for the document produces no budget diagnostic"
   assert.ok(result.pdf !== null);
 });
 
-/**
- * `compile()` gives the document-building stage its own `Budget` object and
- * the layout stage a *second*, freshly created one (`compile.ts`: `const
- * budget = createBudget(Math.max(0, opts.stepBudget - build.steps), ...)`).
- * Each `Budget` has its own independent `reported` latch, so when the
- * document-building stage is the one that actually exhausts the shared
- * step count — after already flushing some blocks, which the layout stage
- * then tries to walk — the fresh layout budget's very first `spend()` call
- * also trips (its `remaining` starts at 0 or below), and `compileProject`'s
- * own `if (budget.stopped && !budget.reported)` check does not know the
- * document layer already reported the same exhaustion. The result is two
- * `budget-exceeded` diagnostics for one runaway compile.
- *
- * This is exactly the failure mode the brief asked this chunk to rule out.
- * It reproduces reliably in a narrow but real band of `stepBudget` values —
- * scanned here rather than pinned to one magic number, since the exact band
- * shifts with per-node step costs that are not this test's business to know.
- */
 /*
- * Was a confirmed bug, fixed 2026-08-27: `compileProject` builds a second
- * `Budget` for the layout stage, which reset the `reported` latch that
- * `Budget` documents as shared across stages — so a run the document layer had
- * already reported was reported again the moment layout's first `spend()`
- * tripped. The latch is now carried across the stage boundary. Kept as a
- * regression test rather than deleted: the two-Budget structure is still there,
- * so the bug is one refactor away from returning.
+ * Was a confirmed bug, fixed 2026-08-27. `compileProject` gives the layout stage
+ * a second, freshly created `Budget`, which reset the `reported` latch that
+ * `Budget` documents as shared across stages — so an exhaustion the document
+ * layer had already reported was reported again the moment layout's first
+ * `spend()` tripped, giving two diagnostics for one runaway compile.
+ *
+ * The latch is now carried across the boundary, derived from the step counters
+ * rather than from the presence of a `budget-exceeded` diagnostic (that first
+ * attempt was itself a bug — see "a non-budget error does not suppress a genuine
+ * layout-budget diagnostic" at the foot of this file).
+ *
+ * Kept as a regression test rather than deleted: the two-Budget structure is
+ * still there, so this is one refactor away from returning. The band is scanned
+ * rather than pinned to one magic number, since where it falls shifts with
+ * per-node step costs that are not this test's business to know.
  */
 test("no double-report when the document-building stage is the one that runs out", () => {
     const { files, entrypoint } = smallDocument();
@@ -285,4 +275,86 @@ test("repeated in-process compiles of the same source are byte-identical", () =>
     assert.ok(next !== null);
     assert.deepEqual([...next], [...first]);
   }
+});
+
+/*
+ * Two regressions from the brief-37 review, both in `compile.ts`'s handling of a
+ * budget that stops partway. Both were introduced by an earlier fix to a third
+ * bug, which is why they are pinned rather than trusted.
+ */
+
+/** A document that costs more to lay out than to build, carrying a non-budget error. */
+function selfIncludingDocument(): { files: Record<string, Uint8Array>; buildCost: number; fullCost: number } {
+  const filler = Array.from(
+    { length: 60 },
+    (_, i) => `Filler paragraph ${i} with enough words here.`,
+  ).join("\n\n");
+  const src = `\\documentclass{article}\\begin{document}\\input{main}\n${filler}\n\\end{document}`;
+  const files = { "main.tex": new TextEncoder().encode(src) };
+  const full = compile(files, "main.tex", { fonts });
+  const build = buildDocument({ "main.tex": src }, "main.tex");
+  return { files, buildCost: build.steps, fullCost: full.stats.steps };
+}
+
+test("a non-budget error does not suppress a genuine layout-budget diagnostic", () => {
+  // `compile()` latches "the budget already reported" across the build/layout
+  // stage boundary so one runaway yields one diagnostic. Deriving that latch by
+  // looking for an existing `budget-exceeded` diagnostic was wrong: a
+  // self-including \input carried that same code, latched the flag, and
+  // swallowed a real layout exhaustion — leaving a silently truncated document
+  // with nothing in the diagnostics saying why it was short.
+  const { files, buildCost, fullCost } = selfIncludingDocument();
+  assert.ok(buildCost < fullCost, "fixture must cost more to lay out than to build");
+
+  // Budgets strictly between the two costs: the build completes, layout runs out.
+  for (let budget = buildCost + 50; budget < fullCost; budget += 100) {
+    const result = compile(files, "main.tex", { fonts, stepBudget: budget });
+    const codes = result.diagnostics.map((d) => d.code);
+    assert.ok(
+      codes.includes("syntax"),
+      `budget ${budget}: the self-include should still be reported, got [${codes}]`,
+    );
+    assert.equal(
+      codes.filter((c) => c === "budget-exceeded").length,
+      1,
+      `budget ${budget}: expected exactly one budget-exceeded alongside it, got [${codes}]`,
+    );
+  }
+});
+
+test("a stopped budget does not invent undefined-reference errors", () => {
+  // `resolvePageNumbers` used to run before the loop checked whether the budget
+  // had stopped, so it resolved against a truncated marker map and reported
+  // every label in the unreached tail as "never placed on a page" — an invented
+  // error about a perfectly good label, on top of the real failure.
+  const filler = Array.from(
+    { length: 60 },
+    (_, i) => `Filler paragraph ${i} with enough words to take up room.`,
+  ).join("\n\n");
+  const src =
+    `\\documentclass{article}\\begin{document}\\section{A}\\label{a}\n${filler}\n` +
+    `\\section{B}\\label{b}\n${filler}\nSee \\pageref{a} and \\pageref{b}.\\end{document}`;
+  const files = { "main.tex": new TextEncoder().encode(src) };
+
+  // Both labels are real and placeable, so no budget — however tight — makes
+  // "never placed on a page" a true statement about them.
+  for (let budget = 2000; budget <= 40000; budget += 2000) {
+    const result = compile(files, "main.tex", { fonts, stepBudget: budget });
+    assert.equal(
+      result.diagnostics.filter((d) => d.code === "undefined-reference").length,
+      0,
+      `budget ${budget}: invented undefined-reference, got ${JSON.stringify(result.diagnostics)}`,
+    );
+  }
+  assert.equal(compile(files, "main.tex", { fonts }).diagnostics.length, 0);
+});
+
+test("compile() does not throw when the options object is null rather than absent", () => {
+  // TypeScript's `opts = {}` default only fires on `undefined`. A JS caller, or
+  // a deserialised job payload whose options field came back null, reached
+  // `resolveCompileOptions` above the try and escaped the never-throws contract.
+  const files = { "main.tex": new TextEncoder().encode("\\documentclass{article}\\begin{document}x\\end{document}") };
+  const result = compile(files, "main.tex", null as unknown as undefined);
+  assert.equal(result.pdf, null);
+  assert.ok(result.diagnostics.some((d) => d.code === "internal"));
 });

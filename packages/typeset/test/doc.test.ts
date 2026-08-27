@@ -386,7 +386,16 @@ test("a file that includes itself is stopped rather than looping", () => {
     { "main.tex": "\\documentclass{article}\\begin{document}\\input{main}\\end{document}" },
     "main.tex",
   );
-  assert.ok(result.diagnostics.some((d) => d.code === "budget-exceeded"));
+  // `syntax`, not `budget-exceeded`: a self-including file is a malformed
+  // document, not an exhausted resource. Borrowing the budget code told the
+  // writer the wrong thing, and — because compile() latched "already reported"
+  // off that code — could suppress a real budget exhaustion later in the same
+  // run, silently truncating the document with nothing to say why.
+  const hit = result.diagnostics.find((d) => d.construct === "\\input");
+  assert.ok(hit !== undefined, `expected a diagnostic about the self-include, got ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(hit.code, "syntax");
+  assert.equal(hit.severity, "error");
+  assert.ok(!result.diagnostics.some((d) => d.code === "budget-exceeded"));
 });
 
 test("a missing entrypoint is a diagnostic, not a throw", () => {

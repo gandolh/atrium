@@ -44,7 +44,20 @@ export interface CompileOptions {
   /**
    * Where faces come from. Injected because the engine performs no I/O: in Node
    * the caller passes the committed Latin Modern set, in a browser whatever it
-   * fetched. Omitted, the engine falls back to whatever it has built in.
+   * fetched.
+   *
+   * **Effectively required.** There is no built-in fallback and there cannot be
+   * one — a fallback would mean reading a file, which is the thing this engine
+   * does not do. Omit it and the compile stops with a `missing-font` error and
+   * an empty result, deliberately: silently setting a document in some other
+   * face would be wrong output presented as success. It stays optional in the
+   * type only so `CompileOptions` has one uniform shape.
+   *
+   * ```ts
+   * import { createLatinModernProvider } from "@ebook-reader/typeset";
+   * import { loadLatinModernBytes } from "@ebook-reader/typeset/fonts/node";
+   * compile(files, "main.tex", { fonts: createLatinModernProvider(loadLatinModernBytes()) });
+   * ```
    */
   fonts?: FontProvider;
 }
@@ -142,8 +155,12 @@ export function compile(
   entrypoint: string,
   opts: CompileOptions = {},
 ): CompileResult {
-  const resolved = resolveCompileOptions(opts);
   try {
+    // Inside the try, not above it: TypeScript's `= {}` default only fires on
+    // `undefined`, so a JS caller — or a deserialised job payload whose options
+    // field came back `null` rather than absent — reaches this line with a
+    // non-object and throws straight past the never-throws guarantee.
+    const resolved = resolveCompileOptions(opts);
     return compileProject(files, entrypoint, resolved);
   } catch (cause) {
     return {
@@ -201,13 +218,20 @@ function compileProject(
   // Layout gets whatever the document layer left of the budget, so the ceiling
   // is on the compile as a whole rather than per stage.
   const budget = createBudget(Math.max(0, opts.stepBudget - build.steps), opts.signal);
-  // `Budget.reported` is documented as latched across stages so that one
-  // runaway produces one diagnostic — but this is a *new* Budget, so that latch
-  // resets here. When the document layer is what exhausted the budget it has
-  // already reported, and this stage then starts with ~0 steps and trips on its
-  // very first `spend()`, reporting the same stop a second time. Carry the latch
-  // across the stage boundary so the guarantee actually holds.
-  budget.reported = diagnostics.some((d) => d.code === "budget-exceeded");
+  // `Budget.reported` is documented as latched across stages so that one runaway
+  // produces one diagnostic — but this is a *new* Budget, so the latch resets
+  // here. When the document layer is what exhausted the budget it has already
+  // reported, and this stage then starts with ~0 steps and trips on its very
+  // first `spend()`, reporting the same stop twice. Carry the latch across.
+  //
+  // Derived from the counters, NOT by looking for an existing `budget-exceeded`
+  // diagnostic. Sniffing the code was the first attempt and it was wrong: other
+  // failures carry that code too, and any of them would have latched the flag
+  // and swallowed a *genuine* layout exhaustion entirely — a silently truncated
+  // document with nothing saying why, which is the exact opposite of D38.
+  // `steps` and `aborted` say what actually happened and cannot collide.
+  budget.reported =
+    build.steps >= opts.stepBudget || (opts.signal !== null && opts.signal.aborted);
   const design = documentDesign(build.document, entrypoint, diagnostics);
   // One shaper for the whole compile, reused across every layout pass: line
   // breaking re-measures constantly, the font layer has no cache, and a second
@@ -320,8 +344,14 @@ function layoutDocument(
       break;
     }
     known = built.markerPages;
-    referenceDiagnostics = build.resolvePageNumbers(known);
+    // Bail BEFORE resolving references. A stopped budget means layout never
+    // reached the end of the document, so `markerPages` is truncated — and
+    // resolving against it reports every label in the unreached tail as "never
+    // placed on a page", which is an invented error about a perfectly good
+    // label. The compile has already failed; inventing extra causes makes the
+    // diagnostic list actively misleading about why.
     if (budget.stopped) break;
+    referenceDiagnostics = build.resolvePageNumbers(known);
   }
 
   for (const d of referenceDiagnostics) final.diagnostics.push(d);

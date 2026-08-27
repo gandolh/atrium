@@ -6,7 +6,14 @@
  * and anything outside the subset produces a diagnostic rather than a guess.
  *
  * The package is a pure library — no filesystem, no network, no processes — so
- * it runs unchanged in Node and in a browser. `compile()` is the whole surface.
+ * it runs unchanged in Node and in a browser.
+ *
+ * **`compile()` is the supported entry point**, and the only one a normal caller
+ * needs. Everything below it is exported too — the box/glue vocabulary, the
+ * parser, the document model, the line breaker, the PDF writer — so a caller can
+ * drive one stage alone (the golden tests do, and an editor could ask for
+ * diagnostics without paying for layout). Treat those as the engine's internals
+ * made reachable, not as a stable API: they move when the engine moves.
  */
 
 export { compile, decodeUtf8, resolveCompileOptions, DEFAULT_COMPILE_OPTIONS } from "./compile.ts";

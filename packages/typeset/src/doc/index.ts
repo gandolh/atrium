@@ -169,7 +169,9 @@ function resolveInputs(
 ): LatexNode[] {
   if (depth > 64) {
     st.diagnostics.push(
-      error("budget-exceeded", wholeFile(stack[stack.length - 1] ?? ""), "\\input files nest more than 64 deep"),
+      // A fixed structural ceiling, not the step budget — see the note on the
+      // self-include below for why the distinction is load-bearing.
+      error("limit-exceeded", wholeFile(stack[stack.length - 1] ?? ""), "\\input files nest more than 64 deep"),
     );
     return nodes.slice();
   }
@@ -239,7 +241,13 @@ function expandInput(
   }
   if (stack.includes(resolved)) {
     st.diagnostics.push(
-      error("budget-exceeded", at, `\\${cmd.name}{${requested}} — \`${resolved}\` includes itself`, `\\${cmd.name}`),
+      // `syntax`, not `budget-exceeded`: a file that includes itself is a
+      // malformed document, not an exhausted resource. The codes are what the
+      // editor branches on and what the compile stages reason about — a
+      // borrowed one reads as "the run ran out of steps", which is both wrong
+      // for the writer and, until it was caught in review, able to make a
+      // genuine budget exhaustion elsewhere report nothing at all.
+      error("syntax", at, `\\${cmd.name}{${requested}} — \`${resolved}\` includes itself`, `\\${cmd.name}`),
     );
     return [];
   }

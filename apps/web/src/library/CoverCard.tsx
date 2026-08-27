@@ -48,11 +48,12 @@ const TINT_CLASS: Record<MediaKind, string> = {
  *
  * Brief 23c renders per `book.kind` inside the media box: `audio` centers the
  * (optional) square embedded-art image, or the typographic fallback when
- * absent; `video` always uses the typographic fallback (no frame extraction,
- * D- per brief 23's grilled decision); both add a duration caption. The
- * offline toggle is book-only — media is excluded from offline v1 (brief 23's
- * grilled decision), so it's simply not rendered for `kind !== "book"`
- * regardless of what the caller passed.
+ * absent; `video` centers its own (optional) stored cover, letterboxed inside
+ * its 4:3 box instead of cropped (brief 42/D40 — see `CoverArt`), or the
+ * typographic fallback when absent; both add a duration caption. The offline
+ * toggle is book-only — media is excluded from offline v1 (brief 23's grilled
+ * decision), so it's simply not rendered for `kind !== "book"` regardless of
+ * what the caller passed.
  *
  * Brief 32's cover → reader shared-layout transition lands here: the media
  * box carries `layoutId={coverLayoutId(book.id)}` for books so it FLIPs into
@@ -223,10 +224,14 @@ export function CoverCard({
  * the art is centered and letterboxed by the tile's own tint rather than
  * cropped (mp3 art is 400×400; distorting or cropping it would fight the
  * "no distortion" rule) — or the typographic fallback when absent; `video`
- * always uses the typographic fallback (no frame extraction, brief 23), which
- * simply fills its box since it's a decorative glyph tile, not a photo; books
- * fill with their full-bleed cover image (already ~2:3, no letterboxing). The
- * caller owns the `imgFailed` state so it can also key other UI off it.
+ * shows its stored cover the same way, centered and letterboxed inside its
+ * 4:3 box (brief 42/D40): a stored frame's native aspect is arbitrary (a
+ * portrait poster, a 16:9 frame, ...) and the server-side geometry
+ * (`toVideoThumbnail`, extract.ts) shrinks to fit rather than cropping, so the
+ * card must not force it to fill 4:3 either — or the typographic fallback
+ * when absent; books fill with their full-bleed cover image (already ~2:3, no
+ * letterboxing). The caller owns the `imgFailed` state so it can also key
+ * other UI off it.
  */
 export function CoverArt({
   book,
@@ -238,9 +243,11 @@ export function CoverArt({
   onImgError: () => void;
 }) {
   const kind = book.kind ?? "book";
-  // Video never has a cover (no frame extraction, brief 23) so it always
-  // falls to the typographic tile; audio shows its square art when present.
-  const showImage = kind !== "video" && book.hasCover && !imgFailed;
+  // `hasCover` is a disk check (brief 41) — true for any kind once a cover
+  // file exists at its derived path. Video is no longer excluded (brief
+  // 42/D40): a stored video cover (today, a tagged file's embedded art;
+  // later, an upload/playback capture) renders like any other kind's.
+  const showImage = book.hasCover && !imgFailed;
 
   if (kind === "audio") {
     return showImage ? (
@@ -254,6 +261,26 @@ export function CoverArt({
       </div>
     ) : (
       <CoverFallback title={book.title} kind="audio" />
+    );
+  }
+
+  if (kind === "video") {
+    // Unlike audio's fixed-square art, a video frame's native aspect is
+    // arbitrary (portrait poster, 16:9 frame, ...) — `object-contain` inside
+    // a centering flex wrapper letterboxes it by the tile's own tint instead
+    // of cropping it to fill the 4:3 box (design.md: artwork keeps its
+    // native shape inside its box).
+    return showImage ? (
+      <div className="flex h-full w-full items-center justify-center">
+        <img
+          src={coverUrl(book.id)}
+          alt=""
+          onError={onImgError}
+          className="max-h-full max-w-full object-contain"
+        />
+      </div>
+    ) : (
+      <CoverFallback title={book.title} kind="video" />
     );
   }
 

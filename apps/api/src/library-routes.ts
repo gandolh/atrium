@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 import type {
@@ -45,7 +45,7 @@ import {
   versionPdfPathFor,
   versionZipPathFor,
 } from "./paths.js";
-import { extractMeta } from "./extract.js";
+import { extractMeta, toVideoThumbnail } from "./extract.js";
 
 /**
  * Library CRUD routes (decisions.md D24). The API owns storage: originals at
@@ -359,6 +359,123 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     }
     reply.header("Content-Type", "image/jpeg").header("Cache-Control", "public, max-age=31536000, immutable");
     return reply.send(createReadStream(coverPath));
+  });
+
+  // --- POST /library/:id/cover — set the thumbnail from a client-sent image --
+  /**
+   * Store a client-supplied image as this item's cover, re-encoded server-side
+   * (brief 42, D40).
+   *
+   * It exists because video is the one kind with no server-side cover path:
+   * the frame is decoded in the **browser** — the only video decoder we have,
+   * since the ffmpeg binary stays declined (brief 23, upheld by D40) — and
+   * posted here. Nothing about the route is video-specific, though. D40
+   * decision 2 makes it a **dumb generic setter, last-write-wins**, so a future
+   * "pick a different frame" affordance needs no replace flag: only-if-absent
+   * with a 409 was rejected there because it would block a legitimate replace
+   * in order to defend against a client bug.
+   *
+   * **Client bytes are never stored as-is.** They are decoded and re-encoded by
+   * `toVideoThumbnail`, the same sharp path the extractor uses, so the route is
+   * not a second definition of cover geometry — and that re-encode is also the
+   * sanitiser: EXIF, anything appended past the image data, and a payload that
+   * is not an image at all do not survive it. The bytes are held in memory and
+   * never hit the disk in their original form (unlike the upload route above,
+   * which must stream a 50MB book to a file before it can look at it).
+   *
+   * No ownership check, and that is a decision rather than an omission (D40
+   * decision 3, recorded so it is not re-asked): `books` has no `user_id`, the
+   * library is install-wide, and only `reading_progress`/`notes` are
+   * profile-scoped (D35 — the account is the security boundary, the profile is
+   * not). Setting a cover is strictly *less* privileged than the delete route,
+   * which is already unscoped. The app-wide auth guard has already required a
+   * live session by the time this handler runs, so there is nothing to add.
+   */
+  app.post("/library/:id/cover", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const row = getBook(id);
+    // 404 on an unknown id, same as every other `/library/:id/*` route.
+    if (!row) return reply.status(404).send({ error: "Book not found." });
+
+    if (!request.isMultipart()) {
+      return reply.status(400).send({ error: "Send the image as a multipart upload." });
+    }
+    const data = await request.file();
+    if (!data) {
+      return reply.status(400).send({ error: "No file field found in upload." });
+    }
+
+    // The part's declared content type is NOT checked, deliberately: it is a
+    // client-supplied label, so it can lie in both directions — a real JPEG
+    // posted as `application/octet-stream` would be refused for nothing, and a
+    // mislabelled non-image would sail through anyway. The decode below is the
+    // only statement about these bytes that is actually derived from the bytes.
+    let bytes: Buffer;
+    try {
+      bytes = await data.toBuffer();
+    } catch (err) {
+      // `@fastify/multipart` is registered app-wide with
+      // `limits.fileSize: MAX_UPLOAD_BYTES` and its default
+      // `throwFileSizeLimit`, so an oversized part makes `toBuffer()` throw
+      // instead of quietly handing back truncated bytes. That is the mirror
+      // image of the upload route above, which streams to disk and inspects
+      // `file.truncated` itself; same ceiling, and here too nothing is written.
+      if (data.file.truncated) {
+        return reply.status(413).send({ error: "Image exceeds the upload size limit." });
+      }
+      throw err;
+    }
+
+    // `null` is the catch-and-null contract shared with `toThumbnail` /
+    // `toSquareThumbnail`: not a decodable image. A clear 400 — never a 500,
+    // and never a broken file written to the cover path where the old cover (or
+    // the fallback tile) was working fine a moment ago.
+    const thumbnail = await toVideoThumbnail(bytes);
+    if (!thumbnail) {
+      return reply
+        .status(400)
+        .send({ error: "That payload is not a decodable image." });
+    }
+
+    // Write THROUGH to the COVER OWNER's thumbnail — `coverOwnerId(row)`, i.e.
+    // `converted_from ?? id` — not to `row.id`. Two reasons, the first
+    // decisive:
+    //
+    //  1. It is the only path that is *visible*. `GET /library/:id/cover` and
+    //     `hasCover` (db.ts) both resolve the owner, so a cover written to
+    //     `coverPathFor(row.id)` for a converted row would be an orphan file
+    //     nothing ever reads: the route would answer 200 and change nothing
+    //     observable, which is the worst failure on offer.
+    //  2. It is also the right answer. D34's model is ONE card per book with
+    //     both formats sharing it, so a cover set from either side belongs to
+    //     the pair. The delete paths below guard this same shared file for a
+    //     reason that does not apply to a setter: deleting a conversion would
+    //     DESTROY a cover the source still needs, with nothing left to restore
+    //     it from. Setting instead *produces* a cover the pair then shows
+    //     together, and either row can set it again (last-write-wins), so a bad
+    //     choice is one more POST away from being fixed.
+    //
+    // Moot for brief 42's actual use — videos are never converted — but a
+    // "set cover" on a converted PDF/EPUB pair would land here, so it is
+    // decided in the open rather than left to be discovered.
+    const coverPath = coverPathFor(coverOwnerId(row));
+    await mkdir(THUMBNAILS_DIR, { recursive: true });
+    // Temp file + rename, so replacing a cover is atomic. `GET` streams this
+    // exact path, and last-write-wins must not mean a concurrent reader can be
+    // served half of the new cover on top of half of the old one.
+    const temp = `${coverPath}.upload-${randomUUID()}`;
+    try {
+      await writeFile(temp, thumbnail);
+      await rename(temp, coverPath);
+    } catch (err) {
+      await rm(temp, { force: true }).catch(() => {});
+      throw err;
+    }
+
+    // Nothing is recorded in the DB: `hasCover` is a stat of the path we just
+    // wrote (brief 41), so the write IS the state change. The body answers the
+    // only question a client has afterwards.
+    return reply.status(200).send({ id: row.id, hasCover: true });
   });
 
   // --- PATCH /library/:id/progress — save the target profile's progress + position ----

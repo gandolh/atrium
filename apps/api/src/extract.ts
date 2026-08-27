@@ -20,7 +20,11 @@ import { kindForFormat, type FileType } from "@ebook-reader/shared";
  * - Media (mp3/mp4/webm, brief 23): `music-metadata` `parseBuffer`. mp3 maps
  *   ID3 tags onto the book columns (artist→author, album→series, track→series
  *   index, genre→subjects) and normalizes embedded art to a SQUARE cover;
- *   mp4/webm yield `format.duration` only (no frame extraction — grilled).
+ *   mp4/webm yield `format.duration` plus any embedded `covr` art, normalized
+ *   to its NATIVE aspect inside a 640px bound rather than cropped (brief 42).
+ *   That is tag-embedded art only — server-side frame extraction still needs
+ *   the ffmpeg binary, which stays declined (brief 23/D40); a video with no
+ *   embedded art gets no cover from this path.
  *
  * Every path is best-effort: extraction never throws to the caller — a book
  * with no cover/metadata still gets stored (title falls back to the filename,
@@ -33,6 +37,9 @@ const COVER_WIDTH = 400;
 const COVER_HEIGHT = 600;
 /** Audio cover geometry — square (album art is 1:1, not a book spine). */
 const AUDIO_COVER_SIZE = 400;
+/** Video cover geometry — a bound, not a fixed size: native aspect shrinks to
+ *  fit inside this box (see `toVideoThumbnail`). */
+const VIDEO_COVER_BOUND = 640;
 const COVER_QUALITY = 78;
 
 export interface ExtractedMeta {
@@ -75,6 +82,27 @@ function toThumbnail(image: Buffer): Promise<Buffer | null> {
 function toSquareThumbnail(image: Buffer): Promise<Buffer | null> {
   return sharp(image)
     .resize(AUDIO_COVER_SIZE, AUDIO_COVER_SIZE, { fit: "cover", position: "centre" })
+    .jpeg({ quality: COVER_QUALITY })
+    .toBuffer()
+    .catch(() => null); // corrupt/unsupported art → typographic fallback in UI
+}
+
+/** Video cover geometry — native aspect, shrunk to fit a 640px bound (brief 42
+ *  D40). Unlike audio's fixed SQUARE crop, a video frame's shape is arbitrary
+ *  (a portrait poster, a 16:9 frame, ...); `CoverCard` already letterboxes
+ *  artwork inside video's 4:3 box, so cropping it here to force a shape would
+ *  just fight that. `fit: "inside"` shrinks to fit without cropping or
+ *  upscaling.
+ *
+ *  Exported because `POST /library/:id/cover` (brief 42 step 3) re-encodes the
+ *  browser-captured frame through this exact function rather than becoming a
+ *  second definition of cover geometry. That re-encode is also what makes
+ *  client-supplied bytes safe to store: EXIF, anything appended past the image
+ *  data, and a payload that is not an image at all all die here — the last as
+ *  the `null` this contract already returns. */
+export function toVideoThumbnail(image: Buffer): Promise<Buffer | null> {
+  return sharp(image)
+    .resize(VIDEO_COVER_BOUND, VIDEO_COVER_BOUND, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: COVER_QUALITY })
     .toBuffer()
     .catch(() => null); // corrupt/unsupported art → typographic fallback in UI
@@ -377,8 +405,13 @@ const MEDIA_MIME: Partial<Record<FileType, string>> = {
  * - mp3: ID3 `title`, `artist`→author, `album`→series, `track.no`→seriesIndex,
  *   `genre`→subjects, and the first embedded picture normalized to a SQUARE
  *   cover — so the artist/album grouping (grouping.ts) works on music unchanged.
- * - mp4/webm: `format.duration` only; no cover (frame extraction would need the
- *   ffmpeg binary — grilled out of scope).
+ * - mp4/webm: `format.duration`, plus the first embedded picture (a tagged
+ *   file's `covr` atom), normalized to its NATIVE aspect inside a 640px bound
+ *   instead of cropped to a square (brief 42/D40) — title/author/etc. stay
+ *   filename-derived; mp4/webm carry no equivalent of ID3's text frames here.
+ *   This is tag-embedded art only: server-side frame extraction still needs
+ *   the ffmpeg binary, which stays declined (brief 23) — a video with no
+ *   embedded art gets no cover from this path.
  *
  * Best-effort: a parse failure returns the filename title with everything else
  * null/empty, so a bad file never fails the upload.
@@ -399,11 +432,13 @@ async function extractMedia(
   try {
     const metadata = await parseBuffer(fileBytes, { mimeType: MEDIA_MIME[format] });
     durationSeconds = normalizeDuration(metadata.format.duration);
+    const common = metadata.common;
 
-    // Only mp3 carries the ID3 tags + embedded art we map onto book columns;
-    // for video we keep title=filename and everything else null (cover included).
+    // Only mp3 carries the ID3 text tags we map onto book columns; mp4/webm
+    // keep title=filename and author/series/subjects null — but embedded
+    // picture art (below) is read for BOTH, so a tagged video's `covr` atom
+    // is no longer parsed and thrown away (brief 42/D40).
     if (format === "mp3") {
-      const common = metadata.common;
       const tagTitle = common.title?.trim();
       if (tagTitle) title = tagTitle;
       author = common.artist?.trim() || null;
@@ -413,11 +448,14 @@ async function extractMedia(
           ? common.track.no
           : null;
       subjects = normalizeSubjects(common.genre ?? []);
+    }
 
-      const picture = common.picture?.[0];
-      if (picture) {
-        cover = await toSquareThumbnail(Buffer.from(picture.data));
-      }
+    const picture = common.picture?.[0];
+    if (picture) {
+      cover =
+        format === "mp3"
+          ? await toSquareThumbnail(Buffer.from(picture.data))
+          : await toVideoThumbnail(Buffer.from(picture.data));
     }
   } catch {
     // Unparseable/corrupt media → keep the filename title, store with no cover.

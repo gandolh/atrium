@@ -169,6 +169,29 @@ export function coverUrl(id: string): string {
 }
 
 /**
+ * `POST /library/:id/cover` — set an item's cover from a client-supplied image
+ * (brief 42, D40). The one cover the server cannot extract itself is video's,
+ * so the browser decodes a frame and posts it (see `video-cover.ts`).
+ *
+ * The server re-encodes the bytes through sharp and stores THAT — our bytes are
+ * never stored verbatim, so there is no geometry to match here. Last-write-wins
+ * by decision (D40 item 2): no replace flag, no 409, so a retry is always safe.
+ *
+ * Throws `ApiError` like every other call here — 400 for a payload sharp cannot
+ * decode, 413 over the upload limit, 404 for an unknown id. Callers of the
+ * capture path swallow all of them (a cover is never worth surfacing an error
+ * for); `apiFetch` still routes a 401 through the global handler.
+ */
+export async function uploadCover(id: string, image: Blob): Promise<void> {
+  const form = new FormData();
+  // The field name is irrelevant server-side (`request.file()` takes the first
+  // part), but a filename is what makes this a *file* part rather than a plain
+  // field — without one some multipart parsers see no file at all.
+  form.append("file", image, `${id}.jpg`);
+  await apiFetch(`/library/${id}/cover`, { method: "POST", body: form });
+}
+
+/**
  * Fetch a stored book's original bytes as a `File` so the existing readers
  * (which consume an in-memory `File` from Zustand) can render it unchanged.
  *

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { LibraryBook, LibrarySort } from "@ebook-reader/shared";
 
 import { useActiveProfileId } from "./auth";
@@ -24,6 +24,7 @@ import {
   type OfflineBookSummary,
   type StorageEstimate,
 } from "./offline-store";
+import { captureAndUploadVideoCover } from "./video-cover";
 
 /**
  * React Query hooks for the library (decisions.md D24). The gallery list is a
@@ -95,13 +96,56 @@ export function useUploadBook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => uploadBook(file),
-    onSuccess: () => {
+    onSuccess: (book, file) => {
       // Deliberately the broad prefix, not `libraryProfileKey(active)`: the
       // library is shared across profiles as it is across users (D30/D35), so a
       // new book belongs to every profile's list. Same below and in
       // `useImportBook`.
       void qc.invalidateQueries({ queryKey: ["library"] });
+      startUploadCoverCapture(book, file, qc);
     },
+  });
+}
+
+/**
+ * Upload-time video cover capture (brief 42, D40 item 1). Fires **here** and
+ * not in `UploadZone` because this is the one place that has both halves at
+ * once: the local `File` and the created row's id, at the exact moment the
+ * upload POST resolved. (`UploadZone` only ever hands a `File` upward — it
+ * never learns the id, and its `variant="hero"` instance unmounts the moment
+ * the first upload lands, which would abandon a capture rooted there.)
+ *
+ * **Three separate things keep this off the upload's critical path:**
+ *
+ *  1. It is called AFTER `invalidateQueries`, so the refetch that makes the
+ *     card appear is already in flight before any capture work starts.
+ *  2. It is **synchronous and returns void**. React Query awaits an `onSuccess`
+ *     that returns a promise, so returning one would genuinely delay the
+ *     mutation settling — this deliberately does not. The async work is a
+ *     detached promise nothing awaits.
+ *  3. `captureAndUploadVideoCover` never throws or rejects, so the detached
+ *     promise cannot become an unhandled rejection, and a throw here can never
+ *     turn a succeeded upload into a failed mutation (an `onSuccess` that
+ *     throws rejects `mutateAsync` and flips the mutation to error).
+ *
+ * No one-shot ref is needed: the helper is self-guarding per id (and a fresh
+ * upload is a fresh id anyway).
+ */
+function startUploadCoverCapture(book: LibraryBook, file: File, qc: QueryClient): void {
+  // Only video needs this: books and audio already get a server-extracted
+  // cover, and a tagged mp4's embedded art is extracted server-side too — so
+  // `hasCover` already being true means the server found something better than
+  // a frame, and last-write-wins would let us overwrite it (D40 item 2's
+  // "the client guards on hasCover").
+  if (book.kind !== "video" || book.hasCover) return;
+
+  void captureAndUploadVideoCover(book.id, { kind: "file", file }).then((outcome) => {
+    // Refetch only on success, so the card swaps its typographic tile for the
+    // real frame a moment after appearing. A failed capture changes nothing on
+    // the server, so re-asking would be pure noise. Nothing here needs the
+    // outcome's `attempted` half — this call site holds no one-shot to spend
+    // (a fresh upload is a fresh id); the playback backfill does.
+    if (outcome.stored) void qc.invalidateQueries({ queryKey: ["library"] });
   });
 }
 

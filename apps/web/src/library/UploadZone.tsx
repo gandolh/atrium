@@ -38,6 +38,13 @@ import {
  *
  * `disabled` (offline, brief 20 item 4) mutes the hero zone / suppresses the
  * overlay — upload is an online-only action.
+ *
+ * **Video cover capture (brief 42) is NOT here**, despite that brief naming
+ * this file: this component only hands a `File` up and never learns the created
+ * row's id, and the hero instance unmounts as soon as the library stops being
+ * empty. The capture therefore lives at the seam that has the id, the `File`
+ * and the resolved POST all at once — `startUploadCoverCapture` in
+ * `../lib/use-library`, firing after the upload mutation succeeds.
  */
 
 const ACCEPT = [

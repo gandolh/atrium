@@ -122,8 +122,20 @@ export default defineConfig(({ mode }) => {
           runtimeCaching: [
             {
               // Cover thumbnails only (cross-origin API). Stale-while-revalidate
-              // = instant paint from cache, refresh in the background; covers
-              // are immutable per book so staleness is harmless.
+              // = instant paint from cache, refresh in the background.
+              //
+              // Covers used to be immutable per book, which made staleness
+              // harmless outright. Brief 42 ended that: `POST /library/:id/cover`
+              // is a last-write-wins setter (D40), so a book's cover CAN change
+              // under a URL that never does — `coverUrl` carries no content
+              // version, only the auth token. SWR is still the right handler
+              // (the stale paint is one view old and the refresh lands right
+              // behind it), and acquiring a FIRST cover is unaffected: the card
+              // was drawing the typographic tile, and the library refetch that
+              // flips `hasCover` requests the image fresh. What is no longer
+              // true is that staleness cannot happen at all. If a "pick a
+              // different frame" affordance ever makes replacement routine, the
+              // cure is a content version in the cover URL, not a handler swap.
               urlPattern: coverUrlPattern,
               handler: "StaleWhileRevalidate",
               options: {

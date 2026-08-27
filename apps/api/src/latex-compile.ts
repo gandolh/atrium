@@ -484,14 +484,13 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
   // the durable slot silently disappears while the job is still holding the
   // engine. Without this check a second compile would start against a process
   // that is already busy.
-  for (const job of jobs.values()) {
-    if (job.userId === userId) {
-      return {
-        kind: "busy",
-        message: busyMessage(job.project, project),
-        runningProject: job.project,
-      };
-    }
+  const inProcess = runningLatexCompileInProcess(userId);
+  if (inProcess) {
+    return {
+      kind: "busy",
+      message: busyMessage(inProcess, project),
+      runningProject: inProcess,
+    };
   }
 
   const startedAt = Date.now();
@@ -720,6 +719,33 @@ export function isCompilingLatexProject(projectId: string): boolean {
   return jobs.has(projectId);
 }
 
+/**
+ * The project whose job is holding `userId`'s single-flight slot **in this
+ * process**, or `null`. The **account-scoped** in-process half of the guard —
+ * `isCompilingLatexProject` answers the per-project question, and
+ * `getRunningLatexCompile(userId)` in `db.ts` is the durable half.
+ *
+ * `startLatexCompile` has always consulted this, inline; it is a named export
+ * because the two halves can disagree in one direction that matters, and any
+ * route that answers "is anything compiling on this account?" has to see both.
+ * `latex_projects.profile_id` cascades on profile delete, so deleting a profile
+ * mid-compile removes the project row — and with it the `running` flag — while
+ * the job carries on holding the engine. From then on `getRunningLatexCompile`
+ * says `null` and the compile route still refuses every project on the account
+ * with a 409 naming the vanished one. A cancel route reading only the row would
+ * answer "nothing is running" to somebody who can plainly see otherwise.
+ *
+ * The row returned is the **snapshot the job was started with**. It may no
+ * longer exist in the database, which is exactly the case this exists for, so
+ * callers must not assume `:id`-style routes can reach it.
+ */
+export function runningLatexCompileInProcess(userId: string): LatexProjectRow | null {
+  for (const job of jobs.values()) {
+    if (job.userId === userId) return job.project;
+  }
+  return null;
+}
+
 // --- Running one compile -----------------------------------------------------
 
 /**
@@ -815,9 +841,14 @@ async function compileAndPersist(job: CompileJob): Promise<LatexCompileResult> {
   const diagnostics: Diagnostic[] = [...tree.diagnostics];
 
   // A cancel or the deadline may have landed while the tree was being read —
-  // the one place in this job where an `await` gives it the chance to. Stopping
-  // here saves the engine's work and, more importantly, means a cancelled
-  // compile never writes a PDF the person said they did not want.
+  // the one place before the engine where an `await` gives it the chance to.
+  // Stopping here saves the engine's work and, more importantly, is the first
+  // of the **three** checks that together mean a cancelled compile never writes
+  // a PDF the person said they did not want. The other two are
+  // `runEngineInWorker`'s `message` handler (a cancel racing the engine's
+  // result) and the `signal.cancelled` re-check taken after the build
+  // directory exists (a cancel racing the artifact writes); no one of them
+  // covers another's window.
   if (job.signal.aborted) {
     diagnostics.push(abortDiagnostic(job));
     return finish(job, diagnostics, null, null);
@@ -853,6 +884,60 @@ async function compileAndPersist(job: CompileJob): Promise<LatexCompileResult> {
         "stopped",
       ),
     );
+  }
+
+  // ## A cancel that lands while the artifacts are being written
+  //
+  // `runEngineInWorker`'s `message` handler covers the window up to `settle` —
+  // a stop that got in first wins there, and the good PDF is dropped. The
+  // window straight after it was covered by nothing: `finish` →
+  // `persistOutcome` is a `mkdir` plus up to three `writeAtomic` calls, several
+  // turns of the loop and, for a multi-MB PDF, several milliseconds of real
+  // I/O. A cancel arriving on one of those turns sets the flag, finds
+  // `job.worker` already `null` so `stopWorker` correctly no-ops and still
+  // reports `true`, and the job then wrote `out.pdf`, graded the compile
+  // `ready`, and left a `diagnostics.json` with no mention of a cancel — while
+  // the route that delivered it answered `{ cancelled: true }`. The person
+  // pressed Cancel, was told it worked, and the preview refreshed with the PDF
+  // they had just cancelled.
+  //
+  // ### Why the `mkdir` is on this side of the check
+  //
+  // Taking that turn HERE, rather than leaving it to `persistOutcome`, is the
+  // load-bearing half of this and not an optimisation. Everything between the
+  // engine's result arriving and the line below is **microtasks**: `settle`
+  // resolves, two `await`s resume, and the microtask queue drains to completion
+  // before any timer or I/O callback can run. A check with no `await` in front
+  // of it therefore cannot observe a flag that a *request* set, because the
+  // request cannot run — it would be a guard on an empty window. `mkdir` is the
+  // first real turn on this path, so the check has to sit on the far side of
+  // it. What is left after that is the interior of `writeAtomic` itself, and a
+  // cancel that lands there genuinely arrived after the compile was finished
+  // and its output committed; un-writing it would destroy the last good PDF,
+  // which brief 38 step 10 exists to preserve.
+  //
+  // ### Why `stopReason` is in the condition
+  //
+  // It narrows this to the *late* window. Anything that actually killed the
+  // thread recorded a reason and `stopDiagnostic` has already put that account
+  // into `result.diagnostics`; a second sentence beside it would assert one
+  // stop for two reasons, which is exactly what `StopReason`'s doc comment
+  // forbids.
+  await ensureBuildDir(job.projectId);
+  if (job.signal.cancelled && job.stopReason === null) {
+    diagnostics.push(
+      wholeProject(
+        "the compile was cancelled just as it finished typesetting, so its output was discarded",
+        "error",
+        "stopped",
+      ),
+    );
+    // Graded exactly as the pre-engine abort above is: no PDF, `stopped`,
+    // `failed`. The stats go with the PDF — they describe bytes deliberately
+    // not on disk, and a log line counting the pages of a discarded document
+    // would be the same class of untruth as the wording this module works to
+    // keep straight.
+    return finish(job, diagnostics, null, null);
   }
 
   return finish(job, diagnostics, result.pdf, result.stats);
@@ -1066,6 +1151,18 @@ async function runEngineInWorker(job: CompileJob, files: Record<string, Uint8Arr
     // timer through `settle`; the `unref` is for the paths that do not.
     const terminateTimer = setTimeout(
       () => {
+        // **Nothing to kill means nothing to report.** `stopWorker`'s
+        // idempotence protects `stopReason`, but it does not protect the
+        // signal, and this timer is cleared only in `settle` — which cannot run
+        // until the terminate-induced `exit` arrives. So a cancel at
+        // `deadline + 4998` and this timer at `deadline + 5000` used to both
+        // land: `stopReason` stayed `"cancelled"` (right), while `timedOut`
+        // also went true and `compileAndPersist` added the wall-clock sentence
+        // beside the cancellation — one stop asserted for two different
+        // reasons, the exact thing `StopReason`'s doc comment says must not
+        // happen. A cleared handle is the same "already stopping" signal
+        // `stopWorker` reads, so the timer reads it too, and first.
+        if (job.worker === null) return;
         // Recorded on the signal, not only on `stopReason`, so that
         // `compileAndPersist`'s existing wall-clock diagnostic still fires:
         // there is one sentence about the limit and it has one writer.
@@ -1192,10 +1289,21 @@ function stopDiagnostic(reason: StopReason): Diagnostic {
     case "timed-out":
       // Deliberately *not* a restatement of the limit: `compileAndPersist` adds
       // that sentence, from `job.signal.timedOut`, which the terminate timer
-      // sets. This one says the part that sentence cannot — that the engine was
-      // killed and so could not report where it had got to.
+      // sets. This one says the part that sentence cannot — that the thread was
+      // killed, so no account from the engine survives.
+      //
+      // It says "none was kept", not "the engine could not report one", and the
+      // difference is not pedantry. The engine's own clock may well have fired
+      // first: it unwinds, renders its diagnostics and posts them at, say,
+      // `deadline + 4990`, the host is briefly busy so the timers phase runs
+      // before the message queue, and the `terminate()` lands on a thread that
+      // had already said exactly where it stopped. The `message` handler then
+      // drops that report — deliberately, because a stop that got in first
+      // wins — and the graded outcome is right either way. Only the sentence
+      // was wrong, claiming the engine could not report something it may have
+      // just reported.
       return wholeProject(
-        `the typesetting thread did not stop on its own within ${TERMINATE_GRACE_MS}ms of the limit and was killed, so the engine could not report where it stopped`,
+        `the typesetting thread was killed ${TERMINATE_GRACE_MS}ms past the limit, so no engine report of where it stopped was kept`,
         "error",
         "stopped",
       );
@@ -1255,13 +1363,25 @@ const storedOutcomeSchema = z.object({
   diagnostics: z.array(diagnosticSchema),
 });
 
+/**
+ * `mkdir -p` the project's build directory.
+ *
+ * Called from **two** places on the ordinary path — `compileAndPersist`, before
+ * it takes its last look at the cancel flag, and `persistOutcome`, which must
+ * still work for the `runCompile` catch path that never went through
+ * `compileAndPersist` at all. Idempotent, so the second call is one cheap
+ * syscall; see `compileAndPersist` for why the first one is not optional.
+ */
+async function ensureBuildDir(projectId: string): Promise<void> {
+  await mkdir(latexBuildDirFor(projectId), { recursive: true });
+}
+
 async function persistOutcome(
   projectId: string,
   outcome: LatexCompileResult,
   pdf: Uint8Array | null,
 ): Promise<void> {
-  const dir = latexBuildDirFor(projectId);
-  await mkdir(dir, { recursive: true });
+  await ensureBuildDir(projectId);
 
   const stored: z.infer<typeof storedOutcomeSchema> = {
     status: outcome.status,

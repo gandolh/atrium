@@ -62,6 +62,7 @@ import {
   draftPdfPathFor,
   isBuildArtifactPath,
   readLatexCompileResult,
+  runningLatexCompileInProcess,
   startLatexCompile,
   writeAtomic,
 } from "./latex-compile.js";
@@ -1282,14 +1283,23 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    *
    * ## Nothing running is a 200, not a 409
    *
-   * `{ cancelled: false }` means the compile finished on its own between the
-   * render that drew the button and the click on it — or, rarely, that a
-   * `running` row is a leftover from a previous process (`db.ts`'s
-   * `reapInterruptedLatexCompiles` flips those at import). Neither is the
-   * caller's fault, neither is avoidable by any amount of care, and in both the
-   * state the person asked for — nothing compiling — is the state they now have.
-   * Calling that an error would put a red banner on a button that did its job.
-   * The editor refetches the log on either answer.
+   * `{ cancelled: false }` means **no live job was found for this project** —
+   * the compile finished on its own between the render that drew the button and
+   * the click on it, or, rarely, a `running` row is a leftover from a previous
+   * process (`db.ts`'s `reapInterruptedLatexCompiles` flips those at import).
+   * Neither is the caller's fault, neither is avoidable by any amount of care,
+   * and in both the state the person asked for — nothing compiling — is the
+   * state they now have. Calling that an error would put a red banner on a
+   * button that did its job. The editor refetches the log on either answer.
+   *
+   * `{ cancelled: true }` means a live job was found and has now fully
+   * unwound — **including** the case where the engine had already posted a
+   * finished PDF and the cancel landed while the artifacts were being written.
+   * That case used to write `out.pdf`, grade the project `ready` and still
+   * answer `true`; `compileAndPersist` now re-reads `job.signal.cancelled`
+   * after the engine returns and discards the output, so `true` here means the
+   * same thing on every path — nothing was published from this compile, and the
+   * log records the cancellation.
    *
    * ## The slot is per account; cancellation is per project
    *
@@ -1303,7 +1313,9 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * at. `runningProjectId` is the field `COMPILE_BUSY` already carries, so a
    * client can retry against the right project — unless that project belongs to
    * a sibling profile, where this route answers 404 by brief 35's rule and the
-   * message says so instead of offering a retry that cannot work.
+   * message says so instead of offering a retry that cannot work, or unless its
+   * row is already gone, where the field is omitted for exactly the same reason
+   * (see the `!runningRow` branch in the handler).
    */
   app.post("/latex/:id/cancel", async (request: FastifyRequest, reply: FastifyReply) => {
     // Ownership first, before `:id` reaches anything else — rule 1 at the top of
@@ -1312,11 +1324,41 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     const project = requireProject(request, reply);
     if (!project) return reply;
 
-    // The durable, account-wide half of the guard — the same query
-    // `startLatexCompile` refuses on, so the two routes cannot disagree about
-    // which project owns the slot.
-    const running = getRunningLatexCompile(uid(request));
+    // **Both halves of the guard, in `startLatexCompile`'s own order and for
+    // its own reasons.** The durable row is asked first, because it also covers
+    // a compile this process did not start. The in-process map is asked second,
+    // because it catches the window the row cannot: `latex_projects.profile_id`
+    // cascades on profile delete, so deleting a profile mid-compile takes the
+    // project row — and its `running` flag — with it while the job carries on
+    // holding the account's slot. Reading only the row there answered a flat
+    // 200 `{ cancelled: false }` to somebody whose account was demonstrably
+    // blocked: the compile route was refusing every one of their projects with
+    // a 409 naming the vanished project, and this route said nothing was
+    // running. Two routes, one guard, opposite answers.
+    const userId = uid(request);
+    const runningRow = getRunningLatexCompile(userId);
+    const running = runningRow ?? runningLatexCompileInProcess(userId);
     if (running && running.id !== project.id) {
+      // A slot held with no row behind it. The job is real and still typesetting,
+      // but its project cannot be addressed by any route any more — `POST
+      // /latex/<it>/cancel` answers 404 at `requireProject`, because there is
+      // nothing left to own. So this branch says the true thing and offers no
+      // action, which is brief 38's rule being kept rather than an exception to
+      // it: the wait is bounded by `LATEX_TIMEOUT_MS`, and sending someone to
+      // cancel a project that no longer exists would send them to a 404.
+      //
+      // (The root cause is `DELETE /profiles/:id` not cancelling the compiles
+      // on the profile it removes — a pre-existing brief-38 gap, tracked
+      // separately. This route's job is only to stop mis-reporting it.)
+      if (!runningRow) {
+        return reply.status(409).send({
+          error: "COMPILE_ELSEWHERE",
+          message:
+            "This project isn't compiling — a compile on a deleted project is still finishing on your account. It stops on its own; try again in a moment.",
+          // Deliberately no `runningProjectId`: the field exists so a client can
+          // retry against the right project, and this id addresses nothing.
+        });
+      }
       const sameProfile = running.profile_id === pid(request);
       return reply.status(409).send({
         error: "COMPILE_ELSEWHERE",

@@ -3,6 +3,7 @@ import type { LatexCompileResult, LatexFile, LatexProject } from "@ebook-reader/
 
 import { useActiveProfileId } from "../lib/auth";
 import {
+  cancelLatexProject,
   compileLatexProject,
   createLatexProject,
   deleteLatexFile,
@@ -38,12 +39,45 @@ export function useLatexProjects() {
   return useQuery({ queryKey: latexProjectsKey(profileId), queryFn: fetchLatexProjects });
 }
 
+/**
+ * Whether the **server** says a compile is in flight for this project.
+ *
+ * The one place `"running"` is read as "a compile is happening", so the
+ * polling decision below and the editor's compile/cancel toggle cannot come to
+ * different conclusions about it. `undefined` (not loaded yet) is not running —
+ * a button must not offer to cancel a compile nobody has confirmed exists.
+ */
+export function latexCompileRunning(project: LatexProject | undefined): boolean {
+  return project?.compileStatus === "running";
+}
+
+/**
+ * One project, with its `compileStatus`.
+ *
+ * Polls `GET /latex/:id` at a flat **5s**, but ONLY while the last known status
+ * reads `running`; every other status disables the interval outright. Same
+ * shape and same reasoning as `useConvertingBook` in `lib/use-library.ts`, at a
+ * shorter cadence because a compile is bounded by `LATEX_TIMEOUT_MS` (two
+ * minutes) rather than by a conversion's hours — worst case ~24 requests for a
+ * compile that runs to the backstop, and typically none at all, since a project
+ * nobody is compiling polls zero times forever.
+ *
+ * **This is what makes the Cancel affordance reachable from anywhere.** The
+ * status has to be driven by the fetched row rather than by a client-side "I
+ * started this compile" flag, because a reloaded tab, a second tab, and a tab
+ * that navigated in from another project have no such flag and are all equally
+ * entitled to stop the compile — `busyMessage` on the server tells people to go
+ * and cancel it, and an affordance that only exists in the tab that started it
+ * would be an instruction they cannot follow. `refetchIntervalInBackground`
+ * stays at its default `false`, so a hidden tab polls nothing.
+ */
 export function useLatexProject(id: string | undefined) {
   const profileId = useActiveProfileId();
   return useQuery({
     queryKey: latexProjectKey(profileId, id),
     queryFn: () => fetchLatexProject(id as string),
     enabled: Boolean(id),
+    refetchInterval: (query) => (latexCompileRunning(query.state.data) ? 5_000 : false),
   });
 }
 
@@ -286,6 +320,39 @@ export function useCompileLatexProject(projectId: string) {
       if (result.status === "ready") {
         void qc.invalidateQueries({ queryKey: latexPdfKey(profileId, projectId) });
       }
+    },
+  });
+}
+
+/**
+ * Cancel the compile running on this project (brief 44, the last chunk — the
+ * cancel affordance in `CompileButton`). On success (`cancelled` true OR
+ * false — both are the same "nothing is running here now" outcome, see
+ * `cancelLatexProject`), the log, the project and the projects list are all
+ * invalidated, exactly the same three `useCompileLatexProject` refreshes on a
+ * finished compile — the server flips `compile_status` off `running` on this
+ * path too, so the header badge is just as stale as the log.
+ *
+ * The PDF is deliberately left alone, same reasoning as a failed compile —
+ * `out.pdf` is never written on a cancelled run, so the cached `File` from the
+ * last SUCCESSFUL compile must keep being served, not refetched into a
+ * 404-turned-`null` that would blank the preview pane.
+ *
+ * Invalidating rather than trusting the in-flight compile POST to have
+ * already refreshed the log itself: `cancelAndSettleLatexCompile` and the
+ * compile handler's `started.done` can settle in either order (both routes
+ * wait on the same underlying job unwind), so this is the belt to
+ * `useCompileLatexProject`'s suspenders rather than a duplicate of it.
+ */
+export function useCancelLatexProject(projectId: string) {
+  const qc = useQueryClient();
+  const profileId = useActiveProfileId();
+  return useMutation({
+    mutationFn: () => cancelLatexProject(projectId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: latexLogKey(profileId, projectId) });
+      void qc.invalidateQueries({ queryKey: latexProjectKey(profileId, projectId) });
+      void qc.invalidateQueries({ queryKey: latexProjectsKey(profileId) });
     },
   });
 }

@@ -23,6 +23,8 @@ import { LatexPreviewPane } from "./LatexPreviewPane";
 import { PublishDialog } from "./PublishDialog";
 import type { RevealTarget } from "./SourceEditor";
 import {
+  latexCompileRunning,
+  useCancelLatexProject,
   useCompileLatexProject,
   useDeleteLatexFile,
   useLatexCompileLog,
@@ -104,6 +106,7 @@ export function LatexEditor({ id }: { id: string }) {
   const renameFile = useRenameLatexFile(id);
   const deleteFile = useDeleteLatexFile(id);
   const compile = useCompileLatexProject(id);
+  const cancelCompile = useCancelLatexProject(id);
   const compileLog = useLatexCompileLog(id);
   const pdf = useLatexPdf(id);
 
@@ -307,6 +310,20 @@ export function LatexEditor({ id }: { id: string }) {
     });
   }, [flush, compile]);
 
+  /**
+   * The compile button's OTHER action, once it's showing "Cancel" (brief 44's
+   * last chunk). No `flush()` — cancelling doesn't touch the buffer, there is
+   * nothing to save before stopping a compile. `cancelCompile.isPending` is
+   * `CompileButton`'s `cancelling` prop, which disables the button for the
+   * (tens-of-milliseconds) span of this request so a second click can't queue
+   * a second cancel; harmless if it did (the route just answers `cancelled:
+   * false`), but there's no reason to invite it.
+   */
+  const onCancelCompile = useCallback(() => {
+    if (cancelCompile.isPending) return;
+    cancelCompile.mutate();
+  }, [cancelCompile]);
+
   // Open the entrypoint on arrival, falling back to the first editable file so
   // the pane is never blank in a project whose entrypoint was deleted.
   const fileList = files.data;
@@ -446,12 +463,17 @@ export function LatexEditor({ id }: { id: string }) {
   // `compile.error` is a POST that never landed at all — a busy slot (409,
   // `COMPILE_BUSY`) or a transport failure — as opposed to a compile that ran
   // and *reported* a failure, which shows in the diagnostics panel instead.
+  // `cancelCompile.error` is the same idea for `/cancel`: the only failure it
+  // can carry is a transport error or 409 `COMPILE_ELSEWHERE` (this project
+  // isn't the one running), and that `message` is written to be shown here
+  // verbatim — no special-casing needed beyond landing it in this list.
   const actionError =
     write.error ??
     renameFile.error ??
     deleteFile.error ??
     updateProject.error ??
     compile.error ??
+    cancelCompile.error ??
     null;
   const dismissError = useCallback(() => {
     write.reset();
@@ -459,12 +481,36 @@ export function LatexEditor({ id }: { id: string }) {
     deleteFile.reset();
     updateProject.reset();
     compile.reset();
-  }, [write, renameFile, deleteFile, updateProject, compile]);
+    cancelCompile.reset();
+  }, [write, renameFile, deleteFile, updateProject, compile, cancelCompile]);
 
   const openFileRow = useMemo(
     () => fileList?.find((f) => f.path === openPath) ?? null,
     [fileList, openPath],
   );
+
+  /**
+   * Whether `CompileButton` shows "Cancel" instead of "Compile" — **server
+   * truth first, this mutation's local state second**.
+   *
+   * `compile.isPending` alone is the state of THIS mounted `useMutation`, and
+   * wiring the toggle to it was a real hole rather than a cosmetic one: reload
+   * the tab, open the project in a second one, or arrive from a different
+   * project, and the button read "Compile" against a compile that was plainly
+   * running, because a fresh mutation instance starts `isPending: false`. The
+   * server's own 409 tells people to go and cancel the compile on the named
+   * project (`busyMessage`) and hands them its id, so the action the message
+   * instructs was the one action the UI could not offer — brief 38's rule
+   * (never offer an action the user cannot reach) broken from the other side,
+   * with the capability real and unreachable.
+   *
+   * `latexCompileRunning(project.data)` is therefore the primary source, kept
+   * fresh by `useLatexProject`'s while-running poll. The local flag is still
+   * OR-ed in and not replaced: it covers the instant between `compile.mutate()`
+   * and the first response that carries `compileStatus: "running"`, where the
+   * server is already compiling and this tab has not been told yet.
+   */
+  const compiling = latexCompileRunning(project.data) || compile.isPending;
 
   if (project.isLoading) {
     return (
@@ -515,7 +561,12 @@ export function LatexEditor({ id }: { id: string }) {
             failed={write.isError}
           />
 
-          <CompileButton pending={compile.isPending} onCompile={onCompile} />
+          <CompileButton
+            pending={compiling}
+            cancelling={cancelCompile.isPending}
+            onCompile={onCompile}
+            onCancel={onCancelCompile}
+          />
 
           <PublishDialog
             projectId={id}

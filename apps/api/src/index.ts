@@ -134,8 +134,10 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     // (D38) — so this is not about leaked work but about the *slot*. A compile
     // still holding one when the process goes down leaves its row `running`,
     // and `reapInterruptedLatexCompiles()` in db.ts flips those to `failed` at
-    // import on the way back up. Cancelling here means the job stops at its
-    // next step boundary instead of typesetting a document nobody will read.
+    // import on the way back up. Cancelling here *terminates* the compile's
+    // worker thread (brief 44) rather than waiting for the engine to notice a
+    // flag at its next step boundary — a document nobody will read is not worth
+    // delaying a shutdown for, and the thread dies with the process regardless.
     const compiles = cancelAllLatexCompiles();
     if (compiles > 0) app.log.info({ compiles }, "cancelled LaTeX compiles on shutdown");
     void app.close().then(() => process.exit(0));

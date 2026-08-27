@@ -165,6 +165,31 @@ export async function compileLatexProject(projectId: string): Promise<LatexCompi
   return latexCompileResultSchema.parse(await res.json());
 }
 
+const latexCancelResultSchema = z.object({ cancelled: z.boolean() });
+
+/**
+ * `POST /latex/:id/cancel` — stop the compile running on this project, now
+ * that brief 44 moved the engine onto a worker thread and cancelling can
+ * actually take effect (brief 38 shipped no such call because it couldn't).
+ * No request body.
+ *
+ * Both `{ cancelled: true }` (a compile really was running and has now fully
+ * stopped) and `{ cancelled: false }` (nothing was running here — it finished
+ * on its own between the render that drew the button and the click) are
+ * ordinary 200s, never an error. `out.pdf` is untouched either way, so a
+ * caller must not clear the cached PDF on this response — only the log
+ * changes, now carrying the `stopped` diagnostic (or whatever the compile
+ * that beat the cancel left behind).
+ *
+ * A `409 COMPILE_ELSEWHERE` — the account's one compile slot (D35) is on a
+ * DIFFERENT project — throws like any other `ApiError`; `latexErrorMessage`
+ * already prefers its `message` verbatim, so nothing special is needed here.
+ */
+export async function cancelLatexProject(projectId: string): Promise<{ cancelled: boolean }> {
+  const res = await apiFetch(`/latex/${projectId}/cancel`, { method: "POST" });
+  return latexCancelResultSchema.parse(await res.json());
+}
+
 /**
  * A `NOT_COMPILED` 404 from `/log` or `/pdf` is not a failure to surface — it
  * is the ordinary shape of "this project has never compiled." Both fetchers

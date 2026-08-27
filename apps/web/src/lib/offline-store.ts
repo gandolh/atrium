@@ -46,7 +46,13 @@ const DB_NAME = "ebook-reader:offline";
 // (profile, book), with an index on the book id so removing a download still
 // clears every profile's row. v1/v2/v3 rows are copied across in
 // `onupgradeneeded` (see the migration block below).
-const DB_VERSION = 4;
+// v5: the persisted progress field `fraction` was renamed to `progress`. It is
+// the same 0..1 quantity the wire `LibraryBook.progress` carries and the
+// glossary names `progress`; two names for one number meant every read and
+// write across this seam had to translate, and a translation you can forget is
+// a bug waiting to happen. v4 rows are rewritten in place in `onupgradeneeded`
+// (see the v4 → v5 block below) — no record is dropped, only re-keyed.
+const DB_VERSION = 5;
 /** Object store: `LibraryBook` snapshot + reconstruction metadata, keyed by id.
  *  Metadata ONLY — the file bytes live in FILES_STORE (see below) so listing /
  *  refreshing snapshots never deserializes a 40 MB PDF. */
@@ -105,13 +111,14 @@ function progressKey(bookId: string, profileId: string | null): string {
 /**
  * Local reading-progress record — the client-side mirror of the server's
  * per-profile progress (D31, moved from user to profile scope by brief 35).
- * `{fraction, locator, updatedAt, profileId}` is the public shape (brief item
- * 1/5, extended by brief 35 step 7); `updatedAt` is a local `Date.now()` ms
+ * `{progress, locator, updatedAt, profileId}` is the public shape (brief item
+ * 1/5, extended by brief 35 step 7, `fraction` renamed to `progress` at v5);
+ * `updatedAt` is a local `Date.now()` ms
  * epoch stamped when the reading position last changed on THIS device.
  */
 export interface LocalProgress {
-  /** Coarse progress 0..1 (drives the cover bar), same units as `LibraryBook.progress`. */
-  fraction: number;
+  /** Coarse progress 0..1 (drives the cover bar), same units and NAME as `LibraryBook.progress`. */
+  progress: number;
   /** Exact resume position: page number (as string) for PDF, CFI for EPUB; null = start. */
   locator: string | null;
   /** Local ms epoch of the last position change (last-write-wins clock, this device). */
@@ -274,13 +281,20 @@ function openDb(): Promise<IDBDatabase> {
           cursorReq.onsuccess = () => {
             const cursor = cursorReq.result;
             if (!cursor) return;
-            const row = cursor.value as Partial<StoredProgress> & { id: string };
+            // A legacy row predates v5, so its 0..1 value is under the old
+            // `fraction` name; it is written out under the current `progress`
+            // name, which is why a v1/v2/v3 database can jump straight to v5
+            // without also going through the rename cursor further down.
+            const row = cursor.value as Partial<StoredProgress> & {
+              id: string;
+              fraction?: number;
+            };
             const profileId = row.profileId ?? null;
             profileProgress.put({
               key: progressKey(row.id, profileId),
               id: row.id,
               profileId,
-              fraction: row.fraction ?? 0,
+              progress: row.fraction ?? 0,
               locator: row.locator ?? null,
               updatedAt: row.updatedAt ?? 0,
               syncedAt: row.syncedAt ?? 0,
@@ -288,6 +302,53 @@ function openDb(): Promise<IDBDatabase> {
             cursor.continue();
           };
         }
+      }
+      // v4 → v5 migration: rename the persisted 0..1 field `fraction` to
+      // `progress`, so the store agrees with the wire (`LibraryBook.progress`)
+      // and the glossary instead of forcing a translation at every read and
+      // write. Same value, same units, new name.
+      //
+      // Rewrite in place with a cursor: `cursor.update()` replaces the record
+      // under its own key, so the primary key, the book-id index entry and
+      // every other field (`locator`, `updatedAt`, `syncedAt`, `profileId`, and
+      // anything a future version adds) ride along untouched via the spread.
+      // Nothing is deleted, cleared or dropped while the cursor iterates — the
+      // same discipline as the v→v4 copy above, and for the same reason: drop a
+      // store out from under a live cursor and the migration loses records. If
+      // this step throws, the versionchange transaction aborts and the database
+      // stays at v4 with its rows intact.
+      //
+      // Guarded on `oldVersion >= 4`, which is also what keeps this from
+      // colliding with the copy above: below v4 the store did not exist, so the
+      // branch above creates and fills it with rows ALREADY carrying `progress`,
+      // and this cursor is skipped. The two never run over the store at once.
+      //
+      // Idempotent by construction: a row that already has `progress` and no
+      // `fraction` is left exactly as it is, so re-entering this step (or
+      // meeting a row written by a v5 build) is a no-op rather than a rewrite.
+      if (
+        event.oldVersion >= 4 &&
+        upgradeTx &&
+        db.objectStoreNames.contains(PROFILE_PROGRESS_STORE)
+      ) {
+        const progressStore = upgradeTx.objectStore(PROFILE_PROGRESS_STORE);
+        const cursorReq = progressStore.openCursor();
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (!cursor) return;
+          const row = cursor.value as StoredProgress & { fraction?: number };
+          if ("fraction" in row) {
+            const { fraction: legacyFraction, ...rest } = row;
+            cursor.update({
+              ...rest,
+              // `rest.progress` is normally absent on a v4 row; preferring it
+              // when present means a half-migrated row (both names) keeps the
+              // new value rather than being clobbered by the old one.
+              progress: rest.progress ?? legacyFraction ?? 0,
+            } satisfies StoredProgress);
+          }
+          cursor.continue();
+        };
       }
       if (!db.objectStoreNames.contains(FILES_STORE)) {
         const files = db.createObjectStore(FILES_STORE, { keyPath: "id" });
@@ -509,7 +570,7 @@ export async function listOfflineBooks(profileId: string | null): Promise<Offlin
             ...meta,
             book: {
               ...neutralizeSnapshot(meta.book),
-              progress: local?.fraction ?? 0,
+              progress: local?.progress ?? 0,
               locator: local?.locator ?? null,
             },
           };
@@ -604,7 +665,7 @@ export async function refreshOfflineSnapshots(
         if (
           existing &&
           existing.locator === locator &&
-          Math.abs(existing.fraction - fresh.progress) < 1e-4
+          Math.abs(existing.progress - fresh.progress) < 1e-4
         ) {
           continue;
         }
@@ -613,7 +674,7 @@ export async function refreshOfflineSnapshots(
             key,
             id,
             profileId,
-            fraction: fresh.progress,
+            progress: fresh.progress,
             locator,
             // Synced by definition: this value just came FROM the server, so it
             // must not look pending (that would PATCH it straight back).
@@ -659,7 +720,7 @@ export async function getLocalProgress(
       }
       if (!record) return null;
       return {
-        fraction: record.fraction,
+        progress: record.progress,
         locator: record.locator,
         updatedAt: record.updatedAt,
         profileId: record.profileId ?? null,
@@ -672,7 +733,7 @@ export async function getLocalProgress(
 }
 
 /**
- * Write the local progress record for `progress.profileId` (called on every
+ * Write the local progress record for `record.profileId` (called on every
  * debounced reading tick). Preserves that profile's existing `syncedAt` so the
  * reconnect flush can still tell the record diverged from the server since the
  * last successful PATCH.
@@ -681,24 +742,24 @@ export async function getLocalProgress(
  * whatever row existed for the book, so the first tick after a profile switch
  * destroyed the previous reader's un-synced offline position outright.
  */
-export async function putLocalProgress(id: string, progress: LocalProgress): Promise<void> {
+export async function putLocalProgress(id: string, record: LocalProgress): Promise<void> {
   if (!isOfflineSupported()) return;
   try {
     await tx(PROFILE_PROGRESS_STORE, "readwrite", async (getStore) => {
       const store = getStore(PROFILE_PROGRESS_STORE);
-      const key = progressKey(id, progress.profileId);
+      const key = progressKey(id, record.profileId);
       const existing = (await reqDone(store.get(key))) as StoredProgress | undefined;
       await reqDone(
         store.put({
           key,
           id,
-          fraction: progress.fraction,
-          locator: progress.locator,
-          updatedAt: progress.updatedAt,
+          progress: record.progress,
+          locator: record.locator,
+          updatedAt: record.updatedAt,
           // The profile active on THIS device right now — recorded at write
           // time so a later flush (possibly after a profile switch) still
           // knows who actually read this position (brief 35 step 7).
-          profileId: progress.profileId,
+          profileId: record.profileId,
           syncedAt: existing?.syncedAt ?? 0,
         } satisfies StoredProgress),
       );
@@ -751,7 +812,7 @@ export async function listPendingProgress(): Promise<Array<LocalProgress & { id:
         .filter((r) => r.updatedAt > r.syncedAt)
         .map((r) => ({
           id: r.id,
-          fraction: r.fraction,
+          progress: r.progress,
           locator: r.locator,
           updatedAt: r.updatedAt,
           profileId: r.profileId ?? null,

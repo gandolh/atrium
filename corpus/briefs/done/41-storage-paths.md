@@ -3,7 +3,7 @@
 **Closes all three entries in [open-questions.md](../../wiki/open-questions.md)**,
 grilled with the owner 2026-08-27. Records **D39**.
 
-**Build this before [brief 38](38-latex-editor.md).** 38 is the next brief to
+**Build this before [brief 38](../todo/38-latex-editor.md).** 38 is the next brief to
 touch `apps/api` and `apps/web`, and it inherits the data-safety hazard this
 brief retires. Doing 41 first means 38's verification can be sandboxed properly
 instead of relying on discipline.
@@ -108,7 +108,7 @@ new ownership column**.
   an English word.
 
 **Out:** any change to what a cover *is* or how it is extracted (that is
-[brief 42](42-video-covers.md)); renaming `LIBRARY_DATA_DIR`; making the
+[brief 42](../todo/42-video-covers.md)); renaming `LIBRARY_DATA_DIR`; making the
 overrides required; touching `books.progress` (the legacy global column D31
 superseded — leave it exactly as it is, it is not this brief's fight).
 
@@ -195,3 +195,63 @@ history and one manual backup outside the repo.
   holding v4 data upgrades without losing a single progress record.
 - Unrelated `fraction` identifiers are untouched.
 - `npm run typecheck`, `npm run build` and `npm test` all clean.
+
+---
+
+## Outcome (2026-08-27) — done
+
+Built via plan-split-dispatch: 4 chunks (3 senior, 1 junior), 3 waves, then 3
+scoped finders and 1 fix round. **Typecheck 0, build 0, 332/332 tests pass.**
+
+**Delivered as specified.** All three storage roots are env overrides; every
+path derives from `paths.ts` (`filePathFor`, `coverPathFor`, `coverOwnerId`);
+`file_path`/`cover_path` are dropped; `hasCover` is a disk `stat`;
+`reconcileMissingCovers`, `clearCoverPath`, `listBooksWithCover` and
+`clearBookCover` are deleted; the offline store is at v5 with the field named
+`progress`.
+
+**What the review caught that the brief got wrong.** This brief asserted that
+deriving paths is "a *repair* for rows from an old checkout". That is an
+assumption, not a fact: for a row whose stored path disagrees with the
+derivation, **the stored path is the only surviving record of where those bytes
+are**, and dropping it unread destroys that pointer silently. The migration now
+reads both columns first and warns, naming every drifted row and its old
+location, before dropping. Verified by seeding one drifted row into a copy of
+the real database: exactly one drift line reported, the four healthy rows
+correctly silent. The finder's framing was the decisive part — `migrateToProfileScope`,
+this repo's other destructive migration, verifies its own row counts and rolls
+back, and this one originally had no verification step at all.
+
+**Also hardened:** `coverOwnerId` took `converted_from?:` as optional, so the
+wire-shaped `LibraryBook` (which spells the link `convertedFrom`) satisfied it
+structurally and would silently resolve to the conversion's own id — a wrong
+cover on read, the wrong file unlinked on delete. The key is now required.
+Latent, with no live call site, but it removed the type system's ability to
+catch the single most expensive mistake in this change.
+
+**Discovered, unrelated to this brief:** the owner's real database is
+**pre-brief-34** — no `converted_from`/`convert_status` columns — while
+`reading_progress` *is* profile-scoped. So brief 35's migration was applied
+directly during that build, but the API has not booted with brief 34's code
+since, and Convert has never run against the real library. The next boot runs
+brief 34's `ensureBookColumns` and this brief's drop **in one go**; that
+combined path was tested end to end against a copy and converges cleanly.
+
+**Verification discipline.** Every destructive check ran against a copy with all
+three roots redirected — which is the capability this brief created, used on
+itself. The real `library.db` is byte-identical (`075ae891…`) and
+`library/`/`images/thumbnails/` are unchanged at 9/7 files. The real database
+migrates on the owner's next boot, not from the build session.
+
+**Known and accepted, not fixed:** `hasCover` costs one `existsSync` per book
+per `GET /library`, and a converted pair pays two stats for one shared file.
+Priced in by D39 — it is what makes drift unrepresentable. Harmless at this
+library's size (5 books); the paired double-stat is the shape that would bite
+first if the library ever grew large enough for the listing to feel it.
+
+**Rulings:** chunk 2 absorbed the `hasCover` flip and the reconcile deletion
+from chunk 3, leaving chunk 3 a pure `DROP COLUMN` — so chunk 2 could end with a
+grep proving nothing reads the columns, which is exactly chunk 3's precondition.
+Finder 2's `existsSync` finding was rejected as by-design (D39 states the cost
+verbatim); it was filed because the finder was deliberately not told the cost was
+already priced, so it would judge on merits.

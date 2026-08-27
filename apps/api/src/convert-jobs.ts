@@ -7,6 +7,7 @@ import { pdf } from "pdf-to-img";
 import { convertTargetForFormat, type ConvertStatus, type FileType } from "@ebook-reader/shared";
 import { startEbookConvert, type RunningConvert } from "./calibre.js";
 import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "./config.js";
+import { filePathFor } from "./paths.js";
 import {
   getConvertedBook,
   getRunningConvert,
@@ -76,7 +77,10 @@ export const CALIBRE_MISSING_ERROR =
  * thing.
  */
 export function convertedFilePath(id: string, format: FileType): string {
-  return join(LIBRARY_FILES_DIR, `${id}.${format}`);
+  // Deliberately `filePathFor` and not a second `join` of its own: a converted
+  // book's file is a library file like any other, and there is exactly one
+  // definition of where those live (`paths.ts`).
+  return filePathFor(id, format);
 }
 
 /**
@@ -257,7 +261,8 @@ export function startConvert(source: BookRow): StartConvertResult {
   markConvertRunning(source.id, startedAt);
 
   const handle = startEbookConvert(
-    source.file_path,
+    // Derived from the source row, never read off it — see `paths.ts`.
+    filePathFor(source.id, source.format),
     targetPath,
     CONVERT_JOB_TIMEOUT_MS,
     flagsFor(source.format, targetFormat),
@@ -388,7 +393,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
     // experience than a slightly later `ready`.
     const status =
       source.format === "pdf" && targetFormat === "epub"
-        ? await gradeEpub(source.file_path, job.targetPath)
+        ? await gradeEpub(filePathFor(source.id, source.format), job.targetPath)
         : "ready";
 
     // Last gate before the commit: `gradeEpub` above is the longest await in
@@ -412,7 +417,6 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
         id: job.convertedBookId,
         sourceBookId: source.id,
         format: targetFormat,
-        filePath: finalPath,
         sizeBytes,
         now: new Date().toISOString(),
       });

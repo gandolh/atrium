@@ -5,7 +5,20 @@ updated: 2026-08-27
 
 # Status — 2026-08-27
 
-**Latest (2026-08-27):** 🧭 **Grill session — every open question closed.**
+**Latest (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
+testing is finally sandboxable.** All three storage roots are env overrides, so
+a scratch database and scratch files move together; the `file_path`/`cover_path`
+columns are **dropped** and every location derives from `paths.ts`. `hasCover`
+is now a disk `stat`, which makes DB/disk drift unrepresentable and deleted
+`reconcileMissingCovers` outright. The offline store is at **v5** with the field
+renamed `fraction` → `progress`. The review's best catch was against the brief
+itself: dropping a stored path *unread* destroys the only record of where a
+misplaced file actually is, so the migration now warns and names every drifted
+row first. **Your real database is untouched — it migrates on the next API
+boot**, and note it is still pre-brief-34, so that boot runs two briefs'
+migrations at once (tested together, converges cleanly).
+
+**Earlier (2026-08-27):** 🧭 **Grill session — every open question closed.**
 The three threads in [open-questions.md](open-questions.md), two of them open
 since July, are now **D39** and **D40** and are specified as briefs 41–43. The
 headline: the API stored absolute paths while two of its three storage roots
@@ -113,9 +126,9 @@ The dashboard is what is true *now*; the archive is how it got here.
 | 35 | Profiles: several readers behind one account (household model, D35) | **done (2026-08-25)** |
 | 36 | LaTeX: write, compile, publish (Tectonic) | **superseded by 37–40 (2026-08-26)** |
 | 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
-| 38 | LaTeX editor: projects, compile, publish, versions | **todo — unblocked; build after 41** |
+| 38 | LaTeX editor: projects, compile, publish, versions | **todo — next, unblocked** |
 | 39 | Engine: figures, tables, bibliography | **todo** |
 | 40 | Engine: math (MathJax SVG → PDF) | **todo** |
-| 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **todo — next** |
-| 42 | Video covers, decoded in the browser (D40) | **todo — needs 41** |
+| 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **done (2026-08-27)** |
+| 42 | Video covers, decoded in the browser (D40) | **todo — unblocked** |
 | 43 | Readable tiles for coverless media | **todo — needs 42** |

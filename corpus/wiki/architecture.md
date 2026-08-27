@@ -98,13 +98,27 @@ apps/api/
   library/<id>.<ext>         original uploaded PDF/EPUB files
   images/thumbnails/<id>.jpg extracted cover thumbnails
 ```
-`data/`, `library/`, `images/` are **gitignored**. The DB stores only paths +
-metadata; image/file bytes live on disk (cheap HTTP serving + small DB).
+`data/`, `library/`, `images/` are **gitignored**, and all three are
+independently redirectable by env (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
+`THUMBNAILS_DIR` — D39). Redirect all three together to point a test at a
+scratch root; redirecting the database alone leaves it pointing at the real
+files, which is how a verification run destroyed a book on 2026-08-25.
+
+The DB stores **metadata only, never paths** (D39). A file's location is
+*derived* — `paths.ts` is the single definition: an original is
+`filePathFor(id, format)`, a cover is `coverPathFor(converted_from ?? id)`,
+that last being D34's linked-row rule (a converted book shares its source's
+thumbnail). Bytes live on disk; the disk is also the sole authority on whether
+a cover exists, so `hasCover` is a `stat` rather than a column and cannot drift.
 
 Tables (`db.ts`):
-- `books`: `id, title, author, format, file_path, cover_path, size_bytes,
-  progress, created_at, last_opened_at` — shared library (the `progress` column
-  is legacy; per-user progress lives in `reading_progress`).
+- `books`: `id, title, author, format, size_bytes, progress, created_at,
+  last_opened_at, series, series_index, subjects, source, source_id, kind,
+  duration_seconds, converted_from, convert_status, convert_error,
+  convert_started_at` — shared library, install-wide (there is no `user_id`;
+  only progress and notes are scoped). The `progress` column is legacy —
+  per-profile progress lives in `reading_progress`. `file_path`/`cover_path`
+  were dropped by D39.
 - `users`: `id, username (unique), password_hash (scrypt), created_at` —
   operator-seeded accounts (D30).
 - `sessions`: `token PK, user_id → users ON DELETE CASCADE, created_at` — opaque

@@ -74,7 +74,7 @@ export function useProgressSync() {
       const profileId = useAuthStore.getState().activeProfileId;
       // Persist locally FIRST so offline reading position survives even when the
       // PATCH can't go out; then attempt the server write (best-effort).
-      void putLocalProgress(bookId, { fraction, locator, updatedAt, profileId });
+      void putLocalProgress(bookId, { progress: fraction, locator, updatedAt, profileId });
       void updateProgress(bookId, fraction, locator)
         // Mark the record THIS write created — the progress store is keyed per
         // (profile, book) since v4, so the profile has to come along or the
@@ -145,7 +145,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
     const alreadyOnServer =
       row != null &&
       (row.locator ?? null) === p.locator &&
-      Math.abs(row.progress - p.fraction) < FRACTION_EPSILON;
+      Math.abs(row.progress - p.progress) < FRACTION_EPSILON;
     if (alreadyOnServer) {
       // Server already holds this position — just clear the pending flag. Keyed
       // by the record's OWN profile (`p.profileId`), not `targetProfileId`:
@@ -157,7 +157,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
     try {
       // Send the record's OWN profile (falling back to active for a `null`
       // record, per the comment above) — never the currently active one.
-      await updateProgress(p.id, p.fraction, p.locator, targetProfileId ?? undefined);
+      await updateProgress(p.id, p.progress, p.locator, targetProfileId ?? undefined);
       await markLocalProgressSynced(p.id, p.profileId, p.updatedAt);
     } catch (err) {
       // A 404 here means the profile-scoped PATCH couldn't resolve a target:

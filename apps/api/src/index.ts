@@ -10,11 +10,7 @@ import {
   MAX_UPLOAD_MB,
   PORT,
 } from "./config.js";
-import {
-  backfillLibraryMetadata,
-  reconcileMissingCovers,
-  registerLibraryRoutes,
-} from "./library-routes.js";
+import { backfillLibraryMetadata, registerLibraryRoutes } from "./library-routes.js";
 import { registerCatalogRoutes } from "./catalog-routes.js";
 import { cancelAllConverts, sweepInterruptedOutputs } from "./convert-jobs.js";
 import { registerNotesRoutes } from "./notes-routes.js";
@@ -103,13 +99,6 @@ async function start(): Promise<void> {
     // are logged, not fatal.
     void backfillLibraryMetadata(app.log).catch((err) => {
       app.log.error({ err }, "library metadata backfill failed");
-    });
-    // Drop cover paths whose thumbnail file is missing (e.g. a library DB
-    // carried over from another machine with stale absolute paths), so the
-    // client renders its fallback tile instead of firing a doomed cover request
-    // that surfaces as ERR_BLOCKED_BY_ORB. Off the request path; non-fatal.
-    void reconcileMissingCovers(app.log).catch((err) => {
-      app.log.error({ err }, "cover reconcile failed");
     });
     // `db.ts` reaps rows left `running` by a process that died mid-conversion;
     // this reclaims the disk those same jobs were using. The converted book's

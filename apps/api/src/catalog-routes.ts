@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
@@ -18,6 +17,7 @@ import {
   THUMBNAILS_DIR,
 } from "./config.js";
 import { insertBook, toLibraryBook } from "./db.js";
+import { coverPathFor, filePathFor } from "./paths.js";
 import { extractMeta } from "./extract.js";
 
 /**
@@ -309,18 +309,17 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
     // 3. Run the EXISTING extract→store pipeline (mirrors the upload route).
     const id = randomUUID();
     const format = "epub" as const;
-    const filePath = join(LIBRARY_FILES_DIR, `${id}.epub`);
+    const filePath = filePathFor(id, format);
     await mkdir(LIBRARY_FILES_DIR, { recursive: true });
     await writeFile(filePath, bytes);
 
-    let coverPath: string | null = null;
     let meta;
     try {
       meta = await extractMeta(bytes, format, `${book.title}.epub`);
       if (meta.cover) {
         await mkdir(THUMBNAILS_DIR, { recursive: true });
-        coverPath = join(THUMBNAILS_DIR, `${id}.jpg`);
-        await writeFile(coverPath, meta.cover);
+        // Derived location, not stored — same as the upload route.
+        await writeFile(coverPathFor(id), meta.cover);
       }
     } catch (err) {
       request.log.warn({ err }, "cover/metadata extraction failed for import");
@@ -340,8 +339,6 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
       title: meta.title,
       author: meta.author,
       format,
-      file_path: filePath,
-      cover_path: coverPath,
       size_bytes: bytes.length,
       progress: 0,
       created_at: now,

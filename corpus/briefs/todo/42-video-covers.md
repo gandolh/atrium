@@ -3,7 +3,7 @@
 **Promoted from [todos/video-covers.md](../../todos/video-covers.md)** (captured
 2026-08-24), grilled with the owner 2026-08-27. Records **D40**.
 
-**Requires [brief 41](41-storage-paths.md)**, which changes how a cover path is
+**Requires [brief 41](../done/41-storage-paths.md)**, which changes how a cover path is
 derived and makes `hasCover` a disk check. Build on top of that, not around it.
 
 ## Context

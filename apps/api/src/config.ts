@@ -98,22 +98,19 @@ export const DB_PATH = resolve(DATA_DIR, "library.db");
 /**
  * Original uploaded PDF/EPUB files: `library/<id>.<ext>`.
  *
- * ⚠️ **`LIBRARY_DATA_DIR` does NOT redirect this, or `THUMBNAILS_DIR` below.**
- * It moves the database only. Pointing the API at a *copied* database while
- * testing therefore does NOT sandbox the files: the copied rows still carry
- * absolute paths into the real directories, so any delete/convert run against
- * them destroys the owner's actual books. Both directories are gitignored and
- * have no version history, so there is nothing to restore from.
- *
- * This has already cost one real book (2026-08-25, recovered only because a
- * duplicate happened to exist on disk). If you are testing a destructive path,
- * upload your own throwaway fixture and act on that — never on a row that was
- * already there. Making these overridable would be a real improvement; see the
- * open-questions entry.
+ * All three storage roots (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
+ * `THUMBNAILS_DIR`) are independently overridable via env, same pattern as
+ * `DATA_DIR` above. Redirect all three together to point a test/deploy at a
+ * scratch storage root, so a scratch database and scratch files move as one —
+ * never redirect the database alone and run against the real files.
  */
-export const LIBRARY_FILES_DIR = resolve(API_ROOT, "library");
-/** Extracted cover thumbnails: `images/thumbnails/<id>.jpg`. See the warning above. */
-export const THUMBNAILS_DIR = resolve(API_ROOT, "images", "thumbnails");
+export const LIBRARY_FILES_DIR = process.env.LIBRARY_FILES_DIR
+  ? resolve(process.env.LIBRARY_FILES_DIR)
+  : resolve(API_ROOT, "library");
+/** Extracted cover thumbnails: `images/thumbnails/<id>.jpg`. See the note above. */
+export const THUMBNAILS_DIR = process.env.THUMBNAILS_DIR
+  ? resolve(process.env.THUMBNAILS_DIR)
+  : resolve(API_ROOT, "images", "thumbnails");
 
 /**
  * Base URL of the Gutendex instance the catalog proxy talks to (brief 22).

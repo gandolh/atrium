@@ -1,5 +1,54 @@
 # Log
 
+## [2026-08-27] build | Brief 41 shipped — derived storage paths, and a sandbox that works
+
+4 chunks (3 senior, 1 junior), 3 waves, 3 scoped finders, 1 fix round.
+Typecheck 0, build 0, **332/332 tests**. The owner's database is byte-identical;
+it migrates on the next real boot.
+
+**The capability this brief created got used on itself.** Every destructive
+check ran against a copy with all three storage roots redirected — which is
+precisely what was impossible before, and precisely how a book was destroyed on
+2026-08-25. Chunk 1 (the overrides) was gated on my own proof, not the agent's
+claim, before anything else was allowed to run.
+
+**The review's best finding was against the brief, not the code.** Brief 41
+asserted that deriving paths is "a *repair* for rows from an old checkout". That
+is an assumption. For a row whose stored path disagrees with the derivation, the
+stored path is the **only surviving record of where those bytes are** — and the
+migration dropped it unread. The finder's framing carried it: this repo's other
+destructive migration, `migrateToProfileScope`, verifies row counts and rolls
+back, and this one had no verification step at all. The migration now reads both
+columns first and warns, naming every drifted row and its old location. Proven
+by seeding one drifted row into a copy of the real DB: one drift line, four
+healthy rows correctly silent.
+
+**A latent type hole worth the fix.** `coverOwnerId` declared `converted_from?:`
+optional, so the wire-shaped `LibraryBook` — which spells the link
+`convertedFrom` — satisfied it structurally and resolved to the conversion's own
+id: a cover that never loads on read, the wrong file unlinked on delete. No live
+call site, but the optionality had disabled the type system on the single most
+expensive mistake in the change.
+
+**Discovered, unrelated:** the real database is **pre-brief-34** (no
+`converted_from`) while `reading_progress` is already profile-scoped — so brief
+35's migration was applied directly during that build, and the API has not booted
+with brief 34's code since. Convert has never run against the real library. The
+next boot runs brief 34's column additions and brief 41's drop together; that
+combined path was tested and converges.
+
+**Deleted, not replaced:** `reconcileMissingCovers`, `clearCoverPath`,
+`listBooksWithCover`, `clearBookCover` and the boot reconcile. They existed to
+repair DB/disk drift; making the disk authoritative stops the drift being
+representable, so the repair has nothing to repair. That is the shape worth
+repeating — the best outcome of a correctness fix is machinery you get to delete.
+
+**Accepted, not fixed:** one `existsSync` per book per `GET /library`, and a
+converted pair paying two stats for one shared file. Priced in by D39. A finder
+filed it anyway because it was deliberately not told the cost was already
+decided — which is the right way to test whether a priced cost still looks
+defensible from outside.
+
 ## [2026-08-27] grill | Every open question closed — D39, D40, briefs 41-43
 
 Seven questions, one at a time, at the owner's request. The whole of

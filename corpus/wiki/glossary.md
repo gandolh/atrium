@@ -110,7 +110,8 @@ _Avoid_: profile, user, tenant, household (use *account* in code and copy)
 **Progress**:
 The coarse per-user 0..1 "how far in" that drives the cover's progress bar (D31).
 _Avoid_: percent, completion, position, **fraction** (what the offline store's
-record calls it — a live drift, see [open-questions.md](open-questions.md))
+record called it until the IndexedDB v5 rename — D39, 2026-08-27; the two names
+now agree, so a reintroduced `fraction` is a regression, not a synonym)
 
 **Locator**:
 The exact resume position, opaque to the app: a page number as a string for PDF,

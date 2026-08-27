@@ -27,7 +27,7 @@ hosts where a pip `lxml` shadows the distro one (it does now).
 **All three long-running threads were grilled with the owner on 2026-08-27 and
 are now decisions, not questions** — see **D39** and **D40** in
 [decisions.md](decisions.md), specified as
-[brief 41](../briefs/todo/41-storage-paths.md) and
+[brief 41](../briefs/done/41-storage-paths.md) and
 [brief 42](../briefs/todo/42-video-covers.md):
 
 - ~~**One concept, two names: `progress` vs `fraction`.**~~ Closed 2026-08-27 →

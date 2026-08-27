@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 import type {
@@ -20,7 +19,6 @@ import {
 } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "./config.js";
 import {
-  clearBookCover,
   deleteBook,
   getBook,
   getConvertedBook,
@@ -29,7 +27,6 @@ import {
   insertBook,
   listBooks,
   listBooksNeedingMetadata,
-  listBooksWithCover,
   listProfileProgress,
   resetConvert,
   toLibraryBook,
@@ -38,6 +35,7 @@ import {
   upsertProfileProgress,
 } from "./db.js";
 import { cancelConvert, isConverting, startConvert } from "./convert-jobs.js";
+import { coverOwnerId, coverPathFor, filePathFor } from "./paths.js";
 import { extractMeta } from "./extract.js";
 
 /**
@@ -96,14 +94,6 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function filePathFor(id: string, format: FileType): string {
-  return join(LIBRARY_FILES_DIR, `${id}.${format}`);
-}
-
-function coverPathFor(id: string): string {
-  return join(THUMBNAILS_DIR, `${id}.jpg`);
-}
-
 export function registerLibraryRoutes(app: FastifyInstance): void {
   // --- POST /library — upload + store + extract cover ------------------------
   app.post("/library", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -136,15 +126,15 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     }
 
     // Extract metadata + cover from the file we just wrote (best-effort).
-    let coverPath: string | null = null;
     let meta;
     try {
       const bytes = await readFile(filePath);
       meta = await extractMeta(bytes, format, data.filename);
       if (meta.cover) {
         await mkdir(THUMBNAILS_DIR, { recursive: true });
-        coverPath = coverPathFor(id);
-        await writeFile(coverPath, meta.cover);
+        // Written to the derived location and not recorded anywhere: whether a
+        // book has a cover is answered by stat'ing this same path on read.
+        await writeFile(coverPathFor(id), meta.cover);
       }
     } catch (err) {
       request.log.warn({ err }, "cover/metadata extraction failed");
@@ -165,8 +155,6 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       title: meta.title,
       author: meta.author,
       format,
-      file_path: filePath,
-      cover_path: coverPath,
       size_bytes: size,
       progress: 0,
       created_at: now,
@@ -271,9 +259,12 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // Total size from disk — needed for Content-Range and to clamp the range.
     // We never read the whole file into memory: `createReadStream({start,end})`
     // streams only the requested window.
+    // Derived, never read back from the row — see `paths.ts` for why the two
+    // can only ever have agreed.
+    const filePath = filePathFor(row.id, row.format);
     let size: number;
     try {
-      ({ size } = await stat(row.file_path));
+      ({ size } = await stat(filePath));
     } catch {
       return reply.status(404).send({ error: "Book file not found." });
     }
@@ -294,36 +285,40 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
         .header("Content-Disposition", disposition)
         .header("Content-Range", `bytes ${start}-${end}/${size}`)
         .header("Content-Length", String(end - start + 1));
-      return reply.send(createReadStream(row.file_path, { start, end }));
+      return reply.send(createReadStream(filePath, { start, end }));
     }
 
     reply
       .header("Content-Type", contentType)
       .header("Content-Disposition", disposition)
       .header("Content-Length", String(size));
-    return reply.send(createReadStream(row.file_path));
+    return reply.send(createReadStream(filePath));
   });
 
   // --- GET /library/:id/cover — stream the thumbnail -------------------------
   app.get("/library/:id/cover", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = getBook(id);
-    if (!row || !row.cover_path) {
+    if (!row) {
       return reply.status(404).send({ error: "No cover for this book." });
     }
-    // The thumbnail file can be absent even when the row records a path — e.g. a
-    // library DB moved between machines (paths are absolute — see
-    // open-questions.md), or a thumbnail deleted out of band. Verify it exists
-    // first so a missing file is a clean 404 the <img> can fall back from,
-    // rather than a mid-stream 500 (which a cross-origin <img> surfaces as the
-    // noisy ERR_BLOCKED_BY_ORB).
+    // The thumbnail belongs to the cover OWNER — for a converted book that is
+    // its source, which is the row the file was extracted from and named after
+    // (`coverPathFor`). Asking for the conversion's cover therefore serves the
+    // source's file, which is the same file the source itself serves.
+    const coverPath = coverPathFor(coverOwnerId(row));
+    // Whether a book HAS a cover is "is that file on disk" and nothing else
+    // (`toLibraryBook`'s `hasCover` asks the same question), so the existence
+    // check is the only gate here. Doing it up front makes a missing thumbnail
+    // a clean 404 the <img> can fall back from, rather than a mid-stream 500
+    // (which a cross-origin <img> surfaces as the noisy ERR_BLOCKED_BY_ORB).
     try {
-      await stat(row.cover_path);
+      await stat(coverPath);
     } catch {
       return reply.status(404).send({ error: "No cover for this book." });
     }
     reply.header("Content-Type", "image/jpeg").header("Cache-Control", "public, max-age=31536000, immutable");
-    return reply.send(createReadStream(row.cover_path));
+    return reply.send(createReadStream(coverPath));
   });
 
   // --- PATCH /library/:id/progress — save the target profile's progress + position ----
@@ -389,10 +384,10 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       // be gone before `startConvert` runs, not cleaned up after.
       const existing = getConvertedBook(id);
       if (existing) {
-        await rm(existing.file_path, { force: true });
-        // NEVER touch `existing.cover_path` — a converted book shares its
-        // source's thumbnail file (db.ts's `insertConvertedBook`); this row IS
-        // the source, so deleting that path here would strip its own cover.
+        await rm(filePathFor(existing.id, existing.format), { force: true });
+        // NEVER touch the cover — a converted book's thumbnail is its SOURCE's
+        // file (`coverPathFor` derives it from `converted_from`), and this row
+        // IS that source, so unlinking it here would strip its own cover.
         deleteBook(existing.id);
       }
     }
@@ -435,11 +430,11 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       return reply.status(404).send({ error: "No conversion to cancel or delete." });
     }
 
-    await rm(converted.file_path, { force: true });
-    // NEVER remove `converted.cover_path` — it is the SAME file as the
-    // source's cover (copied, never re-extracted, by `insertConvertedBook`).
-    // Deleting it here would strip the cover off the source book, which this
-    // request never touched.
+    await rm(filePathFor(converted.id, converted.format), { force: true });
+    // NEVER remove the cover — `coverPathFor(coverOwnerId(converted))` is the
+    // SAME file as the source's cover (a conversion reuses it, never
+    // re-extracts). Deleting it here would strip the cover off the source
+    // book, which this request never touched.
     deleteBook(converted.id);
     resetConvert(id);
     return reply.status(204).send();
@@ -475,20 +470,22 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     }
 
     deleteBook(id);
-    await rm(row.file_path, { force: true });
-    // Only unlink the cover when this row owns it outright. A converted book's
-    // `cover_path` is the SAME file as its source's (insertConvertedBook copies
-    // it, never re-extracts) — removing it here would strip the cover off a
-    // source book this request never touched.
-    if (row.cover_path && row.converted_from === null) {
-      await rm(row.cover_path, { force: true });
+    await rm(filePathFor(row.id, row.format), { force: true });
+    // Only unlink the cover when this row OWNS it. Ownership is
+    // `converted_from ?? id` (`coverOwnerId`): a converted book's thumbnail is
+    // its source's file, so `converted_from === null` is exactly the test for
+    // "the derived path names this row" — removing it otherwise would strip the
+    // cover off a source book this request never touched. `rm --force` covers
+    // the book that simply never had a thumbnail.
+    if (row.converted_from === null) {
+      await rm(coverPathFor(row.id), { force: true });
     }
 
     if (linkedConverted) {
       // Its row is already gone via the cascade; only its FILE is still ours
-      // to clean up. Never its cover_path — that's the SAME file as
-      // `row.cover_path`, already handled above.
-      await rm(linkedConverted.file_path, { force: true });
+      // to clean up. Never its cover — that derives to the SAME thumbnail as
+      // `row`'s, already handled above.
+      await rm(filePathFor(linkedConverted.id, linkedConverted.format), { force: true });
     } else if (row.converted_from !== null && !isConverting(row.converted_from)) {
       // `row` was the converted book: its source is still around and must not
       // keep claiming a conversion that no longer exists.
@@ -524,8 +521,9 @@ export async function backfillLibraryMetadata(log: FastifyBaseLogger): Promise<v
   let updated = 0;
   for (const row of pending) {
     try {
-      const bytes = await readFile(row.file_path);
-      const meta = await extractMeta(bytes, row.format, row.file_path);
+      const filePath = filePathFor(row.id, row.format);
+      const bytes = await readFile(filePath);
+      const meta = await extractMeta(bytes, row.format, filePath);
       updateBookMetadata(row.id, {
         series: meta.series,
         seriesIndex: meta.seriesIndex,
@@ -546,37 +544,4 @@ export async function backfillLibraryMetadata(log: FastifyBaseLogger): Promise<v
     }
   }
   log.info({ updated, total: pending.length }, "library metadata backfill: done");
-}
-
-/**
- * One-time startup reconcile for stale cover paths (open-questions.md). A row
- * can record a `cover_path` whose file no longer exists — most commonly a
- * library DB carried over from another machine, where the stored paths are
- * absolute (`D:\...`) and don't resolve here. Left alone, the client sees
- * `hasCover: true`, requests the cover, and gets a 404 that a cross-origin
- * `<img>` surfaces as the noisy `ERR_BLOCKED_BY_ORB`.
- *
- * Nulling the path at startup makes `hasCover` report false, so the client
- * renders its per-kind fallback tile directly and never fires the doomed
- * request. Best-effort, fired off the request path (not awaited); a re-upload
- * that regenerates the thumbnail restores the path.
- */
-export async function reconcileMissingCovers(log: FastifyBaseLogger): Promise<void> {
-  const withCover = listBooksWithCover();
-  if (withCover.length === 0) return;
-
-  let cleared = 0;
-  for (const row of withCover) {
-    if (row.cover_path === null) continue; // narrowing; the query already filters
-    try {
-      await stat(row.cover_path);
-    } catch {
-      clearBookCover(row.id);
-      cleared += 1;
-      log.warn({ id: row.id, coverPath: row.cover_path }, "cover reconcile: file missing, cleared cover_path");
-    }
-  }
-  if (cleared > 0) {
-    log.info({ cleared, total: withCover.length }, "cover reconcile: done");
-  }
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import Database from "better-sqlite3";
 import type {
   BookSource,
@@ -12,12 +12,14 @@ import type {
 } from "@ebook-reader/shared";
 import { kindForFormat } from "@ebook-reader/shared";
 import { DATA_DIR, DB_PATH } from "./config.js";
+import { coverOwnerId, coverPathFor, filePathFor } from "./paths.js";
 
 /**
  * SQLite-backed library store (decisions.md D24). Synchronous
  * `better-sqlite3` — simplest for a single-user local API; no connection pool,
  * no async ceremony. One `books` table; image/file bytes live on disk (D25),
- * this table stores only paths + metadata.
+ * this table stores only metadata. Where a file *is* is not stored at all — it
+ * is derived from the row by `paths.ts`.
  */
 
 /**
@@ -70,8 +72,6 @@ export interface BookRow extends BookConvertFields {
   title: string;
   author: string | null;
   format: FileType;
-  file_path: string;
-  cover_path: string | null;
   size_bytes: number;
   progress: number;
   created_at: string;
@@ -207,13 +207,15 @@ const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 
 db.exec(`
+  -- No path columns here on purpose: where a book's file and thumbnail live is
+  -- derived from the row by paths.ts, never stored. A pre-existing database
+  -- still has the old file_path/cover_path columns at this point;
+  -- dropLegacyPathColumns below removes them.
   CREATE TABLE IF NOT EXISTS books (
     id            TEXT    PRIMARY KEY,
     title         TEXT    NOT NULL,
     author        TEXT,
     format        TEXT    NOT NULL,
-    file_path     TEXT    NOT NULL,
-    cover_path    TEXT,
     size_bytes    INTEGER NOT NULL,
     progress      REAL    NOT NULL DEFAULT 0,
     created_at    TEXT    NOT NULL,
@@ -487,6 +489,97 @@ function migrateToProfileScope(): void {
 }
 
 /**
+ * Drop the legacy `books.file_path` / `books.cover_path` columns.
+ *
+ * WHY IT IS SAFE TO DROP A `NOT NULL` COLUMN — the question a future reader
+ * will ask, so here is the answer up front: neither column ever held
+ * information. Both are **pure functions of columns that are still here**, and
+ * `paths.ts` is now the only definition of them:
+ *
+ *     file_path  === filePathFor(id, format)                  // library/<id>.<ext>
+ *     cover_path === coverPathFor(converted_from ?? id)       // thumbnails/<id>.jpg
+ *
+ * Every writer in the codebase — upload, catalog import, conversion — has
+ * always named its output that way and then stored the same string it had just
+ * computed. So these columns were a stale cache of a pure function, and the
+ * only value they could ever add was disagreement with the disk (an absolute
+ * path carried over from another machine, a thumbnail removed out of band).
+ * Nothing has read them since the derivation landed; dropping them makes the
+ * drift impossible instead of merely correctable.
+ *
+ * `ALTER TABLE ... DROP COLUMN` needs SQLite 3.35+; the bundled better-sqlite3
+ * is 3.53.2 (same build `ensureBookColumns` verifies its REFERENCES clause
+ * against), and the drop was checked against this exact schema shape: the
+ * `books_converted_from` unique index and the `reading_progress` / `notes` /
+ * self-referential foreign keys all survive it, because SQLite rewrites the
+ * table definition in place and neither column is named by any of them. That is
+ * why this is a plain DROP and not the create-copy-drop-rename rebuild
+ * `migrateToProfileScope` needs — no constraint here has to change shape.
+ *
+ * Idempotent via `columnsOf`, so this is a no-op on a fresh database (the
+ * schema block above never creates the columns) and on one already migrated.
+ */
+function dropLegacyPathColumns(): void {
+  const columns = columnsOf("books");
+  const hadFilePath = columns.has("file_path");
+  const hadCoverPath = columns.has("cover_path");
+  if (!hadFilePath && !hadCoverPath) return;
+
+  // READ BEFORE DESTROYING. The claim above — that these columns never held
+  // information — is true of every row a writer in *this* checkout created,
+  // because every writer computed the derived name and stored that same string
+  // back. It is NOT guaranteed of a row carried in from somewhere else: a
+  // database moved between machines or checkouts holds an absolute path into a
+  // directory that is no longer `LIBRARY_FILES_DIR`, and for such a row the
+  // stored path is the only surviving record of where those bytes actually
+  // are. Dropping it unread would discard that pointer permanently and
+  // silently, on a library with no version history.
+  //
+  // So: compare every row against its derivation first and say so loudly if
+  // they disagree. Written with `console.warn` because migrations run at module
+  // import, before Fastify's logger exists — the same reason `config.ts`
+  // reports startup failures on the console directly.
+  const legacy = db
+    .prepare(
+      `SELECT id, format, converted_from,
+              ${hadFilePath ? "file_path" : "NULL AS file_path"},
+              ${hadCoverPath ? "cover_path" : "NULL AS cover_path"}
+         FROM books`,
+    )
+    .all() as {
+    id: string;
+    format: FileType;
+    converted_from: string | null;
+    file_path: string | null;
+    cover_path: string | null;
+  }[];
+
+  const drifted: string[] = [];
+  for (const row of legacy) {
+    if (row.file_path && row.file_path !== filePathFor(row.id, row.format)) {
+      drifted.push(`  book ${row.id}: file_path was ${row.file_path}`);
+    }
+    if (row.cover_path && row.cover_path !== coverPathFor(coverOwnerId(row))) {
+      drifted.push(`  book ${row.id}: cover_path was ${row.cover_path}`);
+    }
+  }
+  if (drifted.length > 0) {
+    console.warn(
+      `\n[migration] ${drifted.length} stored path(s) disagreed with the derived location\n` +
+        "and are about to be dropped. If a file below is missing from the current\n" +
+        "library directory, the path names where it used to live — copy it across\n" +
+        "before this message stops appearing:\n" +
+        drifted.join("\n") +
+        "\n",
+    );
+  }
+
+  for (const name of ["file_path", "cover_path"]) {
+    if (columns.has(name)) db.exec(`ALTER TABLE books DROP COLUMN ${name}`);
+  }
+}
+
+/**
  * A source book has at most one converted book (brief 34). Enforced rather than
  * assumed, because two rows pointing at the same source would make
  * `converted_to` ambiguous and put a second, invisible card's file on disk with
@@ -530,6 +623,7 @@ function reapInterruptedConversions(): void {
 
 ensureSessionColumns();
 migrateToProfileScope();
+dropLegacyPathColumns();
 ensureDefaultProfiles();
 ensureConvertIndex();
 reapInterruptedConversions();
@@ -575,11 +669,11 @@ const NOT_CONVERTED = "b.converted_from IS NULL";
 
 const statements = {
   insert: db.prepare<NewBookRow>(`
-    INSERT INTO books (id, title, author, format, file_path, cover_path,
+    INSERT INTO books (id, title, author, format,
                        size_bytes, progress, created_at, last_opened_at,
                        series, series_index, subjects, source, source_id,
                        kind, duration_seconds)
-    VALUES (@id, @title, @author, @format, @file_path, @cover_path,
+    VALUES (@id, @title, @author, @format,
             @size_bytes, @progress, @created_at, @last_opened_at,
             @series, @series_index, @subjects, @source, @source_id,
             @kind, @duration_seconds)
@@ -623,14 +717,6 @@ const statements = {
   listNeedingMetadata: db.prepare(
     `SELECT ${BOOK_COLUMNS} FROM books b WHERE b.subjects IS NULL`,
   ),
-  // Rows that claim a cover, for the startup reconcile that nulls the path when
-  // the thumbnail file is actually gone (stale absolute paths from another box).
-  // Also unfiltered: a converted book SHARES its source's thumbnail path, so if
-  // that file disappears both rows are stale and both must be corrected.
-  listWithCover: db.prepare(
-    `SELECT ${BOOK_COLUMNS} FROM books b WHERE b.cover_path IS NOT NULL`,
-  ),
-  clearCoverPath: db.prepare<[string]>("UPDATE books SET cover_path = NULL WHERE id = ?"),
   // COALESCE on author lets a re-scan fill a previously-null author (PDFs) but
   // never clobber one already stored. `subjects` is set to a JSON array (never
   // null) so the row drops out of `listNeedingMetadata` and can't loop.
@@ -643,11 +729,11 @@ const statements = {
 
   // --- Convert (brief 34, D34) ----------------------------------------------
   insertConverted: db.prepare<NewBookRow & { converted_from: string }>(`
-    INSERT INTO books (id, title, author, format, file_path, cover_path,
+    INSERT INTO books (id, title, author, format,
                        size_bytes, progress, created_at, last_opened_at,
                        series, series_index, subjects, source, source_id,
                        kind, duration_seconds, converted_from)
-    VALUES (@id, @title, @author, @format, @file_path, @cover_path,
+    VALUES (@id, @title, @author, @format,
             @size_bytes, @progress, @created_at, @last_opened_at,
             @series, @series_index, @subjects, @source, @source_id,
             @kind, @duration_seconds, @converted_from)
@@ -777,7 +863,23 @@ export function toLibraryBook(
     series: row.series,
     seriesIndex: row.series_index,
     subjects: parseSubjects(row.subjects),
-    hasCover: row.cover_path !== null,
+    // The DERIVED cover file, stat'd on the spot — not a stored `cover_path`.
+    // A row that claimed a cover whose file was gone (a library DB carried
+    // between machines, a thumbnail removed out of band) used to make the
+    // client fire a request that could only 404, which a cross-origin <img>
+    // surfaces as the noisy ERR_BLOCKED_BY_ORB; a startup reconcile existed
+    // solely to null those paths back out. Asking the disk instead makes the
+    // drift impossible rather than correctable, which is why that machinery is
+    // gone. One `existsSync` per book per listing, knowingly paid: it is a
+    // stat on a path we just computed, and correctness here is worth more than
+    // a cache that would reintroduce exactly the staleness we removed.
+    // `converted_from` is optional on this parameter type (a freshly-built
+    // upload row has not got one), so it is normalised explicitly rather than
+    // by widening `coverOwnerId` — see the note on that function for why the
+    // key is required there.
+    hasCover: existsSync(
+      coverPathFor(coverOwnerId({ id: row.id, converted_from: row.converted_from ?? null })),
+    ),
     sizeBytes: row.size_bytes,
     progress: progress.progress,
     locator: progress.locator,
@@ -853,20 +955,6 @@ export function listBooksNeedingMetadata(): BookRow[] {
   return statements.listNeedingMetadata.all() as BookRow[];
 }
 
-/** Books whose row records a cover path, for the startup cover reconcile. */
-export function listBooksWithCover(): BookRow[] {
-  return statements.listWithCover.all() as BookRow[];
-}
-
-/**
- * Drop a book's `cover_path` (→ NULL) when its thumbnail file has gone missing,
- * so `hasCover` reports false on the wire and the client stops requesting a
- * cover that will only 404 (see `reconcileMissingCovers`).
- */
-export function clearBookCover(id: string): void {
-  statements.clearCoverPath.run(id);
-}
-
 /**
  * Persist re-scanned series/subject metadata for one book (backfill or a future
  * re-index). `subjects` is a `string[]` stored as JSON; `author` fills a
@@ -921,22 +1009,26 @@ export function getLinkedBook(row: BookRow): BookRow | undefined {
  * upload. The source's cover is **reused, not re-extracted** — brief 34 keeps
  * `extract.ts` out of this path entirely.
  *
- * That means both rows hold the SAME `cover_path`, one file with two rows
- * pointing at it. Deleting only the conversion must therefore delete the
- * converted FILE and leave the thumbnail alone, or the source loses its cover
- * to a delete that had nothing to do with it.
+ * That sharing is no longer recorded by copying a path: `coverPathFor` in
+ * `paths.ts` derives it from `converted_from ?? id`, so the conversion resolves
+ * to the source's thumbnail without this row storing anything. See that
+ * function for what the shared file means for the delete paths.
  *
  * Throws if the source id is unknown, or (via `books_converted_from`) if that
  * source already has a conversion — the caller is supposed to have handled the
  * "already exists" case, so a second insert is a bug worth hearing about.
  */
 export function insertConvertedBook(args: {
-  /** Pre-generated: the caller needs it to name the output file before converting. */
+  /**
+   * Pre-generated: the caller needs it to name the output file before
+   * converting. It is also the whole of what this function needs to know about
+   * where that file went — `filePathFor(id, format)` is the path, so there is
+   * no path argument to pass and nothing to keep in sync.
+   */
   id: string;
   sourceBookId: string;
   /** The target format — `convertTargetForFormat(source.format)`. */
   format: FileType;
-  filePath: string;
   sizeBytes: number;
   /** ISO timestamp for `created_at`. */
   now: string;
@@ -949,8 +1041,6 @@ export function insertConvertedBook(args: {
     title: source.title,
     author: source.author,
     format: args.format,
-    file_path: args.filePath,
-    cover_path: source.cover_path,
     size_bytes: args.sizeBytes,
     progress: 0,
     created_at: args.now,

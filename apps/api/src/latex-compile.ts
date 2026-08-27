@@ -1,9 +1,7 @@
 import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Worker } from "node:worker_threads";
 import { z } from "zod";
-import { compile, createLatinModernProvider } from "@ebook-reader/typeset";
-import type { AbortLike, FontProvider } from "@ebook-reader/typeset";
-import { loadLatinModernBytes } from "@ebook-reader/typeset/fonts/node";
 import {
   compileStatusSchema,
   diagnosticSchema,
@@ -18,27 +16,46 @@ import {
 } from "./config.js";
 import { projectDirFor } from "./paths.js";
 import { getRunningLatexCompile, setLatexCompileStatus, touchLatexProject, type LatexProjectRow } from "./db.js";
+// Types only. `latex-worker.ts` is loaded as a *thread entry point* from a
+// `file:` URL and is never imported as a module — see `runEngineInWorker`.
+import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js";
 
 /**
- * The LaTeX compile job (brief 38 step 3) — brief 34's job runner with the
- * child process taken out.
+ * The LaTeX compile job (brief 38 step 3, rehosted by brief 44) — brief 34's
+ * job runner with the child process taken out and a worker thread put back.
  *
  * `packages/typeset` is a **pure synchronous function** (D38): bytes in, PDF
  * and diagnostics out, no filesystem and no subprocess. So this module is the
  * half the engine deliberately does not have — it reads the project's working
- * tree off disk into an in-memory file map, injects the fonts, calls
- * `compile()`, and writes the PDF, the log and the diagnostics back out as
- * artifacts. Everything dangerous that brief 36 needed a sandbox for is simply
- * absent: there is no shell to escape and no path a document can name.
+ * tree off disk into an in-memory file map, runs `compile()` **on a worker
+ * thread** (`latex-worker.ts`), and writes the PDF, the log and the diagnostics
+ * back out as artifacts. Everything dangerous that brief 36 needed a sandbox
+ * for is simply absent: there is no shell to escape and no path a document can
+ * name.
  *
- * Three things here are not obvious and are explained where they happen:
+ * The worker is what brief 44 added, and it changes how this module *hosts* the
+ * engine — not the engine, and not one line of this module's exported contract.
+ * It buys two things brief 38 could not have: the API's event loop stays free
+ * while a document is typeset (D36 — a compile on the laptop no longer freezes
+ * the reader on the phone), and a cancel arriving *while the engine runs* can
+ * now be both delivered and honoured.
  *
- * 1. **The slot-release discipline** (`runCompile`'s `finally`, and
- *    `cancelLatexCompile`). Brief 34 shipped a Critical exactly here.
- * 2. **The two-layer timeout** (`createCompileSignal`). The engine's step
- *    budget is the real guard; `LATEX_TIMEOUT_MS` is a backstop, and because
- *    the engine is synchronous it can only be enforced *through* the signal.
- * 3. **What the tree walk refuses to read** (`readProjectTree`) — symlinks, in
+ * Four things here are not obvious and are explained where they happen:
+ *
+ * 1. **The slot-release discipline** (`runCompile`'s `finally`,
+ *    `runEngineInWorker`'s exit handling, and `cancelLatexCompile`). Brief 34
+ *    and brief 38 each shipped a Critical exactly here, and a thread adds five
+ *    new ways for a job to end.
+ * 2. **The two-layer timeout**, now stated in three places from one number:
+ *    `createCompileSignal` covers the queued window, `createWorkerSignal` in
+ *    the worker is what the engine polls, and `TERMINATE_GRACE_MS` past the
+ *    deadline this module kills the thread. The engine's step budget is still
+ *    the real guard; `LATEX_TIMEOUT_MS` is the backstop.
+ * 3. **How a stop reports its reason** (`stopWorker`, and the diagnostics
+ *    beside `abortDiagnostic`). A wall clock must never claim a person pressed
+ *    Cancel — and once a stop is a `terminate()` the engine cannot say anything
+ *    about it at all, so this module has to.
+ * 4. **What the tree walk refuses to read** (`readProjectTree`) — symlinks, in
  *    particular, which no string-level path check can see.
  */
 
@@ -106,84 +123,92 @@ export function isBuildArtifactPath(relativePath: string): boolean {
 }
 
 // --- Fonts -------------------------------------------------------------------
-
-/**
- * The Latin Modern faces, read once per process and shared by every compile.
- *
- * The engine performs no I/O of its own (D38), so somebody has to open the font
- * files, and `@ebook-reader/typeset/fonts/node` is the one module in that
- * package permitted to. **That somebody is this line** — omit `fonts` and the
- * compile stops with a `missing-font` error and an empty result rather than
- * quietly setting the document in some other face.
- *
- * The bytes are ~1.2 MB across twelve `.otf` files committed inside the typeset
- * package (`packages/typeset/assets/fonts/`), and the provider parses each face
- * lazily on first request and caches the handle. Loading is deferred to the
- * first compile rather than done at import so that starting the API does not
- * pay for a feature nobody may use this boot; after that it is free.
- */
-let fontProvider: FontProvider | null = null;
-function fonts(): FontProvider {
-  if (fontProvider === null) fontProvider = createLatinModernProvider(loadLatinModernBytes());
-  return fontProvider;
-}
+//
+// They are not here any more, and neither is `@ebook-reader/typeset`: this
+// module no longer imports the engine at all. The engine performs no I/O of its
+// own (D38), so somebody must open the twelve committed `.otf` files, and that
+// somebody is now `latex-worker.ts` — the thread that calls `compile()` is the
+// thread that injects the faces, which keeps the entire engine-facing surface in
+// one module and this one free of it.
+//
+// The price of the move is that the parsed provider can no longer be cached for
+// the life of the process. It is a few milliseconds per compile; see the note
+// above `runEngine` in the worker for the measurement and the trade.
 
 // --- Cancellation and the two-layer timeout ----------------------------------
 
 /**
- * Why the wall clock has to travel through the abort signal.
+ * The **host's** half of cancellation: the window before the engine has a
+ * thread of its own, plus the flag `cancelLatexCompile` sets.
  *
- * `compile()` is **synchronous**. It returns to this module only once the whole
- * document is typeset, so while it runs nothing else in this process runs
- * either — no timer fires, no request is read, no `setTimeout` callback gets a
- * turn. A `setTimeout(kill, LATEX_TIMEOUT_MS)` would therefore be scheduled,
- * never delivered until after the compile it was supposed to bound, and the
- * timeout would be decorative.
+ * A job can be stopped in three places, and no single mechanism reaches all
+ * three:
  *
- * `CompileOptions.signal` is not a subscription — the engine *polls*
- * `signal.aborted` at every step boundary (see `spend()` in
- * `packages/typeset/src/macro/budget.ts`), and `AbortLike` is structural: any
- * object with an `aborted` boolean satisfies it. So a **getter** that reads the
- * clock is evaluated inside the engine's own loop, which is the one place
- * during a synchronous compile where anything of ours can still run. That is
- * how the outer backstop gets teeth.
+ * - **Queued** — between `startLatexCompile` and the `setImmediate`, or during
+ *   the `await` in `readProjectTree`. This signal, read once by
+ *   `compileAndPersist` before it spawns anything. The engine never starts, so
+ *   no PDF is written and nothing has to be undone.
+ * - **Inside the engine, on the clock.** The signal itself cannot go: it is a
+ *   live object with getters, polled *synchronously* by the engine, and a live
+ *   object does not survive a structured clone. What crosses is the **deadline**
+ *   as a number, and the worker rebuilds an equivalent signal around it
+ *   (`createWorkerSignal`) — so an ordinary timeout still stops cooperatively
+ *   and the engine still gets to report where it stopped.
+ * - **Inside the engine, because someone said stop.** Nothing cooperative can
+ *   work: `compile()` is synchronous, so the worker is not reading messages
+ *   either, and a shared flag would still only be seen where the engine polls.
+ *   `stopWorker` terminates the thread. That is the capability the whole move to
+ *   a worker bought.
  *
- * The two layers, and why both exist:
+ * The deadline is computed **once**, in `startLatexCompile`, and handed to this
+ * signal, to the worker and to the terminate timer, so the three cannot come to
+ * different conclusions about when the limit falls.
  *
- * - The **step budget** is the real guard. It is a count, so it stops a runaway
- *   `\newcommand` at the same point on every machine, which makes "this compile
- *   was stopped" reproducible and testable (D38). Measured on this repo's own
- *   fixtures a runaway hits the 5,000,000-step default in about 50 ms.
- * - The **wall clock** covers only what a step count cannot see: work that is
- *   not a step. It is set generously (two minutes) precisely so it never
- *   arbitrates a legitimate document — that would trade the determinism the
- *   budget just bought for a machine-speed lottery.
+ * `cancelled` and `timedOut` stay separate for the same reason they always did:
+ * `abortDiagnostic` and the log distinguish them, and a wall-clock stop that
+ * claimed a person pressed Cancel would be a lie in a file somebody reads
+ * precisely to find out what happened.
  *
- * The clock is sampled every `CLOCK_POLL_INTERVAL` polls rather than on each
- * one: a runaway spends five million steps, and five million `Date.now()` calls
- * would be a measurable tax on every ordinary compile for a limit that is two
- * minutes wide. The sampling interval is far finer than the resolution anyone
- * could care about at that scale.
+ * Unlike the worker's copy, this signal reads the clock on **every** access. The
+ * `CLOCK_POLL_INTERVAL` sampling that lives in the worker exists because the
+ * engine polls millions of times per compile; here it is read once or twice, and
+ * sampling would only add a way to miss the deadline.
  */
-const CLOCK_POLL_INTERVAL = 1024;
-
-interface CompileSignal extends AbortLike {
-  /** Set by `cancelLatexCompile`. The engine sees it at its next step. */
+interface CompileSignal {
+  /** Set by `cancelLatexCompile`, and checked before a thread is spawned. */
   cancel(): void;
+  /**
+   * Record that the *clock* stopped this compile, when the clock in question
+   * was the worker's rather than this one.
+   *
+   * The two signals read the same `deadline` but are separate objects — a live
+   * object with getters cannot cross a thread boundary — so a timeout the
+   * engine observed is, on this side, a fact that arrived in a message.
+   * Folding it back in here rather than threading it through the call sites
+   * keeps `timedOut` the single answer to "was this a clock or a person?", which
+   * is what `abortDiagnostic` and `compileAndPersist` both branch on.
+   *
+   * Idempotent and one-way: nothing ever un-times-out a compile.
+   */
+  timeOut(): void;
   /** True when the *wall clock*, not the user, stopped this compile. */
   readonly timedOut: boolean;
   /** True when `cancel()` was called. */
   readonly cancelled: boolean;
+  /** Either of the above — reading it evaluates the clock. */
+  readonly aborted: boolean;
 }
 
 function createCompileSignal(deadline: number): CompileSignal {
   let cancelled = false;
   let timedOut = false;
-  let polls = 0;
 
   return {
     cancel(): void {
       cancelled = true;
+    },
+    timeOut(): void {
+      timedOut = true;
     },
     get cancelled(): boolean {
       return cancelled;
@@ -193,11 +218,6 @@ function createCompileSignal(deadline: number): CompileSignal {
     },
     get aborted(): boolean {
       if (cancelled || timedOut) return true;
-      // Post-increment, so the very FIRST poll reads the clock: this module
-      // checks `aborted` itself before handing the thread to the engine, and a
-      // check that could not fire until poll 1024 would make that pre-flight
-      // check decorative.
-      if (polls++ % CLOCK_POLL_INTERVAL !== 0) return false;
       timedOut = Date.now() >= deadline;
       return timedOut;
     },
@@ -375,6 +395,33 @@ interface CompileJob {
   readonly signal: CompileSignal;
   readonly startedAt: number;
   /**
+   * `Date.now()` at which the wall-clock backstop falls.
+   *
+   * Held on the job rather than recomputed because three separate things need
+   * to agree about it: this job's `signal`, the worker's own signal, and the
+   * terminate timer in `runEngineInWorker`.
+   */
+  readonly deadline: number;
+  /**
+   * The thread running the engine, or `null` — before it is spawned, after it
+   * has exited, and, importantly, from the moment anything decides to stop it.
+   *
+   * Clearing it is how "stop this worker" is made **idempotent**. A cancel
+   * racing the result message, the shutdown sweep racing a cancel, and
+   * `runCompile`'s defensive sweep racing both must not between them call
+   * `terminate()` twice or reach a thread that a later compile owns. Only
+   * `stopWorker` and `runEngineInWorker`'s `exit` handler write it.
+   */
+  worker: Worker | null;
+  /**
+   * Why this job's thread was killed, if it was. `null` means it was not, and
+   * whatever the worker reported stands.
+   *
+   * Written *before* the `terminate()` it explains, because the exit handler is
+   * what reads it and the exit can be delivered on the very next turn.
+   */
+  stopReason: StopReason | null;
+  /**
    * The job's own outcome promise — the same one the route awaits.
    *
    * Held on the job so that `cancelAndSettleLatexCompile` can wait for the work
@@ -447,13 +494,19 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
     }
   }
 
-  const signal = createCompileSignal(Date.now() + LATEX_TIMEOUT_MS);
+  const startedAt = Date.now();
+  // One clock reading for both, so the log's "started" and the deadline the
+  // worker polls describe the same instant.
+  const deadline = startedAt + LATEX_TIMEOUT_MS;
   const job: CompileJob = {
     projectId: project.id,
     userId,
     project,
-    signal,
-    startedAt: Date.now(),
+    signal: createCompileSignal(deadline),
+    startedAt,
+    deadline,
+    worker: null,
+    stopReason: null,
     done: null,
   };
 
@@ -485,29 +538,59 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
   return { kind: "started", done: job.done };
 }
 
+/**
+ * The prose a 409 carries. Brief 38 wrote it without "…or cancel it" because a
+ * cancel could not then be delivered at all: `compile()` held the event loop, so
+ * the request could not even be READ while the engine ran, and offering an
+ * action the user cannot reach is worse than offering nothing.
+ *
+ * Brief 44 supplied both missing halves — the engine runs on a worker thread and
+ * `cancelLatexCompile` really terminates it, and `POST /latex/:id/cancel` is the
+ * route that reaches it — so the offer is honest again and is restored here.
+ * Brief 38's rule is not repealed, only satisfied; the two branches below exist
+ * because it still binds.
+ *
+ * ## What the wording has to keep straight
+ *
+ * **1. Cancelling does not free a *per-project* slot.** The limit is one compile
+ * per ACCOUNT, across every profile on it (D35), and brief 44 did not touch it —
+ * only *one* compile can run whatever the user cancels. Hence "on your account",
+ * never "for this project": a sentence that implied a per-project slot would
+ * make the next 409 look like a bug.
+ *
+ * **2. The cancel is on whichever project is actually compiling**, which is not
+ * necessarily the one that was just refused. A bare "…or cancel it" after a
+ * sentence naming another project reads as "cancel this one" — technically true,
+ * practically misleading, and the resulting click would cancel nothing. So the
+ * other-project branch names its target explicitly.
+ *
+ * **3. A compile on a sibling profile cannot be cancelled from here at all.**
+ * `POST /latex/:id/cancel` resolves `:id` against the caller's OWN profile and
+ * answers 404 otherwise (brief 35), so for that case there is no reachable
+ * cancel and the last branch offers none. That is brief 38's rule doing its job
+ * rather than being overruled.
+ */
 function busyMessage(running: LatexProjectRow, requested: LatexProjectRow): string {
-  const subject = running.id === requested.id ? "This project" : `“${running.title}”`;
-  // No "…or cancel it": there is no cancel route, and there cannot usefully be
-  // one today. `compile()` is synchronous and holds the event loop for its whole
-  // duration, so a cancel request could not even be READ while the engine runs
-  // (see `cancelLatexCompile`). Cancelling is reachable only from
-  // `DELETE /latex/:id` and from shutdown. Promising the user an action they
-  // cannot take is worse than promising nothing; a real cancel needs the engine
-  // hosted on a worker thread, which is a later brief. Restore this half of the
-  // sentence only alongside a route that actually serves it.
-  return `${subject} is already compiling. Only one compile runs at a time — wait for it to finish and try again.`;
+  if (running.id === requested.id) {
+    return "This project is already compiling. Only one compile runs at a time on your account — wait for it to finish, or cancel it and try again.";
+  }
+  if (running.profile_id === requested.profile_id) {
+    return `“${running.title}” is already compiling, and only one compile runs at a time on your account — wait for it to finish, or cancel the compile on “${running.title}”, then try again.`;
+  }
+  return `Another profile on your account is compiling “${running.title}”. Only one compile runs at a time on the account — wait for it to finish and try again.`;
 }
 
 /**
- * Hand the event loop one turn before the engine takes it away.
+ * Hand the event loop one turn before the job starts reading the disk.
  *
- * `compile()` is synchronous and blocks this process for its whole duration, so
- * whatever has not been flushed when it starts waits until it ends. The
- * `setImmediate` lets the route's response go out first — and it is also the
- * only window in which a `cancelLatexCompile` can be *delivered*, since a
- * cancel arriving after the engine has the thread cannot be processed until the
- * engine gives it back. That limitation is inherent to an in-process
- * synchronous engine and is stated plainly on `cancelLatexCompile`.
+ * The `setImmediate` lets the route's response go out before this module begins
+ * `readdir`ing a project tree, which is worth a turn on its own.
+ *
+ * It used to carry more weight than that: `compile()` ran on this thread, so
+ * this was the *only* window in which a `cancelLatexCompile` could be delivered
+ * at all. Since brief 44 the engine runs elsewhere and this thread stays free
+ * for the whole compile, so a cancel is deliverable throughout — see
+ * `cancelLatexCompile`.
  */
 function scheduleCompile(job: CompileJob): Promise<LatexCompileResult> {
   return new Promise<LatexCompileResult>((resolve) => {
@@ -529,19 +612,35 @@ function scheduleCompile(job: CompileJob): Promise<LatexCompileResult> {
  * it (so the durable slot vanishes silently) while this module's job map keeps
  * refusing every other compile on the account.
  *
- * **What "cancel" can and cannot do here.** The engine is a synchronous
- * in-process function, so there is no process to kill and no thread to
- * interrupt: cancellation is cooperative, and the engine observes it by polling
- * `signal.aborted` between steps. Setting the flag is therefore instantaneous,
- * but it can only be *observed* while the engine holds the thread — which means
- * a cancel that arrives while `compile()` is running cannot be delivered at
- * all, because this process is not reading requests until it returns. In
- * practice compiles of documents brief 37's engine can render finish in tens of
- * milliseconds and the step budget bounds even a runaway to about the same, so
- * the window a cancel usefully lands in is the queued one before the engine
- * starts. A truly long compile would need the engine moved onto a worker
- * thread; that is a change to how this module *hosts* the engine, not to the
- * engine, and nothing in this contract would change with it.
+ * **What "cancel" does, and what it did before brief 44.** It used to be
+ * cooperative only: the engine ran on this thread and observed the flag by
+ * polling `signal.aborted` between steps, so a cancel arriving *while*
+ * `compile()` ran could not even be delivered — the process was not reading
+ * requests until the engine returned. The flag was instantaneous and useless;
+ * the only window it landed in was the queued one.
+ *
+ * Now the engine runs on a thread of its own and this function reaches both
+ * windows, with two mechanisms because no single one covers both:
+ *
+ *  - **Still queued** (before `readProjectTree` finishes, or between turns):
+ *    `job.worker` is `null`, so only the flag is set. `compileAndPersist`
+ *    checks it before spawning anything, so the engine never starts and no PDF
+ *    is written.
+ *  - **Already typesetting**: `stopWorker` kills the thread. Nothing
+ *    cooperative would do — `compile()` is synchronous, so the worker is not
+ *    reading messages either, and a shared flag would still only be seen where
+ *    the engine polls. Killing it outright is the capability the whole move to
+ *    a worker bought, and it is why this function can now be offered to a user
+ *    as a button rather than only to the delete path as hygiene.
+ *
+ * `signal.cancel()` comes **first** and the kill second, in that order: the
+ * flag is what `finish` and the diagnostics read to say *why* the compile
+ * stopped, and it must already be true by the time the thread's `exit` event
+ * can be delivered.
+ *
+ * Returning true means "a live job was told to stop", not "it has stopped" —
+ * see `cancelAndSettleLatexCompile` for the caller that needs the stronger
+ * guarantee.
  *
  * The status is **not** written here. `runCompile`'s `finally` owns every
  * transition off `running`, so there is exactly one place that releases a slot.
@@ -550,6 +649,7 @@ export function cancelLatexCompile(projectId: string): boolean {
   const job = jobs.get(projectId);
   if (!job) return false;
   job.signal.cancel();
+  stopWorker(job, "cancelled");
   return true;
 }
 
@@ -572,10 +672,15 @@ export function cancelLatexCompile(projectId: string): boolean {
  * More retry passes cannot close that, because the job may not have been
  * scheduled yet when the last pass runs — the race has no upper bound in
  * attempts, only in "has the job finished". So the delete waits for the
- * promise. That wait is bounded in practice for the same reason a cancel cannot
- * be delivered mid-compile: while `compile()` holds the thread this handler is
- * not running at all, so a job we are able to await is one that is queued or
- * already in an `await`, and a cancelled job aborts at its very next check.
+ * promise.
+ *
+ * That wait is bounded, and since brief 44 it is bounded by something better
+ * than luck. A queued job aborts at its very next check. A job whose engine is
+ * already running has its thread **terminated** by `cancelLatexCompile`, and
+ * `runEngineInWorker` settles on the resulting `exit` event — which the event
+ * loop can now actually deliver, because the engine is no longer holding this
+ * thread. Either way what remains is `finish` and `persistOutcome`: two
+ * artifact writes, and then `done` resolves.
  *
  * `done` never rejects (see `runCompile`), but it is guarded anyway — a delete
  * must not be able to 500 because a compile it was cleaning up misbehaved.
@@ -583,7 +688,14 @@ export function cancelLatexCompile(projectId: string): boolean {
 export async function cancelAndSettleLatexCompile(projectId: string): Promise<boolean> {
   const job = jobs.get(projectId);
   if (!job) return false;
-  job.signal.cancel();
+  // **Delegated, not re-implemented.** This used to set `job.signal.cancel()`
+  // itself, which was harmless while cancellation was only a flag and became a
+  // silent bug the moment it was also a `terminate()`: this function stopped
+  // reaching the thread, so `DELETE /latex/:id` would set the flag, wait for a
+  // compile that ran happily to completion, and delete the project underneath a
+  // PDF it had just written. There is one cancel mechanism and it lives in
+  // `cancelLatexCompile`; this function adds the wait and nothing else.
+  cancelLatexCompile(projectId);
   await job.done?.catch(() => undefined);
   return true;
 }
@@ -650,8 +762,9 @@ async function runCompile(job: CompileJob): Promise<LatexCompileResult> {
     // the filesystem did: a full disk, a permissions change, a tree deleted out
     // from under the walk. Reported as a failure on the project rather than
     // swallowed, and never as a rejection.
-    const message = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
-    const diagnostics: Diagnostic[] = [wholeProject(`the compile failed unexpectedly — ${message}`, "error", "internal")];
+    const diagnostics: Diagnostic[] = [
+      wholeProject(`the compile failed unexpectedly — ${describeCause(cause)}`, "error", "internal"),
+    ];
     outcome = {
       status: "failed",
       log: renderLog(job, diagnostics, null, Date.now() - job.startedAt),
@@ -665,6 +778,14 @@ async function runCompile(job: CompileJob): Promise<LatexCompileResult> {
     // The map first — see the discipline above. Everything below may fail; this
     // may not, and it is what a subsequent `startLatexCompile` checks.
     jobs.delete(job.projectId);
+    // No thread outlives its job. Every ordinary path has already cleared
+    // `job.worker` (the `message`, `error` and `exit` handlers all do, and so
+    // does `stopWorker`), so this is a sweep rather than a mechanism — but the
+    // job is now unreachable through `jobs`, which means this is the last
+    // moment anything *can* reach a stray thread. A worker left running here
+    // would hold the engine's whole heap for the life of the process while the
+    // slot it was compiling against is already free.
+    stopWorker(job, "abandoned");
     try {
       setLatexCompileStatus(job.projectId, status);
       // The files on disk changed (the artifacts), and the project list is
@@ -710,19 +831,12 @@ async function compileAndPersist(job: CompileJob): Promise<LatexCompileResult> {
     return finish(job, diagnostics, null, null);
   }
 
-  const result = compile(tree.files, job.project.entrypoint, {
-    signal: job.signal,
-    // The emitted PDF, not the input: a small document can loop into an
-    // enormous one. The engine refuses to allocate above this and reports
-    // `limit-exceeded` rather than filling the disk.
-    maxOutputBytes: LATEX_MAX_OUTPUT_BYTES,
-    fonts: fonts(),
-    // `stepBudget` and `maxPages` are deliberately left at the engine's
-    // defaults. They are the *deterministic* guard (D38) and belong to the
-    // engine's own contract; a second, differently-tuned number here would
-    // make "this compile was stopped" depend on which caller ran it, which is
-    // the property the budget exists to provide.
-  });
+  // The engine, on a thread of its own. Everything about *how* that thread is
+  // supervised — the spawn, the terminate timer, and the five ways it can end —
+  // is in `runEngineInWorker`; from here it is still one call that returns a
+  // PDF, diagnostics and stats, which is why nothing below this line changed
+  // when the engine moved.
+  const result = await runEngineInWorker(job, tree.files);
 
   for (const d of result.diagnostics) diagnostics.push(d);
 
@@ -755,6 +869,355 @@ interface EngineStats {
   pages: number;
   steps: number;
   bytes: number;
+}
+
+// --- Hosting the engine on a thread ------------------------------------------
+
+/**
+ * Why a job's thread was **killed**, as opposed to having finished.
+ *
+ * The distinction between the first two is not cosmetic. `compile.log` and
+ * `diagnostics.json` are read precisely to find out what happened, and a wall
+ * clock that claimed a person pressed Cancel would be a lie in the one file
+ * somebody consults to check. Brief 38 kept `cancelled` and `timedOut` apart on
+ * the signal for exactly this reason, and a kill has to preserve it — more so,
+ * in fact: once a stop is a `terminate()` the engine is not running any more and
+ * cannot report anything at all, so this value is the *only* surviving account
+ * of the stop.
+ */
+type StopReason =
+  /** `cancelLatexCompile` — a person, the delete path, or shutdown. */
+  | "cancelled"
+  /** The deadline passed and the thread did not stop on its own. */
+  | "timed-out"
+  /**
+   * `runCompile` is unwinding and no thread may outlive its job. Deliberately
+   * never rendered into a diagnostic: by the time this can fire the outcome has
+   * already been decided (usually by a throw, which builds its own `internal`
+   * diagnostic), and this is only about not leaking a thread.
+   */
+  | "abandoned";
+
+/**
+ * How long past `deadline` this module waits for the worker to stop on its own
+ * before killing the thread.
+ *
+ * The worker's clock only fires where the engine polls, and it samples once per
+ * `CLOCK_POLL_INTERVAL` polls, so an honest compile notices the deadline
+ * slightly late and then still has to unwind, render its diagnostics and post
+ * them. This grace is that slack, generously rounded.
+ *
+ * It is worth waiting at all because a cooperative stop is strictly better than
+ * a kill — the engine gets to say *where* it stopped, which is the difference
+ * between "your `\newcommand` on line 40 recursed" and "the compile was
+ * stopped". It is worth being finite because a step that never returns is
+ * precisely the case the wall clock exists for, and that step will not poll
+ * again.
+ */
+const TERMINATE_GRACE_MS = 5_000;
+
+/**
+ * The worker's entry point, resolved next to this module.
+ *
+ * The extension is taken from **this file's own URL** rather than written down,
+ * because the two ways `apps/api` runs disagree about it: under `npm run dev`
+ * tsx loads `src/latex-compile.ts` and the only file beside it on disk is
+ * `latex-worker.ts`, while from `dist/` it is `latex-worker.js` and the `.ts` is
+ * not deployed at all. A literal `./latex-worker.js` — which is what every
+ * *import* in this module writes, because tsx rewrites those — would be
+ * `ERR_MODULE_NOT_FOUND` in dev, and the reverse would break production.
+ *
+ * `new Worker()` takes a `file:` URL rather than a module specifier, so no
+ * loader rewrites this one on our behalf — and which loader ends up *reading*
+ * `latex-worker.ts` in dev is not a thing this module should have to know.
+ * Measured on Node 24 under tsx: tsx's hooks do reach the thread — syntax that
+ * plain type stripping refuses (an `enum`) loads there — yet the thread also
+ * reports `process.features.typescript === "strip"`, so Node's own stripper is
+ * armed behind it. Which of the two wins is one release away from changing in
+ * either direction. Hence rules 1 and 2 in
+ * `latex-worker.ts`, no relative imports and erasable syntax only: they make
+ * the question moot instead of betting on the answer.
+ */
+const WORKER_ENTRY = ((): URL => {
+  const here = new URL(import.meta.url);
+  return new URL(here.pathname.endsWith(".ts") ? "./latex-worker.ts" : "./latex-worker.js", here);
+})();
+
+/** What one run of the engine produced, in the shape `finish` consumes. */
+interface EngineOutcome {
+  pdf: Uint8Array | null;
+  diagnostics: Diagnostic[];
+  stats: EngineStats | null;
+}
+
+/**
+ * Run `compile()` on a thread of its own, and return what it produced.
+ *
+ * **Never rejects.** Every failure — including the ones that are not failures
+ * of the document at all, like a thread that could not be started — comes back
+ * as an error-severity `Diagnostic` in the resolved value. `runCompile` would
+ * catch a rejection, but it would catch it as "the compile failed unexpectedly"
+ * with no idea what happened, and the editor's diagnostics panel is where a
+ * person actually looks.
+ *
+ * ## One thread per compile, and why not one thread reused
+ *
+ * A long-lived worker that compiled job after job would keep the parsed font
+ * provider warm — the cache this module used to hold, now paid again per compile
+ * as ~1.2 MB across twelve `.otf` files re-read and re-parsed. Measured, that is
+ * single-digit milliseconds against a compile of tens, the same order as
+ * spawning the thread. The trade was declined anyway, for two reasons that both
+ * matter more than the milliseconds:
+ *
+ *  1. **A reused thread cannot be killed.** `terminate()` on a shared worker
+ *     destroys the *next* compile's host as well as this one's, so a reused
+ *     design has to fall back to a cooperative stop — which is exactly the
+ *     mechanism that does not work here, because the engine is synchronous and
+ *     a killed-mid-step compile is the case the kill exists for. Cancellation
+ *     being *real* is the whole point of brief 44; a design that gives it up to
+ *     save 5ms has bought nothing.
+ *  2. **A fresh thread starts from a clean heap.** The engine holds a whole
+ *     document's boxes and glue while it works. One compile per heap means a
+ *     runaway document's peak allocation is returned to the OS the moment its
+ *     thread exits, and it means no compile can be affected by what the
+ *     previous one left behind — which is the same property, at the process
+ *     level, that makes `compile()`'s purity worth having (D38).
+ *
+ * ## Every way a thread can end
+ *
+ * All five settle this promise exactly once, and all five then run through
+ * `runCompile`'s `finally`, which is the single owner of the slot release. The
+ * `settled` guard is load-bearing rather than defensive: Node delivers `error`
+ * *and* `exit` for a crash, and `message` *and* `exit` for a success, so more
+ * than one handler firing is the normal case, not an edge one.
+ *
+ *  - **A result arrives** (`message`). The ordinary path. The handle is released
+ *    and the thread killed immediately rather than waited on: it would exit by
+ *    itself (nothing keeps its loop alive — see the worker's `Entry` comment),
+ *    but not depending on that is what keeps a thread's life equal to a
+ *    compile's.
+ *  - **The thread throws** (`error`). Reported as `internal`. `latex-worker.ts`
+ *    catches its own throws and posts `ok: false`, so reaching here means
+ *    something it could not catch: a failed module load (this is where a broken
+ *    `WORKER_ENTRY` or a stale `packages/typeset` build surfaces), or the V8
+ *    heap.
+ *  - **The thread is killed** (`exit` with `job.stopReason` set). A cancel, the
+ *    wall clock, or shutdown. This module writes the diagnostic because the
+ *    engine no longer exists to write one.
+ *  - **The thread dies with nothing to say** (`exit`, no message, no
+ *    `stopReason`). An `OOM`, a `process.exit` from deep inside a dependency, a
+ *    SIGKILL to the thread. Reported as `internal` and *named as such* rather
+ *    than being allowed to look like a document error.
+ *  - **The thread never starts.** The `Worker` constructor can throw
+ *    synchronously — a `file:` URL Node will not accept at all — so that one is
+ *    not an event and is handled before the promise exists. A *missing* entry
+ *    point is not that case, checked: Node accepts the URL and reports
+ *    `ERR_MODULE_NOT_FOUND` through `error` instead. Both are covered; the
+ *    synchronous branch is the one that would otherwise reject.
+ */
+async function runEngineInWorker(job: CompileJob, files: Record<string, Uint8Array>): Promise<EngineOutcome> {
+  const request: LatexWorkerRequest = {
+    files,
+    entrypoint: job.project.entrypoint,
+    // The emitted PDF, not the input: a small document can loop into an
+    // enormous one. The engine refuses to allocate above this and reports
+    // `limit-exceeded` rather than filling the disk. Passed by value because
+    // the worker may not import `config.ts` (rule 1 in its module comment).
+    maxOutputBytes: LATEX_MAX_OUTPUT_BYTES,
+    // The deadline as an absolute instant, not a duration: the worker rebuilds
+    // an equivalent signal around it, and the clock that matters is the one
+    // `startLatexCompile` started — spawning the thread and cloning `files` both
+    // happen inside the limit, not before it.
+    deadline: job.deadline,
+    // `stepBudget` and `maxPages` are deliberately not in this protocol. They
+    // are the *deterministic* guard (D38) and belong to the engine's own
+    // contract; a second, differently-tuned number chosen by whichever host
+    // spawned the thread would make "this compile was stopped" depend on the
+    // caller, which is the property the budget exists to provide.
+  };
+
+  let worker: Worker;
+  try {
+    worker = new Worker(WORKER_ENTRY, { workerData: request });
+  } catch (cause) {
+    // Not a failure of the document, and it must not read like one. In practice
+    // this is a deployment problem — `dist/latex-worker.js` missing from a
+    // partial build — so it names the path it tried.
+    return internalOutcome(
+      `the typesetting worker could not be started (${WORKER_ENTRY.pathname}) — ${describeCause(cause)}`,
+    );
+  }
+
+  // Published before the first `await` so that a cancel arriving on the very
+  // next turn has something to terminate. (There is no turn between
+  // `compileAndPersist`'s abort check and this line, so no cancel can fall
+  // between the two and be lost.)
+  job.worker = worker;
+
+  return await new Promise<EngineOutcome>((resolve) => {
+    // The hard half of the two-layer timeout. The worker's own clock is the
+    // cooperative half and is preferred; this fires only if that one did not,
+    // which means the engine stopped polling — a single step that never
+    // returns, the one case a step budget cannot see either.
+    //
+    // `unref` so a compile in flight cannot hold the process open for two
+    // minutes on shutdown. Shutdown cancels every job anyway
+    // (`cancelAllLatexCompiles`), which terminates the thread and clears this
+    // timer through `settle`; the `unref` is for the paths that do not.
+    const terminateTimer = setTimeout(
+      () => {
+        // Recorded on the signal, not only on `stopReason`, so that
+        // `compileAndPersist`'s existing wall-clock diagnostic still fires:
+        // there is one sentence about the limit and it has one writer.
+        job.signal.timeOut();
+        stopWorker(job, "timed-out");
+      },
+      Math.max(0, job.deadline + TERMINATE_GRACE_MS - Date.now()),
+    );
+    terminateTimer.unref();
+
+    // Declared after the timer so that clearing it is not a
+    // used-before-declared closure. `settled` is not defensive: Node delivers
+    // `message` *and* `exit` for a success and `error` *and* `exit` for a crash,
+    // so a second handler firing is the normal case.
+    let settled = false;
+    const settle = (outcome: EngineOutcome): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(terminateTimer);
+      resolve(outcome);
+    };
+
+    worker.on("message", (message: LatexWorkerResponse) => {
+      // Release the handle FIRST, then kill. A cancel landing in this same turn
+      // then finds `job.worker === null` and does nothing, rather than
+      // recording a `stopReason` for a compile that had already finished.
+      const stoppedBy = job.stopReason;
+      job.worker = null;
+      void worker.terminate();
+
+      // **A stop that got in first wins, even though the result arrived.** The
+      // window is real: `postMessage` is delivered on a later turn, so a cancel
+      // can be issued after the worker posted and before this handler runs. The
+      // result is perfectly good — and it is not wanted. Honouring it would mean
+      // `DELETE /latex/:id` writes `out.pdf` into a tree it is about to remove,
+      // and a person who pressed Cancel gets the PDF they cancelled. So the
+      // outcome is the stop, and the PDF is dropped.
+      if (stoppedBy !== null) {
+        settle({ pdf: null, diagnostics: [stopDiagnostic(stoppedBy)], stats: null });
+        return;
+      }
+
+      if (!message.ok) {
+        // The worker caught its own throw — a font file that would not open, a
+        // malformed request. It knows what happened; pass the sentence through.
+        settle(internalOutcome(`the typesetting worker failed — ${message.message}`));
+        return;
+      }
+
+      // The engine reports a stop through `signal.aborted` and cannot know *why*
+      // the flag was set. Folding its answer back into this side's signal is
+      // what lets `compileAndPersist` say "wall clock" rather than "cancelled";
+      // see `CompileSignal.timeOut`.
+      if (message.timedOut) job.signal.timeOut();
+
+      settle({ pdf: message.pdf, diagnostics: message.diagnostics, stats: message.stats });
+    });
+
+    worker.on("error", (cause) => {
+      job.worker = null;
+      settle(internalOutcome(`the typesetting worker crashed — ${describeCause(cause)}`));
+    });
+
+    worker.on("exit", (code) => {
+      // Whatever else happens, the thread is gone: clear the handle so nothing
+      // can terminate a dead worker (or, worse, one a later compile owns).
+      job.worker = null;
+      // The ordinary path already settled on `message`; this is just the
+      // thread's own confirmation that it ended.
+      if (settled) return;
+
+      const reason = job.stopReason;
+      if (reason !== null) {
+        settle({ pdf: null, diagnostics: [stopDiagnostic(reason)], stats: null });
+        return;
+      }
+      // No result, no kill: the thread died on its own terms and said nothing.
+      settle(
+        internalOutcome(
+          `the typesetting worker exited without producing a result (exit code ${code}) — the document was not compiled`,
+        ),
+      );
+    });
+  });
+}
+
+/**
+ * Ask a job's thread to stop, and record why. **Idempotent** — call it from as
+ * many racing places as you like.
+ *
+ * A cancel racing the result message, the shutdown sweep racing a cancel, and
+ * `runCompile`'s unwind racing both must not between them call `terminate()`
+ * twice or reach a thread that a later compile owns. Clearing `job.worker` is
+ * the whole mechanism: it is the only handle, every writer nulls it, and a
+ * second caller therefore finds nothing to do. That is cheaper and harder to
+ * get wrong than a separate `stopping` flag, which would be a second piece of
+ * state that could disagree with the first.
+ *
+ * `stopReason` is written **before** the `terminate()` it explains, and the
+ * order is not stylistic: `exit` can be delivered on the very next turn, the
+ * exit handler is what reads `stopReason` to decide whether this was a stop or
+ * a crash, and a kill that arrived looking like a crash would report `internal`
+ * about a compile somebody cancelled on purpose.
+ *
+ * The status is not written here either. `runCompile`'s `finally` remains the
+ * single owner of every transition off `running`.
+ */
+function stopWorker(job: CompileJob, reason: StopReason): void {
+  const worker = job.worker;
+  if (worker === null) return; // never spawned, already exited, or already stopping
+  job.stopReason = reason;
+  job.worker = null;
+  // `terminate()` resolves with the exit code; the `exit` handler is what acts
+  // on the stop, so there is nothing to await here and nothing to do if the
+  // thread was already dead.
+  void worker.terminate();
+}
+
+/** The account of a stop that only this module can give — see `StopReason`. */
+function stopDiagnostic(reason: StopReason): Diagnostic {
+  switch (reason) {
+    case "cancelled":
+      return wholeProject("the compile was cancelled while the document was being typeset", "error", "stopped");
+    case "timed-out":
+      // Deliberately *not* a restatement of the limit: `compileAndPersist` adds
+      // that sentence, from `job.signal.timedOut`, which the terminate timer
+      // sets. This one says the part that sentence cannot — that the engine was
+      // killed and so could not report where it had got to.
+      return wholeProject(
+        `the typesetting thread did not stop on its own within ${TERMINATE_GRACE_MS}ms of the limit and was killed, so the engine could not report where it stopped`,
+        "error",
+        "stopped",
+      );
+    case "abandoned":
+      return wholeProject("the compile was abandoned and its typesetting thread stopped", "error", "stopped");
+  }
+}
+
+/**
+ * A failure of the *host*, not of the document. `internal` is the code the
+ * editor's panel renders without pointing at a line of LaTeX, which is right:
+ * nothing the author wrote caused this and no edit will fix it.
+ */
+function internalOutcome(message: string): EngineOutcome {
+  return { pdf: null, diagnostics: [wholeProject(message, "error", "internal")], stats: null };
+}
+
+/** `Error` if it is one, and something readable if it is not — `throw "nope"`
+ *  is legal JavaScript and a log that said `[object Object]` would waste an
+ *  hour of somebody's evening. */
+function describeCause(cause: unknown): string {
+  return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
 }
 
 /** Grade the outcome, render the log, write the artifacts. */

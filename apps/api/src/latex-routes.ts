@@ -43,6 +43,7 @@ import {
   getLatestDocumentVersion,
   getLatexProject,
   getProfileProgress,
+  getRunningLatexCompile,
   insertBook,
   insertLatexProject,
   listDocumentVersions,
@@ -1255,6 +1256,79 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     // a compile error is a 200 describing a failure, not a 500.
     const result = await started.done;
     return reply.send(latexCompileResultSchema.parse(result));
+  });
+
+  /**
+   * `POST /latex/:id/cancel` — stop the compile running on this project.
+   *
+   * Brief 38 shipped no such route deliberately: `compile()` ran on this thread,
+   * so a cancel arriving mid-typeset could not even be READ, let alone honoured.
+   * Brief 44 moved the engine onto a worker thread, which is what makes this
+   * route possible — and this route is what makes `busyMessage`'s restored
+   * "…or cancel it" reachable rather than a promise.
+   *
+   * ## It waits for the compile to actually stop
+   *
+   * `cancelAndSettleLatexCompile`, not `cancelLatexCompile`: it returns only
+   * after the cancelled job has unwound through `persistOutcome`, so by the time
+   * this responds `compile.log` and `diagnostics.json` describe THIS
+   * cancellation and `compile_status` is off `running`. Answering earlier would
+   * be actively misleading — the editor's next `GET /latex/:id/log` would read
+   * the *previous* compile's result and a cancel that worked would look like a
+   * cancel that did nothing. The wait is a `terminate()` plus two small artifact
+   * writes, not the remainder of the compile, so the route needs no timeout of
+   * its own. No `out.pdf` is ever written on this path, so the last good preview
+   * survives the cancel (brief 38 step 10).
+   *
+   * ## Nothing running is a 200, not a 409
+   *
+   * `{ cancelled: false }` means the compile finished on its own between the
+   * render that drew the button and the click on it — or, rarely, that a
+   * `running` row is a leftover from a previous process (`db.ts`'s
+   * `reapInterruptedLatexCompiles` flips those at import). Neither is the
+   * caller's fault, neither is avoidable by any amount of care, and in both the
+   * state the person asked for — nothing compiling — is the state they now have.
+   * Calling that an error would put a red banner on a button that did its job.
+   * The editor refetches the log on either answer.
+   *
+   * ## The slot is per account; cancellation is per project
+   *
+   * The single-flight slot is held by the ACCOUNT (D35) while
+   * `cancelAndSettleLatexCompile` is keyed by project, so "cancel my compile"
+   * and "cancel this project's compile" are not the same request. A cancel
+   * aimed at a project that is not the one compiling is refused with 409 and
+   * told where the compile actually is, rather than silently returning
+   * `cancelled: false` (which would read as "already finished" when the compile
+   * is in fact still running) or cancelling a project the person never pointed
+   * at. `runningProjectId` is the field `COMPILE_BUSY` already carries, so a
+   * client can retry against the right project — unless that project belongs to
+   * a sibling profile, where this route answers 404 by brief 35's rule and the
+   * message says so instead of offering a retry that cannot work.
+   */
+  app.post("/latex/:id/cancel", async (request: FastifyRequest, reply: FastifyReply) => {
+    // Ownership first, before `:id` reaches anything else — rule 1 at the top of
+    // this file. `cancelAndSettleLatexCompile` below is keyed on `project.id`
+    // from the row, never on the raw parameter.
+    const project = requireProject(request, reply);
+    if (!project) return reply;
+
+    // The durable, account-wide half of the guard — the same query
+    // `startLatexCompile` refuses on, so the two routes cannot disagree about
+    // which project owns the slot.
+    const running = getRunningLatexCompile(uid(request));
+    if (running && running.id !== project.id) {
+      const sameProfile = running.profile_id === pid(request);
+      return reply.status(409).send({
+        error: "COMPILE_ELSEWHERE",
+        message: sameProfile
+          ? `This project isn't compiling — “${running.title}” is. Cancel the compile from that project.`
+          : `This project isn't compiling — another profile on your account is compiling “${running.title}”.`,
+        runningProjectId: running.id,
+      });
+    }
+
+    const cancelled = await cancelAndSettleLatexCompile(project.id);
+    return reply.send({ cancelled });
   });
 
   /**

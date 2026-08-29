@@ -1,5 +1,7 @@
 import type { MediaKind } from "@ebook-reader/shared";
 
+import { coverInitial, coverInitialVariant } from "../lib/cover-initial-variant";
+
 /**
  * The typographic fallback tile for a missing cover: title set in Newsreader
  * over whatever ground is behind it. Deliberately paints no background of its
@@ -10,11 +12,35 @@ import type { MediaKind } from "@ebook-reader/shared";
  * instead. Extracted from `CoverCard` (brief 22); brief 25 makes the glyph
  * media-aware (music note / play / book) so a coverless music or video tile
  * no longer shows a book icon.
+ *
+ * Brief 43/D42 makes coverless tiles tell each other apart: a large, very
+ * low-contrast **title initial** bleeding past an edge, whose size and corner
+ * vary by a hash of the title (`coverInitialVariant`). Both axes live on the
+ * letterform, never on the ground — D42's original second axis was the tile's
+ * own lightness, and that was measured and rejected because Reading Room's
+ * kind tints are near-achromatic, so any usable lightness ladder swamps the
+ * kind signal D33 rests on. See `cover-initial-variant.ts` for the numbers.
+ * Because the ground is untouched, this component's "paints no background of
+ * its own" contract (brief 29) still holds, and D33's tint test passes by
+ * construction — which also means `/discover`'s `CatalogResultCard`, on its
+ * neutral ground, is unaffected beyond gaining the same initial.
  */
 export function CoverFallback({ title, kind = "book" }: { title: string; kind?: MediaKind }) {
   const Glyph = kind === "audio" ? NoteGlyph : kind === "video" ? PlayGlyph : BookGlyph;
   return (
-    <span className="flex h-full w-full flex-col items-center justify-center gap-3 px-4 text-center">
+    <span className="relative flex h-full w-full flex-col items-center justify-center gap-3 overflow-hidden px-4 text-center">
+      {/* The decorative title initial (design.md Typography, `tile-initial`).
+          `aria-hidden`: it is pure texture, and the real title sits right
+          below it for assistive tech. `text-ink/10` is the same "barely
+          there" wash the progress-bar track already uses, so contrast stays
+          low in all three themes without a bespoke per-theme value, and
+          `-z-10` keeps it behind the glyph and title it sits under. */}
+      <span
+        aria-hidden
+        className={`font-display text-ink/10 pointer-events-none absolute -z-10 leading-none font-medium select-none ${coverInitialVariant(title)}`}
+      >
+        {coverInitial(title)}
+      </span>
       <Glyph className="h-8 w-8 text-ink-variant/60" />
       <span className="font-display text-lg leading-tight font-semibold text-ink">{title}</span>
     </span>

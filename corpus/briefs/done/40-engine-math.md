@@ -240,3 +240,111 @@ none**, so that criterion is unmeetable as written.
 looks good, it passes.** The owner set this bar explicitly. Everything else in
 Acceptance stands unchanged — especially *"every brief 37 and 39 golden still
 passes"*, which is not negotiable.
+
+## Outcome (2026-08-29) — done
+
+**The engine sets mathematics.** Inline math on the text baseline, displays
+centred with numbers at the margin, `\ref` into the existing reference pass,
+growing delimiters, matrices, fractions, radicals, integrals and the Greek and
+symbol coverage. **637 tests** (from 506 at the start of this backlog),
+typecheck clean across three tsconfigs, both apps build, and **all five goldens
+byte-identical**.
+
+Built in two waves: 40.1 (SVG→PDF emitter), 40.2 (MathJax bridge + gate) and
+40.3 (document contract) in parallel against disjoint files, then 40.4 (layout).
+
+### The defect this brief will be remembered for
+
+Wave 1 left math **silently dropped**. `layout/vlist.ts` had no arm for either
+new kind and **neither dispatcher was exhaustiveness-checked**, so growing the
+`Inline` and `Block` unions produced *no typecheck error*. A document with
+`$x^2 + \alpha$` and a numbered `equation` compiled to a valid 5172-byte PDF
+with **zero diagnostics and no mathematics on the page** — while `\ref` still
+resolved, so even the labels looked healthy.
+
+Chunk 40.3 found it and correctly refused to reach into `src/layout/`; the
+controller reproduced it before dispatching 40.4. It is fixed, and **both
+dispatchers plus `page.ts`'s `placeHNodes` now carry a `never` guard** — that
+second half is the actual lesson. The bug class is not "math was forgotten", it
+is "a switch over a union can grow in silence", and only the guard makes the
+next kind a compile error instead of a blank space.
+
+### Deviations from this brief, each deliberate
+
+- **`page.ts` was on the must-not-touch list and is touched.** The change is a
+  `PlacedMath` variant, a `case` arm in `placeHNodes`, and the guard above.
+  **None of the page-*breaking* algorithm moved** — `buildPages`,
+  `choosePosition`, `offerQueue` and `pageCost` are byte-identical. The
+  prohibition was about not perturbing how pages break for math, and it holds:
+  a formula still reaches the page builder as a rigid box. `PlacedImage` is the
+  exact precedent, and math cannot be drawn at all without a placed-item kind.
+- **`<rect>` is in the SVG emitter's scope** though the brief's list omitted it.
+  It carries every fraction bar and radical rule; dropping it would have lost
+  the bar in every `\frac`.
+- **SVG arcs are refused with a diagnostic rather than implemented**, having
+  verified MathJax emits none. An arc-to-Bézier path nothing exercises is
+  untested code whose first run would be on someone's document.
+
+### Three things measurement forced, none of them in this brief
+
+- **`require` and `autoload` are dropped alongside `noundefined`.** With them
+  enabled, `\require{physics}` — or even a plain `\color{red}{x}` via autoload —
+  lets the **document** cause MathJax to load a component off disk. That is
+  precisely the property the `fontkit` purity precedent depends on being false,
+  so this is a purity fix, not a convenience. Same class of hole as `\write18`,
+  arriving through a dependency instead of our own code.
+- **A font warm-up at construction.** MathJax v4 splits New Computer Modern into
+  ~40 lazily-loaded ranges, and a cold `\mathbb{R}` **throws** rather than draws.
+  A test sweeps the whole symbol corpus synchronously, so a missed range is a
+  red test rather than a thrown retry inside a user's compile.
+- **`linebreaks: { inline: false }`.** MathJax v4 line-breaks inline math by
+  itself, emitting several `<svg>`s. This brief rules math line-breaking out,
+  and the overrun check needs one unbroken width.
+
+### Known gaps, reported rather than hidden
+
+- **Per-line numbering inside a multi-line display is not implemented.**
+  `\begin{align}` goes to MathJax as one run, so the per-line baselines live
+  inside a single SVG and are not recoverable from its container attributes.
+  This **falls short of this brief's "per-line numbering"**, and it says so at
+  the display's own line. `align*` is unaffected and sets clean.
+- **The gate is literal about the In list**, so `\mathsf`, `\mathtt`,
+  `\mathfrak`, `\boldsymbol`, `\displaystyle`, `\phantom`, `\overset`/
+  `\stackrel` and `smallmatrix`/`multline`/`alignat`/`eqnarray` are all refused
+  despite rendering fine. Each is a one-line widening. **This is D41's accepted
+  cost, not an oversight.**
+- **Two likely transcription slips in the In list, left unchanged pending the
+  owner:** `gather*` is refused while `align*` is allowed, and `\begin{math}` is
+  refused while `\(…\)` works. Both read as omissions rather than decisions, but
+  the owner chose a strict gate explicitly, so widening it without a word was
+  not the controller's call to make.
+- **`\text{}` gaps, measured:** MathJax's `textmacros` implements the accent
+  commands but not `\ss \aa \o \ae \oe \l \i \j`, `\H \c \k \d \b \r`, or
+  `\dag \ddag \P \pounds \copyright`. All real LaTeX, so all mapped to
+  `unsupported` advising the character itself — verified that `\text{Straße}`,
+  `\text{café naïve}` and `\text{œuvre}` all set correctly.
+
+### Acceptance
+
+Criterion 1 was **replaced before building** (see the settled-calls section):
+there is no TeX on this machine and D38's whole point is that Atrium depends on
+none, so side-by-side comparison against real LaTeX was unmeetable. The owner
+set the bar as eyeballing the output instead.
+
+**Met.** A paper-shaped document — inline math in running prose, a numbered
+display, an unnumbered one, growing delimiters, a `pmatrix` and a `\binom` —
+was compiled, rasterised at 2× and **looked at**: 7 placed formulas, one page,
+one diagnostic (the pre-existing `\date` warning). Baselines sit correctly,
+displays centre, numbers align right, `\ref` prints the bare number.
+
+**One suspected defect was chased and disproved.** The eye said line spacing
+looked tight around a tall inline fraction. Measured: with a deliberately tall
+nested fraction (16.42pt), the baseline gap **opens from 12pt to 13.85pt** with
+8.05pt of clearance — `\lineskip` firing exactly as TeX specifies. The 12pt
+gaps seen elsewhere are correct, because a *textstyle* fraction is small enough
+not to trigger it. `pushBox` had it right.
+
+**Not done:** the compile was driven through the engine directly rather than
+through brief 38's editor in a live browser. The integration path either side
+is brief 38's shipped code and is unchanged by this brief, but that is a
+verification gap and is recorded as one.

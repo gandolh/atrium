@@ -8,7 +8,7 @@ tags: [library, media, backend, frontend, covers]
 > Promoted 2026-08-27 → [brief 42](../briefs/done/42-video-covers.md), **shipped
 > 2026-08-28** (D40). Capture at upload *and* as a playback backfill; native
 > aspect at a 640 bound. Everything iOS is unverified — no device. The
-> coverless-tile half is [brief 43](../briefs/todo/43-coverless-tiles.md), still
+> coverless-tile half is [brief 43](../briefs/done/43-coverless-tiles.md), still
 > held.
 
 # Real covers for video — capture a frame client-side, no ffmpeg
@@ -103,7 +103,7 @@ them readable instead of a wall of matching tiles. Separable from the frame work
 
 **Promoted 2026-08-27** to [brief 42](../briefs/done/42-video-covers.md) after a
 grill with the owner; the tile-readability idea became
-[brief 43](../briefs/todo/43-coverless-tiles.md). Of the five open questions
+[brief 43](../briefs/done/43-coverless-tiles.md). Of the five open questions
 above, three were settled by decision (capture points, overwrite rule, tile
 scope), one was answered by fact (there is no trust boundary — `books` has no
 `user_id`), and one is now brief 42 acceptance (iOS Safari, verified on a real

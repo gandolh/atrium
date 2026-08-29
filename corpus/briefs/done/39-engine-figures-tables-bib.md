@@ -1,7 +1,7 @@
 # Task 39 — Typesetting engine: figures, tables, bibliography
 
 **Third of four.** [37](../done/37-engine-foundation.md) → [38](../done/38-latex-editor.md) →
-**39** → [40](../todo/40-engine-math.md).
+**39** → [40](40-engine-math.md).
 
 **Requires brief 37.** Read its "What this is, and what it is deliberately not",
 "The failure contract" and "Where it runs" sections first — the scope line
@@ -23,7 +23,7 @@ This brief adds the three that travel together, because they share machinery:
 floats need a page builder that can defer content, tables need a two-pass column
 measurement, and citations need the same second pass `\ref` already uses.
 
-**Ordering note.** This is filed before [brief 40](../todo/40-engine-math.md) (math) on
+**Ordering note.** This is filed before [brief 40](40-engine-math.md) (math) on
 the judgement that the owner's stated use — *"sync what's on your phone with
 what's on pc… a personal cloud space"* — implies documents with figures and
 tables more often than heavy mathematics. **If most of what you write is math,

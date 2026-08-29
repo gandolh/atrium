@@ -1,5 +1,89 @@
 # Log
 
+## [2026-08-29] build | Briefs 40 and 43 shipped — the brief backlog is empty
+
+Every brief 01–44 is now in `briefs/done/` or `superseded/`. **637 tests** (from
+506 when this backlog started), typecheck clean across four workspaces, both
+apps build, all five goldens byte-identical.
+
+**Brief 40 — the engine sets mathematics.** MathJax v4 SVG through our own
+SVG→PDF emitter, gated to the declared subset (D41). Inline math on the text
+baseline, displays centred with numbers at the margin, `\ref` through the
+existing reference pass, growing delimiters, matrices, integrals, symbol
+coverage. Built as three parallel chunks against disjoint files, then a layout
+chunk.
+
+**The defect worth remembering.** Wave 1 left math **silently dropped**:
+`layout/vlist.ts` had no arm for either new kind and **neither dispatcher was
+exhaustiveness-checked**, so growing the `Inline` and `Block` unions produced no
+typecheck error. A document with `$x^2 + \alpha$` and a numbered `equation`
+compiled to a valid 5172-byte PDF with **zero diagnostics and no mathematics on
+the page** — while `\ref` still resolved, so even the labels looked healthy. The
+contract chunk found it and correctly refused to reach into `src/layout/`; the
+controller reproduced it before dispatching the fix. All three dispatchers now
+carry a `never` guard, and that is the actual lesson: the bug class is not "math
+was forgotten", it is **"a switch over a union can grow in silence"**.
+
+**A real purity hole closed.** Leaving MathJax's `require` and `autoload`
+enabled lets a *document* trigger a component load off disk — `\require{physics}`,
+or even a plain `\color{red}{x}` via autoload. Same class as `\write18`, arriving
+through a dependency rather than our own code, and it would have falsified the
+no-I/O claim the engine's security design rests on. Both dropped alongside
+`noundefined`. Two more v4 behaviours had to be switched off: fonts load lazily
+in ~40 ranges so a cold `\mathbb{R}` *throws* (warmed at construction, with a
+test sweeping the symbol corpus), and v4 line-breaks inline math by itself.
+
+**Deviations, each deliberate and recorded in the brief:** `page.ts` was on the
+must-not-touch list and is touched — a `PlacedMath` variant, a `case` arm, and
+the guard, with **none** of the page-*breaking* algorithm moved. `<rect>` joined
+the SVG emitter's scope because it carries every fraction bar and radical rule.
+SVG arcs are refused with a diagnostic rather than implemented, MathJax emitting
+none.
+
+**Known gaps, reported rather than hidden:** per-line numbering inside a
+multi-line display is not implemented (`\begin{align}` is one MathJax run, so
+per-line baselines live inside a single SVG) and says so at the display's own
+line. The gate is literal about the In list, so `\displaystyle`, `\boldsymbol`,
+`\mathfrak` and friends are refused despite rendering — D41's accepted cost.
+`gather*` and `\begin{math}` are refused while `align*` and `\(…\)` work; those
+read as brief transcription slips and were left pending the owner rather than
+widened unilaterally, since the strict gate was an explicit choice.
+
+**Brief 43 — coverless tiles, with D42's second axis corrected on measurement.**
+A hashed title initial whose size and corner vary, six variants. The
+ground-lightness ladder D42 originally specified was built, reported as passing
+D33's tint test, and **the claim did not survive checking**: the kind signal
+(closest pair) is 0.0194 in OKLab while the lightness spread was 0.1871 — ~10×
+stronger, so the grid would have read by lightness rather than kind, the exact
+inversion the brief exists to prevent. Sweeping the range found no working
+value; the window is empty because Reading Room's tints are near-achromatic, not
+because the arithmetic was tuned wrong. Both axes moved onto the letterform and
+the ground reverted, which also makes a tile *with* artwork untouched by
+construction rather than by a gate.
+
+**How the wrong answer passed its own check**, kept because the lesson is about
+the fixture: the first build verified the tint test with swatches **grouped by
+kind** — same-step across kinds, same-kind across steps, examined separately.
+That is precisely the arrangement that hides the failure, which only shows up in
+the mixed grid the test describes.
+
+**Verification.** Brief 40's replaced acceptance criterion (no TeX exists here,
+and D38's point is that Atrium depends on none) was met by rasterising a
+paper-shaped document at 2× and looking at it: 7 formulas, one page, one
+pre-existing `\date` warning. One suspected defect was chased and **disproved** —
+line spacing looked tight around a tall inline fraction, but measurement showed
+the baseline gap opening from 12pt to 13.85pt with 8.05pt clearance, `\lineskip`
+firing exactly as TeX specifies.
+
+**Two verification gaps, recorded as gaps:** brief 40 was driven through the
+engine directly rather than brief 38's editor in a live browser, and brief 43
+has no real coverless grid to look at — the library holds two coverless items.
+
+**Corpus:** `wiki/typeset-math.md` split out of `typeset.md`, and
+`wiki/status-history-v1.md` split out of `status-history.md`, both on the
+200-line rule.
+
+
 ## [2026-08-29] build | Briefs 44, 42 and 39 shipped — worker thread, video covers, figures/tables/bibliography
 
 One backlog run on branch `briefs-44-42-39`, cut from `main` at brief 38.

@@ -5,7 +5,52 @@ updated: 2026-08-29
 
 # Status — 2026-08-29
 
-**Latest (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
+**Latest (2026-08-29):** ✅ **Briefs 40 and 43 shipped — the brief backlog is
+empty.** Every brief 01–44 is now in `briefs/done/` or `superseded/`.
+
+**40 — the engine sets mathematics.** Inline math on the text baseline, displays
+centred with numbers at the margin, `\ref` into the existing reference pass,
+growing delimiters, matrices, integrals and the symbol coverage. MathJax v4 SVG
+through our own SVG→PDF emitter, **gated to the declared subset** (D41).
+**637 tests** (from 506 when this backlog started), all five goldens
+byte-identical. Verified by eye: a paper-shaped document rasterised at 2× and
+looked at — 7 formulas, one page, one pre-existing `\date` warning.
+
+**The defect worth remembering:** wave 1 left math **silently dropped** —
+`layout/vlist.ts` had no arm for either new kind and **neither dispatcher was
+exhaustiveness-checked**, so growing the unions produced no typecheck error. A
+document compiled to a valid PDF with **zero diagnostics and no mathematics on
+it**, while `\ref` still resolved so even the labels looked healthy. Fixed, and
+all three dispatchers now carry a `never` guard — that second half is the point.
+The bug class is not "math was forgotten", it is "a switch over a union can grow
+in silence".
+
+**A real purity hole closed along the way.** Leaving MathJax's `require` and
+`autoload` enabled lets a *document* trigger a component load off disk
+(`\require{physics}`, or a plain `\color{red}{x}` via autoload). Same class as
+`\write18`, arriving through a dependency instead of our own code. Both dropped.
+
+**43 — coverless tiles tell each other apart**, by a hashed title initial whose
+size and corner vary. **D42's second axis was corrected on measurement:** the
+ground-lightness ladder it originally specified was ~10× stronger than the kind
+signal (0.1871 vs 0.0194 in OKLab), so the grid would have read by lightness
+rather than kind — the exact D33 inversion the brief exists to prevent. No mix
+value works; the palette is near-achromatic. Both axes now sit on the
+letterform and the ground is untouched.
+
+**Two verification gaps, recorded as such:** brief 40's math was driven through
+the engine directly rather than through brief 38's editor in a live browser, and
+brief 43 has no real coverless grid to look at (the library holds 2 coverless
+items). Neither is a claim that they were checked.
+
+**Open, deliberately:** the math gate is literal about brief 40's In list, so
+`\displaystyle`, `\boldsymbol`, `\mathfrak`, `smallmatrix`/`multline`/
+`alignat`/`eqnarray` and friends are refused despite rendering fine — D41's
+accepted cost, each a one-line widening. `gather*` and `\begin{math}` are
+refused while `align*` and `\(…\)` work; those two read as brief transcription
+slips rather than decisions, and were left unchanged pending the owner.
+
+**Earlier (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
 built on branch `briefs-44-42-39`.
 
 **44 — the engine runs on a `worker_thread`, and cancel is real.** A compile no
@@ -89,20 +134,6 @@ row first. **Your real database is untouched — it migrates on the next API
 boot**, and note it is still pre-brief-34, so that boot runs two briefs'
 migrations at once (tested together, converges cleanly).
 
-**Earlier (2026-08-27):** 🧭 **Grill session — every open question closed.**
-The three threads in [open-questions.md](open-questions.md), two of them open
-since July, are now **D39** and **D40** and are specified as briefs 41–43. The
-headline: the API stored absolute paths while two of its three storage roots
-could not be redirected, which is why pointing a test at a *copied* database
-still reached the **real** files — the hazard that destroyed a book on
-2026-08-25. Paths become derived and all three roots become overridable, so a
-scratch database and scratch files finally move together. `cover_path` is
-dropped and `hasCover` becomes a disk check, which deletes
-`reconcileMissingCovers` outright. Also settled: the offline store's `fraction`
-→ `progress` rename (IndexedDB v5), and video covers captured **in the browser**
-— no ffmpeg, since what brief 23 declined was the binary, not the feature.
-**Nothing is built yet**; 41 is the next build and gates 38.
-
 **Earlier (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
 Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and
 not any TeX: `packages/typeset` takes a `.tex` file map and returns PDF bytes as
@@ -116,31 +147,6 @@ every construct outside the subset reports a diagnostic with file and line
 rather than failing silently. Details in
 [briefs/done/37-engine-foundation.md](../briefs/done/37-engine-foundation.md)
 and [typeset.md](typeset.md).
-
-**Earlier (2026-08-26):** ✅ **Brief 34 shipped — Convert.** A PDF now offers a
-reflowable EPUB twin and an EPUB offers a PDF, as **linked `books` rows** (D34)
-— one card per book, each format with its own resume position, and reopening
-lands in the format that reader last used. Conversion is an async job: one at a
-time, cancellable, 24h reaper, restart-safe. A quality gate flags a likely scan
-`poor` and warns without ever blocking, because the honest answer to a bad
-conversion is that the source is one tap away. The stateless `POST /convert`,
-its temp-file workspace and `convert-api.ts` are **deleted** — D1's export-only
-rule is revised, its reason having been direction-specific all along.
-
-Three finders caught **7 findings (1 Critical)**, all fixed but two Minor. The
-Critical was reported by two finders independently: deleting a book never
-cancelled its running conversion, wedging conversion app-wide behind a slot held
-for a row that no longer existed. Details in
-[briefs/done/34-convert.md](../briefs/done/34-convert.md).
-
-**Incident:** an agent destroyed a real book during verification (a copied DB
-still points at the real files) — recovered from a duplicate; `config.ts` and
-[open-questions.md](open-questions.md) now record the hazard, and a manual
-backup exists outside the repo.
-
-**Not verified:** this machine's Calibre has an `lxml`/`html5-parser` ABI
-mismatch, so anything with an outline fails to convert. The two-column and
-scanned-PDF readability checks await a working install.
 
 **Older entries** — every shipped phase through brief 35, with what each run
 fixed and how it was verified — live in
@@ -179,8 +185,8 @@ got here.
 | 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
 | 38 | LaTeX editor: projects, compile, publish, versions | **done (2026-08-27)** |
 | 39 | Engine: figures, tables, bibliography | **done (2026-08-29)** |
-| 40 | Engine: math (MathJax SVG → PDF) | **todo — blocked on an owner call: a 34.3 MB `mathjax-full` dep** |
+| 40 | Engine: math (MathJax v4 SVG → PDF, gated subset — D41) | **done (2026-08-29)** |
 | 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **done (2026-08-27)** |
 | 42 | Video covers, decoded in the browser (D40) | **done (2026-08-28)** |
-| 43 | Readable tiles for coverless media | **todo — held: needs a real count of surviving coverless videos** |
+| 43 | Readable tiles for coverless media (D42) | **done (2026-08-29)** |
 | 44 | Host the typesetting engine on a worker thread | **done (2026-08-28)** |

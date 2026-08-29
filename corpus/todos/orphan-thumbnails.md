@@ -8,7 +8,7 @@ tags: [backend, storage, cleanup, drift]
 # Four orphan thumbnails with no matching `books` row
 
 Found on 2026-08-29 while counting coverless items for
-[brief 43](../briefs/todo/43-coverless-tiles.md). `apps/api/images/thumbnails/`
+[brief 43](../briefs/done/43-coverless-tiles.md). `apps/api/images/thumbnails/`
 holds **7** files; only **3** of them belong to a row in `books`. The other four
 are left over from rows deleted in earlier checkouts.
 

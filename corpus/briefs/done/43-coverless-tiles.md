@@ -142,3 +142,63 @@ broken by accident here.
 The 4 **orphan thumbnails** (image files with no matching `books` row) are real
 drift found while counting. Not this brief's problem — see
 [todos/orphan-thumbnails.md](../../todos/orphan-thumbnails.md).
+
+## Outcome (2026-08-29) — done, with the second axis corrected
+
+**Coverless tiles now tell each other apart.** A large, very low-contrast title
+initial bleeds past a tile edge, and **its size and its corner** vary by a
+deterministic hash of the title — six variants. Typecheck and build clean, and
+all six variants confirmed present in the compiled CSS (Tailwind only sees class
+names written literally, so that check is not a formality).
+
+### The second axis moved, on measurement
+
+D42 as recorded that morning put the second axis on the **tile ground's
+lightness**. It was built that way, reported as passing D33's tint test, and
+**the claim did not survive checking**:
+
+| | OKLab distance |
+|---|---|
+| Kind signal — closest pair (`tint-book` vs `tint-music`) | **0.0194** |
+| Within-kind lightness spread at the 20% mix built | **0.1871** |
+
+The lightness axis was **~10× stronger than the kind signal**, so a grid would
+have read by lightness and not by kind — the exact D33 inversion this brief
+exists to prevent. Sweeping the range found **no working value**: by 4% the
+spread (0.0374) still beat the kind signal while the per-step difference
+(0.0094) had already fallen below visibility. The window is empty because
+Reading Room's tints are near-achromatic warm and cool greys (chroma
+0.011–0.017), not because the arithmetic was tuned wrong.
+
+So the ground work was reverted entirely — `globals.css` carries no
+`--tint-*-0..4`, and `CoverCard` keeps its flat `TINT_CLASS`. **Both axes now
+sit on the letterform.** A useful side effect: a tile *with* artwork is
+untouched by this brief **by construction** rather than by a gate, which is a
+stronger guarantee than the `hasArt` check the first build needed.
+
+**Worth carrying forward — how the wrong answer passed its own check.** The
+first build verified the tint test with swatches **grouped by kind**: same-step
+across kinds, and same-kind across steps, examined separately. That is precisely
+the arrangement that hides the failure, which only appears in the **mixed** grid
+the test actually describes. The lesson is about the fixture, not the finding.
+
+### Step 1 was run, and its answer was overridden
+
+This brief says to close itself if the coverless count is tiny. Counted from the
+real database (read-only copy) against `apps/api/images/thumbnails/`: **5 rows
+total, 0 coverless videos, 2 coverless items (both audio)**, plus 4 orphan
+thumbnails. That is below the brief's own close-it threshold and **none** of them
+are the kind it was split out of brief 42 to serve.
+
+The owner chose to build it anyway, for the library they expect rather than the
+one they have. So it is designed for scale — which is exactly why two axes
+survived the correction rather than collapsing to the initial alone.
+
+### Not done
+
+**No live browser check on a real grid**, which this brief's acceptance asks for
+in both themes. There are only two coverless items in the library, so a real
+grid does not exist to look at; the variants were verified through the compiled
+CSS and by reasoning about a large collection. Recorded as a verification gap.
+
+Filed separately: [the 4 orphan thumbnails](../../todos/orphan-thumbnails.md).

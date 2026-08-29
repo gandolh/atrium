@@ -53,7 +53,7 @@ plus two gates that would keep it invisible even if it existed.
    unscoped. No ownership check is added because there is no ownership to check.
 
 4. **The coverless-tile readability polish does not ride along** — it is
-   [brief 43](../todo/43-coverless-tiles.md). Judge it after real covers exist, when you
+   [brief 43](43-coverless-tiles.md). Judge it after real covers exist, when you
    can see how many coverless videos actually survive.
 
 ## Scope

@@ -7,23 +7,21 @@ updated: 2026-08-29
 
 `packages/typeset` turns a **subset** of LaTeX into a PDF. It is ours, and it is
 not TeX. Built by brief 37 and extended by brief 39 (figures, tables,
-bibliography). **Math is brief 40 and is not built** — it is held on an owner
-decision (a 34.3 MB `mathjax-full` dependency), so nothing below describes it.
-See **D38** for why the engine exists at all.
+bibliography) and brief 40 (mathematics). See **D38** for why the engine exists
+at all, and **D41** for how math is done.
 
 ## The scope line: syntax, not semantics
 
 LaTeX is not a file format, it is a program — `\catcode` lets a document
-redefine what characters *mean* mid-parse. So there is no parser to write, only
-a macro-expansion machine that must then execute the LaTeX kernel. Measured
-2026-08-26: `tex.web` is **25,010 lines** of literate Pascal, and the kernel is
-**79 `.dtx` files, 4.81 MB**, before `article.cls`.
+redefine what characters *mean* mid-parse, so there is no parser to write, only
+a macro-expansion machine that must then execute the kernel. Measured
+2026-08-26: `tex.web` is **25,010 lines** of literate Pascal, the kernel **79
+`.dtx` files, 4.81 MB**, before `article.cls`.
 
-We do not do that. We accept LaTeX-*shaped* documents and implement the
-commands ourselves. **This is only defensible because the owner has nothing to
-import** (brief 38 decision 4): the engine must render what gets written here,
-not what CTAN can produce. If a legacy `.tex` corpus ever appears, D38 is the
-first thing to revisit.
+We do not do that. We accept LaTeX-*shaped* documents and implement the commands
+ourselves. **This is only defensible because the owner has nothing to import**
+(brief 38 decision 4). If a legacy `.tex` corpus ever appears, D38 is the first
+thing to revisit.
 
 ## The loud-failure contract — the spine
 
@@ -63,14 +61,14 @@ reproducible where a timer is not, so "this compile was stopped" is testable.
 Plus output-size and page caps.
 
 **Known limitation:** `fontkit` pulls `node:fs` into the module graph
-transitively. No document can reach it — the engine only ever calls
-`fontkit.create(bytes)` — and `"types": []` still blocks first-party use. It
-means `dist/` will not load in a host that bans the `fs` module. A browser
-bundle resolves to fontkit's browser build and is unaffected.
+transitively (and `mathjax` does the same). No document can reach either — the
+engine only calls `fontkit.create(bytes)`, and math's `require`/`autoload` are
+off precisely so a document cannot steer a load. `dist/` will not load in a host
+that bans `fs`; a browser bundle is unaffected.
 
-Fonts are **injected** (`CompileOptions.fonts`) for the same reason: the caller
-owns byte acquisition. Omitting them is a `missing-font` error, never a silent
-substitution — there is no built-in fallback and there cannot be one.
+Fonts and the math renderer are both **injected**, for the same reason: the
+caller owns acquisition. Omitting either is an error, never a silent
+substitution.
 
 ## The pipeline
 
@@ -85,6 +83,7 @@ parse → macro → doc → layout → pdf
 | `src/doc/` | document model: blocks, inlines, counters, labels, `\ref` |
 | `src/layout/` | box/glue, Knuth–Plass line breaking, hyphenation, page building |
 | `src/image/` | PNG/JPEG decode to intrinsic size, and the PDF `XObject` embed |
+| `src/math/` | TeX → MathJax SVG, plus the subset gate (D41) — [typeset-math.md](typeset-math.md) |
 | `src/font/` | `fontkit` wrapper over committed Latin Modern (GUST FL) |
 | `src/pdf/` | `pdf-lib` document structure; glyphs positioned by us |
 
@@ -99,10 +98,10 @@ writes them into `/W`, so `drawText` would render unkerned — not merely
 mismeasure. `/W` carries the unkerned advance and a `TJ` array carries the kern
 difference, recomputed from the running pen so rounding cannot drift.
 
-**The document is laid out twice.** `\ref` resolves during the document build,
-but `\pageref` cannot: a page number needs layout, and writing it in changes the
-reference's width. The loop runs to a **fixed point** with a cap of three —
-LaTeX's `.aux` cycle. A document with no markers lays out once.
+**The document is laid out twice.** `\ref` resolves during the build, but
+`\pageref` cannot: a page number needs layout, and writing it in changes the
+reference's width. The loop runs to a **fixed point**, capped at three — LaTeX's
+`.aux` cycle. A document with no markers lays out once.
 
 ## What the engine sets
 
@@ -113,32 +112,34 @@ LaTeX's `.aux` cycle. A document with no markers lays out once.
 | **`\includegraphics`** — PNG and JPEG | brief 39 | `width=`/`height=`/`scale=`, `\textwidth`-relative. Format from the **signature**, never the extension |
 | **`tabular`** — `l c r`, `p{}`, `\|` rules, `\hline`, `\cline`, `\multicolumn` | brief 39 | Columns measured in a first pass, set in a second |
 | **Bibliography** — `.bib` parser, one numeric style, `\cite` | brief 39 | An unknown key is a diagnostic **and** prints `[?]` |
-| Math | **brief 40, not built** | |
+| **Mathematics** — inline and display, `align`/`gather`/`split`, matrices, growing delimiters, the symbol coverage | brief 40 | MathJax v4 SVG, **gated to the declared subset** (D41) |
 
 **Images embed verbatim wherever they can.** PDF's `/Predictor 15` *is* PNG's
-own per-scanline filtering, and a PDF image stream with `/DCTDecode` *is* a JPEG
-datastream — so PNG colour types 0/2/3 and every accepted JPEG go in as the
-file's own bytes: no decode, no recompression. Because those paths never look at
-a pixel, **every PNG chunk's CRC is verified** — otherwise a bit-flip in `IDAT`
-reaches a reader as a broken picture with nothing saying why. Only colour types
-4 and 6 are decoded, because PDF has no interleaved alpha and the channel has to
-be split out into an `/SMask`.
+per-scanline filtering and a `/DCTDecode` stream *is* a JPEG datastream, so PNG
+colour types 0/2/3 and every accepted JPEG go in as the file's own bytes. Since
+those paths never look at a pixel, **every PNG chunk's CRC is verified** — a
+bit-flip in `IDAT` would otherwise reach a reader as a broken picture with
+nothing saying why. Types 4 and 6 are decoded, because PDF has no interleaved
+alpha and it must split out into an `/SMask`. Refused with a reason rather than
+embedded wrong: interlaced PNG, `tRNS`, CMYK and progressive JPEG, non-8-bit
+precision.
 
-Refused with a reason rather than embedded wrong: interlaced (Adam7) PNG, `tRNS`
-transparency, CMYK and progressive JPEG, and non-8-bit JPEG precision. Each says
-what to do instead.
-
-**Two float rules worth knowing.** A float taller than `\textheight` is placed
-anyway, on a page of its own, with an `overfull-box` warning — an oversized
-figure the author can see beats one that is nowhere. But a float asking for
-`[h]` **and nothing else** that does not fit is an *error*: moving it would put
-it where the source forbade.
+**Two float rules.** A float taller than `\textheight` is placed anyway, on its
+own page, with an `overfull-box` warning — an oversized figure the author can
+see beats one that is nowhere. But a float asking for `[h]` and nothing else
+that does not fit is an *error*: moving it would put it where the source
+forbade.
 
 **Brief 39's Out items report `unsupported`, not `undefined-command`.**
 `\rotatebox`, `\multirow`, booktabs' rules and `subfigure`/`subcaption` are
 real LaTeX we declined — telling an author no such command exists is false.
 `builtins.ts` carries them as `unsupported` rows with a `detail` saying why,
 matching how `wrapfigure`/`tabularx`/`longtable` were already handled.
+
+## Mathematics
+
+Brief 40, decision **D41**: MathJax v4 SVG, our own SVG→PDF emitter, and the
+subset gated on the MathML. It has its own page — [typeset-math.md](typeset-math.md).
 
 ## A convention that will bite you
 
@@ -165,18 +166,14 @@ unrelated failures also used. Per-chunk verification was honest and still
 insufficient, because each chunk was right about its own half. Budget the review
 accordingly on 39 and 40.
 
-**Brief 39 broke the pattern, and that is the finding.** Its review turned up
-one real defect and it lay *inside* a single owned file: a `tabular` row that
-stops short of the last column had its `HBox` end at the last written cell, so
-the table's right-hand `|` border was drawn partway across the grid and every
-vertical rule past the short row vanished. Legal LaTeX — `\halign` supplies the
-omitted entries — with a diagnostic-free wrong picture, which is the failure
-mode the loud-failure contract cannot catch by construction: nothing was
-unimplemented, so nothing had anything to report. The lesson is that geometry
-needs assertions on **coordinates**, not on diagnostics; the existing short-row
-test asserted only that the case "stays quiet", which it did, while rendering
-wrongly. Fixed with the padding `\halign` does, plus a test that compares each
-row's rule positions against the full row's.
+**Two later findings broke the pattern, and both were diagnostic-free wrong
+pictures** — the failure mode the loud-failure contract cannot catch by
+construction, because nothing was unimplemented and so nothing had anything to
+report. Brief 39: a `tabular` row stopping short of the last column drew the
+table's right border partway across the grid. Brief 40: math reached a finished
+PDF as blank space, because a switch over a grown union had no exhaustiveness
+check. **Geometry needs assertions on coordinates, and every dispatcher over a
+union needs a `never` guard** — both now have one.
 
 See [decisions.md](decisions.md) D38, and
 [glossary-authoring.md](glossary-authoring.md) for **Typesetting engine**,

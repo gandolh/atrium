@@ -1760,9 +1760,31 @@ export function touchLatexProject(id: string, now: string): void {
  * moved off `running` on every exit path, including cancellation and failure.
  * `reapInterruptedLatexCompiles` is the backstop for the one exit path code
  * cannot cover, a crash.
+ *
+ * ## Two ways this can "not work", and they are nothing alike (brief 46)
+ *
+ * **The row did not match** — the project was deleted mid-compile, which is a
+ * real case (a profile delete cascades `latex_projects.profile_id`). That is
+ * *not* an exception: `better-sqlite3` runs the UPDATE happily and reports
+ * `changes === 0`. It is also entirely benign — a row that no longer exists
+ * cannot be stuck on `running` — so it is returned as `false` rather than
+ * raised, and the caller is expected to shrug.
+ *
+ * **The write failed** — `SQLITE_BUSY`, `SQLITE_FULL`, `SQLITE_READONLY`. The
+ * row is still there and still says whatever it said before, which on the
+ * release path means still `running`. `better-sqlite3` throws a `SqliteError`
+ * carrying a `code`, and that throw is deliberately left to propagate.
+ *
+ * Returning `false` for the first and throwing for the second is the whole
+ * point: callers used to see one undifferentiated failure and had no way to
+ * tell "nothing to do" from "the slot is now wedged". Returning `void` made
+ * that distinction unrepresentable, so it was not made.
+ *
+ * @returns whether a row matched. `false` means the project is gone, not that
+ *   anything went wrong.
  */
-export function setLatexCompileStatus(id: string, status: CompileStatus): void {
-  latexStatements.setCompileStatus.run(status, id);
+export function setLatexCompileStatus(id: string, status: CompileStatus): boolean {
+  return latexStatements.setCompileStatus.run(status, id).changes > 0;
 }
 
 /**

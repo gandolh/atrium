@@ -16,6 +16,7 @@ import {
   deleteProfile,
   getDefaultProfile,
   getProfile,
+  listLatexProjects,
   listNotes,
   listProfiles,
   reassignNotes,
@@ -24,6 +25,9 @@ import {
   updateProfile,
   type ProfileRow,
 } from "./db.js";
+import { cancelAndSettleLatexCompile } from "./latex-compile.js";
+import { removeProjectTree } from "./latex-routes.js";
+import { projectDirFor } from "./paths.js";
 
 /**
  * Profile CRUD + the switch (brief 35 step 4, D35). A **profile** is a person
@@ -202,6 +206,17 @@ export function registerProfileRoutes(app: FastifyInstance): void {
    *
    * Reading progress is not protected: `reading_progress` cascades, and losing
    * a position is a re-read, not lost work.
+   *
+   * Past the refusals, the delete owns two things the cascade cannot do for it,
+   * both of them about the profile's LaTeX projects: **cancelling any compile
+   * running on them** (the cascade would otherwise drop the row while the job
+   * still held the account's slot) and **removing their working trees** (SQLite
+   * deletes rows, never files). See the long note at each, below.
+   *
+   * One consequence worth naming: the notes race in the `catch` can still turn
+   * this into a 409 *after* the compiles were cancelled. That is the right way
+   * round — a cancelled compile is a recompile, an unprotected note is lost
+   * authored work — and it is the only path here that cancels without deleting.
    */
   app.delete("/profiles/:id", async (request: FastifyRequest, reply: FastifyReply) => {
     const profile = ownedProfile(request, reply);
@@ -229,6 +244,41 @@ export function registerProfileRoutes(app: FastifyInstance): void {
     const fallback = getDefaultProfile(userId)!;
     if (notes.length > 0) reassignNotes(profile.id, fallback.id);
 
+    /*
+     * ## Cancel the compiles this delete is about to orphan — BEFORE the cascade
+     *
+     * `latex_projects.profile_id` is ON DELETE CASCADE (`db.ts`), so the instant
+     * the profile row goes so do the rows naming its projects — while the jobs
+     * carry on holding the engine. The single-flight slot is per ACCOUNT (D35),
+     * not per profile, so one person tidying up their own profile wedges
+     * compilation for the whole household until the job ends by itself, bounded
+     * only by `LATEX_TIMEOUT_MS`. Nothing can rescue it afterwards either: every
+     * route that could cancel resolves the project from its row first, and the
+     * row is exactly what the cascade removed. Brief 44 fixed the *reporting* of
+     * that state; this is the state itself.
+     *
+     * Hence the ordering: read the list and settle the jobs here, before
+     * `deleteProfile`. Reading it afterwards returns nothing at all — there
+     * would be no id left to cancel and no id left to derive a path from.
+     *
+     * `cancelAndSettleLatexCompile`, not `cancelLatexCompile`, for the reason
+     * `DELETE /latex/:id` gives: a cancelled job does not stop dead, it unwinds
+     * through `persistOutcome`, which **recreates** `latex/<id>/.atrium-build/`
+     * with a log and diagnostics in it. Awaiting the job is what makes the `rm`
+     * below the last writer; without the wait the tree is removed, the job then
+     * resumes and writes the directory back, and those bytes are orphaned for
+     * the life of the installation with no row left pointing at them.
+     *
+     * Keyed by project id, so a compile running on a **sibling** profile of the
+     * same account is not in this list and is left strictly alone. And it is a
+     * no-op when nothing is running, so a profile with no compiles — the
+     * ordinary case — is unchanged apart from losing its project trees.
+     */
+    const projects = listLatexProjects(profile.id);
+    for (const project of projects) {
+      await cancelAndSettleLatexCompile(project.id);
+    }
+
     try {
       deleteProfile(profile.id);
     } catch (err) {
@@ -251,6 +301,18 @@ export function registerProfileRoutes(app: FastifyInstance): void {
     // sessions were SET NULL and take the guard's fallback.
     if (request.authToken && request.authProfile?.id === profile.id) {
       setSessionActiveProfile(request.authToken, fallback.id);
+    }
+
+    // The trees go after the rows — the same ordering, and the same shared
+    // helper, as `DELETE /latex/:id`. The row is what makes a project
+    // reachable, so removing it first means no request can arrive for a
+    // half-deleted project; a failed `rm` leaves orphaned bytes, which is
+    // logged and recoverable, where the opposite ordering leaves projects that
+    // 500 on every read. `projectDirFor` asserts the id's shape, and these ids
+    // came from rows, so they are server-minted UUIDs and cannot be pointed
+    // anywhere else.
+    for (const project of projects) {
+      await removeProjectTree(projectDirFor(project.id), request);
     }
     return reply.status(204).send();
   });

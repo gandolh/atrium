@@ -1,5 +1,5 @@
 import { parentPort, workerData } from "node:worker_threads";
-import { compile, createLatinModernProvider } from "@ebook-reader/typeset";
+import { compile, createLatinModernProvider, createMathRenderer } from "@ebook-reader/typeset";
 import type { AbortLike } from "@ebook-reader/typeset";
 import { loadLatinModernBytes } from "@ebook-reader/typeset/fonts/node";
 import type { Diagnostic } from "@ebook-reader/shared";
@@ -182,12 +182,30 @@ function createWorkerSignal(deadline: number): WorkerSignal {
  * killed outright. Reusing one long-lived worker would recover it; see the note
  * on `runEngineInWorker` in `latex-compile.ts` for why that trade was declined.
  */
-function runEngine(request: LatexWorkerRequest): LatexWorkerResponse {
+async function runEngine(request: LatexWorkerRequest): Promise<LatexWorkerResponse> {
   const signal = createWorkerSignal(request.deadline);
   const fonts = createLatinModernProvider(loadLatinModernBytes());
+  /*
+   * Mathematics (brief 40). `compile()` stays synchronous — the renderer is
+   * *injected*, exactly as fonts are, because `createMathRenderer()` has to
+   * load MathJax and warm its lazily-split fonts before anything can be set.
+   *
+   * It is built unconditionally rather than only for documents that look like
+   * they contain math. A cheap scan of the source for `$` or `\begin{equation}`
+   * would save ~210ms on prose-only compiles, but it would be a *guess* about
+   * what expansion produces, and being wrong means a valid document reports
+   * "no math renderer was supplied" — a confusing error on correct input. The
+   * engine already refuses to fail silently here; paying the cost is how that
+   * promise is kept cheaply.
+   *
+   * The cost lands on this thread, not the API's — which is the whole point of
+   * brief 44. A compile got slower; nothing else got less responsive.
+   */
+  const math = await createMathRenderer();
 
   const result = compile(request.files, request.entrypoint, {
     signal,
+    math,
     // The emitted PDF, not the input: a small document can loop into an
     // enormous one. The engine refuses to allocate above this and reports
     // `limit-exceeded` rather than filling the disk.
@@ -229,7 +247,9 @@ if (port === null) {
 
 let response: LatexWorkerResponse;
 try {
-  response = runEngine(workerData as LatexWorkerRequest);
+  // `await` at module scope: `runEngine` became async when the math renderer
+  // arrived (brief 40), and this file is ESM in both of the ways it is loaded.
+  response = await runEngine(workerData as LatexWorkerRequest);
 } catch (cause) {
   response = {
     ok: false,

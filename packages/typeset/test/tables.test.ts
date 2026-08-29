@@ -128,6 +128,37 @@ test("| rules and \\hline draw as rule items, sized from the kernel's own tabcol
   assert.ok(b.x + b.width <= sortedVerticals[2]!.x + 0.01, "\"b\" sits left of the right border");
 });
 
+test("a row that stops short of the last column still gets that column's slot and its rules", () => {
+  // Legal LaTeX: `\halign` supplies the omitted entries as empty templates, so
+  // the columns the short row left out keep their slot and their `|` rules. The
+  // regression this guards is the row's HBox ending at its last written cell,
+  // which put the table's right-hand border partway across the grid and dropped
+  // every vertical rule beyond the short row.
+  const result = run(
+    "\\begin{tabular}{|l|l|l|}\n\\hline\naaa & bbb & ccc \\\\\nxxx \\\\\n\\hline\n\\end{tabular}",
+  );
+  const page = result.pages[0] as Page;
+  const verticals = rules(page).filter((rule) => r(rule.width) === r(ARRAY_RULE_WIDTH));
+
+  // Rows are distinguished by their y: the full row is the upper one.
+  const ys = [...new Set(verticals.map((v) => r(v.y)))].sort((a, b) => a - b);
+  assert.equal(ys.length, 2, `expected verticals on two rows, got ys ${ys.join(", ")}`);
+  const full = verticals.filter((v) => r(v.y) === ys[0]).sort((a, b) => a.x - b.x);
+  const short = verticals.filter((v) => r(v.y) === ys[1]).sort((a, b) => a.x - b.x);
+
+  assert.equal(full.length, 4, "left border, two interior rules, right border");
+  assert.equal(short.length, 4, "the short row draws the same four verticals");
+  for (let i = 0; i < full.length; i++) {
+    assert.equal(r(short[i]!.x), r(full[i]!.x), `vertical ${i} should sit at the same x on both rows`);
+  }
+
+  // The table's right-hand border lines up with the full width of the \hline
+  // above it, rather than stopping where the short row's content ran out.
+  const horizontals = rules(page).filter((rule) => r(rule.width) !== r(ARRAY_RULE_WIDTH));
+  const right = full[3]!;
+  assert.equal(r(right.x + right.width), r(horizontals[0]!.x + horizontals[0]!.width), "right border is at the table's edge");
+});
+
 test("\\cline draws only under the columns it names, not across the table's own borders", () => {
   const result = run(
     "\\begin{tabular}{|l|l|l|}\na & b & c \\\\\n\\cline{2-2}\nd & e & f\n\\end{tabular}",

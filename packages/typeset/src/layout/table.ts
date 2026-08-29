@@ -318,6 +318,28 @@ function buildRow(table: TableBlock, row: TableRow, layout: readonly ColumnLayou
     col += span;
   }
 
+  /*
+   * A row that stops short of the last column: `a & b \\` in a `{|l|l|l|}`.
+   * That is legal LaTeX — `\halign` supplies the omitted entries as empty
+   * templates — and the columns it left out still get their slot and their `|`
+   * rules. Without this, the row's `HBox` ends at its last written cell, which
+   * puts `spec.rulesAfter` (the table's right-hand border) partway across the
+   * grid and drops every vertical rule beyond the short row entirely.
+   *
+   * Padding with empty cells rather than one wide kern is what keeps the rules
+   * in it: each missing column contributes its own `leftRuleWidth` in the same
+   * order a written cell would have.
+   */
+  for (; col < layout.length; col++) {
+    if (!spend(ctx.budget)) break;
+    const c = layout[col]!;
+    const box =
+      c.align === "paragraph"
+        ? buildParagraphCell([], c.contentWidth, row.loc, ctx)
+        : buildPlainCell([], c.align, c.contentWidth, row.loc, ctx);
+    placements.push({ leftRuleWidth: c.leftRuleWidth, box, rightOverrideWidth: null });
+  }
+
   let rowHeight = 0;
   let rowDepth = 0;
   for (const p of placements) {

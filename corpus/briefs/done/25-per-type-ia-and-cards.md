@@ -1,6 +1,6 @@
 # Brief 25 — Atrium IA: per-type areas + per-media card shapes
 
-Promoted from [todos/rebrand-to-media-gallery.md](../../todos/rebrand-to-media-gallery.md).
+Promoted from `todos/rebrand-to-media-gallery.md`.
 The **structure layer** (after brief 24 brand). Splits the one unified gallery
 into per-type areas and gives each media type its native card shape.
 

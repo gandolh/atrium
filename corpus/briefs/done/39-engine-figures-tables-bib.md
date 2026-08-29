@@ -205,7 +205,7 @@ PNG chunk walk (bounds, CRC, overflow, no infinite loop), the JPEG marker walk
 bibliography's `[?]` + diagnostic on an unknown key — verified by running it.
 
 **Filed, not fixed:**
-[`BibliographyBlock.widestLabel` is parsed and never used](../../todos/bibliography-widest-label-unused.md).
+``BibliographyBlock.widestLabel` is parsed and never used`.
 
 **Known gap, minor:** `hasJpegEnd` scans the whole file for `FF D9`, so a
 truncated JPEG carrying an EXIF thumbnail (itself a complete JPEG) passes the

@@ -2,7 +2,7 @@
 
 ## Context
 
-From [todos/improve-loading-state.md](../../todos/improve-loading-state.md).
+From `todos/improve-loading-state.md`.
 Probed the live VPS deployment (2026-07-07; owner has the URL — never record
 it in git): clicking a
 cover card silently downloads the **whole file** (24MB EPUB) before anything

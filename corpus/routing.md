@@ -7,7 +7,7 @@ Synced with personal-skills **v0.29.0** (2026-08-24).
 - **Implement skill:** plan-split-dispatch
 - **Review skill:** code-review
 - **PR skill:** (none yet — local dev only)
-- **Issue tracker:** none — `corpus/todos/` + `corpus/briefs/` are the tracker
+- **Issue tracker:** none — `corpus/briefs/` is the tracker (one queue: `todo/` → `done/`)
 - **Code host:** none (local git only)
 
 ## Intent table
@@ -44,7 +44,7 @@ The corpus is the WHY; the code is the WHAT. Neither substitutes.
 | "Where does feature Y live?" / "who calls X?" | grep + read (no `codegraph` project skill here — corpus-flow §0b can bootstrap one) |
 | **"Did I get _every_ usage?"** (rename/refactor/delete) | **`grep -rnw`** — nothing else is exhaustive |
 | A correctness invariant (design tokens, contract drift) | run it: `npm run typecheck` + the design.md conformance checklist |
-| "Does it actually work in a browser?" | [test-plans/index.md](test-plans/index.md) + `playwright/` |
+| "Does it actually work in a browser?" | drive it: the `agent-browser` MCP tools + `playwright/` (repo root, gitignored). Record findings in [log.md](log.md); the `ui-test-plans` skill can scaffold written plans if a run needs them. |
 
 ## READ / SKIP / SKILLS
 | Area | READ | SKIP | SKILLS |

@@ -1,6 +1,6 @@
 # Brief 26 — Notes tab: paged notebook with ink + text boxes
 
-Promoted from [todos/notes-tab.md](../../todos/notes-tab.md). A new Notes
+Promoted from `todos/notes-tab.md`. A new Notes
 subsystem: a peer area (nav tab) where you draw + write on paged notes,
 Samsung-Notes-like, mobile + stylus friendly. Depends on brief 25's nav shell.
 

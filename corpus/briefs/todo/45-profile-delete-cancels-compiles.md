@@ -1,7 +1,8 @@
 # Task 45 — `DELETE /profiles/:id` must cancel the compiles it orphans
 
 **Promoted 2026-08-29** from
-[todos/profile-delete-orphans-compiles.md](../../todos/profile-delete-orphans-compiles.md),
+the `profile-delete-orphans-compiles` capture (retired 2026-08-29
+with `corpus/todos/`; this brief carries its full content),
 which was filed during brief 44's review. Pre-existing — brief 44 did not
 introduce it and deliberately did not fix it.
 

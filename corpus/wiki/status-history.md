@@ -1,5 +1,5 @@
 ---
-summary: Archive of Atrium's shipped phases through brief 35 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
+summary: Archive of Atrium's shipped phases through brief 38 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
 updated: 2026-08-29
 ---
 
@@ -7,9 +7,34 @@ updated: 2026-08-29
 
 Split out of [status.md](status.md) on 2026-08-26, when that page passed the
 corpus 200-line rule. It kept the current snapshot and the briefs table; this
-holds the narrative of everything that shipped through brief 35, newest first.
+holds the narrative of everything that shipped through brief 38, newest first.
 Nothing here has been rewritten — these are the entries as they were written at
 the time.
+
+---
+
+**2026-08-27 —** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
+write a multi-file project at `/latex`, compile it with **our own engine** (no
+TeX, no binary), preview the PDF beside the source, and **publish** it into the
+library as a document that accumulates **versions** — press publish ten times
+and you get ten versions on one card, verified on real data. Diagnostics carry
+file and line and clicking one jumps the caret; an unimplemented construct reads
+as *"not supported yet"* and is visibly distinct from a typo. The engine's
+purity means the remaining attack surface is one path-confinement module, which
+rejects traversal, absolutes, escaping symlinks and — the case naive
+implementations write straight through — **dangling** symlinks.
+
+10 chunks, 3 finders, **13 findings (3 Critical)**, all fixed. Every serious one
+crossed chunk boundaries and none tripped a gate: the compile preview
+overwriting the real reader's saved position, a stale cache reverting a saved
+edit, a fire-and-forget `flush()` letting publish immortalise stale bytes, and
+publish racing itself into two cards. Details in
+[briefs/done/38-latex-editor.md](../briefs/done/38-latex-editor.md) and
+[latex.md](latex.md).
+
+**Was known, now fixed:** `compile()` blocking the API process for its duration
+was brief 38's standing limitation. **Brief 44 closed it** — the engine is
+hosted on a `worker_thread` and `compile()`'s synchronous contract is unchanged.
 
 **Earlier (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
 Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and

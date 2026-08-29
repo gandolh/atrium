@@ -1,6 +1,6 @@
 # Brief 24 — Atrium rebrand: brand identity + design-system neutralization
 
-Promoted from [todos/rebrand-to-media-gallery.md](../../todos/rebrand-to-media-gallery.md)
+Promoted from `todos/rebrand-to-media-gallery.md`
 (name settled: **Atrium**). This is the **brand layer** — the first of the
 rebrand briefs (24 brand → 25 IA+cards → 26 notes). Scope is user-facing
 identity + the design-system *name/metaphor*, NOT structure (brief 25).

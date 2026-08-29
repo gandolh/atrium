@@ -141,7 +141,7 @@ broken by accident here.
 
 The 4 **orphan thumbnails** (image files with no matching `books` row) are real
 drift found while counting. Not this brief's problem — see
-[todos/orphan-thumbnails.md](../../todos/orphan-thumbnails.md).
+`todos/orphan-thumbnails.md`.
 
 ## Outcome (2026-08-29) — done, with the second axis corrected
 
@@ -226,4 +226,4 @@ the gate the first build needed: this brief's entire footprint is
 renders when there is no cover. `CoverCard.tsx` and `globals.css` are untouched
 since before it.
 
-Filed separately: [the 4 orphan thumbnails](../../todos/orphan-thumbnails.md).
+Filed separately: `the 4 orphan thumbnails`.

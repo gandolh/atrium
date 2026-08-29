@@ -3,7 +3,7 @@
 The front door. What lives where.
 
 ## Navigation
-- [CLAUDE.md](CLAUDE.md) — schema + conventions for this corpus
+- [../CLAUDE.md](../CLAUDE.md) — repo-root guide: project one-liner, corpus schema + conventions, design enforcement
 - [log.md](log.md) — chronological change record
 - [routing.md](routing.md) — orchestrate routing profile
 
@@ -26,21 +26,20 @@ Catalog generated from each page's `summary:` frontmatter — run
 - [pwa.md](wiki/pwa.md) — The PWA layer (briefs 19–20) — installable shell via vite-plugin-pwa/generateSW with prompt-mode updates, cover-only runtime caching, and offline reading via a three-store IndexedDB (metadata/blobs/progress) with explicit per-book downloads and last-write-wins progress sync.
 - [reader.md](wiki/reader.md) — The reader experience — PDF + EPUB renderers sharing one Kindle-style frame: nav, TOC, search, themes, progress rail, resume, a paged⇄scroll mode toggle, and a shared running header.
 - [status-history-v1.md](wiki/status-history-v1.md) — Archive of Atrium's earliest shipped phases — the v1 build through brief 23 (media library), July 2026. Split off status-history.md, which holds the more recent archive.
-- [status-history.md](wiki/status-history.md) — Archive of Atrium's shipped phases through brief 35 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
+- [status-history.md](wiki/status-history.md) — Archive of Atrium's shipped phases through brief 38 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
 - [status.md](wiki/status.md) — Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
 - [typeset-math.md](wiki/typeset-math.md) — How Atrium's engine sets mathematics — MathJax v4 SVG, the SVG-to-PDF emitter, the subset gate, and the three MathJax behaviours that had to be switched off (one of them a purity hole).
 - [typeset.md](wiki/typeset.md) — The typesetting engine — Atrium's own TypeScript LaTeX-subset compiler. Pipeline, what it sets (prose, floats, images, tables, bibliography), the scope line, the loud-failure contract, and why it performs no I/O.
 <!-- END wiki-catalog -->
 
 Triage on the summaries: read `index.md`, then **at most 2–3** wiki pages
-(the retrieval budget — see [CLAUDE.md](CLAUDE.md)).
+(the retrieval budget — see [../CLAUDE.md](../CLAUDE.md)).
 
 ## Work
-- [briefs/todo/](briefs/todo/) — ready-to-build specs
-- [briefs/done/](briefs/done/) — completed (immutable)
-- [todos/](todos/) — captured ideas (pre-spec)
+One queue. Capture and spec are the same act — a new idea is written straight
+into `briefs/todo/` as a numbered brief (see [../CLAUDE.md](../CLAUDE.md)).
 
-## Testing
-- [test-plans/index.md](test-plans/index.md) — browser test plans (TP-01…TP-05)
-- [test-plans/RESULTS.md](test-plans/RESULTS.md) — latest run outcome
-- `playwright/` (repo root, gitignored) — run hub: bring-up, fixtures, screenshots
+- [briefs/todo/](briefs/todo/) — everything not yet built, ready-to-build specs
+- [briefs/done/](briefs/done/) — completed (immutable)
+- [briefs/superseded/](briefs/superseded/) — replaced by a later brief
+

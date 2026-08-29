@@ -80,8 +80,8 @@ starts** — refusing to start otherwise. Verification is cheap; a silent defaul
 is not.
 
 Both original verification gaps closed on 2026-07-02 by the full Playwright run
-plus a live Calibre conversion (see
-[../test-plans/RESULTS.md](../test-plans/RESULTS.md)): the backend EPUB→PDF
+plus a live Calibre conversion (recorded in the since-retired
+`test-plans/RESULTS.md`; see [../log.md](../log.md) 2026-07-02): the backend EPUB→PDF
 round-trip was verified end to end, and both readers were rendered, exercised and
 screenshot-audited against real files — which is where the EPUB blank-render
 defect on real-world books was found.

@@ -1,7 +1,8 @@
 # Task 46 — A swallowed `setLatexCompileStatus` failure must not wedge an account
 
 **Promoted 2026-08-29** from
-[todos/swallowed-compile-status-write.md](../../todos/swallowed-compile-status-write.md),
+the `swallowed-compile-status-write` capture (retired 2026-08-29
+with `corpus/todos/`; this brief carries its full content),
 filed during brief 44's review. The code is **byte-identical to the pre-brief-44
 version**, so it is not that work's defect.
 

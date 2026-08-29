@@ -23,7 +23,7 @@ that gap so future perf work is measured, not guessed.
   capture navigation + resource timing and the cover→page-visible duration.
 - Optionally `.mcp.json` to register `chrome-devtools-mcp@<pin> --isolated` for
   Lighthouse/CWV/trace runs (see the `performance-analysis` skill).
-- A results doc under [corpus/test-plans/](../../test-plans/) or a `wiki/performance.md` page for the baseline numbers.
+- A results doc under `corpus/test-plans/` (retired 2026-08-29) or a `wiki/performance.md` page for the baseline numbers.
 
 ## Files you must NOT touch
 - App source — this brief only *measures*; fixes live in briefs 15–17.

@@ -79,7 +79,14 @@ environment's body is never read in math mode. Still refused by design:
 (profile delete must cancel the compiles it orphans — it can wedge an account's
 slot) and [brief 46](../briefs/todo/46-compile-status-write-failure.md) (a
 swallowed status write can wedge until restart). Both promoted from brief 44's
-review.
+review, and both re-confirmed unbuilt in the source on 2026-08-29. Then **47**
+(bibliography label width), **48** (orphan-thumbnail reaper) and **49–51**
+(notes: export, folders, ink tools).
+
+**Corpus housekeeping (2026-08-29):** `CLAUDE.md` moved to the **repo root** so
+the D33 checklist auto-loads; `HANDOFF.md` + `test-plans/` retired; and
+**`todos/` was merged into `briefs/todo/`** — one queue now, nine trail files
+deleted, five new briefs (47–51). See [../log.md](../log.md).
 
 **Earlier (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
 built on branch `briefs-44-42-39`.
@@ -129,30 +136,7 @@ addition to a package that has shipped with `pdf-lib` alone. **Not added,
 awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
 there is a real count of how many coverless videos survive brief 42's backfill.
 
-**Earlier (2026-08-27):** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
-write a multi-file project at `/latex`, compile it with **our own engine** (no
-TeX, no binary), preview the PDF beside the source, and **publish** it into the
-library as a document that accumulates **versions** — press publish ten times
-and you get ten versions on one card, verified on real data. Diagnostics carry
-file and line and clicking one jumps the caret; an unimplemented construct reads
-as *"not supported yet"* and is visibly distinct from a typo. The engine's
-purity means the remaining attack surface is one path-confinement module, which
-rejects traversal, absolutes, escaping symlinks and — the case naive
-implementations write straight through — **dangling** symlinks.
-
-10 chunks, 3 finders, **13 findings (3 Critical)**, all fixed. Every serious one
-crossed chunk boundaries and none tripped a gate: the compile preview
-overwriting the real reader's saved position, a stale cache reverting a saved
-edit, a fire-and-forget `flush()` letting publish immortalise stale bytes, and
-publish racing itself into two cards. Details in
-[briefs/done/38-latex-editor.md](../briefs/done/38-latex-editor.md) and
-[latex.md](latex.md).
-
-**Was known, now fixed:** `compile()` blocking the API process for its duration
-was brief 38's standing limitation. **Brief 44 closed it** — the engine is
-hosted on a `worker_thread` and `compile()`'s synchronous contract is unchanged.
-
-**Older entries** — every shipped phase through brief 35, with what each run
+**Older entries** — every shipped phase through brief 38, with what each run
 fixed and how it was verified — live in
 [status-history.md](status-history.md); entries move there as this page passes
 the 200-line rule. The dashboard is what is true *now*; the archive is how it
@@ -196,3 +180,8 @@ got here.
 | 44 | Host the typesetting engine on a worker thread | **done (2026-08-28)** |
 | 45 | `DELETE /profiles/:id` must cancel the compiles it orphans | **todo** |
 | 46 | A swallowed compile-status write must not wedge an account | **todo** |
+| 47 | Bibliography must size its label column from `widestLabel` | **todo** |
+| 48 | Reap orphan thumbnails on API startup | **todo** |
+| 49 | Notes: export a note to PDF and image | **todo** |
+| 50 | Notes: folders | **todo** |
+| 51 | Notes: a richer ink tool set (needs a design pass first) | **todo** |

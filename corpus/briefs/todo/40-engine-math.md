@@ -151,3 +151,92 @@ author can break it themselves, rather than silently running into the margin.
   runs with no filesystem or font-loading side effects, and that is asserted, not
   assumed.
 - **No UI.** `apps/web` and `apps/api` are unchanged by this brief.
+
+---
+
+## Corrections and settled calls (2026-08-29) — read these before building
+
+Grilled with the owner and probed against the real package. **These override the
+body above wherever they disagree.** Recorded as **D41**.
+
+### 1. The dependency is `mathjax@4.1.3`, not `mathjax-full@3.2.2`
+
+`mathjax-full` never left beta on its 4.x line, so 3.2.2 is a frozen branch.
+`mathjax` 4.x is the maintained distribution and exposes the same TeX → SVG
+conversion in Node. **Already installed** (`packages/typeset/package.json`).
+
+```js
+const { init } = await import("mathjax");
+const MathJax = await init({
+  loader: { load: ["input/tex", "output/svg"] },
+  svg: { fontCache: "none" },
+  tex: { packages: { "[-]": ["noundefined"] }, formatError: (jax, err) => { /* capture */ } },
+});
+const node = MathJax.tex2svg("x^2", { display: false });
+const svg = MathJax.startup.adaptor.outerHTML(node);
+```
+
+**Pin it exactly** (`"mathjax": "4.1.3"`, no caret) — this repo pins
+`perfect-freehand` and `music-metadata` the same way. npm installed it with a
+caret; fix that.
+
+**Footprint, measured:** ~70 MB on disk (`mathjax` 20 MB +
+`@mathjax/mathjax-newcm-font` 50 MB), not the 34.3 MB this brief costed. Only
+**~1 MB actually loads** (`@mathjax/mathjax-newcm-font/svg.js`); the rest is
+duplicate `mjs`/`cjs` builds and CHTML output this engine never touches. Still
+server-side only, so the browser payload stays zero. The owner accepted this.
+
+### 2. The SVG emitter is smaller than this brief says
+
+`fontCache: "none"` **inlines `<path>` data** — verified: no `<use>`, no
+`<defs>` in the output. So `src/pdf/svg.ts` needs paths and transforms and
+**not** `<use>`/`<defs>` resolution. Keep a guard that fails loudly if a `<use>`
+ever appears rather than silently dropping it.
+
+The container carries what placement needs: `style="vertical-align: -1.577ex"`
+for the baseline, `width`/`height` in `ex`, and a `viewBox` in font units.
+
+### 3. The font is New Computer Modern, and that is an improvement
+
+v4 defaults to `mathjax-newcm`, not v3's MathJax-TeX. The engine's text face is
+**Latin Modern**; both are Computer Modern derivatives, so math and text sit
+together *better* than this brief assumed. No action — just do not "fix" it.
+
+### 4. Undefined macros are SILENT by default — this is the contract risk
+
+MathJax's default package set includes `noundefined`, which renders an undefined
+control sequence as **red text with no error at all**. Left alone, that puts a
+silent wrong answer inside D38's loud-failure contract.
+
+**Drop it** (`packages: { "[-]": ["noundefined"] }`) and undefined macros become
+real errors catchable through `tex.formatError`, which yields
+`"Undefined control sequence \\unknowncmd"`. Verified both ways. `formatError`
+also catches syntax errors (`\frac{1}` → `"Missing argument for \\frac"`); it
+does **not** catch out-of-subset-but-valid constructs — that is §5's job.
+
+### 5. Math IS gated to this brief's In list (owner's call, D41)
+
+MathJax renders several things this brief lists as **Out** — `\begin{cases}` and
+`\DeclareMathOperator` both render clean. The owner chose to **gate anyway**:
+anything outside the In list is a diagnostic, even when MathJax could draw it.
+
+The recommendation was the opposite (accept MathJax's surface, treat Out as
+"not promised"), and the owner overrode it deliberately: a subset engine whose
+subset is not precisely knowable cannot honour D38's promise that an
+unimplemented construct *says so*. **Cost accepted: a maintained allowlist, and
+refusing constructs that demonstrably work.**
+
+Gate on the **MathML** (`MathJax.tex2mml`), not by regexing the TeX source —
+macros expand, so the source does not tell you what was actually used.
+
+### 6. Acceptance criterion 1 is replaced
+
+The brief asks for side-by-side comparison against a PDF from real LaTeX.
+**There is no TeX on this machine and D38's whole point is that Atrium depends on
+none**, so that criterion is unmeetable as written.
+
+**It is replaced by:** render a mathematics-carrying document, open it in brief
+38's preview, and **eyeball it in the virtual browser (agent-browser). If it
+looks good, it passes.** The owner set this bar explicitly. Everything else in
+Acceptance stands unchanged — especially *"every brief 37 and 39 golden still
+passes"*, which is not negotiable.

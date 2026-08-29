@@ -78,3 +78,67 @@ new kinds; changing the card shapes (2:3 / square / 16:9, D32); reopening D33.
 - Items with real art are pixel-unchanged.
 - design.md describes the rule that now applies.
 - `npm run typecheck`, `npm run build` and `npm test` clean.
+
+---
+
+## Settled calls (2026-08-29) — read these before building
+
+Grilled with the owner. **These override the body above wherever they disagree.**
+Recorded as **D42**.
+
+### 1. Step 1 was run, and the owner overrode its answer
+
+This brief says: *"Count the coverless items after brief 42. If there are three,
+close this brief as not worth doing."* Counted, from the real database
+(read-only copy) against `apps/api/images/thumbnails/`:
+
+| | count |
+|---|---|
+| total library rows | **5** |
+| **coverless videos** | **0** — the one video has a cover |
+| coverless items (both `audio`) | **2** |
+| orphan thumbnails (no matching row) | 4 |
+
+That is below this brief's own close-it threshold, and **zero** of them are the
+kind it was split out of brief 42 to serve. The recommendation was to close it.
+
+**The owner chose to build it anyway**, for the library they expect rather than
+the one they have. So the design target is **a large collection, not five
+items** — an axis that only works at today's size is a wrong answer here.
+
+### 2. The axis: title initial **and** bounded lightness, never hue (D42)
+
+- A **large title initial**, set in Newsreader, low-contrast over the tile.
+- Ground **lightness quantised to a few steps** from a title hash.
+- **Both stay inside the kind's own hue.** The hue never moves.
+
+D33's tint test therefore passes by construction: strip every badge and kind
+still reads, because kind is still carried by a hue nothing varies.
+
+**Two axes rather than one, deliberately** — at the scale the owner is building
+for, an initial alone repeats often across a big collection, and lightness alone
+collapses because adjacent steps are hard to separate in a dense grid. Together
+they stay separable where either alone would not.
+
+**Rejected:** a title-hash *hue* (breaks D33 — the whole tension this brief
+exists to resolve); lightness alone; a generated geometric mark (most
+distinctive, most code, most ways to look cheap across two themes).
+
+### 3. Verification, given there is almost nothing coverless to look at
+
+Two coverless rows is not a grid. **Seed fixtures rather than testing against
+live data** — and per D39 redirect **every** storage root at a scratch base
+together, which is the capability brief 41 built. Never act on a library row
+that was already there: that is the mistake that destroyed a real book on
+2026-08-25.
+
+Check a **full grid** of same-kind coverless tiles in **both themes**, and run
+D33's tint test explicitly with badges stripped. Items that have real art must
+be **pixel-unchanged** — that acceptance criterion is the one most likely to be
+broken by accident here.
+
+### 4. Out of scope, filed separately
+
+The 4 **orphan thumbnails** (image files with no matching `books` row) are real
+drift found while counting. Not this brief's problem — see
+[todos/orphan-thumbnails.md](../../todos/orphan-thumbnails.md).

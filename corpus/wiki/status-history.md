@@ -11,6 +11,33 @@ holds the narrative of everything that shipped through brief 35, newest first.
 Nothing here has been rewritten — these are the entries as they were written at
 the time.
 
+**Earlier (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
+Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and
+not any TeX: `packages/typeset` takes a `.tex` file map and returns PDF bytes as
+a pure function with no filesystem, network or processes. That purity *is* the
+sandbox — `\write18` cannot execute because no shell escape is written, and
+`\input{/etc/passwd}` has no filesystem to reach. 10,708 lines of engine, 5,335
+of tests, **332 tests** — the repo's first test suite. Prose, sections, ToC,
+lists, footnotes, cross-references, `\newcommand` and verbatim all set
+correctly; figures/tables/bibliography are brief 39 and math is brief 40, and
+every construct outside the subset reports a diagnostic with file and line
+rather than failing silently. Details in
+[briefs/done/37-engine-foundation.md](../briefs/done/37-engine-foundation.md)
+and [typeset.md](typeset.md).
+
+**Earlier (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
+testing is finally sandboxable.** All three storage roots are env overrides, so
+a scratch database and scratch files move together; the `file_path`/`cover_path`
+columns are **dropped** and every location derives from `paths.ts`. `hasCover`
+is now a disk `stat`, which makes DB/disk drift unrepresentable and deleted
+`reconcileMissingCovers` outright. The offline store is at **v5** with the field
+renamed `fraction` → `progress`. The review's best catch was against the brief
+itself: dropping a stored path *unread* destroys the only record of where a
+misplaced file actually is, so the migration now warns and names every drifted
+row first. **Your real database is untouched — it migrates on the next API
+boot**, and note it is still pre-brief-34, so that boot runs two briefs'
+migrations at once (tested together, converges cleanly).
+
 **Earlier (2026-08-27):** 🧭 **Grill session — every open question closed.**
 The three threads in [open-questions.md](open-questions.md), two of them open
 since July, are now **D39** and **D40** and are specified as briefs 41–43. The

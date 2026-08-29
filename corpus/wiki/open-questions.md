@@ -47,6 +47,38 @@ are now decisions, not questions** — see **D39** and **D40** in
   to test a destructive path upload a throwaway fixture and act on that, never on
   a row that was already there.
 
+## Incident: the API was booted against the real library (2026-08-29)
+
+**No data was lost, and the cause is worth more than the outcome.**
+
+Verifying briefs 40 and 43 in a browser needs the app running, so all five
+storage roots were redirected at a scratch base — the control D39 created — and
+written to a `env.sh` in the session scratchpad. The session was then
+interrupted by a quota limit. **On resuming, the scratchpad had been wiped**, so
+`. env.sh` failed, the `export`s never ran, and the dev servers started with
+their *default* roots: the real database, the real files, the real thumbnails.
+
+That boot applied briefs 34 and 41's pending migrations to the real library.
+Those migrations were already designed to run on the owner's next boot and had
+been tested end to end against a copy (see
+[brief 41](../briefs/done/41-storage-paths.md)), and they converged exactly as
+predicted: **5 books, 9 files, 7 thumbnails, 3 users, 4 profiles, 9 progress
+rows and 2 notes all intact**, `converted_from` added and `file_path` dropped.
+So the damage was nil and the migration was arguably due — but it was
+*unintentional*, which is the whole point.
+
+**What actually failed was the control's failure mode, not the control.**
+Sourcing the redirect from a file makes it *silently* optional: if the file
+vanishes, the command still succeeds and the servers still start, just pointed
+somewhere else. A redirect that can quietly not apply is not much better than no
+redirect, and this is the same hazard class that destroyed a book on 2026-08-25.
+
+**The practice this replaces the old one with:** set the roots **inline in the
+command that starts the server**, never sourced from a file that can disappear,
+and **assert every one of them resolves inside the scratch base before anything
+starts** — refusing to start otherwise. Verification is cheap; a silent default
+is not.
+
 Both original verification gaps closed on 2026-07-02 by the full Playwright run
 plus a live Calibre conversion (see
 [../test-plans/RESULTS.md](../test-plans/RESULTS.md)): the backend EPUB→PDF

@@ -194,11 +194,36 @@ The owner chose to build it anyway, for the library they expect rather than the
 one they have. So it is designed for scale — which is exactly why two axes
 survived the correction rather than collapsing to the initial alone.
 
-### Not done
+### The browser run (2026-08-29, later) — and what it caught
 
-**No live browser check on a real grid**, which this brief's acceptance asks for
-in both themes. There are only two coverless items in the library, so a real
-grid does not exist to look at; the variants were verified through the compiled
-CSS and by reasoning about a large collection. Recorded as a verification gap.
+The gap this section used to record was closed by seeding **18 coverless
+fixtures** across all three kinds into a sandboxed database, and doing so found
+a defect that **nothing else could have**: the markup was correct, the classes
+compiled, and the feature was **invisible in every theme**.
+
+18 spans existed, correctly hashed to their size and corner variants, at
+72–128 px with real 55×72 boxes and computed visibility `true`. They simply
+could not be seen. **`-z-10` was the cause.** The letter lives in
+`CoverFallback`, but the tinted ground is painted by an *ancestor* —
+`CoverCard`'s `bg-tint-{kind}` — so a negative z-index put the letter behind
+that background rather than behind its own siblings. The whole feature rendered
+underneath the tile.
+
+Fixed by dropping the negative z and making the glyph and title `relative`
+instead: they come later in DOM order, so among positioned elements they paint
+over the initial without it having to go behind the ground.
+
+**Verified in both themes on a real grid.** Light: every initial visible and
+distinct — A B C D E F G H I J K L M N O P Q R — each at its own hashed size and
+corner, subtle enough not to compete with the title beneath it. Dark: initials
+read as light letterforms on the warm ground, kind tints still separate the
+three kinds, and nothing reads sour. D33's tint test passes in both **by
+construction**, since this brief does not touch the ground at all.
+
+**The has-artwork path is unchanged by construction**, which is stronger than
+the gate the first build needed: this brief's entire footprint is
+`CoverFallback.tsx` and `cover-initial-variant.ts`, and `CoverFallback` only
+renders when there is no cover. `CoverCard.tsx` and `globals.css` are untouched
+since before it.
 
 Filed separately: [the 4 orphan thumbnails](../../todos/orphan-thumbnails.md).

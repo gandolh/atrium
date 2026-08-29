@@ -38,17 +38,48 @@ rather than kind — the exact D33 inversion the brief exists to prevent. No mix
 value works; the palette is near-achromatic. Both axes now sit on the
 letterform and the ground is untouched.
 
-**Two verification gaps, recorded as such:** brief 40's math was driven through
-the engine directly rather than through brief 38's editor in a live browser, and
-brief 43 has no real coverless grid to look at (the library holds 2 coverless
-items). Neither is a claim that they were checked.
+**Both verification gaps were then closed in a browser, and each caught a defect
+nothing else could have.**
 
-**Open, deliberately:** the math gate is literal about brief 40's In list, so
-`\displaystyle`, `\boldsymbol`, `\mathfrak`, `smallmatrix`/`multline`/
-`alignat`/`eqnarray` and friends are refused despite rendering fine — D41's
-accepted cost, each a one-line widening. `gather*` and `\begin{math}` are
-refused while `align*` and `\(…\)` work; those two read as brief transcription
-slips rather than decisions, and were left unchanged pending the owner.
+**Brief 40 shipped an engine the app could not use.** Every engine test passed
+and the rasterised PDF looked right, yet the preview reported *"8 errors — math
+typesetting is brief 40, a separate future brief"*: `apps/api` imports the
+**built** package and `dist/` was a day stale, and `latex-worker.ts` never
+injected the renderer at all. **The brief's own "do not touch `apps/api`" made
+its headline acceptance unreachable** — brief 38 needed no change to show new
+*diagnostics*, which is not the same as rendering. Fixed; measured cost
+prose-only 867 ms, math 996 ms.
+
+**Brief 43's initial was rendering behind the tile.** 18 correctly-hashed spans
+existed at full size with computed visibility `true`, and were invisible in
+every theme: `-z-10` put the letter behind the *ancestor's* tinted ground rather
+than behind its own siblings. Fixed, then verified on a seeded 18-item grid in
+light and dark.
+
+**An incident, no data lost:** resuming after a quota interruption, the
+scratchpad holding the storage-root redirects had been wiped, so the dev servers
+booted against the **real** library and applied briefs 34 and 41's pending
+migrations. They were due and had been tested against a copy, and everything
+survived — 5 books, 9 files, 7 thumbnails, all user data. But it was
+unintentional, and the lesson is that **a redirect sourced from a file is
+silently optional**: set the roots inline and assert them before starting. See
+[open-questions.md](open-questions.md).
+
+**The math gate was widened** on the owner's call: `gather*`, `\displaystyle`
+and `\boldsymbol` are now admitted. `\boldsymbol` turned out to be a real bug
+rather than a scope question — it reported `undefined-command`, because
+MathJax's base input lacks it and `autoload` is dropped, so ordinary amsmath
+read as a thing that does not exist. `\begin{math}` was admitted and **not
+delivered**: it is a parser-mode problem, not a table entry, since an
+environment's body is never read in math mode. Still refused by design:
+`\mathsf`, `\mathtt`, `\mathfrak`, `smallmatrix`, `multline`, `alignat`,
+`eqnarray` — D41's accepted cost, each a one-line widening.
+
+**Next:** [brief 45](../briefs/todo/45-profile-delete-cancels-compiles.md)
+(profile delete must cancel the compiles it orphans — it can wedge an account's
+slot) and [brief 46](../briefs/todo/46-compile-status-write-failure.md) (a
+swallowed status write can wedge until restart). Both promoted from brief 44's
+review.
 
 **Earlier (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
 built on branch `briefs-44-42-39`.
@@ -121,33 +152,6 @@ publish racing itself into two cards. Details in
 was brief 38's standing limitation. **Brief 44 closed it** — the engine is
 hosted on a `worker_thread` and `compile()`'s synchronous contract is unchanged.
 
-**Earlier (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
-testing is finally sandboxable.** All three storage roots are env overrides, so
-a scratch database and scratch files move together; the `file_path`/`cover_path`
-columns are **dropped** and every location derives from `paths.ts`. `hasCover`
-is now a disk `stat`, which makes DB/disk drift unrepresentable and deleted
-`reconcileMissingCovers` outright. The offline store is at **v5** with the field
-renamed `fraction` → `progress`. The review's best catch was against the brief
-itself: dropping a stored path *unread* destroys the only record of where a
-misplaced file actually is, so the migration now warns and names every drifted
-row first. **Your real database is untouched — it migrates on the next API
-boot**, and note it is still pre-brief-34, so that boot runs two briefs'
-migrations at once (tested together, converges cleanly).
-
-**Earlier (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
-Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and
-not any TeX: `packages/typeset` takes a `.tex` file map and returns PDF bytes as
-a pure function with no filesystem, network or processes. That purity *is* the
-sandbox — `\write18` cannot execute because no shell escape is written, and
-`\input{/etc/passwd}` has no filesystem to reach. 10,708 lines of engine, 5,335
-of tests, **332 tests** — the repo's first test suite. Prose, sections, ToC,
-lists, footnotes, cross-references, `\newcommand` and verbatim all set
-correctly; figures/tables/bibliography are brief 39 and math is brief 40, and
-every construct outside the subset reports a diagnostic with file and line
-rather than failing silently. Details in
-[briefs/done/37-engine-foundation.md](../briefs/done/37-engine-foundation.md)
-and [typeset.md](typeset.md).
-
 **Older entries** — every shipped phase through brief 35, with what each run
 fixed and how it was verified — live in
 [status-history.md](status-history.md); entries move there as this page passes
@@ -185,8 +189,10 @@ got here.
 | 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
 | 38 | LaTeX editor: projects, compile, publish, versions | **done (2026-08-27)** |
 | 39 | Engine: figures, tables, bibliography | **done (2026-08-29)** |
-| 40 | Engine: math (MathJax v4 SVG → PDF, gated subset — D41) | **done (2026-08-29)** |
+| 40 | Engine: math (MathJax v4 SVG → PDF, gated subset — D41) | **done (2026-08-29)**, browser-verified |
 | 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **done (2026-08-27)** |
 | 42 | Video covers, decoded in the browser (D40) | **done (2026-08-28)** |
-| 43 | Readable tiles for coverless media (D42) | **done (2026-08-29)** |
+| 43 | Readable tiles for coverless media (D42) | **done (2026-08-29)**, browser-verified |
 | 44 | Host the typesetting engine on a worker thread | **done (2026-08-28)** |
+| 45 | `DELETE /profiles/:id` must cancel the compiles it orphans | **todo** |
+| 46 | A swallowed compile-status write must not wedge an account | **todo** |

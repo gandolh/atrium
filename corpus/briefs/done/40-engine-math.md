@@ -344,7 +344,43 @@ nested fraction (16.42pt), the baseline gap **opens from 12pt to 13.85pt** with
 gaps seen elsewhere are correct, because a *textstyle* fraction is small enough
 not to trigger it. `pushBox` had it right.
 
-**Not done:** the compile was driven through the engine directly rather than
-through brief 38's editor in a live browser. The integration path either side
-is brief 38's shipped code and is unchanged by this brief, but that is a
-verification gap and is recorded as one.
+### The browser run (2026-08-29, later) — and what it caught
+
+The gap above was closed, and closing it found a defect **nothing else could
+have**: every engine test passed, the rasterised PDF looked right, and **math
+still did not work in Atrium.** The preview reported *"8 errors — this engine
+does not implement `$...$`, math typesetting is brief 40, a separate future
+brief."*
+
+Two causes, both invisible from inside `packages/typeset`:
+
+1. `apps/api` imports the **built** package, and `packages/typeset/dist` was
+   stale (Aug 28, pre-brief-40) — the app was running the previous day's
+   engine, which is where that message came from. It no longer exists in `src`.
+2. **`latex-worker.ts` never injected a `MathRenderer`.** `compile()` is sync
+   while `createMathRenderer()` is async, so the renderer has to be built and
+   passed in the way fonts already are, and nothing did it.
+
+**This brief's "Files you must NOT touch" was wrong**, and the reasoning it gave
+says why: brief 38 *"already displays whatever diagnostics this produces; it
+needs no change to show new ones."* True of diagnostics, false of rendering. The
+brief's own headline acceptance — a math document checked by eye in brief 38's
+preview — was **unreachable** without an `apps/api` change. Fixed there, with
+brief 44's rule re-checked: `latex-worker.ts` still has zero relative imports
+into `apps/api`.
+
+**Cost, measured end to end through the real API:** prose-only **867 ms**, math
+**996 ms** warm and **1387 ms** cold. So math rendering itself is ~130 ms and
+the ~210 ms of renderer construction is what now lands on prose compiles too.
+The renderer is built **unconditionally**: a source scan for `$` would recover
+that, but it would be a *guess* about what expansion produces, and being wrong
+means a valid document reporting "no math renderer was supplied" — a confusing
+error on correct input. Sub-second on an explicit button press is the better
+trade, and the cost lands on the worker thread rather than the API's, which is
+what brief 44 bought.
+
+**Verified in the browser**, on a sandboxed database: a document with an inline
+quadratic formula, a numbered display, `\ref` to it, growing delimiters, a
+`pmatrix`, `\boldsymbol` and `gather*` compiles to one page with **exactly one
+warning** — the pre-existing "no `\date` was given", which is brief 37 behaviour
+and not math.

@@ -1,5 +1,73 @@
 # Log
 
+## [2026-08-29] verify | Briefs 40 and 43 checked in a browser — two defects that nothing else could have caught
+
+Both briefs had been closed with a recorded verification gap. Closing those gaps
+found a real defect in **each**, and in both cases every other signal was green:
+tests passed, typecheck passed, the rendered artefact looked right.
+
+**Brief 40 shipped an engine the app could not use.** The preview reported *"8
+errors — this engine does not implement `$...$`, math typesetting is brief 40, a
+separate future brief"*. Two causes, both invisible from inside
+`packages/typeset`: `apps/api` imports the **built** package and `dist/` was a
+day stale, and `latex-worker.ts` never injected a `MathRenderer` — `compile()`
+is sync while `createMathRenderer()` is async, so it has to be passed in the way
+fonts are, and nothing did it.
+
+**The brief's own "Files you must NOT touch: apps/api" made its headline
+acceptance unreachable.** Its reasoning — brief 38 "already displays whatever
+diagnostics this produces; it needs no change to show new ones" — is true of
+diagnostics and false of rendering. Fixed in the worker, with brief 44's rule
+re-checked: still zero relative imports into `apps/api`. Measured end to end,
+prose-only **867 ms**, math **996 ms** warm, **1387 ms** cold; the renderer is
+built unconditionally because a source scan for `$` would be a *guess* about
+what expansion produces, and being wrong means a valid document reporting "no
+math renderer was supplied".
+
+**Brief 43's title initial was rendering behind the tile.** 18 correctly-hashed
+spans existed at 72–128 px with real boxes and computed visibility `true`, and
+were invisible in every theme. `-z-10` put the letter behind the **ancestor's**
+tinted ground — `CoverCard` paints it, not `CoverFallback` — rather than behind
+its own siblings. Fixed by dropping the negative z and making the glyph and
+title `relative`; verified on a seeded 18-item grid in light and dark, with
+D33's tint test passing by construction since the ground is untouched.
+
+**The math gate was widened** on the owner's call: `gather*`, `\displaystyle`,
+`\boldsymbol`. `\boldsymbol` was a real bug rather than a scope question — it
+reported `undefined-command` because MathJax's base input lacks it and
+`autoload` is dropped, so ordinary amsmath read as a thing that does not exist;
+fixed by naming both the component and the package at init. `\begin{math}` was
+admitted and **not delivered**: an environment's body is never parsed in math
+mode, so it is a parser change rather than a widening, and it stays refused with
+a message naming the spelling that works.
+
+**Incident — the API was booted against the real library, no data lost.**
+Resuming after a quota interruption, the scratchpad holding the storage-root
+redirects had been wiped, so `. env.sh` failed silently and the servers started
+with default roots. That applied briefs 34 and 41's pending migrations to the
+real database. They were due, had been tested against a copy, and converged as
+predicted — 5 books, 9 files, 7 thumbnails, 3 users, 4 profiles, 9 progress rows
+and 2 notes all intact. **What failed was the control's failure mode, not the
+control**: a redirect sourced from a file is *silently optional*, because if the
+file vanishes the command still succeeds and the servers still start, just
+pointed somewhere else. The practice is now to set the roots inline in the
+command that starts the server and assert every one resolves inside the scratch
+base before anything starts. Recorded in
+[wiki/open-questions.md](wiki/open-questions.md).
+
+**Filed:** [brief 45](briefs/todo/45-profile-delete-cancels-compiles.md) and
+[brief 46](briefs/todo/46-compile-status-write-failure.md), promoted from brief
+44's review — both can wedge an account's compile slot.
+
+**The pattern across this whole run, worth stating once:** three of the four
+defects found were **diagnostic-free wrong pictures** — a short `tabular` row, a
+silently-dropped formula, an invisible initial. None of them could be caught by
+the loud-failure contract, because in each case nothing was unimplemented and so
+nothing had anything to report. Geometry needs assertions on coordinates, every
+dispatcher over a union needs a `never` guard, and a feature is not verified
+until someone has looked at it in the product.
+
+
 ## [2026-08-29] build | Briefs 40 and 43 shipped — the brief backlog is empty
 
 Every brief 01–44 is now in `briefs/done/` or `superseded/`. **637 tests** (from

@@ -1,10 +1,12 @@
 ---
 title: A swallowed setLatexCompileStatus failure can wedge an account until restart
 created: 2026-08-29
-status: open
+status: promoted
 tags: [backend, latex, durability, bug]
 ---
 
+
+> Promoted 2026-08-29 → [brief 46](../briefs/todo/46-compile-status-write-failure.md).
 # A swallowed `setLatexCompileStatus` failure can wedge an account until restart
 
 Found during **brief 44**'s review and deliberately left: the code is

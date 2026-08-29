@@ -1,10 +1,12 @@
 ---
 title: DELETE /profiles/:id never cancels the compiles on the profile it deletes
 created: 2026-08-29
-status: open
+status: promoted
 tags: [backend, latex, profiles, cleanup, bug]
 ---
 
+
+> Promoted 2026-08-29 → [brief 45](../briefs/todo/45-profile-delete-cancels-compiles.md).
 # `DELETE /profiles/:id` never cancels the compiles on the profile it deletes
 
 Found during **brief 44**'s review and deliberately left — it is a pre-existing

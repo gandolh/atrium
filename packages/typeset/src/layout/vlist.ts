@@ -898,18 +898,31 @@ function flushPendingPrefix(col: Column, baselineSkip: number): void {
   pushBox(col, hpack(prefix, "natural").box, baselineSkip, 0);
 }
 
-function layoutList(block: ListBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+function layoutList(
+  block: ListBlock,
+  col: Column,
+  ctx: LayoutContext,
+  env: BlockEnv,
+  leftMarginOverride?: number,
+): void {
   // `env` is the *enclosing* environment — an outer item's, when this list is
   // nested inside one — so this sets the stranded label at the size and
   // baseline the item it belongs to is being set at.
   flushPendingPrefix(col, env.size.baselineSkip);
   const spacing = listSpacing(ctx.design, block.depth);
+  // `leftMarginOverride` is `layoutBibliography`'s measured column width for a
+  // `thebibliography` whose `widestLabel` was given — see that function's own
+  // doc comment. Every other caller leaves it `undefined` and gets exactly the
+  // fixed per-depth geometry `listSpacing` has always returned; `labelSep`
+  // never changes, only how far it is from the margin.
+  const leftMargin = leftMarginOverride ?? spacing.leftMargin;
+  const labelWidth = leftMargin - spacing.labelSep;
   addVspace(col, spacing.topSep, spacing.topStretch, spacing.topShrink);
 
   const inner: BlockEnv = {
     ...env,
-    measure: env.measure - spacing.leftMargin,
-    left: env.left + spacing.leftMargin,
+    measure: env.measure - leftMargin,
+    left: env.left + leftMargin,
     parSkip: spacing.parSep,
     parSkipStretch: spacing.parStretch,
     parSkipShrink: spacing.parShrink,
@@ -922,7 +935,7 @@ function layoutList(block: ListBlock, col: Column, ctx: LayoutContext, env: Bloc
     // asymmetric (`4pt plus2pt minus1pt` at depth 1), so neither is a function
     // of the other or of `\parsep`.
     if (i > 0) addVspace(col, spacing.itemSep, spacing.itemStretch, spacing.itemShrink);
-    layoutItem(block, block.items[i] as ListItem, col, ctx, inner, spacing.labelWidth, spacing.labelSep);
+    layoutItem(block, block.items[i] as ListItem, col, ctx, inner, labelWidth, spacing.labelSep);
   }
 
   addVspace(col, spacing.topSep, spacing.topStretch, spacing.topShrink);
@@ -1648,17 +1661,79 @@ function layoutDisplayMath(block: DisplayMathBlock, col: Column, ctx: LayoutCont
 
 /**
  * The reference list. `BibliographyBlock.content` is ordinary blocks, produced
- * by `doc/bib.ts` (chunk 39.5) — so there is no bibliography layout here at
- * all, by design: a numbered reference list is paragraphs with a hanging label,
- * and this file already sets those.
+ * by `doc/bib.ts` (chunk 39.5) — so there is no bibliography *content* layout
+ * here at all, by design: a numbered reference list is paragraphs with a
+ * hanging label, and this file already sets those through the ordinary `list`
+ * arm (`referenceList` in `doc/bib.ts` hands back an `enumerate`).
  *
- * Empty until that chunk lands. Not a silent nothing: `formatBibliography`
- * reported the gap at the `\bibliography`'s own line while the document was
- * being built, which is where an author can act on it.
+ * What *is* this function's job (brief 47): the label column's width.
+ * `\begin{thebibliography}{widestLabel}`'s argument is the widest label real
+ * LaTeX will print, and `\thebibliography`'s own definition
+ * (`\settowidth\labelwidth{\@biblabel{#1}}`) sizes `\labelwidth` — and so
+ * `\leftmargin` — from it. `doc/build.ts` already parses that argument into
+ * `block.widestLabel`; nothing read it before this, so `layoutList`'s
+ * `enumerate` arm sized the column off `listSpacing`'s fixed per-depth table
+ * instead, which is only right by coincidence for one- and two-digit labels.
+ *
+ * The fix measures `[widestLabel]` — brackets included, because
+ * `\@biblabel{#1}` prints `[#1]` and the brackets are part of the width being
+ * reserved — exactly as `layout/table.ts`'s `measureColumns` measures a
+ * column: shape it as one unbroken horizontal list and take its natural
+ * width. That width plus `\labelsep` becomes *this* list's `leftMargin`,
+ * passed down as `layoutList`'s override rather than folded into
+ * `listSpacing`, which stays exactly as every other list (`itemize`,
+ * `enumerate`, `description`) already uses it — none of those carry a
+ * declared widest label, and their fixed margins are correct LaTeX.
+ *
+ * `widestLabel: null` — no argument, or an empty one — measures nothing and
+ * keeps today's fixed geometry, because measuring an empty string would give
+ * a zero-width column and jam the numbers straight into the text.
  */
 function layoutBibliography(block: BibliographyBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
   if (block.content.length === 0) return;
-  layoutBlocks(block.content, col, ctx, env);
+
+  const measuredWidth = block.widestLabel === null ? null : measureWidestLabel(block.widestLabel, ctx, env, block.loc);
+  if (measuredWidth === null) {
+    layoutBlocks(block.content, col, ctx, env);
+    return;
+  }
+
+  // `block.content` is exactly `[referenceHeading(...), referenceList(...)]`
+  // (see `doc/bib.ts`'s `formatBibliography`) — a "References" heading and
+  // the one `list` block whose column this measurement is for. Everything
+  // that is not that list goes through the ordinary dispatcher unchanged;
+  // only the list gets the measured override.
+  for (const child of block.content) {
+    if (!spend(ctx.budget)) return;
+    if (child.kind === "list") {
+      const labelSep = listSpacing(ctx.design, child.depth).labelSep;
+      layoutList(child, col, ctx, env, measuredWidth + labelSep);
+      continue;
+    }
+    layoutBlock(child, col, ctx, env);
+  }
+}
+
+/**
+ * Measure `\begin{thebibliography}{widestLabel}`'s argument the way it will
+ * actually print — `[999]`, not `999` — by shaping it as one unbroken
+ * horizontal list and taking its natural width, exactly as `layout/table.ts`'s
+ * `measureColumns` measures a column's widest cell. One `spend` charges the
+ * measurement so a pathological `{...}` argument cannot be measured for free;
+ * `null` (budget exhausted, or nothing shaped) tells the caller to fall back
+ * to the fixed geometry rather than treat an empty measurement as zero width.
+ */
+function measureWidestLabel(widestLabel: string, ctx: LayoutContext, env: BlockEnv, at: SourceRef): number | null {
+  if (!spend(ctx.budget)) return null;
+  const inline: Inline = { kind: "text", text: `[${widestLabel}]`, style: DEFAULT_TEXT_STYLE, loc: at };
+  const nodes = inlinesToHList([inline], ctx, {
+    size: env.size.size,
+    at,
+    allowFootnotes: false,
+    footnotesRefusedIn: "in a bibliography's widest-label measurement",
+  });
+  if (nodes.length === 0) return null;
+  return measureNodes(nodes, "h").natural;
 }
 
 /**

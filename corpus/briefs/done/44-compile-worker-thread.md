@@ -84,3 +84,50 @@ account); moving anything else off the main thread.
   disk, the last-good PDF surviving a failure.
 - Works in `npm run dev` **and** from `dist/`.
 - Typecheck + build + tests clean.
+
+## Outcome (2026-08-28) — done
+
+**The engine now runs on a `worker_thread`, and cancel is real.**
+`latex-compile.ts` spawns [`latex-worker.ts`](../../../apps/api/src/latex-worker.ts)
+**per compile** and awaits its result; `compile()` itself is untouched — its
+synchronous contract was never the problem, only where it ran.
+
+**Acceptance, on controller-run evidence.** A rig drove
+`apps/api/dist/latex-worker.js` directly and measured main-thread heartbeats
+during a long compile: a **10.4 s** compile left the spawning thread with **514
+heartbeats, worst extra gap 1 ms**. Cancel was demonstrated rather than
+asserted — a `DELETE` on a running compile terminates the worker mid-engine
+instead of waiting out `LATEX_TIMEOUT_MS`.
+
+**Worker-per-compile, not a reused worker — a ruling, not an implementation
+detail.** A reused worker cannot be `terminate()`d without destroying the next
+compile's host, so stopping it has to be *cooperative*, which is precisely what
+cannot work against a synchronous engine that never yields to a flag. A fresh
+worker can simply be killed. Real cancellation is this brief's point, and the
+reused-worker design forecloses it.
+
+**`latex-worker.ts` must keep zero relative imports into `apps/api`.** It may be
+loaded by plain Node type-stripping rather than tsx, where this package's
+`.js`-suffixed specifiers do not resolve — dev would break while `dist/` worked.
+Values go through `LatexWorkerRequest` instead. Verified in `npm run dev` and
+from `dist/`.
+
+**Review: 3 finders, 3 Important findings, all fixed.** The one worth carrying
+forward: a "re-check the flag" fix on a synchronous-resume path **needs an
+`await`**. The microtask queue drains fully before any timer or I/O callback, so
+a re-check with nothing to yield on cannot observe a flag that an inbound
+*request* set. This was proven with a three-way rig after the controller
+specified the fix wrongly the first time.
+
+**A cancel is never offered where it cannot be taken.** A sibling profile's
+project 404s at the cancel route, so `busyMessage`'s third branch makes no
+offer; and the 409 for a slot held only in-process omits `runningProjectId`,
+because that id addresses a project that no longer exists.
+
+**Found, deliberately not fixed** (filed as todos, both pre-existing and
+byte-identical to the pre-brief-44 code):
+
+- [`DELETE /profiles/:id` never cancels the compiles on the profile it deletes](../../todos/profile-delete-orphans-compiles.md)
+  — the **root cause** of one of this brief's findings. Brief 44 fixed only the
+  mis-reporting; the slot stays uncancellable until it ends on its own.
+- [a swallowed `setLatexCompileStatus` failure can wedge an account until restart](../../todos/swallowed-compile-status-write.md).

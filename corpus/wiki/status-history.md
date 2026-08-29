@@ -1,15 +1,36 @@
 ---
-summary: Archive of Atrium's shipped phases before brief 35 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
-updated: 2026-08-26
+summary: Archive of Atrium's shipped phases through brief 35 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
+updated: 2026-08-29
 ---
 
 # Status history
 
 Split out of [status.md](status.md) on 2026-08-26, when that page passed the
 corpus 200-line rule. It kept the current snapshot and the briefs table; this
-holds the narrative of everything that shipped before brief 35, newest first.
+holds the narrative of everything that shipped through brief 35, newest first.
 Nothing here has been rewritten — these are the entries as they were written at
 the time.
+
+**Earlier (2026-08-25):** ✅ **Brief 35 shipped — profiles.** An account is now
+a household and a **profile** is a person in it (D35): reading progress, notes
+and four reading preferences moved from user scope to profile scope, switching
+is one tap with no credential, and the picker returns after 24h idle. Built via
+orchestrate → plan-split-dispatch in 3 waves (7 chunks, 3 senior / 4 junior).
+The `reading_progress` rebuild — SQLite cannot ALTER a composite PK — landed all
+8 live rows and both notes on the right Default profile with zero loss, proven
+against a copy before the real DB was touched.
+
+Three scoped finders caught **10 findings (3 Critical)**, all fixed but one
+Minor. Every Critical crossed chunk boundaries and none tripped the gates: a
+switch leaving the reader loaded so one profile's page was written to another's
+row; an offline boot hanging forever on the picker gate; and the preferences
+boot cache flashing the wrong theme on exactly the load its fallback existed
+for. Details in [briefs/done/35-profiles.md](../briefs/done/35-profiles.md).
+
+**Known and accepted:** the account's default profile cannot be deleted (rename
+works); a session whose profile is deleted from another device silently reads as
+Default until reload. **This repo still has no test suite**, which is again why
+the review pass carried the weight.
 
 **Earlier (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
 built, reviewed and committed on `reading-room-rework` (not merged; owner

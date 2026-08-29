@@ -1,6 +1,6 @@
 ---
 summary: The enforced "Reading Room" visual language (D33) — warm neutrals, four kind tints, the Newsreader/Archivo type split, motion rules, and the frontend conformance checklist. Replaces Quiet Paper.
-updated: 2026-08-27
+updated: 2026-08-29
 ---
 
 # Design — "Reading Room"
@@ -129,7 +129,10 @@ shadow only on cards and the Aa panel. Modals keep the `12px` backdrop blur.
 - **Filter chips:** 20px radius, `line` border on `paper-raised`; active chip
   inverts to `ink-fill`. Count sets in Archivo tabular at 55% opacity.
 - **Tiles:** `tint-*` ground by kind, 1px `line-soft`, 4px radius, artwork at
-  2px. Book 2:3, music 1:1, video 16:9 (kept from brief 25).
+  2px. Book 2:3, music 1:1, **video 4:3** — the tile's box; stored video art is
+  letterboxed inside it (`object-contain`), because a frame grabbed from a video
+  keeps that video's own aspect (D40, brief 42: `fit: "inside"` at a 640 bound,
+  never cropped). The Continue strip's video thumb stays 16:9.
 - **Resume cards:** artwork + title + source + **time remaining** + a 3px bar.
 - **Player dock:** full-width, `paper-raised`, 1px top `line`; artwork, title,
   transport, scrub track, tabular times. Survives navigation.

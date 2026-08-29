@@ -4,7 +4,7 @@
 > was owner-confirmed and survives unchanged in
 > [brief 38](../done/38-latex-editor.md); the engine is
 > [brief 37](../done/37-engine-foundation.md),
-> [39](../todo/39-engine-figures-tables-bib.md) and
+> [39](../done/39-engine-figures-tables-bib.md) and
 > [40](../todo/40-engine-math.md). Kept because it records the Tectonic
 > reasoning D38 had to answer.
 

@@ -1,5 +1,78 @@
 # Log
 
+## [2026-08-29] build | Briefs 44, 42 and 39 shipped — worker thread, video covers, figures/tables/bibliography
+
+One backlog run on branch `briefs-44-42-39`, cut from `main` at brief 38.
+**Typecheck 0, builds 0, 506/506** (from 332). All four brief-37 goldens
+**byte-identical**.
+
+**Brief 44 — the engine runs on a `worker_thread`, and cancel is real.**
+`latex-compile.ts` spawns `latex-worker.ts` per compile; `compile()`'s
+synchronous contract is untouched — only where it runs changed. Measured: a
+**10.4 s** compile left the spawning thread with **514 heartbeats, worst extra
+gap 1 ms**. Worker-per-compile is a ruling, not an implementation detail: a
+reused worker cannot be `terminate()`d without destroying the next compile's
+host, so stopping it must be cooperative — exactly what cannot work against an
+engine that never yields. 3 finders, 3 Important, all fixed. The one to carry
+forward: **a "re-check the flag" fix on a synchronous-resume path needs an
+`await`** — the microtask queue drains fully before any timer or I/O callback,
+so a re-check with nothing to yield on cannot observe a flag an inbound request
+set. Proven with a three-way rig after the controller specified the fix wrongly.
+
+**Brief 42 — video covers, decoded in the browser (D40).** `<video>` → seek →
+`drawImage` → `toBlob`; no ffmpeg, so brief 23's declined binary stands. Capture
+at upload (3 candidates, highest luminance variance) **and** as a backfill on
+first playback — which is what covers the existing library with no re-upload and
+is the iOS mitigation. Native aspect at a 640 bound (`fit: "inside"`),
+letterboxed in a `4/3` tile. 2 finders, fixed. **Everything iOS is unverified —
+no device here**; `MAX_ATTEMPTS_PER_SESSION = 2` exists to reserve an attempt for
+the backfill after an upload-time failure and must not be reduced to 1.
+
+**Brief 39 — the engine sets a paper, not just a report.** Floats with `[htbp]`
+and a deferral queue, `\includegraphics` embedding real PNG and JPEG, `tabular`
+with two-pass column measurement and rules, and a `.bib` file becoming numbered
+citations. Images embed **verbatim** where they can — PDF's `/Predictor 15` is
+PNG's own scanline filtering and a `/DCTDecode` stream is a JPEG datastream — so
+every PNG chunk's CRC is verified instead, since those paths never look at a
+pixel. Built as one contract chunk plus four typed stub seams; three ran
+concurrently with two shared files reserved to the controller, and **zero writes
+were lost**.
+
+**Brief 39's review ran late — after its code was committed — and broke the
+pattern.** For five builds running, every serious defect had spanned chunk
+boundaries. This one lay *inside* a single owned file: a `tabular` row that
+stops short of the last column had its `HBox` end at the last written cell, so
+the table's right-hand `|` border was drawn partway across the grid and every
+vertical rule past the short row vanished. `a & b \\` in a `{|l|l|l|}` is legal
+LaTeX — `\halign` supplies the omitted entries. **A diagnostic-free wrong
+picture is the one failure mode the loud-failure contract cannot catch**, since
+nothing was unimplemented and so nothing had anything to report; the pre-existing
+test asserted the case "stays quiet", which it did, while rendering wrongly.
+Fixed by padding short rows the way `\halign` does, with a regression test
+comparing each row's rule x-positions against the full row's — confirmed to fail
+without the fix. Cleared on inspection: the deferral queue's prefix invariant and
+termination, the PNG/JPEG walks (bounds, CRC, CMYK, progressive, interlace all
+handled), and the bibliography's `[?]`-plus-diagnostic on an unknown key.
+
+**Corpus corrections this closeout made** — two wiki claims the code had
+falsified: `latex.md`'s "Known limitation" said `compile()` blocks the API and a
+cancel cannot be delivered (**all four of its statements were inverted by brief
+44**), and `design.md`'s tile line said "video 16:9 (kept from brief 25)" when
+the box has been `4/3` since brief 25/29 — dormant-wrong before brief 42, and
+operative after it. `decisions.md`'s summary still said D1–D38.
+
+**Filed, not fixed:** three todos — `DELETE /profiles/:id` never cancelling the
+compiles it orphans (the root cause of one of brief 44's findings), a swallowed
+`setLatexCompileStatus` failure that can wedge an account until restart, and
+`BibliographyBlock.widestLabel` being parsed and never used.
+
+**Not verified by eye:** brief 39's "check a paper-shaped document in brief 38's
+preview" criterion — no browser run this session.
+
+**Open for the owner:** brief 40 needs a **34.3 MB** `mathjax-full@3.2.2`
+(Apache-2.0, server-side only) — not added, awaiting a yes. Brief 43 is held
+until there is a real count of coverless videos surviving 42's backfill.
+
 ## [2026-08-27] build | Brief 38 shipped — LaTeX in Atrium
 
 10 chunks (6 senior, 4 junior), 6 waves, 3 scoped finders, 2 fix rounds.
@@ -57,7 +130,7 @@ than silently repointed or left dangling; a published document's `source` is
 `latex`, not `upload`; the monospace source pane is a recorded, bounded
 exception to the two-family type rule.
 
-**Deferred deliberately, now [brief 44](briefs/todo/44-compile-worker-thread.md):**
+**Deferred deliberately, now [brief 44](briefs/done/44-compile-worker-thread.md):**
 `compile()` is synchronous and blocks the API process. Fine at ~80 ms, but it
 means a cancel cannot reach a *running* compile and a compile on one device
 stalls another — which sits badly with D36's premise. Briefs 39 and 40 make

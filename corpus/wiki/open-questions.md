@@ -28,7 +28,7 @@ hosts where a pip `lxml` shadows the distro one (it does now).
 are now decisions, not questions** — see **D39** and **D40** in
 [decisions.md](decisions.md), specified as
 [brief 41](../briefs/done/41-storage-paths.md) and
-[brief 42](../briefs/todo/42-video-covers.md):
+[brief 42](../briefs/done/42-video-covers.md):
 
 - ~~**One concept, two names: `progress` vs `fraction`.**~~ Closed 2026-08-27 →
   renamed in the offline store at IndexedDB v5 (D39). The corpus had this
@@ -41,9 +41,11 @@ are now decisions, not questions** — see **D39** and **D40** in
 - ~~**Library file paths are not sandboxable for testing.**~~ Closed
   2026-08-27 → all three storage roots become env overrides, so a scratch
   database and scratch files finally move together (D39). This is the thread
-  that **cost a real book** on 2026-08-25; until brief 41 ships, the practice
-  still stands: to test a destructive path, upload a throwaway fixture and act
-  on that, never on a row that was already there.
+  that **cost a real book** on 2026-08-25. Brief 41 shipped, so the roots are
+  redirectable now — but the practice stands regardless, because a control only
+  helps when it is used: redirect **every** root at a scratch base together, and
+  to test a destructive path upload a throwaway fixture and act on that, never on
+  a row that was already there.
 
 Both original verification gaps closed on 2026-07-02 by the full Playwright run
 plus a live Calibre conversion (see

@@ -108,7 +108,7 @@ new ownership column**.
   an English word.
 
 **Out:** any change to what a cover *is* or how it is extracted (that is
-[brief 42](../todo/42-video-covers.md)); renaming `LIBRARY_DATA_DIR`; making the
+[brief 42](42-video-covers.md)); renaming `LIBRARY_DATA_DIR`; making the
 overrides required; touching `books.progress` (the legacy global column D31
 superseded — leave it exactly as it is, it is not this brief's fight).
 

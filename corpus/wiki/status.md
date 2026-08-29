@@ -1,11 +1,59 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-08-27
+updated: 2026-08-29
 ---
 
-# Status — 2026-08-27
+# Status — 2026-08-29
 
-**Latest (2026-08-27):** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
+**Latest (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
+built on branch `briefs-44-42-39`.
+
+**44 — the engine runs on a `worker_thread`, and cancel is real.** A compile no
+longer blocks the API: a **10.4 s** compile left the spawning thread with **514
+heartbeats, worst extra gap 1 ms**. Worker-*per-compile*, deliberately — a
+reused worker cannot be `terminate()`d without destroying the next compile's
+host, so stopping it would have to be cooperative, which is exactly what cannot
+work against a synchronous engine that never yields. A `DELETE` now kills a
+compile mid-engine instead of waiting out `LATEX_TIMEOUT_MS`. 3 finders, 3
+Important, all fixed.
+
+**42 — video has real covers, decoded in the browser (D40).** `<video>` → seek →
+`drawImage` → `toBlob`, no ffmpeg, so brief 23's declined binary stands. Capture
+at upload (3 candidate frames, highest luminance variance — one fixed seek hits
+a black fade-in too often) *and* as a **backfill on first playback**, which is
+what covers the existing library with no re-upload. Native aspect at a 640
+bound, letterboxed in the tile. **Everything iOS is unverified — no device
+here.**
+
+**39 — the engine sets a paper, not just a report.** Floats with `[htbp]` and a
+deferral queue, `\includegraphics` embedding real PNG and JPEG, `tabular` with
+measured columns and rules, and a `.bib` file becoming numbered citations.
+**506 tests** (from 332), and **all four brief-37 goldens byte-identical** —
+the load-bearing check, because a page-builder change that silently reflows
+plain prose is the failure mode they exist to catch.
+
+**Brief 39's review broke the pattern this project keeps seeing, and that is
+the interesting part.** For five builds running, every serious defect had
+spanned chunk boundaries. This one lay *inside* a single owned file: a `tabular`
+row that stops short of the last column drew the table's right-hand border
+partway across the grid and dropped every vertical rule past it. Legal LaTeX
+with a diagnostic-free wrong picture — the one failure mode the loud-failure
+contract cannot catch, since nothing was unimplemented and so nothing had
+anything to report. The pre-existing test asserted the case *"stays quiet"*,
+which it did, while rendering wrongly. **Geometry needs assertions on
+coordinates, not on diagnostics.** Fixed, with a test that fails without the fix.
+
+**Not verified by eye:** brief 39's "check a paper-shaped document in the
+preview" acceptance criterion. No browser run this session; the float fixture
+and the `floats.txt` golden cover the geometry programmatically.
+
+**Open for the owner:** brief 40 (math) needs a **34.3 MB** `mathjax-full@3.2.2`
+dependency — Apache-2.0, server-side only, so no browser payload, but a large
+addition to a package that has shipped with `pdf-lib` alone. **Not added,
+awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
+there is a real count of how many coverless videos survive brief 42's backfill.
+
+**Earlier (2026-08-27):** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
 write a multi-file project at `/latex`, compile it with **our own engine** (no
 TeX, no binary), preview the PDF beside the source, and **publish** it into the
 library as a document that accumulates **versions** — press publish ten times
@@ -24,9 +72,9 @@ publish racing itself into two cards. Details in
 [briefs/done/38-latex-editor.md](../briefs/done/38-latex-editor.md) and
 [latex.md](latex.md).
 
-**Known:** `compile()` is synchronous and blocks the API process for its
-duration — fine at ~80 ms today, but it needs a `worker_thread` before briefs
-39/40 make compiles longer. Its own brief.
+**Was known, now fixed:** `compile()` blocking the API process for its duration
+was brief 38's standing limitation. **Brief 44 closed it** — the engine is
+hosted on a `worker_thread` and `compile()`'s synchronous contract is unchanged.
 
 **Earlier (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
 testing is finally sandboxable.** All three storage roots are env overrides, so
@@ -94,31 +142,11 @@ backup exists outside the repo.
 mismatch, so anything with an outline fails to convert. The two-column and
 scanned-PDF readability checks await a working install.
 
-**Earlier (2026-08-25):** ✅ **Brief 35 shipped — profiles.** An account is now
-a household and a **profile** is a person in it (D35): reading progress, notes
-and four reading preferences moved from user scope to profile scope, switching
-is one tap with no credential, and the picker returns after 24h idle. Built via
-orchestrate → plan-split-dispatch in 3 waves (7 chunks, 3 senior / 4 junior).
-The `reading_progress` rebuild — SQLite cannot ALTER a composite PK — landed all
-8 live rows and both notes on the right Default profile with zero loss, proven
-against a copy before the real DB was touched.
-
-Three scoped finders caught **10 findings (3 Critical)**, all fixed but one
-Minor. Every Critical crossed chunk boundaries and none tripped the gates: a
-switch leaving the reader loaded so one profile's page was written to another's
-row; an offline boot hanging forever on the picker gate; and the preferences
-boot cache flashing the wrong theme on exactly the load its fallback existed
-for. Details in [briefs/done/35-profiles.md](../briefs/done/35-profiles.md).
-
-**Known and accepted:** the account's default profile cannot be deleted (rename
-works); a session whose profile is deleted from another device silently reads as
-Default until reload. **This repo still has no test suite**, which is again why
-the review pass carried the weight.
-
-**Older entries** — every shipped phase before brief 35, with what each run
-fixed and how it was verified — moved to
-[status-history.md](status-history.md) when this page passed the 200-line rule.
-The dashboard is what is true *now*; the archive is how it got here.
+**Older entries** — every shipped phase through brief 35, with what each run
+fixed and how it was verified — live in
+[status-history.md](status-history.md); entries move there as this page passes
+the 200-line rule. The dashboard is what is true *now*; the archive is how it
+got here.
 
 ## Briefs
 | # | Brief | State |
@@ -150,9 +178,9 @@ The dashboard is what is true *now*; the archive is how it got here.
 | 36 | LaTeX: write, compile, publish (Tectonic) | **superseded by 37–40 (2026-08-26)** |
 | 37 | Engine: foundation — prose + structure → PDF, first test suite (D38) | **done (2026-08-26)** |
 | 38 | LaTeX editor: projects, compile, publish, versions | **done (2026-08-27)** |
-| 39 | Engine: figures, tables, bibliography | **todo — next, unblocked** |
-| 40 | Engine: math (MathJax SVG → PDF) | **todo** |
+| 39 | Engine: figures, tables, bibliography | **done (2026-08-29)** |
+| 40 | Engine: math (MathJax SVG → PDF) | **todo — blocked on an owner call: a 34.3 MB `mathjax-full` dep** |
 | 41 | Storage: portable paths, redirectable dirs, offline rename (D39) | **done (2026-08-27)** |
-| 42 | Video covers, decoded in the browser (D40) | **todo — unblocked** |
-| 43 | Readable tiles for coverless media | **todo — needs 42** |
-| 44 | Host the typesetting engine on a worker thread | **todo — do before 40** |
+| 42 | Video covers, decoded in the browser (D40) | **done (2026-08-28)** |
+| 43 | Readable tiles for coverless media | **todo — held: needs a real count of surviving coverless videos** |
+| 44 | Host the typesetting engine on a worker thread | **done (2026-08-28)** |

@@ -53,7 +53,7 @@ plus two gates that would keep it invisible even if it existed.
    unscoped. No ownership check is added because there is no ownership to check.
 
 4. **The coverless-tile readability polish does not ride along** — it is
-   [brief 43](43-coverless-tiles.md). Judge it after real covers exist, when you
+   [brief 43](../todo/43-coverless-tiles.md). Judge it after real covers exist, when you
    can see how many coverless videos actually survive.
 
 ## Scope
@@ -156,3 +156,52 @@ todo promoted, update [status.md](../../wiki/status.md) and [log.md](../../log.m
   If it does not, that is an accepted outcome — say so in the outcome block, and
   the backfill covers it on first play.
 - `npm run typecheck`, `npm run build` and `npm test` clean.
+
+## Outcome (2026-08-28) — done
+
+**Video has real covers, decoded in the browser — D40.** Object URL →
+`<video>` → seek → `drawImage` → `toBlob`, then `POST /library/:id/cover`
+re-encodes through the existing sharp path. No ffmpeg, so brief 23's declined
+binary dependency stands untouched; what that brief declined was the binary, not
+the feature.
+
+**Capture in two places, and the second is not redundancy.** At upload, ~3
+candidate timestamps with the highest luminance-variance frame kept (one fixed
+seek lands on a black fade-in or a title card often enough to matter); and as a
+**backfill on first playback**, which is what covers the *existing* library with
+no re-upload and is the iOS Safari mitigation.
+
+**Geometry — a ruling.** Native aspect at a 640 bound (`fit: "inside"`), not the
+audio path's square crop and not a forced 640×360; the card letterboxes with
+`object-contain` inside a `4/3` box. Books and audio geometry are untouched.
+[design.md](../../wiki/design.md)'s tile line said "video 16:9 (kept from brief
+25)", which was dormant-wrong before this brief (no video art ever rendered) and
+operative after it — corrected as part of this closeout.
+
+**The cover route writes through to `coverPathFor(coverOwnerId(row))`** — the
+shared thumbnail — because that is the only path `GET` and `hasCover` read.
+Writing to `row.id` for a converted row would be an invisible orphan.
+
+**No ownership check on the cover route is a decision, not an omission** (D40):
+`books` has no `user_id`, the library is install-wide, and setting a cover is
+strictly *less* privileged than the already-unscoped delete route.
+
+**A free win rode along:** `extract.ts` had gated embedded-picture extraction
+behind `format === "mp3"`, discarding the `covr` atom `music-metadata` already
+parses for mp4.
+
+**Review: 2 finders, findings fixed.** Typecheck + build clean.
+
+**Unverified, and accepted as such: everything iOS.** No device here and no
+browser run at all. The playback backfill is the designed mitigation, but
+upload-time capture on a real iPhone is untested. Chunk 42.3's
+`MAX_ATTEMPTS_PER_SESSION = 2` exists specifically to reserve an attempt for the
+backfill after an upload-time failure — **do not reduce it to 1.**
+
+**Input to brief 43.** Chunk 42.4 looked for videos this backfill can never
+reach and found **no structural class** of them. The likely survivors are
+genuinely corrupt containers; videos whose 10/25/50% sample frames are *all*
+near-uniform (long black leaders, solid test patterns, monochrome clips); and
+videos never yet played whose upload capture also failed — which resolves on the
+next play, since the attempt cap is per-page-session rather than global. Brief
+43 still wants a real count from the owner's library before it is worth building.

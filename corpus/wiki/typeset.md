@@ -1,13 +1,15 @@
 ---
-summary: The typesetting engine — Atrium's own TypeScript LaTeX-subset compiler. Pipeline, the scope line, the loud-failure contract, and why it performs no I/O.
-updated: 2026-08-26
+summary: The typesetting engine — Atrium's own TypeScript LaTeX-subset compiler. Pipeline, what it sets (prose, floats, images, tables, bibliography), the scope line, the loud-failure contract, and why it performs no I/O.
+updated: 2026-08-29
 ---
 
 # The typesetting engine
 
 `packages/typeset` turns a **subset** of LaTeX into a PDF. It is ours, and it is
-not TeX. Built by brief 37; extended by briefs 39 (figures, tables,
-bibliography) and 40 (math). See **D38** for why it exists at all.
+not TeX. Built by brief 37 and extended by brief 39 (figures, tables,
+bibliography). **Math is brief 40 and is not built** — it is held on an owner
+decision (a 34.3 MB `mathjax-full` dependency), so nothing below describes it.
+See **D38** for why the engine exists at all.
 
 ## The scope line: syntax, not semantics
 
@@ -82,6 +84,7 @@ parse → macro → doc → layout → pdf
 | `src/macro/` | builtin tables, `\newcommand` expansion, the step budget |
 | `src/doc/` | document model: blocks, inlines, counters, labels, `\ref` |
 | `src/layout/` | box/glue, Knuth–Plass line breaking, hyphenation, page building |
+| `src/image/` | PNG/JPEG decode to intrinsic size, and the PDF `XObject` embed |
 | `src/font/` | `fontkit` wrapper over committed Latin Modern (GUST FL) |
 | `src/pdf/` | `pdf-lib` document structure; glyphs positioned by us |
 
@@ -101,6 +104,50 @@ but `\pageref` cannot: a page number needs layout, and writing it in changes the
 reference's width. The loop runs to a **fixed point** with a cap of three —
 LaTeX's `.aux` cycle. A document with no markers lays out once.
 
+## What the engine sets
+
+| Construct | State | Notes |
+|---|---|---|
+| Prose, sections, ToC, lists, footnotes, `\ref`, `\newcommand`, verbatim | brief 37 | |
+| **Figures and tables** (`figure`/`table`, `[htbp]`, `\caption`, `\listoffigures`/`\listoftables`) | brief 39 | A float that can never be placed is a **diagnostic**; nothing is dropped |
+| **`\includegraphics`** — PNG and JPEG | brief 39 | `width=`/`height=`/`scale=`, `\textwidth`-relative. Format from the **signature**, never the extension |
+| **`tabular`** — `l c r`, `p{}`, `\|` rules, `\hline`, `\cline`, `\multicolumn` | brief 39 | Columns measured in a first pass, set in a second |
+| **Bibliography** — `.bib` parser, one numeric style, `\cite` | brief 39 | An unknown key is a diagnostic **and** prints `[?]` |
+| Math | **brief 40, not built** | |
+
+**Images embed verbatim wherever they can.** PDF's `/Predictor 15` *is* PNG's
+own per-scanline filtering, and a PDF image stream with `/DCTDecode` *is* a JPEG
+datastream — so PNG colour types 0/2/3 and every accepted JPEG go in as the
+file's own bytes: no decode, no recompression. Because those paths never look at
+a pixel, **every PNG chunk's CRC is verified** — otherwise a bit-flip in `IDAT`
+reaches a reader as a broken picture with nothing saying why. Only colour types
+4 and 6 are decoded, because PDF has no interleaved alpha and the channel has to
+be split out into an `/SMask`.
+
+Refused with a reason rather than embedded wrong: interlaced (Adam7) PNG, `tRNS`
+transparency, CMYK and progressive JPEG, and non-8-bit JPEG precision. Each says
+what to do instead.
+
+**Two float rules worth knowing.** A float taller than `\textheight` is placed
+anyway, on a page of its own, with an `overfull-box` warning — an oversized
+figure the author can see beats one that is nowhere. But a float asking for
+`[h]` **and nothing else** that does not fit is an *error*: moving it would put
+it where the source forbade.
+
+**Brief 39's Out items report `unsupported`, not `undefined-command`.**
+`\rotatebox`, `\multirow`, booktabs' rules and `subfigure`/`subcaption` are
+real LaTeX we declined — telling an author no such command exists is false.
+`builtins.ts` carries them as `unsupported` rows with a `detail` saying why,
+matching how `wrapfigure`/`tabularx`/`longtable` were already handled.
+
+## A convention that will bite you
+
+**`packages/typeset/src/**` relative imports carry an explicit `.ts` suffix**,
+not `.js`, and the package is **erasable syntax only**. Node's type stripping
+does not rewrite specifiers, so a `.js` suffix breaks `node --test`, while `tsc`
+rewrites `.ts` on emit. This **deliberately differs from `apps/api`**, which
+uses `.js` — do not "fix" one to match the other.
+
 ## Testing
 
 Brief 37 brought the repo's **first test suite** (`node --test`, no framework —
@@ -117,6 +164,19 @@ by different chunks** — the ToC sharing an `Inline[]` with its heading so
 unrelated failures also used. Per-chunk verification was honest and still
 insufficient, because each chunk was right about its own half. Budget the review
 accordingly on 39 and 40.
+
+**Brief 39 broke the pattern, and that is the finding.** Its review turned up
+one real defect and it lay *inside* a single owned file: a `tabular` row that
+stops short of the last column had its `HBox` end at the last written cell, so
+the table's right-hand `|` border was drawn partway across the grid and every
+vertical rule past the short row vanished. Legal LaTeX — `\halign` supplies the
+omitted entries — with a diagnostic-free wrong picture, which is the failure
+mode the loud-failure contract cannot catch by construction: nothing was
+unimplemented, so nothing had anything to report. The lesson is that geometry
+needs assertions on **coordinates**, not on diagnostics; the existing short-row
+test asserted only that the case "stays quiet", which it did, while rendering
+wrongly. Fixed with the padding `\halign` does, plus a test that compares each
+row's rule positions against the full row's.
 
 See [decisions.md](decisions.md) D38, and
 [glossary-authoring.md](glossary-authoring.md) for **Typesetting engine**,

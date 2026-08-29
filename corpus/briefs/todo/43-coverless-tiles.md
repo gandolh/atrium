@@ -1,6 +1,6 @@
 # Task 43 — Readable tiles for coverless media
 
-**Split out of [brief 42](42-video-covers.md)** by the owner (2026-08-27) so
+**Split out of [brief 42](../done/42-video-covers.md)** by the owner (2026-08-27) so
 that brief stays about one thing. **Build after 42**, and only once you can see
 how many coverless videos actually survive it — this brief may turn out not to
 be worth doing, which is the point of deferring it.

@@ -1,7 +1,7 @@
 # Task 38 — LaTeX: write, compile, publish
 
 **Second of four.** [37](../done/37-engine-foundation.md) (foundation) → **38** (editor)
-→ [39](../todo/39-engine-figures-tables-bib.md) → [40](../todo/40-engine-math.md).
+→ [39](39-engine-figures-tables-bib.md) → [40](../todo/40-engine-math.md).
 
 **Replaces superseded brief 36**, which specified Tectonic. Everything here about
 projects, drafts, publishing and versions is unchanged from that brief's

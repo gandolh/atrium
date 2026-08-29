@@ -1,11 +1,11 @@
 # Task 40 — Typesetting engine: math
 
 **Fourth of four.** [37](../done/37-engine-foundation.md) → [38](../done/38-latex-editor.md) →
-[39](39-engine-figures-tables-bib.md) → **40**.
+[39](../done/39-engine-figures-tables-bib.md) → **40**.
 
 **Requires brief 37.** Its scope line (syntax, not semantics), failure contract
 and no-I/O purity apply unchanged and are not restated. Independent of
-[brief 39](39-engine-figures-tables-bib.md) — **if most of what you write is
+[brief 39](../done/39-engine-figures-tables-bib.md) — **if most of what you write is
 mathematics, build this one first.**
 
 ## Context

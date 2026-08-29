@@ -1,6 +1,6 @@
 ---
-summary: Locked tech/design decisions (D1–D38) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
-updated: 2026-08-26
+summary: Locked tech/design decisions (D1–D40) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
+updated: 2026-08-29
 ---
 
 # Decisions (locked)

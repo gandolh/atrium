@@ -1,6 +1,6 @@
 ---
-summary: The /latex destination — projects, the compile job, publishing into the library as versioned documents, and where the sandbox actually lives now that the engine is pure.
-updated: 2026-08-27
+summary: The /latex destination — projects, the compile job, publishing into the library as versioned documents, where the sandbox actually lives now that the engine is pure, and the worker thread the engine is hosted on.
+updated: 2026-08-29
 ---
 
 # LaTeX in Atrium
@@ -66,14 +66,30 @@ outer wall-clock backstop. A stop from either is reported as `stopped`, never as
 `budget-exceeded` — the codes mean different things and conflating them tells a
 writer to simplify a document that was never too complex.
 
-**Known limitation:** `compile()` is **synchronous**, so it blocks the API
-process for its duration. A cancel arriving while the engine holds the thread
-cannot be delivered — the process is not reading requests. Bounded today (a
-small document is ~80 ms, a runaway hits the step budget in about the same), but
-it means a long compile on one device stalls another, which sits badly with
-D36's "reachable from anywhere". The fix is hosting the engine on a
-`worker_thread`; it changes only how the module *hosts* the engine, not its
-contract. Deferred deliberately.
+**The engine runs on a `worker_thread`** (brief 44). `compile()` is still a
+synchronous function — that is its contract and it did not change — but it no
+longer runs on the API's thread: `latex-compile.ts` spawns
+[`latex-worker.ts`](../../apps/api/src/latex-worker.ts) per compile and awaits
+its result, so the process keeps reading requests throughout. Measured on a
+**10.4 s** compile: the spawning thread logged **514 heartbeats, worst extra gap
+1 ms**.
+
+**Worker-per-compile, not a reused worker**, and that is the whole point. A
+reused worker cannot be `terminate()`d without destroying the next compile's
+host, so cancelling it would have to be cooperative — which is exactly what
+cannot work against a synchronous engine that never yields. A fresh worker can
+simply be terminated, so **cancel is real**: `DELETE` on a running compile stops
+it mid-engine rather than waiting out `LATEX_TIMEOUT_MS`.
+
+**`latex-worker.ts` must keep zero relative imports into `apps/api`.** It may be
+loaded by plain Node type-stripping rather than tsx, where this package's
+`.js`-suffixed specifiers do not resolve — dev would break while `dist/` worked.
+Pass values through `LatexWorkerRequest` instead.
+
+**A cancel is never offered where it cannot be taken.** A sibling profile's
+project 404s at the cancel route, so `busyMessage` makes no offer there; and the
+409 for a slot held only in-process omits `runningProjectId`, because that id
+would address a deleted project.
 
 ## The seams that bit
 

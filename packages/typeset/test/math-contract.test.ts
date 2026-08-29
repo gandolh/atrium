@@ -402,7 +402,6 @@ const OUT_LIST = [
   { construct: "multline", body: "\\begin{multline}a\\end{multline}" },
   { construct: "alignat", body: "\\begin{alignat}{2}a &= b\\end{alignat}" },
   { construct: "flalign", body: "\\begin{flalign}a &= b\\end{flalign}" },
-  { construct: "gather*", body: "\\begin{gather*}a\\end{gather*}" },
   { construct: "aligned", body: "\\[\\begin{aligned}a &= b\\end{aligned}\\]" },
   { construct: "subequations", body: "\\begin{subequations}a\\end{subequations}" },
   { construct: "smallmatrix", body: "$\\begin{smallmatrix}1\\end{smallmatrix}$" },
@@ -566,4 +565,82 @@ test("an unlanded math seam still fails loudly and names the chunk that owes it"
   // The property that made the two stubs above safe to ship half-built. Kept
   // pointing at the helper itself now that both of its callers have landed.
   assert.throws(() => unimplementedMathSeam("40.9", "a seam nobody has written"), /chunk 40\.9/);
+});
+
+// --- the 2026-08-29 widening (D41, owner's call) -----------------------------
+
+/**
+ * D41 chose a gate literal about brief 40's In list, and accepted that it would
+ * refuse constructs MathJax renders perfectly well. Reviewing that list against
+ * real use, the owner admitted four things on 2026-08-29 — two of them
+ * inconsistencies in the list rather than decisions, two of them simply common:
+ *
+ * - **`gather*`** — the In list names `align*` but not `gather*`, which reads as
+ *   a transcription slip: starred and unstarred are a numbered/unnumbered pair.
+ * - **`\displaystyle`** and **`\boldsymbol`** — reached for constantly in
+ *   ordinary papers, and each a one-line entry.
+ * - **`\begin{math}`** was admitted too and then **could not be delivered** —
+ *   see its own test at the bottom, which pins why.
+ *
+ * Everything else stays refused, and the second half of this block is what
+ * stops the widening from quietly becoming "accept MathJax's surface", which
+ * D41 explicitly rejected.
+ */
+
+test("gather* is no longer on the Out list, and sets like the align* it pairs with", () => {
+  const result = build("\\begin{gather*}a = b \\\\ c = d\\end{gather*}");
+  assert.deepEqual(result.diagnostics, []);
+  assert.equal(firstDisplay("\\begin{gather*}a = b\\end{gather*}").variant, "gather*");
+});
+
+test("\\displaystyle and \\boldsymbol pass the document layer's gate", () => {
+  assert.deepEqual(build("$\\displaystyle\\frac{a}{b}$").diagnostics, []);
+  assert.deepEqual(build("$\\boldsymbol{\\alpha}$").diagnostics, []);
+});
+
+test("\\boldsymbol is not reported as undefined — it is real amsmath", () => {
+  // It reported `undefined-command` before the widening, because MathJax's base
+  // TeX input genuinely lacks it: `\boldsymbol` lives in an extension that only
+  // `autoload` would fetch, and `autoload` is dropped so a document cannot
+  // cause a load. That made a real LaTeX command look like a typo, which is the
+  // exact conflation D38 names. Fixed by naming the component AND the package
+  // at init — loading one without the other leaves the extension unread.
+  const codes = build("$\\boldsymbol{x}$").diagnostics.map((d) => d.code);
+  assert.ok(!codes.includes("undefined-command"), `\\boldsymbol must never read as undefined: ${codes.join(", ")}`);
+});
+
+test("the widening did not become 'accept whatever MathJax renders'", () => {
+  // These render fine in MathJax and are still refused, which is the whole of
+  // D41. If this starts passing, the gate has drifted into the position the
+  // owner rejected.
+  //
+  // Only the DOCUMENT-layer refusals belong here. `\mathsf` and `\mathfrak`
+  // are refused too, but by the MathML gate at render time — `builtins.ts`
+  // admits them at name level and `math/subset.ts` turns them away, which is
+  // the two-allowlist split chunk 40.3 flagged. Their coverage lives in
+  // `math-layout.test.ts`, where a renderer exists to reach that gate.
+  for (const [body, name] of [
+    ["$\\begin{cases}1\\end{cases}$", "cases"],
+    ["\\begin{eqnarray}a&=&b\\end{eqnarray}", "eqnarray"],
+    ["\\begin{multline}a\\end{multline}", "multline"],
+  ] as const) {
+    const diagnostics = build(body).diagnostics;
+    assert.ok(
+      diagnostics.some((d) => d.code === "unsupported"),
+      `${name} should still report unsupported, got: ${JSON.stringify(diagnostics.map((d) => d.code))}`,
+    );
+  }
+});
+
+test("\\begin{math} is refused, and the message names the spelling that works", () => {
+  // Admitted by the owner as a slip and then NOT delivered, deliberately.
+  // `$…$` and `\(…\)` reach the document layer as a parsed `MathNode` because
+  // the parser knows they open math mode; an environment's body is parsed as
+  // ordinary content. Admitting it means re-parsing that body in math mode —
+  // a parser change, not a widening — so it stays refused with a message that
+  // points at the spelling that does work.
+  const diagnostics = build("\\begin{math}x^2\\end{math}").diagnostics;
+  const refused = diagnostics.find((d) => d.code === "unsupported");
+  assert.ok(refused, `expected an unsupported diagnostic, got ${JSON.stringify(diagnostics)}`);
+  assert.match(refused.message, /\\\(/, "the message should name \\(...\\) as the working spelling");
 });

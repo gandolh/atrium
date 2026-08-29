@@ -277,7 +277,10 @@ test("every out-of-subset construct is refused, and with the right code", () => 
     { tex: "\\xrightarrow{f}", code: "unsupported", construct: "\\xrightarrow" },
     { tex: "\\genfrac{(}{)}{0pt}{}{a}{b}", code: "unsupported", construct: "\\genfrac" },
     { tex: "\\mathsf{s}", code: "unsupported", construct: "\\mathsf" },
-    { tex: "\\displaystyle x", code: "unsupported", construct: "\\displaystyle" },
+    // `\displaystyle` and `\boldsymbol` were on this list until 2026-08-29,
+    // when the owner admitted both as common enough in ordinary papers to be
+    // worth widening D41's gate. They are asserted as *rendering* in
+    // `math-layout.test.ts` now. Do not restore them here.
     { tex: "\\phantom{x}", code: "unsupported", construct: "\\phantom" },
     // These MathJax cannot render either, because `bridge.ts` dropped the
     // packages — but they are real LaTeX, so `unsupported` and never

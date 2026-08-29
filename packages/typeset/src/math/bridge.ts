@@ -50,8 +50,26 @@ import type { MathRenderer, MathRequest, MathResult } from "./index.ts";
  * in the file and nothing else would catch it.
  */
 
-/** Frozen: the document never contributes to this, which is the whole point. */
-const LOADED_COMPONENTS = ["input/tex", "output/svg"] as const;
+/**
+ * Frozen: the document never contributes to this, which is the whole point.
+ *
+ * `[tex]/boldsymbol` is loaded explicitly because MathJax's base TeX input does
+ * not define `\boldsymbol` — it lives in an extension that only `autoload`
+ * would otherwise fetch, and `autoload` is dropped precisely so a *document*
+ * cannot cause a load. Naming it here is the safe half of that trade: the
+ * component set stays fixed and known at build time, and `\boldsymbol` stops
+ * reporting `undefined-command`, which was a real D38 conflation — it is
+ * ordinary amsmath, not a thing that does not exist.
+ */
+const LOADED_COMPONENTS = ["input/tex", "output/svg", "[tex]/boldsymbol"] as const;
+
+/**
+ * Loading a component is only half of it: MathJax also has to be told the
+ * package is *in use*, or the extension sits on disk unread and `\boldsymbol`
+ * still reports an undefined control sequence. Frozen for the same reason as
+ * `LOADED_COMPONENTS` — the document contributes nothing to either.
+ */
+const ADDED_PACKAGES = ["boldsymbol"] as const;
 
 /**
  * `noundefined` — see above, the loud-failure requirement.
@@ -146,7 +164,7 @@ export async function createMathRenderer(): Promise<MathRenderer> {
     loader: { load: LOADED_COMPONENTS },
     svg: SVG_OPTIONS,
     tex: {
-      packages: { "[-]": DROPPED_PACKAGES },
+      packages: { "[-]": DROPPED_PACKAGES, "[+]": ADDED_PACKAGES },
       formatError: (jax, texError) => {
         captured.push(texError.message);
         // Hand back MathJax's own rendering of the error. Suppressing it would

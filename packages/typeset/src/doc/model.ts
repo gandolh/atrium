@@ -622,6 +622,7 @@ export type DisplayMathVariant =
   | "align"
   | "align*"
   | "gather"
+  | "gather*"
   | "split";
 
 /** The variants LaTeX numbers. The starred forms and `\[…\]` are the unnumbered ones. */
@@ -644,7 +645,13 @@ export function isNumberedDisplay(variant: DisplayMathVariant): boolean {
 
 /** The variants that carry several `\\`-separated lines, each numbered on its own. */
 export function isMultiLineDisplay(variant: DisplayMathVariant): boolean {
-  return variant === "align" || variant === "align*" || variant === "gather" || variant === "split";
+  return (
+    variant === "align" ||
+    variant === "align*" ||
+    variant === "gather" ||
+    variant === "gather*" ||
+    variant === "split"
+  );
 }
 
 /**

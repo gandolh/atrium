@@ -235,6 +235,11 @@ export const MATH_ENVIRONMENTS: Readonly<Record<string, DisplayMathVariant | nul
   align: "align",
   "align*": "align*",
   gather: "gather",
+  // `gather*` is the unnumbered `gather`, exactly as `align*` is the
+  // unnumbered `align`. Brief 40's In list names `align*` and not `gather*`,
+  // which reads as a transcription slip rather than a decision — the owner
+  // confirmed it as one on 2026-08-29, so it is admitted with its pair.
+  "gather*": "gather*",
   split: "split",
   matrix: null,
   pmatrix: null,
@@ -325,7 +330,6 @@ export const DECLINED_MATH_ENVIRONMENTS: Readonly<Record<string, string>> = {
   "flalign*": "brief 40's In list covers align, align*, gather and split; flalign* is not on it",
   multline: "brief 40's In list covers align, align*, gather and split; multline is not on it",
   "multline*": "brief 40's In list covers align, align*, gather and split; multline* is not on it",
-  "gather*": "brief 40's In list names gather; the unnumbered gather* is not on it — align* sets the same thing",
   gathered: "brief 40's In list covers align, align*, gather and split; the gathered box environment is not on it",
   subequations: "amsmath's subequations renumbers a group of equations, and brief 40 numbers them straight through",
   smallmatrix: "brief 40's In list covers matrix, pmatrix, bmatrix, vmatrix and array; smallmatrix is not on it",
@@ -730,7 +734,14 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   // but the In list names the two delimiter forms and not this one, and D41 §5
   // says the gate follows the In list even where the engine could obviously
   // set the thing — so it is declined explicitly rather than quietly allowed.
-  math: { role: "unsupported", detail: "brief 40's In list names $…$ and \\(…\\) for inline math; the math environment is not on it" },
+  // `\begin{math}` IS `\(…\)`, and `\(…\)` is In — so this reads like a slip in
+  // the In list rather than a decision, and the owner agreed on 2026-08-29.
+  // It is refused anyway, because it is not a table entry: `$…$` and `\(…\)`
+  // reach the document layer as a parsed `MathNode` (the parser knows they
+  // open math mode), while an environment's body is parsed as ordinary
+  // content. Admitting it means re-parsing that body in math mode, which is
+  // a parser change, not a widening. Refused with the spelling that works.
+  math: { role: "unsupported", detail: "this engine reads inline math as $…$ or \\(…\\); the math environment would need its body re-parsed in math mode, so write \\(…\\) instead" },
   eqnarray: { role: "unsupported", detail: "eqnarray is deprecated even in LaTeX and is not on brief 40's In list; align sets the same thing" },
   center: { role: "unsupported", detail: "centred text is out of scope for brief 37" },
   flushleft: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },

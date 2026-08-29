@@ -163,16 +163,22 @@ export const ALLOWED_COMMANDS: ReadonlySet<string> = new Set([
   "\\Bigm",
   "\\biggm",
   "\\Biggm",
-  // Math alphabets — exactly the five the brief names, and no more. `\mathsf`,
-  // `\mathtt`, `\mathfrak` and `\boldsymbol` are real and render fine; they are
-  // refused because the In list is an allowlist ("and nothing beyond it"), and
-  // widening it is a one-line decision for whoever owns the brief, not for the
-  // gate.
+  // Math alphabets — the five the brief names, plus `\boldsymbol`, which the
+  // owner admitted on 2026-08-29 as common enough in ordinary papers to be
+  // worth the widening. `\mathsf`, `\mathtt` and `\mathfrak` are real and
+  // render fine, and stay refused: the In list is an allowlist ("and nothing
+  // beyond it"), and widening it is a decision for whoever owns the brief, not
+  // for the gate.
   "\\mathbb",
   "\\mathcal",
   "\\mathrm",
   "\\mathbf",
   "\\mathit",
+  "\\boldsymbol",
+  // Style selection. `\displaystyle` is admitted for the same reason as
+  // `\boldsymbol`: an ordinary paper reaches for it constantly to get a
+  // full-size fraction or sum inline. Its siblings stay refused.
+  "\\displaystyle",
   // Text inside math.
   "\\text",
   // Explicit spacing — implied by the amsmath subset the In list admits.

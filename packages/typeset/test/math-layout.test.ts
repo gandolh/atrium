@@ -257,3 +257,32 @@ test("an unnumbered multi-line display sets cleanly", () => {
   assert.equal(result.diagnostics.length, 0, JSON.stringify(result.diagnostics.map((d) => d.message)));
   assert.equal(mathItems(result).length, 1);
 });
+
+// --- the render-time half of the gate ---------------------------------------
+
+test("the widening did not become 'accept whatever MathJax renders'", () => {
+  // The MathML gate's own half of D41. `\mathsf` and `\mathfrak` pass the
+  // document layer — `builtins.ts` admits them at name level — and are turned
+  // away here, at render, by `math/subset.ts`. That two-allowlist split is
+  // chunk 40.3's recorded concern, and this test is what stops the render-side
+  // list from quietly widening to match the name-side one.
+  for (const [body, name] of [
+    ["$\\mathfrak{g}$", "\\mathfrak"],
+    ["$\\mathsf{A}$", "\\mathsf"],
+    ["$\\mathtt{x}$", "\\mathtt"],
+  ] as const) {
+    const diagnostics = run(body).diagnostics;
+    assert.ok(
+      diagnostics.some((d) => d.code === "unsupported"),
+      `${name} should still report unsupported, got: ${JSON.stringify(diagnostics.map((d) => d.code))}`,
+    );
+  }
+});
+
+test("the four admitted on 2026-08-29 render, and \\boldsymbol never reads as undefined", () => {
+  for (const body of ["\\begin{gather*}a = b \\\\ c = d\\end{gather*}", "$\\displaystyle\\frac{a}{b}$", "$\\boldsymbol{\\alpha}$"]) {
+    const result = run(body);
+    assert.deepEqual(result.diagnostics, [], `${body} should set clean`);
+    assert.ok(mathItems(result).length > 0, `${body} should actually place something`);
+  }
+});

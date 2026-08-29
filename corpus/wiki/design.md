@@ -60,6 +60,24 @@ fills a button. The solid button is ink, not colour.
 | `tint-video` | `#e4ebf1` | `#171f28` | Video |
 | `tint-note` | `#e4eee7` | `#16221b` | Notes |
 
+**Coverless tiles (D42, brief 43).** A tile with no cover art — a video that
+won't decode, a track never played — carries a **large title initial** in
+Newsreader, very low contrast, bleeding past an edge behind the kind glyph and
+title. Its **size and corner vary** by a deterministic hash of the *title* (so
+the same book always looks the same, and two uploads of one title match), six
+variants in all, so a large collection of same-kind coverless items doesn't
+render as a wall of identical rectangles.
+
+**Both axes sit on the letterform; the ground is never touched.** That is a
+correction — D42 first put the second axis on the tile's own lightness, and it
+was measured and rejected. These tints are near-achromatic greys (chroma
+0.011–0.017), so the kind signal is small: `tint-book` vs `tint-music` is
+**0.0194 apart in OKLab**, while a 20% lightness ladder spread one kind over
+**0.1871** — ten times that, so the grid would read by lightness, not kind.
+No mix value works; by 4% the spread still beat the kind signal while the
+steps had already fallen below visibility. **The rule: vary a coverless tile's
+foreground, never its ground.**
+
 ### Dark (warm, not neutral)
 `paper #141310` · `paper-raised #1c1a17` · `paper-low #100f0d` ·
 `paper-container #24211d` · `ink #ece7de` · `ink-variant #948d82` ·
@@ -88,6 +106,7 @@ Inter all retire.
 | `label-caps` | **Archivo** | 10 / 1.6, `.15em` | 600 | Chips, eyebrows (uppercase) |
 | `numeric` | **Archivo** | inherits | 500 | **`tabular-nums` always** |
 | `code` | **platform monospace** | inherits | 400 | LaTeX source pane, and nothing else |
+| `tile-initial` | **Newsreader** | 72 / 96 / 128, 1, no tracking override | 500 | Coverless tile's decorative title-initial watermark (D42, brief 43) — `aria-hidden`, `text-ink/10`; the three sizes are two of its six hashed variants' axes |
 
 **The one exception to the two-family rule** (added 2026-08-27, brief 38). The
 LaTeX editor's source pane sets in `--font-code`: the *platform's own* monospace
@@ -132,7 +151,9 @@ shadow only on cards and the Aa panel. Modals keep the `12px` backdrop blur.
   2px. Book 2:3, music 1:1, **video 4:3** — the tile's box; stored video art is
   letterboxed inside it (`object-contain`), because a frame grabbed from a video
   keeps that video's own aspect (D40, brief 42: `fit: "inside"` at a 640 bound,
-  never cropped). The Continue strip's video thumb stays 16:9.
+  never cropped). The Continue strip's video thumb stays 16:9. **Coverless**
+  tiles keep the flat kind ground and add the D42 title-initial watermark
+  above — foreground only, ground untouched.
 - **Resume cards:** artwork + title + source + **time remaining** + a 3px bar.
 - **Player dock:** full-width, `paper-raised`, 1px top `line`; artwork, title,
   transport, scrub track, tabular times. Survives navigation.

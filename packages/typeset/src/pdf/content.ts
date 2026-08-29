@@ -1,8 +1,9 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontHandle } from "../font/handle.ts";
-import type { GlyphRun, Page, PlacedImage, PlacedRule } from "../layout/page.ts";
+import type { GlyphRun, Page, PlacedImage, PlacedMath, PlacedRule } from "../layout/page.ts";
 import type { SourceRef } from "../diagnostics.ts";
 import { error } from "../diagnostics.ts";
+import { emitSvg } from "./svg.ts";
 import { formatNumber, roundToOutput, toGlyphSpace } from "./numbers.ts";
 import { recordUnicode, subsetCodeFor } from "./subset.ts";
 import type { FontSubset } from "./subset.ts";
@@ -118,6 +119,39 @@ function emitImage(item: PlacedImage, page: Page, resource: string, out: string[
   out.push("q");
   out.push(`${formatNumber(item.width)} 0 0 ${formatNumber(item.height)} ${x} ${y} cm`);
   out.push(`/${resource} Do`);
+  out.push("Q");
+}
+
+/**
+ * A set formula, painted as fill operators (brief 40).
+ *
+ * `pdf/svg.ts` wants its target rectangle in **PDF page space** — points, y up,
+ * `x`/`y` the *bottom-left* corner — and deliberately not in layout space,
+ * because this file is documented as the one place that converts between the
+ * two. So the conversion happens here, on this line, and the emitter stays free
+ * of the y-down convention entirely.
+ *
+ * `q`/`Q` bracket the result for the same reason they bracket an image: the
+ * operators fill paths and may set a fill colour, and without the save/restore
+ * a coloured formula would tint whatever was drawn after it.
+ */
+function emitMath(item: PlacedMath, page: Page, out: string[], diagnostics: Diagnostic[]): void {
+  const box = {
+    x: item.x,
+    // `item.y` is the top edge and the box grows downwards, so its PDF origin is
+    // the bottom edge — the same conversion `emitRule` and `emitImage` make.
+    y: pdfY(page, item.y + item.height),
+    width: item.width,
+    height: item.height,
+  };
+  const emitted = emitSvg(item.picture, box, item.loc);
+  for (const d of emitted.diagnostics) diagnostics.push(d);
+  // `emitSvg` empties `operators` on any failure rather than returning half a
+  // formula, and it has already said why. Half a formula in a published PDF is
+  // the silent wrong answer; nothing plus a diagnostic is the loud one.
+  if (emitted.operators.length === 0) return;
+  out.push("q");
+  for (const operator of emitted.operators) out.push(operator);
   out.push("Q");
 }
 
@@ -247,6 +281,22 @@ export function buildPageContent(
         continue;
       }
       emitImage(item, page, resource, out);
+      continue;
+    }
+
+    if (item.kind === "math") {
+      if (!allFinite([item.x, item.y, item.width, item.height])) {
+        diagnostics.push(
+          error("internal", at, `page ${page.number} carries a math run with a non-finite dimension`),
+        );
+        continue;
+      }
+      // A zero-extent formula paints nothing and would divide the viewBox
+      // mapping by zero; `emitSvg` refuses it too, so skipping here keeps a
+      // degenerate box from producing a diagnostic about arithmetic nobody asked
+      // for.
+      if (item.width === 0 || item.height === 0) continue;
+      emitMath(item, page, out, diagnostics);
       continue;
     }
 

@@ -3,6 +3,10 @@ import type { FontHandle, FontProvider, PositionedGlyph } from "../font/handle.t
 // Type-only: a placed image carries its decoded bytes, and nothing here calls
 // into `image/`.
 import type { DecodedImage } from "../image/index.ts";
+// Type-only for the same reason: a placed formula carries its already-parsed
+// picture, and nothing here reads it.
+import type { SvgDocument } from "../pdf/svg.ts";
+import type { SourceRef } from "../diagnostics.ts";
 import { error, unsupported, warning, wholeFile } from "../diagnostics.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
@@ -91,7 +95,33 @@ export interface PlacedImage {
   image: DecodedImage;
 }
 
-export type PlacedItem = GlyphRun | PlacedRule | PlacedImage;
+/**
+ * A set formula placed on a page — `$x^2$` or a display (brief 40). `y` is its
+ * **top** edge, like a rule's and an image's, and `height` is the whole box:
+ * the formula's height *and* its depth, since a formula hangs below the
+ * baseline it was placed on.
+ *
+ * The picture rides along, already parsed, for the reason `PlacedImage` carries
+ * its bytes: emission has nothing to look anything up in (the engine performs no
+ * I/O, D38). `pdf/content.ts` maps the SVG's viewBox onto this rectangle and
+ * writes path operators straight into the page's content stream — no `XObject`,
+ * no resource dictionary, nothing to register.
+ */
+export interface PlacedMath {
+  readonly kind: "math";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** The MathJax `<svg>`, parsed during layout so a failure could name a source line. */
+  picture: SvgDocument;
+  /** The TeX it was set from, for golden dumps. */
+  source: string;
+  /** Where it was written, so an emission-time complaint still points somewhere useful. */
+  loc: SourceRef;
+}
+
+export type PlacedItem = GlyphRun | PlacedRule | PlacedImage | PlacedMath;
 
 export interface Page {
   /** 1-based, in document order. */
@@ -1056,6 +1086,25 @@ function placeHNodes(
         });
         pen += node.width;
         break;
+      // A formula sits *across* the baseline: `height` above it, `depth` below.
+      // So its top edge is one height up and its rectangle is height+depth tall —
+      // the only difference from an image, whose depth is always zero. Nothing
+      // else about the page builder changes: a math run is a rigid box in a
+      // horizontal list, which the line breaker and `addNodeExtent` already
+      // handle, and this arm neither measures it nor knows what is inside it.
+      case "math":
+        items.push({
+          kind: "math",
+          x: pen,
+          y: baseline - node.height,
+          width: node.width,
+          height: node.height + node.depth,
+          picture: node.picture,
+          source: node.source,
+          loc: node.loc,
+        });
+        pen += node.width;
+        break;
       case "hbox":
         // `shift` in a horizontal list is a raise: negative moves up, which is
         // how a footnote's mark is set as a superscript.
@@ -1066,6 +1115,15 @@ function placeHNodes(
         placeVertical(node.content, pen + node.shift, baseline - node.height, items, onMarker, 0);
         pen += node.width;
         break;
+      default: {
+        // The same `never` guard `vlist.ts` now carries on its two dispatchers,
+        // and for the same reason: this switch is where a new `HNode` kind stops
+        // being drawn, and without it a new kind is dropped here with nothing
+        // said. That is how brief 40's math reached a finished PDF as a blank
+        // space (D38).
+        const unhandled: never = node;
+        throw new Error(`page: unhandled node kind ${String((unhandled as { kind: string }).kind)}`);
+      }
     }
   }
   return pen;

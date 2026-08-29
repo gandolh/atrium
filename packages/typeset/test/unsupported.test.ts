@@ -275,20 +275,47 @@ test("the `math` mathenv, which brief 40 declined, reports `unsupported` and not
  * `unsupported` — with the same construct-naming contract the rest of this file
  * checks. The full In/Out inventory is `test/math-contract.test.ts`.
  */
-test("inline math ($...$) is implemented and reports nothing", () => {
-  const result = compileSource(doc("Some $x+y$ math."));
-  assert.deepEqual(
-    result.diagnostics.filter((d) => d.severity === "error"),
-    [],
+/*
+ * Both tests below said "…and reports nothing" until chunk 40.4, and that has
+ * stopped being the right assertion — not because the behaviour regressed, but
+ * because `compileSource` above supplies no math renderer, and a document that
+ * contains mathematics and gets no renderer now says so instead of dropping
+ * every formula in silence. That is the whole of chunk 40.4's first acceptance
+ * criterion, and asserting "no diagnostics" here would assert the bug.
+ *
+ * What the two tests were really guarding is kept verbatim and checked harder:
+ * a math *site* is implemented, so nothing may report `unsupported`,
+ * `undefined-command` or `undefined-environment` against it. The added
+ * assertion is the new contract — the one diagnostic that does appear is about
+ * the missing renderer and nothing else. `test/math-layout.test.ts` compiles
+ * the same documents *with* a renderer and asserts they set real glyphs.
+ */
+function mathSiteRefusals(result: CompileResult): Diagnostic[] {
+  return result.diagnostics.filter(
+    (d) => d.code === "unsupported" || d.code === "undefined-command" || d.code === "undefined-environment",
   );
+}
+
+test("inline math ($...$) is implemented — nothing refuses the site itself", () => {
+  const result = compileSource(doc("Some $x+y$ math."));
+  assert.deepEqual(mathSiteRefusals(result), []);
+  // Without a renderer the run cannot be set, and D38 forbids dropping it
+  // quietly. One diagnostic, naming the construct, and no PDF.
+  assert.deepEqual(
+    result.diagnostics.filter((d) => d.severity === "error").map((d) => [d.code, d.construct]),
+    [["missing-font", "$...$"]],
+  );
+  assert.equal(result.pdf, null);
 });
 
-test("display math (\\[...\\]) is implemented and reports nothing", () => {
+test("display math (\\[...\\]) is implemented — nothing refuses the site itself", () => {
   const result = compileSource(doc("\\[x+y\\]"));
+  assert.deepEqual(mathSiteRefusals(result), []);
   assert.deepEqual(
-    result.diagnostics.filter((d) => d.severity === "error"),
-    [],
+    result.diagnostics.filter((d) => d.severity === "error").map((d) => [d.code, d.construct]),
+    [["missing-font", "\\[...\\]"]],
   );
+  assert.equal(result.pdf, null);
 });
 
 test("a declined construct inside a math site reports `unsupported` naming itself", () => {

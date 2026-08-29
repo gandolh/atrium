@@ -1,4 +1,8 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
+// The two math seams at the foot of this file are the only things in the
+// document model that produce a diagnostic, which is why this is its only
+// value import.
+import { diagnostic } from "../diagnostics.ts";
 import type { FontFamily, FontSlant, FontWeight } from "../font/handle.ts";
 
 /**
@@ -794,7 +798,7 @@ export function equationMarker(index: number): string {
   return `equation:${index}`;
 }
 
-// --- the math seams later chunks fill in (brief 40) -------------------------
+// --- the math seams (brief 40) ----------------------------------------------
 
 /*
  * Brief 40 is split across four chunks and only one of them — this one — may
@@ -810,13 +814,14 @@ export function equationMarker(index: number): string {
  * avoiding. What this layer hands it is `MathInline.source` /
  * `DisplayMathBlock.source` and nothing else.
  *
- * These are **declarations, not implementations**. Nothing in this chunk calls
- * them; the stubs exist so a caller wired up before its chunk lands fails at
- * once and loudly rather than setting an empty box.
+ * They were **declarations before implementations**: chunk 40.3 shipped the two
+ * types with stubs that threw, so a caller wired up before the work landed
+ * failed at once and loudly rather than setting an empty box. Chunk 40.4 landed
+ * both, at the foot of this file.
  */
 
 /**
- * The chunk 40.4 seam: brief 40 step 5, "measure the rendered display width
+ * Brief 40 step 5, "measure the rendered display width
  * against the text width and report when it exceeds it".
  *
  * Line breaking inside math is explicitly Out — TeX barely does it either — so
@@ -832,7 +837,7 @@ export type DisplayOverrunCheck = (
 ) => Diagnostic | null;
 
 /**
- * The chunk 40.5 seam: `MathLine.number` is the *text* (`"3"`); this turns it
+ * `MathLine.number` is the *text* (`"3"`); this turns it
  * into the material set at the right-hand margin — LaTeX's `\@eqnnum`, which
  * is `{\normalfont\normalcolor (\theequation)}`, so the parentheses live here
  * and deliberately not in `formatEquationNumber` (`doc/counters.ts` says why).
@@ -841,16 +846,83 @@ export type DisplayOverrunCheck = (
 export type EquationNumberSetter = (line: MathLine, measure: number) => Inline[];
 
 /**
- * The two seams above, unlanded. Chunk 40.4 and chunk 40.5 replace these with
- * real implementations; until then a caller that reaches one fails at once and
- * says which chunk owes it.
+ * Both seams above, landed by chunk 40.4.
+ *
+ * They stay *here*, on the document layer's side of the seam, for the reason
+ * the block comment above gives: what a display overruns and what a number
+ * reads are facts about the document, and only the two numbers being compared
+ * come from layout. `layout/math.ts` supplies those and does the setting.
  */
-export const checkDisplayOverrun: DisplayOverrunCheck = () =>
-  unimplementedMathSeam("40.4", "the display-overrun diagnostic");
 
-export const setEquationNumber: EquationNumberSetter = () =>
-  unimplementedMathSeam("40.5", "setting an equation number at the margin");
+/**
+ * Brief 40 step 5: a display wider than the measure is reported, because line
+ * breaking inside mathematics is explicitly Out and the author is the one who
+ * has to break it.
+ *
+ * `overfull-box` is the code, and it is exactly the right one — "a line or box
+ * could not be shrunk enough to fit; content overflows" is literally what has
+ * happened, and it puts a runaway display in the list an author already scans
+ * for overfull lines. A **warning**, matching every other overfull box: the
+ * display is still set, running into the margin exactly as LaTeX's would, so
+ * withholding the PDF would hide a document that is otherwise finished behind a
+ * problem its author can see on the page.
+ *
+ * The comparison is strict. A display exactly as wide as the measure fits, and
+ * floating-point equality between two independently-derived widths is close
+ * enough to a coin toss that reporting it would make the diagnostic look random.
+ */
+export const checkDisplayOverrun: DisplayOverrunCheck = (block, renderedWidth, measure) => {
+  if (!(renderedWidth > measure)) return null;
+  const over = renderedWidth - measure;
+  return diagnostic(
+    "warning",
+    "overfull-box",
+    block.loc,
+    `this display is ${over.toFixed(1)}pt wider than the ${measure.toFixed(1)}pt text width and runs into the margin` +
+      ` — line breaking inside mathematics is not implemented, so it has to be broken in the source` +
+      ` (an \\\\ in an align, a smaller construct, or splitting the display in two)`,
+    block.construct,
+  );
+};
 
+/**
+ * `\@eqnnum`, which `article` defines as `{\normalfont\normalcolor (\theequation)}`.
+ *
+ * The parentheses are added *here* and deliberately not in
+ * `formatEquationNumber` — a `\ref` to an equation prints `3`, not `(3)`, and
+ * the two would drift apart the first time either changed if they shared one
+ * function (`doc/counters.ts` says the same thing from the other side).
+ *
+ * The result is `Inline[]` rather than a box because the number is ordinary
+ * text: `\normalfont` at the surrounding size, set by the same shaper every
+ * other run goes through, so layout packs it with no special case. `measure` is
+ * part of the signature because right-aligning the number against the text
+ * width is layout's job and the number's *material* does not depend on it;
+ * `layout/math.ts` positions what comes back.
+ *
+ * An unnumbered line returns nothing, and that is a real answer rather than a
+ * refusal: a starred variant or a `\nonumber` line is *supposed* to have no
+ * number, and `MathLine.number` being null is how the document layer already
+ * said so.
+ */
+export const setEquationNumber: EquationNumberSetter = (line, _measure) => {
+  if (line.number === null) return [];
+  return [
+    {
+      kind: "text",
+      text: `(${line.number})`,
+      style: cloneStyle(DEFAULT_TEXT_STYLE),
+      loc: line.loc,
+    },
+  ];
+};
+
+/**
+ * Kept although both seams above have landed: it is the shape any *future*
+ * unlanded seam should take, and `math-contract.test.ts` holds it to failing
+ * loudly and naming the chunk that owes the work — the property that made the
+ * two stubs above safe to ship half-built in the first place.
+ */
 export function unimplementedMathSeam(chunk: string, what: string): never {
   throw new Error(`${what} is not implemented — chunk ${chunk} owns it`);
 }

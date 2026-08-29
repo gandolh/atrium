@@ -4,6 +4,11 @@ import type { FontHandle, PositionedGlyph } from "../font/handle.ts";
 // erases entirely under `verbatimModuleSyntax`, which is what makes the two
 // files able to name each other's shapes without depending on each other.
 import type { DecodedImage } from "../image/index.ts";
+// Type-only for the same reason: `MathNode` carries the *parsed* picture so a
+// malformed SVG is reported against the math run's own line rather than at
+// emission time, where there is no line left to name.
+import type { SvgDocument } from "../pdf/svg.ts";
+import type { SourceRef } from "../diagnostics.ts";
 
 /**
  * The box-and-glue model — the engine's core vocabulary, and TeX's.
@@ -181,6 +186,44 @@ export interface ImageNode {
 }
 
 /**
+ * One set formula — `$x^2$` or a whole display — as a rigid horizontal node
+ * (brief 40, chunk 40.4).
+ *
+ * **It is a box, not a sub-list.** Everything inside a formula was laid out by
+ * MathJax and arrives as self-contained vector; the engine's own box-and-glue
+ * model stops at the outside of it. So this node takes part in line breaking
+ * exactly as a very wide unbreakable word does, and the page builder positions
+ * it exactly as it positions an image — which is what brief 40 means by "a math
+ * run is a box to the page builder".
+ *
+ * **`width`/`height`/`depth` are points on the page, and `depth` is the one
+ * that matters.** MathJax reports its box in `ex` relative to the baseline the
+ * run sits on (`MathGeometry`); an `ex` is a property of the *surrounding text
+ * font at the surrounding size*, so the multiplication happens in
+ * `layout/math.ts`, which is the first place that knows both. Getting it wrong
+ * is the failure brief 40 singles out: inline math a point or two off the
+ * baseline looks subtly wrong down a whole paragraph.
+ *
+ * `picture` is parsed rather than a string because parsing can fail, and a
+ * failure has to be reported where a source line is still known. By the time
+ * `pdf/content.ts` paints it, the only remaining question is arithmetic.
+ */
+export interface MathNode {
+  readonly kind: "math";
+  width: number;
+  /** Above the baseline — MathJax's height *minus* its depth, not its total. */
+  height: number;
+  /** Below the baseline, positive downwards: MathJax's `vertical-align`, negated. */
+  depth: number;
+  /** The MathJax `<svg>`, parsed. `pdf/svg.ts` maps its viewBox onto the placed box. */
+  picture: SvgDocument;
+  /** The TeX this was set from — golden dumps and diagnostics read it. */
+  source: string;
+  /** Where the run was written, so an emission-time failure still names a line. */
+  loc: SourceRef;
+}
+
+/**
  * A zero-size tag that rides through layout so the page builder can report
  * where it landed. This is how `\pageref` works: `\label` drops a marker, and
  * the page it ends up on is the answer the second pass needs.
@@ -197,6 +240,7 @@ export type HNode =
   | VBox
   | RuleNode
   | ImageNode
+  | MathNode
   | Glue
   | Kern
   | Penalty

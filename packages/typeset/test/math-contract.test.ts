@@ -4,7 +4,7 @@ import { buildDocument } from "../src/doc/index.ts";
 import type { BuildResult } from "../src/doc/index.ts";
 import type { Block, DisplayMathBlock, Inline, MathInline, ParagraphBlock } from "../src/doc/index.ts";
 import type { Diagnostic } from "../src/diagnostics.ts";
-import { checkDisplayOverrun, setEquationNumber } from "../src/doc/model.ts";
+import { checkDisplayOverrun, setEquationNumber, unimplementedMathSeam } from "../src/doc/model.ts";
 import {
   BUILTIN_COMMANDS,
   BUILTIN_ENVIRONMENTS,
@@ -41,9 +41,10 @@ import {
  * table would only ever check that the source agrees with itself.
  *
  * Everything is asserted through `buildDocument` — the document layer alone.
- * Rendering (chunk 40.2), placement (40.4) and setting the number at the
- * margin (40.5) are deliberately not exercised here, so this file cannot
- * collide with those chunks.
+ * Rendering (chunk 40.2) and placement (40.4) are deliberately not exercised
+ * here — `test/math-layout.test.ts` owns those — so this file stays a test of
+ * the document layer alone. Section 7 is the one exception: the two seams that
+ * *live* in the document model, which chunk 40.4 filled in.
  */
 
 function build(body: string): BuildResult {
@@ -515,20 +516,54 @@ test("every name the Out list fixtures use is a table row, so none of them can d
   }
 });
 
-// --- 7. the seams chunks 40.4 and 40.5 still owe -----------------------------
+// --- 7. the two seams, landed by chunk 40.4 ----------------------------------
 
-test("an unlanded math seam fails loudly and names the chunk that owes it", () => {
-  // The point of the stub. A seam that returned a neutral value instead —
-  // `null` for the overrun check, `[]` for the number — would be a display
-  // silently set with no number and no complaint, which is the exact outcome
-  // D38 exists to prevent. `compile()` converts a throw into an `internal`
-  // diagnostic at its boundary, so this is loud without being a crash.
-  assert.throws(
-    () => checkDisplayOverrun(firstDisplay("\\[x\\]"), 500, 345),
-    /chunk 40\.4/,
-  );
-  assert.throws(
-    () => setEquationNumber({ source: "x", number: "1", marker: "equation:0", loc: { file: "main.tex", line: 1 } }, 345),
-    /chunk 40\.5/,
-  );
+/*
+ * These two asserted that both seams THREW and named the chunk that owed them.
+ * Chunk 40.4 landed them, so the throw is no longer the correct behaviour to
+ * assert — and the assertion is not weakened to compensate. What the old test
+ * really guarded was that a half-built seam could never be mistaken for a
+ * working one: a stub returning `null` for the overrun check or `[]` for the
+ * number would have been a display silently set with no number and no
+ * complaint. That property is now guarded from the other side, by asserting
+ * each seam does the specific thing it owed. `unimplementedMathSeam` itself
+ * survives for the *next* unlanded seam, and is still held to failing loudly.
+ */
+
+test("the overrun check reports a display wider than the measure, and only then", () => {
+  const block = firstDisplay("\\[x\\]");
+  assert.equal(checkDisplayOverrun(block, 300, 345), null, "a display that fits reports nothing");
+  assert.equal(checkDisplayOverrun(block, 345, 345), null, "exactly the measure fits");
+
+  const over = checkDisplayOverrun(block, 500, 345);
+  assert.ok(over !== null, "a display wider than the measure must report");
+  assert.equal(over.code, "overfull-box");
+  // A warning, not an error: the display is still set, exactly as LaTeX sets an
+  // overfull box, so the PDF is still produced and the author can see it.
+  assert.equal(over.severity, "warning");
+  assert.equal(over.construct, block.construct);
+  assert.equal(over.line, block.loc.line);
+  assert.match(over.message, /155\.0pt wider/);
+});
+
+test("the equation-number setter produces `(n)`, and nothing for an unnumbered line", () => {
+  const loc = { file: "main.tex", line: 1 };
+  const numbered = setEquationNumber({ source: "x", number: "3", marker: "equation:2", loc }, 345);
+  assert.equal(numbered.length, 1);
+  const first = numbered[0] as Inline;
+  assert.equal(first.kind, "text");
+  // The parentheses belong here and deliberately not to `formatEquationNumber`:
+  // a `\ref` to this equation prints `3`, `\@eqnnum` prints `(3)`.
+  assert.equal((first as { text: string }).text, "(3)");
+  assert.deepEqual(first.loc, loc);
+
+  // A starred variant or a `\nonumber` line: no number is the right answer, not
+  // a refusal, and `MathLine.number === null` is how the document layer says so.
+  assert.deepEqual(setEquationNumber({ source: "x", number: null, marker: null, loc }, 345), []);
+});
+
+test("an unlanded math seam still fails loudly and names the chunk that owes it", () => {
+  // The property that made the two stubs above safe to ship half-built. Kept
+  // pointing at the helper itself now that both of its callers have landed.
+  assert.throws(() => unimplementedMathSeam("40.9", "a seam nobody has written"), /chunk 40\.9/);
 });

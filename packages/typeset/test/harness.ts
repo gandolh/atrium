@@ -116,6 +116,16 @@ export function dumpResult(result: CompileResult, entrypoint: string): string {
         out.push(
           `  image   x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}  ${quote(item.path)}`,
         );
+      } else if (item.kind === "math") {
+        // Same fixed columns again (`y` is the top edge, `h` covers height *and*
+        // depth), plus the TeX at the end — the one field a human reads to check
+        // that the right formula landed in the right place. Without this arm a
+        // `PlacedMath` falls into the `rule` branch below and prints as an
+        // untitled rectangle, which is exactly how a formula would look if it
+        // had silently become one.
+        out.push(
+          `  math    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}  ${quote(item.source)}`,
+        );
       } else {
         out.push(
           `  rule    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}`,

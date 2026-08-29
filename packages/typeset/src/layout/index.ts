@@ -76,7 +76,19 @@ export { setTable } from "./table.ts";
 export type { TableContext } from "./table.ts";
 
 export { buildPages } from "./page.ts";
-export type { GlyphRun, Page, PageBuildOptions, PageBuildResult, PlacedItem, PlacedRule } from "./page.ts";
+export type {
+  GlyphRun,
+  Page,
+  PageBuildOptions,
+  PageBuildResult,
+  PlacedItem,
+  PlacedMath,
+  PlacedRule,
+} from "./page.ts";
+
+/** Mathematics placement (chunk 40.4): `ex` to points, the baseline, the display skips. */
+export { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, exHeight, setDisplayMath, setMathRun } from "./math.ts";
+export type { DisplayMathContext, MathContext, SetDisplay } from "./math.ts";
 
 export { EJECT_PENALTY, INFINITE_PENALTY, glue, kern, naturalSize, penalty } from "./model.ts";
 export type {
@@ -88,7 +100,9 @@ export type {
   HBox,
   HList,
   HNode,
+  ImageNode,
   Kern,
+  MathNode,
   Marker,
   Penalty,
   RuleNode,

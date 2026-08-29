@@ -50,6 +50,7 @@ export type {
   HNode,
   ImageNode,
   Kern,
+  MathNode,
   Marker,
   Penalty,
   RuleNode,
@@ -66,6 +67,7 @@ export type {
   PageBuildResult,
   PlacedImage,
   PlacedItem,
+  PlacedMath,
   PlacedRule,
 } from "./layout/page.ts";
 
@@ -93,6 +95,29 @@ export type { LayoutContext, PreparedFootnote } from "./layout/vlist.ts";
  * style (39.5). Exported so each chunk can drive its own seam from a test
  * without paying for a whole compile.
  */
+/**
+ * Mathematics (brief 40). `createMathRenderer` is what a caller builds and
+ * hands to `compile()` through `CompileOptions.math`; it is exported from the
+ * package root because a caller cannot obtain one any other way, and the
+ * engine — which acquires nothing for itself — will not build one for them.
+ *
+ * The static import graph reaching this line is small: `math/bridge.ts` names
+ * `mathjax` only in an `import type` and an `await import()`, so requiring
+ * `@ebook-reader/typeset` still costs a caller who sets no mathematics nothing.
+ */
+export { createMathRenderer } from "./math/index.ts";
+export type {
+  MathGeometry,
+  MathRenderer,
+  MathRequest,
+  MathResult,
+  MathRun,
+  MathViewBox,
+} from "./math/index.ts";
+/** Placing a rendered run: `ex` to points, the baseline, and the display skips. */
+export { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, exHeight, setDisplayMath, setMathRun } from "./layout/math.ts";
+export type { DisplayMathContext, MathContext, SetDisplay } from "./layout/math.ts";
+
 export { FLOAT_NAME, prepareFloat } from "./layout/float.ts";
 export type { FloatContext, PreparedFloat } from "./layout/float.ts";
 export { setTable } from "./layout/table.ts";

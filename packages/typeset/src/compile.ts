@@ -1,5 +1,9 @@
 import type { Diagnostic } from "@ebook-reader/shared";
 import type { FontProvider } from "./font/handle.ts";
+// Type-only, and load-bearing that it stays so: `math/bridge.ts` keeps MathJax
+// behind a dynamic `import()` so this module's static graph never pulls ~70 MB
+// into a caller that never sets a formula.
+import type { MathRenderer } from "./math/index.ts";
 import type { Page } from "./layout/page.ts";
 import { buildPages } from "./layout/page.ts";
 import type { PageDesign } from "./layout/design.ts";
@@ -60,6 +64,29 @@ export interface CompileOptions {
    * ```
    */
   fonts?: FontProvider;
+  /**
+   * Where mathematics is set, for `$…$` and the display environments.
+   *
+   * **Injected for exactly the reasons `fonts` is**, plus one of its own:
+   * `createMathRenderer()` is `async` (MathJax's `init()` loads components and
+   * warms its font ranges) and `compile()` is synchronous by design, so
+   * construction has to happen outside — once, by the caller — and the built
+   * renderer handed in.
+   *
+   * ```ts
+   * import { compile, createMathRenderer } from "@ebook-reader/typeset";
+   * const math = await createMathRenderer();            // once, at startup
+   * compile(files, "main.tex", { fonts, math });
+   * ```
+   *
+   * Omitting it is free for a document with no mathematics — nothing is built
+   * and nothing is loaded. A document that *does* contain mathematics and gets
+   * no renderer produces a diagnostic and no PDF, deliberately: silently
+   * dropping every formula out of a published document is the failure this
+   * whole engine's contract exists to rule out (D38), and it is the failure
+   * this option's absence used to cause.
+   */
+  math?: MathRenderer;
 }
 
 /** `CompileOptions` with every default filled in. Later stages take this. */
@@ -69,6 +96,7 @@ export interface ResolvedCompileOptions {
   maxPages: number;
   signal: AbortLike | null;
   fonts: FontProvider | null;
+  math: MathRenderer | null;
 }
 
 /**
@@ -89,6 +117,7 @@ export function resolveCompileOptions(opts: CompileOptions = {}): ResolvedCompil
     maxPages: opts.maxPages ?? DEFAULT_COMPILE_OPTIONS.maxPages,
     signal: opts.signal ?? null,
     fonts: opts.fonts ?? null,
+    math: opts.math ?? null,
   };
 }
 
@@ -339,7 +368,10 @@ function layoutDocument(
     const passDiagnostics: Diagnostic[] = [];
     // `files` reaches layout because an image is an input like any other (D38):
     // `\includegraphics` resolves its name against this map and nothing else.
-    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known, files);
+    // `opts.math` is `null` for every caller that sets no mathematics, and the
+    // layout context carries it exactly as it carries `files`: an input the
+    // engine was handed, never one it went and found.
+    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known, files, opts.math);
     const list = buildVerticalList(build.document, ctx);
     const built = buildPages(list, {
       design,

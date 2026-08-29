@@ -1,10 +1,12 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { error, warning } from "../diagnostics.ts";
 import type { FontProvider } from "../font/handle.ts";
+import { DEFAULT_TEXT_STYLE } from "../doc/model.ts";
 import type {
   AbstractBlock,
   BibliographyBlock,
   Block,
+  DisplayMathBlock,
   FloatBlock,
   FloatClass,
   FloatListEntry,
@@ -16,6 +18,7 @@ import type {
   LatexDocument,
   ListBlock,
   ListItem,
+  MathInline,
   ParagraphBlock,
   TableBlock,
   TextStyle,
@@ -25,6 +28,12 @@ import type {
 } from "../doc/model.ts";
 import type { ImageContext, ImageFiles } from "../image/index.ts";
 import { placeImage } from "../image/index.ts";
+// Type-only, so `src/index.ts`'s static graph still never reaches MathJax: the
+// bridge keeps it behind a dynamic `import()` and a renderer is handed to this
+// file already built, exactly as a `FontProvider` is.
+import type { MathRenderer } from "../math/index.ts";
+import type { DisplayMathContext, MathContext } from "./math.ts";
+import { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, setDisplayMath, setMathRun } from "./math.ts";
 import type { FloatContext, PreparedFloat } from "./float.ts";
 import { prepareFloat } from "./float.ts";
 import type { TableContext } from "./table.ts";
@@ -107,6 +116,20 @@ export interface LayoutContext {
    * then reports as a missing file rather than guessing a size.
    */
   files: ImageFiles;
+  /**
+   * The math renderer, or `null` when the caller supplied none. Injected for
+   * the same reason `fonts` is — `createMathRenderer()` is async and the engine
+   * is synchronous, and the engine acquires nothing for itself (D38). A
+   * math-free document never touches it; a document *with* math and no renderer
+   * gets a diagnostic rather than a silently empty page (`layout/math.ts`).
+   */
+  math: MathRenderer | null;
+  /**
+   * Math failures already reported once for the whole document — today just the
+   * absent renderer, which would otherwise repeat itself per formula. Same
+   * mechanism as `missingFaces` and `reportedImages`.
+   */
+  reportedMath: Set<string>;
   /** Image paths already reported as unusable, so one bad file is one diagnostic. */
   reportedImages: Set<string>;
   /** Faces already reported as missing, so one absent face is one diagnostic. */
@@ -129,6 +152,13 @@ export function createLayoutContext(
    * `compile()` always passes the real one.
    */
   files: ImageFiles = {},
+  /**
+   * The math renderer, for `$…$` and display environments. Optional and
+   * defaulting to `null` for the same reason `files` is: a caller laying out
+   * prose alone needs none, and it costs nothing until a document contains
+   * mathematics. `compile()` passes whatever `CompileOptions.math` held.
+   */
+  math: MathRenderer | null = null,
 ): LayoutContext {
   const missingGlyphs = new Set<string>();
   return {
@@ -142,6 +172,8 @@ export function createLayoutContext(
     footnotes: new Map(),
     floats: new Map(),
     files,
+    math,
+    reportedMath: new Set(),
     reportedImages: new Set(),
     missingFaces: new Set(),
     missingGlyphs,
@@ -464,6 +496,30 @@ function inlinesToHList(inlines: readonly Inline[], ctx: LayoutContext, opts: In
         flush();
         appendImage(out, inline, ctx, opts);
         break;
+      case "math":
+        flush();
+        appendMath(out, inline, ctx, opts);
+        break;
+      default: {
+        /*
+         * **The reason chunk 40.4 exists.** Brief 40's chunk 40.3 added `math`
+         * to the `Inline` union and this switch grew no arm for it — and
+         * because the switch is a statement whose arms return nothing, TypeScript
+         * had nothing to complain about. Every `$x^2$` in every document then
+         * vanished from the page with zero diagnostics, which is the exact
+         * silent-wrong-output failure D38 exists to make impossible.
+         *
+         * The arms above are the fix for that instance. *This* is the fix for
+         * the class: assigning to `never` fails to compile the moment a new
+         * `Inline` member is added without an arm here, so the next kind cannot
+         * be dropped the same way. The throw is unreachable by construction —
+         * and if a JavaScript caller ever forges an inline past the type system,
+         * `compile()`'s boundary turns it into an `internal` diagnostic, which
+         * is still louder than silence.
+         */
+        const unhandled: never = inline;
+        throw new Error(`layout: unhandled inline kind ${String((unhandled as { kind: string }).kind)}`);
+      }
     }
   }
   flush();
@@ -479,6 +535,35 @@ function appendImage(out: HList, image: ImageInline, ctx: LayoutContext, opts: I
   const box = placeImage(image, imageContext(ctx, opts.size, ctx.design.textWidth));
   if (box === null) return;
   out.push(box);
+}
+
+/**
+ * `$…$`, set and dropped into the horizontal list — the same shape as an image
+ * and for the same reason: a formula is one rigid, unbreakable box that takes
+ * part in line breaking like a very wide word (line breaking *inside* math is
+ * explicitly Out, brief 40).
+ *
+ * **The `ex` is taken from the run's own surrounding face**, resolved here at
+ * `opts.size`. That is the detail the whole placement turns on: MathJax reports
+ * its baseline offset in `ex`, an `ex` is the x-height of the *text* the formula
+ * sits in, and this call site is the only place that knows which face and which
+ * size those are. Inline math in a `\footnotesize` note therefore comes back
+ * smaller, on that note's baseline, with no special case anywhere.
+ *
+ * No space is added on either side. MathJax's box already carries TeX's math
+ * spacing, and the surrounding `SpaceInline`s are ordinary interword glue —
+ * adding more here would set `a $x$ b` wider than `a x b`, which is not what
+ * LaTeX does.
+ */
+function appendMath(out: HList, math: MathInline, ctx: LayoutContext, opts: InlineOptions): void {
+  const face = resolveFace(ctx, math.style.font, opts.size);
+  // `resolveFace` has already reported the missing face. Setting the formula
+  // anyway would need an x-height from somewhere, and every source for one
+  // would be a guess about a face the document does not have.
+  if (face === null) return;
+  const node = setMathRun(math.source, false, math.loc, math.construct, mathContext(ctx, face));
+  if (node === null) return;
+  out.push(node);
 }
 
 function sameStyle(a: TextStyle, b: TextStyle): boolean {
@@ -1440,6 +1525,34 @@ function tableContext(ctx: LayoutContext, env: BlockEnv): TableContext {
   };
 }
 
+/**
+ * Everything `layout/math.ts` needs for one run. `face` is the **text** face the
+ * run sits in — math is set in MathJax's own faces, and this one is here purely
+ * to supply the x-height and size that turn MathJax's `ex` into points.
+ */
+function mathContext(ctx: LayoutContext, face: TextFace): MathContext {
+  return { renderer: ctx.math, face, diagnostics: ctx.diagnostics, reported: ctx.reportedMath };
+}
+
+/** A display's context: a run's, plus the measure it is centred in and a shaper for its number. */
+function displayMathContext(ctx: LayoutContext, face: TextFace, env: BlockEnv): DisplayMathContext {
+  return {
+    ...mathContext(ctx, face),
+    measure: env.measure,
+    setInlines: (inlines, at) =>
+      inlinesToHList(inlines, ctx, {
+        size: env.size.size,
+        at,
+        // An equation number is `(3)`. There is no `\footnote` in it, and the
+        // material does not come from the document at all — it is generated
+        // from a counter — so nothing is being refused here that an author
+        // could have written.
+        allowFootnotes: false,
+        footnotesRefusedIn: "an equation number",
+      }),
+  };
+}
+
 /** Everything `src/image/` (chunk 39.2) needs to place one graphic. */
 function imageContext(ctx: LayoutContext, size: number, measure: number): ImageContext {
   return {
@@ -1495,6 +1608,42 @@ function layoutTable(block: TableBlock, col: Column, ctx: LayoutContext, env: Bl
   // list appends it like any other; the space around it is the paragraph
   // spacing already in force, which is why nothing is added here.
   pushBox(col, box, env.size.baselineSkip, env.left);
+}
+
+/**
+ * `\[…\]`, `equation`, `align` — a display, centred in the measure with its
+ * number at the right-hand margin, and `\abovedisplayskip`/`\belowdisplayskip`
+ * around it.
+ *
+ * `addVspace` rather than `pushGlue` for the space above, so a display that
+ * follows a list or a heading gets *the larger* of the two skips rather than
+ * both — the same collapsing LaTeX's own `\addvspace` does, and the reason a
+ * display after an `itemize` does not float half an inch down the page.
+ *
+ * The whole environment goes to the renderer as one run and comes back as one
+ * box, which is why nothing here loops over `block.lines`: the alignment points
+ * of an `align` are MathJax's to resolve, and splitting the source into lines
+ * would discard them. `block.lines` is read only for the numbering.
+ */
+function layoutDisplayMath(block: DisplayMathBlock, col: Column, ctx: LayoutContext, env: BlockEnv): void {
+  // The document's normal face at the block's size: a display is set in
+  // `\normalfont` regardless of what the surrounding paragraph was doing, and
+  // that is also the face whose x-height sizes the formula.
+  const face = resolveFace(ctx, DEFAULT_TEXT_STYLE.font, env.size.size);
+  if (face === null) return;
+
+  const set = setDisplayMath(block, displayMathContext(ctx, face, env));
+  // `null` means the run was refused, and `layout/math.ts` has already said why.
+  // Nothing is appended — not even the surrounding skips, because a gap where a
+  // formula should be reads as deliberate white space rather than as a hole.
+  if (set === null) return;
+
+  addVspace(col, ABOVE_DISPLAY_SKIP.natural, ABOVE_DISPLAY_SKIP.stretch, ABOVE_DISPLAY_SKIP.shrink);
+  // A display is one box in the vertical list, exactly as a `tabular` is, so it
+  // is appended with the ordinary interline glue rule and the page builder never
+  // learns that mathematics exists.
+  pushBox(col, set.box, env.size.baselineSkip, env.left);
+  pushGlue(col, BELOW_DISPLAY_SKIP.natural, BELOW_DISPLAY_SKIP.stretch, BELOW_DISPLAY_SKIP.shrink);
 }
 
 /**
@@ -1598,9 +1747,15 @@ function layoutBlocks(blocks: readonly Block[], col: Column, ctx: LayoutContext,
 
 /**
  * **Adding a block kind starts here.** Every arm either produces vertical
- * material or reports why it cannot; there is deliberately no `default`, so a
- * new `Block` member in `doc/model.ts` is a typecheck error in this switch
- * rather than content that silently vanishes (D38).
+ * material or reports why it cannot, and the `default` at the foot assigns the
+ * block to `never` — so a new `Block` member in `doc/model.ts` is a typecheck
+ * error in this switch rather than content that silently vanishes (D38).
+ *
+ * That `never` is not decoration. Before chunk 40.4 this comment claimed the
+ * same guarantee and there was no `default` at all, which does not produce one:
+ * a `switch` statement whose arms return `void` is exhaustive to nobody. Brief
+ * 40's `displaymath` was added to the union, matched nothing here, and set
+ * nothing at all with not one diagnostic to show for it.
  */
 function layoutBlock(block: Block, col: Column, ctx: LayoutContext, env: BlockEnv): void {
   switch (block.kind) {
@@ -1658,6 +1813,10 @@ function layoutBlock(block: Block, col: Column, ctx: LayoutContext, env: BlockEn
       col.suppressIndent = false;
       layoutTable(block, col, ctx, env);
       return;
+    case "displaymath":
+      col.suppressIndent = false;
+      layoutDisplayMath(block, col, ctx, env);
+      return;
     case "bibliography":
       col.suppressIndent = false;
       layoutBibliography(block, col, ctx, env);
@@ -1704,6 +1863,21 @@ function layoutBlock(block: Block, col: Column, ctx: LayoutContext, env: BlockEn
         ),
       );
       return;
+    default: {
+      /*
+       * The claim in this function's doc comment used to be false, and a whole
+       * chunk was spent on the consequence. Every arm returns `void`, so an
+       * unmatched `block.kind` simply fell out of the switch — which is how
+       * `displaymath` was added to the `Block` union with no arm here, no
+       * typecheck error, and every display equation vanishing from every
+       * document in silence (D38's exact failure mode).
+       *
+       * Assigning to `never` is what makes the claim true: a new `Block` member
+       * with no arm above is now a compile error at this line. Keep it.
+       */
+      const unhandled: never = block;
+      throw new Error(`layout: unhandled block kind ${String((unhandled as { kind: string }).kind)}`);
+    }
   }
 }
 

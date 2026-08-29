@@ -1,10 +1,15 @@
-import type { Argument, CommandNode, EnvironmentNode, GroupNode, LatexNode } from "../parse/index.ts";
+import type { Argument, CommandNode, EnvironmentNode, GroupNode, LatexNode, MathNode } from "../parse/index.ts";
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { error, info, unsupported, warning, wholeFile } from "../diagnostics.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { BuiltinSpec, SpecialId } from "../macro/builtins.ts";
-import { lookupCommand, lookupEnvironment } from "../macro/builtins.ts";
+import {
+  DECLINED_MATH_COMMANDS,
+  DECLINED_MATH_ENVIRONMENTS,
+  lookupCommand,
+  lookupEnvironment,
+} from "../macro/builtins.ts";
 import { mergeAdjacentText } from "../macro/expand.ts";
 import type {
   BibItem,
@@ -12,6 +17,7 @@ import type {
   Block,
   CitationInline,
   CitationStyle,
+  DisplayMathVariant,
   DocumentLength,
   FloatClass,
   FloatListEntry,
@@ -24,6 +30,7 @@ import type {
   LengthRegister,
   ListItem,
   ListVariant,
+  MathLine,
   PackageUse,
   ParagraphBlock,
   ReferenceInline,
@@ -46,7 +53,10 @@ import {
   UNRESOLVED_REFERENCE,
   captionMarker,
   cloneStyle,
+  equationMarker,
   headingMarker,
+  isMultiLineDisplay,
+  isNumberedDisplay,
   labelMarker,
 } from "./model.ts";
 import type { Counters } from "./counters.ts";
@@ -56,6 +66,7 @@ import {
   enumReferenceText,
   floatCounter,
   formatEnumLabel,
+  formatEquationNumber,
   formatFloatNumber,
   formatHeadingNumber,
   headingCounter,
@@ -132,6 +143,13 @@ interface BuildState {
   floatList: FloatListEntry[];
   /** How many captions have been built, so each gets its own marker name. */
   captions: number;
+  /**
+   * How many *numbered equation lines* have been built, so each gets its own
+   * marker name. Not the same as `counters.equation`: they agree today, and
+   * would stop agreeing the moment anything resets the counter (`\numberwithin`
+   * is a diagnostic, but a marker name must be unique whatever the number is).
+   */
+  equations: number;
   /** Every `\cite`/`\citep`/`\citet`/`\nocite`, for the bibliography pass. */
   citations: CitationInline[];
   /**
@@ -169,6 +187,7 @@ export function createBuildState(file: string, diagnostics: Diagnostic[], budget
     float: null,
     floatList: [],
     captions: 0,
+    equations: 0,
     citations: [],
     bibliographies: [],
     bibliographyStyle: null,
@@ -335,13 +354,7 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
         break;
       }
       case "math":
-        st.diagnostics.push(
-          unsupported(
-            node.loc.start,
-            node.display ? "\\[...\\]" : "$...$",
-            "math typesetting is brief 40, a separate future brief",
-          ),
-        );
+        applyMath(node, sink, st, depth);
         break;
       case "command": {
         /*
@@ -425,6 +438,12 @@ function applyCommand(cmd: CommandNode, sink: Sink, st: BuildState, depth: numbe
   switch (spec.role) {
     case "unsupported":
       st.diagnostics.push(unsupported(at, `\\${cmd.name}`, spec.detail));
+      return;
+    case "math-only":
+      // Implemented — inside math. This arm is only ever reached by a math
+      // command written in text mode, where real LaTeX says "Missing $
+      // inserted" and this engine says which mode the command belongs to.
+      st.diagnostics.push(unsupported(at, `\\${cmd.name}`, MATH_ONLY_DETAIL));
       return;
     case "symbol":
       if (spec.text === " ") emitSpace(sink, at);
@@ -765,6 +784,14 @@ function applyEnvironment(env: EnvironmentNode, sink: Sink, st: BuildState, dept
   }
   if (spec.role === "float") {
     applyFloat(env, spec.class, spec.spanning, sink, st, depth);
+    return;
+  }
+  if (spec.role === "display-math") {
+    applyDisplayMath(env, spec.variant, sink, st, depth);
+    return;
+  }
+  if (spec.role === "math-only") {
+    st.diagnostics.push(unsupported(at, env.name, MATH_ONLY_DETAIL));
     return;
   }
   switch (spec.id) {
@@ -1939,6 +1966,401 @@ function buildBibItem(cmd: CommandNode, st: BuildState, depth: number): BibItem 
 
 function boldStyle(): TextStyle {
   return { font: { ...DEFAULT_TEXT_STYLE.font, weight: "bold" }, underline: false };
+}
+
+// --- mathematics (brief 40) -------------------------------------------------
+
+/**
+ * What a `math-only` name is told when it is written outside math mode. One
+ * message for two hundred names, which is why `math-only` is a role rather
+ * than an `unsupported` row each — see `BuiltinSpec` in `macro/builtins.ts`.
+ */
+const MATH_ONLY_DETAIL =
+  "this is a math-mode construct and is implemented there; outside math ($...$, \\(...\\), \\[...\\] or a display environment) there is nothing for it to set";
+
+/*
+ * Math is the one construct whose *inside* the document layer deliberately does
+ * not model. Everything else here turns nodes into blocks and inlines; a math
+ * run turns nodes back into TeX, because the thing that will set it is MathJax
+ * and MathJax reads TeX (D41 §1). Modelling the inside of a formula as
+ * document-model nodes would be building a second representation nothing reads.
+ *
+ * What the document layer *does* own, and does here:
+ *   - which delimiters wrote it, so a diagnostic can name the construct;
+ *   - which display variant it is, so numbering and alignment are decidable;
+ *   - the equation counter, `\label` and `\ref` (acceptance 4);
+ *   - the In-list gate on names the source wrote literally (D41 §5).
+ * Rendering is chunk 40.2, placement and the overrun diagnostic are 40.4, and
+ * setting the number at the margin is 40.5 — see `MathBox`, `MathRenderer` and
+ * `EquationNumberSetter` in `model.ts` for the shapes they meet.
+ */
+
+/**
+ * `$…$`, `\(…\)`, `\[…\]` and `$$…$$` — the delimiter forms, which the parser
+ * hands over as a `math` node with a `display` flag and nothing else. `\[` and
+ * `$$` are indistinguishable by the time they get here (both are
+ * `@unified-latex`'s `displaymath`), so both are named `\[...\]`; they mean the
+ * same thing and neither is numbered.
+ */
+function applyMath(node: MathNode, sink: Sink, st: BuildState, depth: number): void {
+  const at = node.loc.start;
+  if (depth > MAX_NESTING) {
+    reportStop(st, at, `source nesting is deeper than ${MAX_NESTING} levels`);
+    return;
+  }
+  const construct = node.display ? "\\[...\\]" : "$...$";
+  gateMathContent(node.body, st, construct);
+  if (node.display) {
+    // `\[…\]` is `displaymath`, and `displaymath` is never numbered — so a
+    // `\label` in one has no number to print, which `collectMathLabels`
+    // reports rather than letting `\ref` set a blank.
+    buildDisplay(node.body, "bracket", construct, null, at, sink, st);
+    return;
+  }
+  emit(sink, {
+    kind: "math",
+    source: printMath(node.body),
+    construct,
+    display: false,
+    style: cloneStyle(sink.style),
+    loc: at,
+  });
+}
+
+/**
+ * `\begin{equation}`, `\begin{align}` and the rest of brief 40's In list. The
+ * environment name has to be kept: `align` and `gather` are both numbered
+ * multi-line displays and differ only in whether `&` means anything, which is
+ * MathJax's business, but the *diagnostics* have to say which one was written.
+ */
+function applyDisplayMath(
+  env: EnvironmentNode,
+  variant: DisplayMathVariant,
+  sink: Sink,
+  st: BuildState,
+  depth: number,
+): void {
+  const at = env.loc.start;
+  if (depth > MAX_NESTING) {
+    reportStop(st, at, `source nesting is deeper than ${MAX_NESTING} levels`);
+    return;
+  }
+  gateMathContent(env.body, st, env.name);
+  if (env.args.some((a) => a.bracket === "[")) {
+    // No In-list display environment takes an optional argument; one that was
+    // written means a package this engine does not have is in play, and
+    // dropping it silently would set a different equation than the author read.
+    st.diagnostics.push(
+      unsupported(at, env.name, "no display-math environment on brief 40's In list takes an optional argument"),
+    );
+  }
+  buildDisplay(env.body, variant, env.name, env.name, at, sink, st);
+}
+
+/**
+ * The half both entry points share: split the body into `\\`-separated lines,
+ * number the ones that are numbered, register any `\label`s against them, and
+ * push the block.
+ *
+ * `wrapper` is the environment name to print back around the TeX, or null for a
+ * delimiter form. It matters: MathJax needs `\begin{align}…\end{align}` to know
+ * where the alignment points are, and would set a bare `a &= b` as an error.
+ */
+function buildDisplay(
+  body: readonly LatexNode[],
+  variant: DisplayMathVariant,
+  construct: string,
+  wrapper: string | null,
+  at: SourceRef,
+  sink: Sink,
+  st: BuildState,
+): void {
+  const numbered = isNumberedDisplay(variant);
+  const rawLines = isMultiLineDisplay(variant) ? splitDisplayLines(body, at) : [{ nodes: body, loc: at }];
+  const lines: MathLine[] = [];
+  const markers: string[] = [];
+  for (const raw of rawLines) {
+    // `\nonumber`/`\notag` suppress *this line's* number and nothing else —
+    // which is why the counter is stepped per line rather than per display.
+    const suppressed = raw.nodes.some(
+      (n) => n.type === "command" && (n.name === "nonumber" || n.name === "notag"),
+    );
+    const lineNumbered = numbered && !suppressed;
+    let number: string | null = null;
+    let marker: string | null = null;
+    if (lineNumbered) {
+      step(st.counters, "equation");
+      number = formatEquationNumber(st.counters);
+      marker = equationMarker(st.equations);
+      st.equations += 1;
+      markers.push(marker);
+      // `\@currentlabel`: a `\label` written on this line refers to this
+      // number, exactly as it would inside a `\section`. Set before the labels
+      // on the line are read, cleared after the display, because a `\label`
+      // written *after* an equation belongs to whatever numbered thing comes
+      // next and not to the equation it happens to follow.
+      st.currentLabel = number;
+      st.currentLabelKind = "equation";
+    }
+    collectMathLabels(raw.nodes, st, marker, construct);
+    lines.push({ source: printMath(raw.nodes), number, marker, loc: raw.loc });
+  }
+  const inner = printMath(body);
+  const source = wrapper === null ? inner : `\\begin{${wrapper}}${inner}\\end{${wrapper}}`;
+  /*
+   * One `MarkerBlock` per numbered line, immediately before the display.
+   *
+   * `\pageref` resolves through markers that layout has *placed*, and layout
+   * places `MarkerBlock`s already — so emitting them here closes the two-pass
+   * cycle for equations today, with no layout change and no second reference
+   * mechanism (brief 40 step 3 forbids one). It is provisional in exactly one
+   * respect: a marker sitting immediately before the display reports the page
+   * the display *starts* on, which is the right answer unless a page break
+   * lands between the marker and the block. Chunk 40.4 can move the markers
+   * inside the display's own vertical material and this loop goes away; until
+   * then a `\pageref` to an equation is right rather than `??`.
+   */
+  for (const marker of markers) pushBlock(sink, { kind: "marker", name: marker, loc: at });
+  pushBlock(sink, {
+    kind: "displaymath",
+    variant,
+    construct,
+    source,
+    display: true,
+    numbered,
+    lines,
+    loc: at,
+  });
+  if (numbered) {
+    st.currentLabel = null;
+    st.currentLabelKind = "document";
+  }
+}
+
+/** One `\\`-separated line of a multi-line display, before it is printed back. */
+interface DisplayLine {
+  nodes: LatexNode[];
+  loc: SourceRef;
+}
+
+/**
+ * Split a display's body on top-level `\\`. Only top-level ones: a `\\` inside
+ * a `pmatrix` nested in an `align` line separates matrix rows, not equation
+ * lines, and it is inside that environment's own body so this walk never sees
+ * it.
+ */
+function splitDisplayLines(body: readonly LatexNode[], at: SourceRef): DisplayLine[] {
+  const lines: DisplayLine[] = [];
+  let current: LatexNode[] = [];
+  let loc = at;
+  for (const node of body) {
+    if (node.type === "command" && node.name === "\\") {
+      lines.push({ nodes: current, loc });
+      current = [];
+      loc = node.loc.end;
+      continue;
+    }
+    if (current.length === 0 && node.type !== "whitespace" && node.type !== "parbreak") loc = node.loc.start;
+    current.push(node);
+  }
+  // A trailing `\\` before `\end{align}` is idiomatic and does not open a line;
+  // an empty last line would otherwise be numbered and set as a blank row.
+  if (current.some((n) => n.type !== "whitespace" && n.type !== "parbreak" && n.type !== "comment")) {
+    lines.push({ nodes: current, loc });
+  }
+  return lines.length > 0 ? lines : [{ nodes: [], loc: at }];
+}
+
+/**
+ * Register every `\label` written inside a math run, against the equation
+ * number in force.
+ *
+ * Deliberately a second walk rather than a branch in `applySpecial`: the body
+ * of a math run is never emitted as document material, so `\label` there never
+ * reaches the ordinary command path. `marker` is null for an unnumbered
+ * display, and that case is a warning for the same reason `applySpecial`'s is —
+ * a `\ref` to it would print an empty string in a published document.
+ */
+function collectMathLabels(
+  nodes: readonly LatexNode[],
+  st: BuildState,
+  marker: string | null,
+  construct: string,
+): void {
+  for (const node of nodes) {
+    if (node.type === "group") {
+      collectMathLabels(node.body, st, marker, construct);
+      continue;
+    }
+    if (node.type !== "command" || node.name !== "label") continue;
+    const at = node.loc.start;
+    const arg = mandatoryArgument(node);
+    const key = arg === null ? "" : plainText(arg.content).trim();
+    if (key.length === 0) {
+      st.diagnostics.push(error("syntax", at, "\\label needs a non-empty key", "\\label"));
+      continue;
+    }
+    if (st.labels.has(key)) {
+      st.diagnostics.push(
+        error("duplicate-label", at, `\\label{${key}} was already defined; the first definition wins`, "\\label"),
+      );
+      continue;
+    }
+    if (marker === null) {
+      st.diagnostics.push(
+        warning(
+          "undefined-reference",
+          at,
+          `\\label{${key}} is inside ${construct}, which is not numbered, so \\ref{${key}} has no number to print`,
+          "\\label",
+        ),
+      );
+      st.labels.set(key, { key, text: UNRESOLVED_REFERENCE, marker: labelMarker(key), loc: at });
+      continue;
+    }
+    // The label resolves through the *equation's* marker, not one of its own:
+    // the marker is what layout places, and there is nothing inside the display
+    // for a `labelMarker` to be attached to.
+    st.labels.set(key, { key, text: st.currentLabel ?? UNRESOLVED_REFERENCE, marker, loc: at });
+  }
+}
+
+/**
+ * The In-list gate, name level (D41 §5).
+ *
+ * Walks everything a math run contains and reports the names brief 40 declined.
+ * It does **not** report names it has never heard of: an unrecognised control
+ * sequence inside math is MathJax's to judge — with `noundefined` dropped it
+ * raises a real error through `formatError` (D41 §4) — and guessing here would
+ * mean either a false `unsupported` for every symbol this list has not got
+ * round to, or a false `undefined-command` for one MathJax knows and we do not.
+ * Chunk 40.2 closes that half on the MathML, where macro expansion is done.
+ */
+function gateMathContent(nodes: readonly LatexNode[], st: BuildState, construct: string): void {
+  for (const node of nodes) {
+    if (!spend(st.budget)) return;
+    switch (node.type) {
+      case "command": {
+        const detail = DECLINED_MATH_COMMANDS[node.name];
+        if (detail !== undefined) st.diagnostics.push(unsupported(node.loc.start, `\\${node.name}`, detail));
+        for (const arg of node.args) gateMathContent(arg.content, st, construct);
+        break;
+      }
+      case "environment": {
+        const detail = DECLINED_MATH_ENVIRONMENTS[node.name];
+        if (detail !== undefined) st.diagnostics.push(unsupported(node.loc.start, node.name, detail));
+        for (const arg of node.args) gateMathContent(arg.content, st, construct);
+        gateMathContent(node.body, st, construct);
+        break;
+      }
+      case "group":
+        gateMathContent(node.body, st, construct);
+        break;
+      case "math":
+        // `$` inside `$…$` is malformed, but `\text{… $x$ …}` nests legally.
+        gateMathContent(node.body, st, construct);
+        break;
+      case "unknown":
+        // A `\verb` or a `verbatim` inside math: the parser preserved it and
+        // there is no sane TeX to print back for it, so it is refused here
+        // rather than silently flattened into the formula.
+        st.diagnostics.push(
+          unsupported(node.loc.start, construct, `a ${node.originalType} construct inside math has no meaning to hand a math renderer`),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+}
+
+/**
+ * Print an expanded AST back to TeX, for the renderer.
+ *
+ * This is the whole reason `MathInline.source` is a string: what MathJax must
+ * be handed is the *expanded* source, and by the time the builder runs the
+ * document's own `\newcommand`s are gone from the tree — so slicing the
+ * original file would hand MathJax macros it has never heard of, and slicing
+ * anything at all would need the source text threaded through a layer that
+ * deliberately does not have it.
+ *
+ * `\label`, `\nonumber` and `\notag` are dropped: they are numbering
+ * instructions this file has already carried out, and MathJax would either set
+ * them or refuse them.
+ */
+const MATH_ACTIVE_CHARS: ReadonlySet<string> = new Set(["^", "_"]);
+
+function printMath(nodes: readonly LatexNode[]): string {
+  let out = "";
+  const append = (text: string): void => {
+    // TeX's own rule, and the only subtlety in this function: a control word
+    // swallows the letters that follow it, so `\alpha` + `x` must be printed
+    // `\alpha x`. A control *symbol* (`\\`, `\{`) has no such problem, and
+    // neither does anything not starting with a letter.
+    if (/\\[A-Za-z]+$/.test(out) && /^[A-Za-z]/.test(text)) out += " ";
+    out += text;
+  };
+  for (const node of nodes) {
+    switch (node.type) {
+      case "text":
+        append(node.value);
+        break;
+      case "whitespace":
+        out += " ";
+        break;
+      case "parbreak":
+        // A blank line inside math is an error in TeX; printing it back as one
+        // space keeps the formula readable and lets MathJax decide.
+        out += " ";
+        break;
+      case "comment":
+        break;
+      case "escaped":
+        append(`\\${node.char}`);
+        break;
+      case "group":
+        append(`{${printMath(node.body)}}`);
+        break;
+      case "math":
+        append(node.display ? `\\[${printMath(node.body)}\\]` : `$${printMath(node.body)}$`);
+        break;
+      case "environment":
+        append(`\\begin{${node.name}}${printMathArgs(node.args)}${printMath(node.body)}\\end{${node.name}}`);
+        break;
+      case "command": {
+        if (node.name === "label" || node.name === "nonumber" || node.name === "notag") break;
+        // `^` and `_` are the two math-mode macros the parser reports as
+        // *commands* rather than as characters, because in math they take an
+        // argument (`x^2` is `^` applied to `2`) — see `EscapedCharNode` in
+        // `ast.ts`. They must print back as the bare character: `\^` is the
+        // text-mode circumflex accent, so printing the backslash would hand the
+        // renderer a different formula than the author wrote, and one that
+        // still renders. That is the exact class of silent wrongness D38 is
+        // about, which is why it is a named case and not a fallthrough.
+        append(MATH_ACTIVE_CHARS.has(node.name) ? node.name : `\\${node.name}`);
+        out += printMathArgs(node.args);
+        break;
+      }
+      case "unknown":
+        // Refused by `gateMathContent`, which runs first; printing the raw text
+        // anyway keeps the two from disagreeing about what the run contained.
+        append(node.raw);
+        break;
+    }
+  }
+  return out;
+}
+
+function printMathArgs(args: readonly Argument[]): string {
+  let out = "";
+  for (const arg of args) {
+    if (arg.bracket === "{") out += `{${printMath(arg.content)}}`;
+    else if (arg.bracket === "[") out += `[${printMath(arg.content)}]`;
+    // A `bracket: null` slot with content is the `*` of a starred command, and
+    // an empty one was never written at all — see `Argument` in `ast.ts`.
+    else out += printMath(arg.content);
+  }
+  return out;
 }
 
 // --- the preamble -----------------------------------------------------------

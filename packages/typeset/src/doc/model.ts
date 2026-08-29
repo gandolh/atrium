@@ -1,4 +1,4 @@
-import type { SourceRef } from "../diagnostics.ts";
+import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import type { FontFamily, FontSlant, FontWeight } from "../font/handle.ts";
 
 /**
@@ -212,6 +212,46 @@ export interface CitationInline extends InlineBase {
   textStyle: TextStyle;
 }
 
+// --- mathematics (brief 40) -------------------------------------------------
+
+/**
+ * `$…$` or `\(…\)` — a math run inside a paragraph.
+ *
+ * **The mathematics is carried as a TeX *string*, not as a sub-tree**, and that
+ * is the load-bearing decision of brief 40. The engine does not implement TeX's
+ * mlist layout; it hands the run to MathJax and converts the SVG that comes
+ * back (D41). A renderer wants exactly one thing — the TeX — so modelling the
+ * inside of a formula as document-model nodes would be inventing a second
+ * representation that nothing reads and that could only drift from the first.
+ *
+ * `source` is what the *expanded* AST prints back to, not a slice of the file:
+ * macro expansion runs before the document walk, so a `\newcommand` used inside
+ * `$…$` is already gone by the time this node is built. That is what the
+ * renderer must be given — MathJax has never heard of the document's own
+ * macros — and it is also why D41 §5 warns against gating on the raw source.
+ */
+export interface MathInline extends InlineBase {
+  kind: "math";
+  /** The TeX between the delimiters, macro-expanded, ready for the renderer. */
+  source: string;
+  /** `"$...$"` — the `construct` for diagnostics. */
+  construct: string;
+  /**
+   * Always `false` here, and always `true` on `DisplayMathBlock`. Present on
+   * both so a renderer reads one field off whichever node it was handed rather
+   * than re-deriving the style from the node's kind at every call site — it is
+   * literally MathJax's `{ display }` option.
+   */
+  display: false;
+  /**
+   * The style in force where the run sits. Math is set in its own faces, so
+   * this is not the face the formula gets; it is what the *size* is taken from
+   * (inline math is set at the surrounding type size) and what a diagnostic
+   * names when it has to describe the surroundings.
+   */
+  style: TextStyle;
+}
+
 export type Inline =
   | TextInline
   | SpaceInline
@@ -221,7 +261,8 @@ export type Inline =
   | ReferenceInline
   | FootnoteInline
   | ImageInline
-  | CitationInline;
+  | CitationInline
+  | MathInline;
 
 /** What `\ref`/`\pageref` prints until (or unless) it resolves. LaTeX's `??`. */
 export const UNRESOLVED_REFERENCE = "??";
@@ -552,6 +593,115 @@ export interface BibliographyBlock extends BlockBase {
   content: Block[];
 }
 
+// --- display mathematics (brief 40) -----------------------------------------
+
+/**
+ * Which construct wrote a display. Not cosmetic: the variant decides whether
+ * the display is numbered, whether it has alignment points, and whether it may
+ * carry more than one line — three questions the layout and numbering chunks
+ * both ask, and which cannot be answered from the TeX string once it is one.
+ *
+ * This union **is** brief 40's In list for display math, as D41 §5 requires it
+ * to be: `equation`, `equation*`, `displaymath`, `align`, `align*`, `gather`
+ * and `split`, plus `\[…\]` (`bracket`, which has no environment name). Every
+ * other amsmath display — `multline`, `alignat`, `flalign`, `gather*`,
+ * `subequations` — is a row in `BUILTIN_ENVIRONMENTS` saying it was declined,
+ * because a subset engine whose subset is not precisely knowable cannot honour
+ * D38's promise that an unimplemented construct says so.
+ */
+export type DisplayMathVariant =
+  /** `\[…\]` (and `$$…$$`, which the parser cannot tell apart from it). Never numbered. */
+  | "bracket"
+  | "equation"
+  | "equation*"
+  | "displaymath"
+  | "align"
+  | "align*"
+  | "gather"
+  | "split";
+
+/** The variants LaTeX numbers. The starred forms and `\[…\]` are the unnumbered ones. */
+const NUMBERED_DISPLAY_VARIANTS: ReadonlySet<DisplayMathVariant> = new Set<DisplayMathVariant>([
+  "equation",
+  "align",
+  "gather",
+]);
+
+/**
+ * Whether this variant numbers at all. `split` is *not* numbered here even
+ * though a `split` inside an `equation` shares that equation's number: a
+ * `split` reaching the document builder as a block of its own is a `split`
+ * written outside any equation, which real LaTeX refuses and which has no
+ * number to share.
+ */
+export function isNumberedDisplay(variant: DisplayMathVariant): boolean {
+  return NUMBERED_DISPLAY_VARIANTS.has(variant);
+}
+
+/** The variants that carry several `\\`-separated lines, each numbered on its own. */
+export function isMultiLineDisplay(variant: DisplayMathVariant): boolean {
+  return variant === "align" || variant === "align*" || variant === "gather" || variant === "split";
+}
+
+/**
+ * One `\\`-separated line of a display. A single-line display (`equation`,
+ * `\[…\]`) has exactly one of these, so nothing downstream needs two shapes.
+ */
+export interface MathLine {
+  /**
+   * This line's TeX, **without** the environment wrapper — `a &= b`, not
+   * `\begin{align}a &= b\end{align}`. `DisplayMathBlock.source` is the string
+   * to hand a renderer; this one exists so numbering and measurement can talk
+   * about a line, and so `&` alignment points can be found without re-splitting.
+   */
+  source: string;
+  /**
+   * `\theequation` for this line — `"3"`, the same text a `\ref` to it prints.
+   * Null when the line is not numbered: a starred variant, a `\[…\]`, or a line
+   * carrying `\nonumber`/`\notag`.
+   */
+  number: string | null;
+  /**
+   * The marker whose page a `\pageref` to this line resolves through. Non-null
+   * exactly when `number` is. `doc/build.ts` also emits a `MarkerBlock` for it
+   * immediately before the display, so the two-pass cycle closes today; see the
+   * note there about why that placement is provisional.
+   */
+  marker: string | null;
+  loc: SourceRef;
+}
+
+/**
+ * `\[…\]`, `equation`, `align` and friends: mathematics set on its own lines.
+ *
+ * **Not measured, and not rendered.** Like `TableBlock`, this block is the
+ * *parse* of the construct and nothing more: `source` is TeX, and turning TeX
+ * into a box needs MathJax and a shaper, neither of which the document layer
+ * may know about. Rendering is `src/math/` (chunk 40.2), placement and the
+ * overrun diagnostic are `layout/` (chunk 40.4).
+ */
+export interface DisplayMathBlock extends BlockBase {
+  kind: "displaymath";
+  variant: DisplayMathVariant;
+  /** `"\\[...\\]"` or the environment name as written — the `construct` for diagnostics. */
+  construct: string;
+  /**
+   * The complete TeX to hand the renderer, **wrapper included**: for an
+   * environment variant this is `\begin{align}…\end{align}`, because MathJax
+   * needs the environment to know about the alignment points, and for
+   * `bracket`/`displaymath` it is the bare body. `\label`, `\nonumber` and
+   * `\notag` are stripped — they are numbering instructions this engine has
+   * already carried out, and MathJax would either set them or refuse them.
+   */
+  source: string;
+  /** Always `true` — see `MathInline.display` for why it is stated rather than derived. */
+  display: true;
+  /** Whether the *variant* numbers; an individual line may still opt out with `\nonumber`. */
+  numbered: boolean;
+  /** At least one entry, always. */
+  lines: MathLine[];
+}
+
 export type Block =
   | ParagraphBlock
   | HeadingBlock
@@ -566,7 +716,8 @@ export type Block =
   | CaptionBlock
   | ListOfBlock
   | TableBlock
-  | BibliographyBlock;
+  | BibliographyBlock
+  | DisplayMathBlock;
 
 // --- the document ----------------------------------------------------------
 
@@ -636,4 +787,70 @@ export function headingMarker(index: number): string {
 /** The marker name emitted for the nth `\caption` (0-based). */
 export function captionMarker(index: number): string {
   return `caption:${index}`;
+}
+
+/** The marker name emitted for the nth *numbered* equation line (0-based). */
+export function equationMarker(index: number): string {
+  return `equation:${index}`;
+}
+
+// --- the math seams later chunks fill in (brief 40) -------------------------
+
+/*
+ * Brief 40 is split across four chunks and only one of them — this one — may
+ * touch the document model. What follows is the two shapes the *other* chunks
+ * agreed to meet on this side of the seam, declared here rather than imported
+ * from `src/layout/` because the document layer must not depend on layout in
+ * the finished engine either: it has no shaper and no measure, by design.
+ *
+ * Rendering is **not** among them. `src/math/` (chunk 40.2) owns TeX → SVG and
+ * the MathML subset gate, and publishes its own `MathRenderer`, `MathRequest`
+ * and `MathGeometry`; a duplicate declaration here would be a second definition
+ * of the same contract, which is the drift D38 spends the rest of this file
+ * avoiding. What this layer hands it is `MathInline.source` /
+ * `DisplayMathBlock.source` and nothing else.
+ *
+ * These are **declarations, not implementations**. Nothing in this chunk calls
+ * them; the stubs exist so a caller wired up before its chunk lands fails at
+ * once and loudly rather than setting an empty box.
+ */
+
+/**
+ * The chunk 40.4 seam: brief 40 step 5, "measure the rendered display width
+ * against the text width and report when it exceeds it".
+ *
+ * Line breaking inside math is explicitly Out — TeX barely does it either — so
+ * a display that overruns the measure must produce a *diagnostic* rather than
+ * running into the margin, and the author breaks it themselves. Only layout
+ * knows either number, which is why this is a type here and a function there.
+ * Returns null when the display fits.
+ */
+export type DisplayOverrunCheck = (
+  block: DisplayMathBlock,
+  renderedWidth: number,
+  measure: number,
+) => Diagnostic | null;
+
+/**
+ * The chunk 40.5 seam: `MathLine.number` is the *text* (`"3"`); this turns it
+ * into the material set at the right-hand margin — LaTeX's `\@eqnnum`, which
+ * is `{\normalfont\normalcolor (\theequation)}`, so the parentheses live here
+ * and deliberately not in `formatEquationNumber` (`doc/counters.ts` says why).
+ * `measure` is the text width the number is right-aligned against.
+ */
+export type EquationNumberSetter = (line: MathLine, measure: number) => Inline[];
+
+/**
+ * The two seams above, unlanded. Chunk 40.4 and chunk 40.5 replace these with
+ * real implementations; until then a caller that reaches one fails at once and
+ * says which chunk owes it.
+ */
+export const checkDisplayOverrun: DisplayOverrunCheck = () =>
+  unimplementedMathSeam("40.4", "the display-overrun diagnostic");
+
+export const setEquationNumber: EquationNumberSetter = () =>
+  unimplementedMathSeam("40.5", "setting an equation number at the margin");
+
+export function unimplementedMathSeam(chunk: string, what: string): never {
+  throw new Error(`${what} is not implemented — chunk ${chunk} owns it`);
 }

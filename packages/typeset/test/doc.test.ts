@@ -422,18 +422,47 @@ test("a missing entrypoint is a diagnostic, not a throw", () => {
 
 // --- the loud-failure contract ----------------------------------------------
 
-test("math produces an unsupported diagnostic with a file and a line", () => {
+/*
+ * These two asserted, until chunk 40.3, that *all* math reported `unsupported`
+ * — the placeholder brief 37 left behind. Brief 40 landed and math is
+ * implemented, so the assertions now check the behaviour that replaced it: a
+ * math run becomes a typed node carrying its TeX, and only a construct outside
+ * brief 40's In list still reports `unsupported` (D41 §5). They are not
+ * relaxed: each still pins a file, a line and a construct on the diagnostic,
+ * because the position contract is what they were really guarding.
+ *
+ * `test/math-contract.test.ts` is where the In/Out inventory lives.
+ */
+test("inline math becomes a math inline carrying its source, with a file and a line", () => {
   const result = build("before $x^2$ after");
-  const [diagnostic] = result.diagnostics;
-  assert.equal(diagnostic!.code, "unsupported");
-  assert.equal(diagnostic!.file, "main.tex");
-  assert.equal(diagnostic!.line, 3);
-  assert.match(diagnostic!.message, /brief 40/);
+  assert.deepEqual(codes(result.diagnostics), []);
+  const para = result.document.blocks[0] as ParagraphBlock;
+  const math = para.content.find((i) => i.kind === "math");
+  assert.ok(math !== undefined, "the paragraph carries a math inline");
+  assert.equal(math.kind === "math" && math.source, "x^{2}");
+  assert.equal(math.loc.file, "main.tex");
+  assert.equal(math.loc.line, 3);
 });
 
-test("display math is unsupported too, and named as such", () => {
+test("a math construct outside brief 40's In list is still unsupported, with a file and a line", () => {
+  // `\mathfrak` needs a fraktur face this engine does not ship, so it is on
+  // the Out list — real LaTeX, declined, which is `unsupported` and never
+  // `undefined-command` (D38).
+  const result = build("before $\\mathfrak{g}$ after");
+  const [diagnostic] = result.diagnostics;
+  assert.equal(diagnostic!.code, "unsupported");
+  assert.equal(diagnostic!.construct, "\\mathfrak");
+  assert.equal(diagnostic!.file, "main.tex");
+  assert.equal(diagnostic!.line, 3);
+});
+
+test("display math becomes a display block, and \\[...\\] is what names it", () => {
   const result = build("\\[x\\]");
-  assert.equal(result.diagnostics[0]!.construct, "\\[...\\]");
+  assert.deepEqual(codes(result.diagnostics), []);
+  const block = result.document.blocks[0]!;
+  assert.equal(block.kind, "displaymath");
+  assert.equal(block.kind === "displaymath" && block.construct, "\\[...\\]");
+  assert.equal(block.kind === "displaymath" && block.numbered, false);
 });
 
 test("an unimplemented environment is `unsupported`, an unknown one is `undefined-environment`", () => {
@@ -486,10 +515,14 @@ test("every unsupported diagnostic carries a file, a line and the construct", ()
   // more: both are chunk 39.2/39.3 constructs that are genuinely implemented
   // now (a valid, single-cell `tabular` sets quietly; a bare `\includegraphics{a}`
   // is only wrong at layout time, over a missing file, which this
-  // document-layer-only `build()` never reaches). Only `$x$`, `\textsc` and
+  // document-layer-only `build()` never reaches). The math exemplar had to be
+  // swapped for the same reason at chunk 40.3: a bare `$x$` is implemented
+  // now, so it was replaced by `$\mathfrak{g}$` — still math, still one
+  // `unsupported`, but the one brief 40 actually declines (a math alphabet
+  // needing a face this engine does not ship). Only that, `\textsc` and
   // `\hspace` are still unimplemented, so the count is 3, not 5.
   const result = build(
-    "\\includegraphics{a}\n\\begin{tabular}{l}x\\end{tabular}\n$x$\n\\textsc{s}\n\\hspace{1cm}",
+    "\\includegraphics{a}\n\\begin{tabular}{l}x\\end{tabular}\n$\\mathfrak{g}$\n\\textsc{s}\n\\hspace{1cm}",
   );
   const unsupported = result.diagnostics.filter((d) => d.code === "unsupported");
   assert.equal(unsupported.length, 3);

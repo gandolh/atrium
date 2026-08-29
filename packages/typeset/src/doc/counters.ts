@@ -20,6 +20,7 @@ export type CounterName =
   | "footnote"
   | "figure"
   | "table"
+  | "equation"
   | "enumi"
   | "enumii"
   | "enumiii"
@@ -32,12 +33,22 @@ const SUBORDINATES: Readonly<Record<CounterName, readonly CounterName[]>> = {
   subsubsection: ["paragraph"],
   paragraph: [],
   footnote: [],
-  // `article.cls` numbers figures and tables straight through the document
-  // (`\@addtoreset` is only used for `equation` there), so neither is reset by
-  // a `\section` and neither resets anything. Copying `report.cls`'s
-  // chapter-relative behaviour here would renumber every caption in a paper.
+  // `article.cls` numbers figures, tables and equations straight through the
+  // document: none of the three is reset by a `\section` and none resets
+  // anything. Copying `report.cls`'s chapter-relative behaviour here would
+  // renumber every caption in a paper.
+  //
+  // For `equation` this is not a preference, it is forced by the format:
+  // `article` sets `\theequation` to a bare `\@arabic\c@equation`, with no
+  // section prefix, so resetting it per section would print two different
+  // equations as `(1)` in one document and make every `\ref` to them
+  // ambiguous. (`\numberwithin{equation}{section}` is the amsmath command
+  // that changes *both* halves together; it is not implemented, and
+  // `\theequation` is a `FORMATTING_HOOKS` name, so redefining it is already
+  // a diagnostic rather than silently-wrong numbering.)
   figure: [],
   table: [],
+  equation: [],
   enumi: ["enumii", "enumiii", "enumiv"],
   enumii: ["enumiii", "enumiv"],
   enumiii: ["enumiv"],
@@ -55,6 +66,7 @@ export function createCounters(): Counters {
     footnote: 0,
     figure: 0,
     table: 0,
+    equation: 0,
     enumi: 0,
     enumii: 0,
     enumiii: 0,
@@ -224,4 +236,23 @@ export function floatCounter(floatClass: FloatClass): CounterName {
  */
 export function formatFloatNumber(counters: Counters, floatClass: FloatClass): string {
   return String(counters[floatCounter(floatClass)]);
+}
+
+// --- equations (brief 40) ---------------------------------------------------
+
+/**
+ * `\theequation` — `\@arabic\c@equation` in `article`, so a plain number with
+ * no section prefix.
+ *
+ * As with `formatFloatNumber` there is one function rather than a label form
+ * and a reference form, because in `article` they are the same string: the
+ * parentheses a reader sees beside a display equation come from
+ * `\@eqnnum` (`{\normalfont\normalcolor (\theequation)}`), which is *setting*
+ * the number, not formatting the counter — so they belong to chunk 40.5's
+ * `EquationNumberSetter` and deliberately not to this string. A plain `\ref` to
+ * an equation prints `3`, not `(3)`; amsmath's `\eqref` is the command that
+ * adds them, and it is not implemented.
+ */
+export function formatEquationNumber(counters: Counters): string {
+  return String(counters.equation);
 }

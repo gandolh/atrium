@@ -159,9 +159,11 @@ test("every TeX-programming primitive reports `unsupported`, permanently out of 
 // --- 3. environments ---------------------------------------------------------
 
 /**
- * `equation`, `equation*`, `align`, `align*`, `gather`, `displaymath` and
- * `math` are excluded from the main table below — see the dedicated test
- * further down, which documents why they currently fail this contract.
+ * The amsmath display environments are excluded from the main table below —
+ * see the dedicated tests further down. Six of the seven are *implemented* as
+ * of brief 40 (chunk 40.3) and report nothing at all; `math` is the one that
+ * stayed declined, and it still guards the `mathenv` name-normalisation bug
+ * those tests were written for.
  */
 const UNSUPPORTED_ENVIRONMENTS = [
   // `figure`, `figure*`, `table` and `table*` are gone from this inventory:
@@ -208,11 +210,11 @@ test("every unsupported environment in the brief's inventory reports `unsupporte
   }
 });
 
-const AMSMATH_ENVIRONMENTS = ["equation", "equation*", "align", "align*", "gather", "displaymath", "math"];
+const IMPLEMENTED_MATH_ENVIRONMENTS = ["equation", "equation*", "align", "align*", "gather", "displaymath"];
 
 /*
- * Regression test for a bug fixed 2026-08-27, kept because both halves of it
- * would fail silently if it came back.
+ * Regression test for a bug fixed 2026-08-27, kept — and split in two by chunk
+ * 40.3 — because both halves of it would fail silently if it came back.
  *
  * `@unified-latex` hands back `mathenv` nodes whose `env` is an unnormalised
  * `{ type: "string", content, position }` object rather than a plain string —
@@ -220,42 +222,80 @@ const AMSMATH_ENVIRONMENTS = ["equation", "equation*", "align", "align*", "gathe
  * affected and these seven were. The environment lookup then keyed on that
  * object, coerced to `"[object Object]"`, matched nothing, and reported
  * `undefined-environment` ("not a thing at all") for the single most common
- * math construct in LaTeX, where the honest answer is `unsupported` ("real
- * LaTeX, deliberately not implemented yet — brief 40").
+ * math construct in LaTeX.
  *
- * The second assertion is the half that would have bitten far from here: the
- * raw object also landed in the diagnostic's `construct` field, which the
- * shared schema declares `z.string().optional()`. That schema is validated at
- * the API boundary in brief 38, so this would have surfaced as a serialization
- * failure in a different package, long after anyone remembered why.
+ * Brief 40 implemented six of the seven, so the original assertion — "they
+ * report `unsupported`" — is no longer the correct behaviour to assert for
+ * them. It is NOT relaxed: the bug it guards is that the *name* does not
+ * survive the parser, and a name that does not survive still lands in
+ * `undefined-environment`. So the first test below asserts these six are
+ * looked up successfully (no `undefined-environment`, and they really build a
+ * display block), which fails in exactly the same way the old assertion did if
+ * the quirk returns, and the second keeps the original assertion verbatim on
+ * the one mathenv brief 40 declined.
  */
-test(
-  "amsmath-family environments (equation, align, gather, displaymath, math) report `unsupported`",
-  () => {
-    for (const name of AMSMATH_ENVIRONMENTS) {
-      const result = compileSource(doc(`\\begin{${name}}\nx=y\n\\end{${name}}`));
-      const hit = unsupportedFor(result, name);
-      assert.ok(hit !== undefined, `${name} did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
-      // Also assert the diagnostic's own field types are sane, independent of
-      // which code it carries — a `construct` that is not a string is a
-      // correctness bug regardless of the unsupported/undefined question.
-      for (const d of result.diagnostics) {
-        assert.equal(typeof (d.construct ?? ""), "string", `${name}: construct must be a string, got ${JSON.stringify(d.construct)}`);
-      }
+test("the implemented mathenvs are found by name, not reported as undefined", () => {
+  for (const name of IMPLEMENTED_MATH_ENVIRONMENTS) {
+    const result = compileSource(doc(`\\begin{${name}}\nx=y\n\\end{${name}}`));
+    assert.ok(
+      !result.diagnostics.some((d) => d.code === "undefined-environment"),
+      `${name} reported undefined-environment — got: ${JSON.stringify(result.diagnostics)}`,
+    );
+    for (const d of result.diagnostics) {
+      assert.equal(
+        typeof (d.construct ?? ""),
+        "string",
+        `${name}: construct must be a string, got ${JSON.stringify(d.construct)}`,
+      );
     }
-  },
-);
+  }
+});
+
+test("the `math` mathenv, which brief 40 declined, reports `unsupported` and not `undefined-environment`", () => {
+  // `\begin{math}` is `\(…\)` written as an environment. Inline math is
+  // implemented; this spelling of it is not on brief 40's In list, and D41 §5
+  // says the gate follows the In list. So it is the one mathenv left carrying
+  // the original assertion — including the second half of it, which would
+  // otherwise have bitten far from here: the raw object also landed in the
+  // diagnostic's `construct` field, which the shared schema declares
+  // `z.string().optional()` and brief 38 validates at the API boundary.
+  const result = compileSource(doc("\\begin{math}\nx=y\n\\end{math}"));
+  const hit = unsupportedFor(result, "math");
+  assert.ok(hit !== undefined, `math did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(typeof hit.construct, "string");
+});
 
 // --- 4. other sites -----------------------------------------------------
 
-test("inline math ($...$) reports `unsupported` naming the construct", () => {
+/*
+ * These two asserted that `$…$` and `\[…\]` were themselves unsupported. Brief
+ * 40 implemented both, so what is asserted here now is the boundary that
+ * replaced that blanket refusal: math *sites* are implemented, and a construct
+ * inside one that is outside brief 40's In list is what still reports
+ * `unsupported` — with the same construct-naming contract the rest of this file
+ * checks. The full In/Out inventory is `test/math-contract.test.ts`.
+ */
+test("inline math ($...$) is implemented and reports nothing", () => {
   const result = compileSource(doc("Some $x+y$ math."));
-  assert.ok(unsupportedFor(result, "$...$") !== undefined);
+  assert.deepEqual(
+    result.diagnostics.filter((d) => d.severity === "error"),
+    [],
+  );
 });
 
-test("display math (\\[...\\]) reports `unsupported` naming the construct", () => {
+test("display math (\\[...\\]) is implemented and reports nothing", () => {
   const result = compileSource(doc("\\[x+y\\]"));
-  assert.ok(unsupportedFor(result, "\\[...\\]") !== undefined);
+  assert.deepEqual(
+    result.diagnostics.filter((d) => d.severity === "error"),
+    [],
+  );
+});
+
+test("a declined construct inside a math site reports `unsupported` naming itself", () => {
+  const inline = compileSource(doc("Some $\\operatorname{foo}(x)$ math."));
+  assert.ok(unsupportedFor(inline, "\\operatorname") !== undefined);
+  const display = compileSource(doc("\\[\\begin{cases}1\\end{cases}\\]"));
+  assert.ok(unsupportedFor(display, "cases") !== undefined);
 });
 
 test("\\documentclass for a class other than article reports `unsupported`", () => {

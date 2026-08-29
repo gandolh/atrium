@@ -1,4 +1,10 @@
-import type { FloatClass, FontSelection, HeadingLevel, ListVariant } from "../doc/model.ts";
+import type {
+  DisplayMathVariant,
+  FloatClass,
+  FontSelection,
+  HeadingLevel,
+  ListVariant,
+} from "../doc/model.ts";
 
 /**
  * The builtin command and environment tables (brief 37, chunk 6).
@@ -69,6 +75,21 @@ export type BuiltinSpec =
   | { role: "symbol"; text: string }
   | { role: "section"; level: HeadingLevel }
   | { role: "special"; id: SpecialId }
+  /**
+   * Real LaTeX that is only meaningful **inside math mode** — `\frac`,
+   * `\alpha`, `\left` (brief 40). Written outside `$…$` there is nothing for
+   * it to set, and real LaTeX refuses it too ("Missing $ inserted"), so it
+   * produces a diagnostic naming the reason. Written *inside* math it never
+   * reaches this table at all: the body of a math run is printed back to TeX
+   * and handed to the renderer, never walked as document material.
+   *
+   * A separate role rather than an `unsupported` row per name because the
+   * message is one message and the list is two hundred names long — and
+   * because a reader of this table needs to see at a glance that `\frac` **is**
+   * implemented, just not here. Same idea as `\bibitem`'s row, which says the
+   * same thing about `thebibliography`.
+   */
+  | { role: "math-only" }
   /** Real LaTeX, deliberately not implemented. Always produces a diagnostic. */
   | { role: "unsupported"; detail: string };
 
@@ -87,8 +108,263 @@ function unimplemented(detail: string): BuiltinSpec {
   return { role: "unsupported", detail };
 }
 
+// --- mathematics (brief 40) -------------------------------------------------
+
+/**
+ * The math allowlist, and the reason it exists.
+ *
+ * D41 §5 is the owner's explicit call: **math is gated to brief 40's In list**,
+ * even where MathJax would happily render more. The recommendation was the
+ * opposite — accept MathJax's surface and treat the Out list as "not promised"
+ * — and it was overridden deliberately, because a subset engine whose subset is
+ * not precisely knowable cannot honour D38's promise that an unimplemented
+ * construct *says so*. The cost accepted with it: this list has to be
+ * maintained by hand, and it refuses constructs that demonstrably work.
+ *
+ * The gate has two halves and this file holds the data for both:
+ *
+ * 1. **Names written outside math mode** reach `BUILTIN_COMMANDS` /
+ *    `BUILTIN_ENVIRONMENTS` like any other command, so the In-list names appear
+ *    there with `role: "math-only"` — `\frac` is real LaTeX and must never
+ *    report `undefined-command`, but outside `$…$` there is nothing for it to
+ *    set. Same shape as `\bibitem`'s row, which says the same thing about
+ *    `thebibliography`.
+ * 2. **Names written inside math mode** never reach those tables at all: the
+ *    body of a math run is not walked, it is printed back to TeX and handed to
+ *    the renderer. `doc/build.ts` walks it once more for the gate, and reports
+ *    every name in `DECLINED_MATH_COMMANDS`/`DECLINED_MATH_ENVIRONMENTS`.
+ *
+ * That second half is a **name-level** gate on the *expanded* AST, and it is
+ * deliberately not the whole gate D41 §5 describes. §5 asks for a gate on
+ * MathJax's MathML output, because MathJax expands macros of its own that this
+ * engine has never seen (`\implies`, `\to`'s aliases, the whole amsmath macro
+ * layer) and the AST therefore cannot show what was really used. That gate
+ * needs MathJax and belongs to chunk 40.2; this one catches everything a
+ * document writes literally, which is every case an author can be told about by
+ * line number, and it needs no renderer to work.
+ */
+
+/**
+ * Every math command brief 40's In list promises to set. Chunk 40.2's MathML
+ * gate reads this too — one list, so the two halves of the gate cannot drift.
+ *
+ * Grouped by the In list's own bullets. Names already in `BUILTIN_COMMANDS`
+ * with a text-mode meaning (`\underline`, `\ldots`, `\dots`) are **not** here:
+ * the explicit rows below win over the generated ones, and a command that means
+ * something in both modes is not math-only.
+ */
+export const MATH_COMMANDS: readonly string[] = [
+  // Structures: fractions, radicals, binomials, over/underbraces, big operators.
+  "frac", "dfrac", "tfrac", "binom", "dbinom", "tbinom", "sqrt",
+  "overbrace", "underbrace", "overline", "overrightarrow", "overleftarrow",
+  "sum", "prod", "coprod", "int", "iint", "iiint", "oint", "bigcup", "bigcap",
+  "bigoplus", "bigotimes", "bigvee", "bigwedge", "bigsqcup",
+  // Limits in both styles — the In list names "sums/products/integrals with
+  // limits in both inline and display style", which is what these four control.
+  "limits", "nolimits", "displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle",
+  // Accents.
+  "hat", "widehat", "bar", "vec", "dot", "ddot", "tilde", "widetilde",
+  "check", "breve", "acute", "grave", "mathring",
+  // Delimiters that grow.
+  "left", "right", "middle",
+  "big", "Big", "bigg", "Bigg",
+  "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr",
+  "bigm", "Bigm", "biggm", "Biggm",
+  "langle", "rangle", "lvert", "rvert", "lVert", "rVert", "vert", "Vert",
+  "lfloor", "rfloor", "lceil", "rceil", "backslash",
+  // Math alphabets. The In list names five; `\mathsf` and `\mathtt` ride along
+  // because they are LaTeX's own standard alphabets, set in faces this engine
+  // already ships, and the Out list's "custom math alphabets" is about
+  // `\DeclareMathAlphabet` and package faces like `\mathscr`, not these.
+  "mathbb", "mathcal", "mathrm", "mathbf", "mathit", "mathsf", "mathtt", "mathnormal",
+  "boldsymbol", "text",
+  // Named operators (`\log`, `\sin`, …) — LaTeX's fixed set, not
+  // `\DeclareMathOperator`'s, which is on the Out list.
+  "log", "ln", "lg", "exp", "sin", "cos", "tan", "sec", "csc", "cot",
+  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "coth",
+  "det", "dim", "gcd", "hom", "ker", "deg", "arg", "max", "min", "sup", "inf",
+  "lim", "liminf", "limsup", "Pr", "bmod", "pmod", "mod",
+  // Greek.
+  "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
+  "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi", "pi",
+  "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon", "phi",
+  "varphi", "chi", "psi", "omega",
+  "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi",
+  "Psi", "Omega",
+  // Relations.
+  "leq", "le", "geq", "ge", "neq", "ne", "equiv", "sim", "simeq", "approx",
+  "cong", "propto", "ll", "gg", "subset", "supset", "subseteq", "supseteq",
+  "in", "ni", "notin", "perp", "parallel", "mid", "prec", "succ", "preceq",
+  "succeq", "asymp", "doteq", "models", "vdash", "dashv", "leqslant", "geqslant",
+  // Binary operators and the rest of the symbol sweep.
+  "times", "div", "pm", "mp", "cdot", "cdots", "vdots", "ddots",
+  "ast", "star", "circ", "bullet", "oplus", "ominus", "otimes", "oslash",
+  "odot", "cap", "cup", "sqcup", "sqcap", "setminus", "wedge", "vee",
+  "land", "lor", "neg", "lnot", "forall", "exists", "nexists", "nabla",
+  "partial", "infty", "emptyset", "varnothing", "hbar", "ell", "Re", "Im",
+  "aleph", "angle", "triangle", "surd", "top", "bot", "prime", "colon",
+  // Arrows.
+  "to", "gets", "rightarrow", "leftarrow", "leftrightarrow",
+  "Rightarrow", "Leftarrow", "Leftrightarrow",
+  "longrightarrow", "longleftarrow", "longleftrightarrow",
+  "Longrightarrow", "Longleftarrow", "Longleftrightarrow",
+  "mapsto", "longmapsto", "hookrightarrow", "hookleftarrow",
+  "uparrow", "downarrow", "updownarrow", "Uparrow", "Downarrow",
+  "nearrow", "searrow", "swarrow", "nwarrow", "implies", "impliedby", "iff",
+  // Math-mode spacing and numbering control. `\nonumber`/`\notag` are In
+  // because the engine implements the numbering they suppress — `doc/build.ts`
+  // reads them off the line and leaves `MathLine.number` null.
+  "quad", "qquad", "nonumber", "notag",
+];
+
+/**
+ * Every math environment brief 40's In list promises to set, and which display
+ * variant each one is. `null` means it is a *structure* inside a formula
+ * (`pmatrix`, `array`) rather than a display of its own, so it has no variant:
+ * written inside math it is part of the TeX handed to the renderer, and written
+ * outside math it is `math-only` like `\frac` is.
+ *
+ * `Bmatrix` and `Vmatrix` are here beside the four the brief names: the In list
+ * bullet is "Matrices", and these two are the same construct with a different
+ * pair of delimiters, set by the same MathJax code path.
+ */
+export const MATH_ENVIRONMENTS: Readonly<Record<string, DisplayMathVariant | null>> = {
+  equation: "equation",
+  "equation*": "equation*",
+  displaymath: "displaymath",
+  align: "align",
+  "align*": "align*",
+  gather: "gather",
+  split: "split",
+  matrix: null,
+  pmatrix: null,
+  bmatrix: null,
+  Bmatrix: null,
+  vmatrix: null,
+  Vmatrix: null,
+  array: null,
+};
+
+/**
+ * Math commands brief 40 declines, and why. Every one of these is real LaTeX
+ * that a real document could contain, so every one is `unsupported` and never
+ * `undefined-command` — conflating the two is the bug D38 exists to prevent.
+ *
+ * Two of them, `\DeclareMathOperator` and (below) the `cases` environment,
+ * render perfectly well in MathJax. They are refused anyway. That is D41 §5,
+ * and it is the owner's call, not an oversight: see the note at the top of this
+ * section for the trade it buys.
+ */
+export const DECLINED_MATH_COMMANDS: Readonly<Record<string, string>> = {
+  DeclareMathOperator:
+    "\\DeclareMathOperator defines a new operator, and brief 40 sets a fixed subset of math rather than executing definitions (its Out list; D41 §5 — MathJax renders it, and the engine declines it anyway so the supported subset stays knowable)",
+  operatorname:
+    "amsmath's \\operatorname is the inline form of \\DeclareMathOperator, on brief 40's Out list; the built-in operators (\\log, \\sin, \\lim and the rest) are implemented",
+  // Custom math alphabets — the Out list item, and the package faces that come
+  // with it. `\mathbb`/`\mathcal`/`\mathrm`/`\mathbf`/`\mathit` are In.
+  DeclareMathAlphabet: "custom math alphabets are on brief 40's Out list",
+  SetMathAlphabet: "custom math alphabets are on brief 40's Out list",
+  DeclareSymbolFont: "custom math alphabets are on brief 40's Out list",
+  DeclareMathSymbol: "custom math alphabets are on brief 40's Out list",
+  mathscr: "\\mathscr needs a script face this engine does not ship; custom math alphabets are on brief 40's Out list",
+  mathfrak: "\\mathfrak needs a fraktur face this engine does not ship; custom math alphabets are on brief 40's Out list",
+  // mathtools.
+  DeclarePairedDelimiter: "the mathtools package is on brief 40's Out list",
+  coloneqq: "the mathtools package is on brief 40's Out list",
+  mathclap: "the mathtools package is on brief 40's Out list",
+  mathllap: "the mathtools package is on brief 40's Out list",
+  mathrlap: "the mathtools package is on brief 40's Out list",
+  shortintertext: "the mathtools package is on brief 40's Out list",
+  prescript: "the mathtools package is on brief 40's Out list",
+  // physics. `\qty` is siunitx v3's name too, so the message names both.
+  dv: "the physics package is on brief 40's Out list",
+  pdv: "the physics package is on brief 40's Out list",
+  bra: "the physics package is on brief 40's Out list",
+  ket: "the physics package is on brief 40's Out list",
+  braket: "the physics package is on brief 40's Out list",
+  ketbra: "the physics package is on brief 40's Out list",
+  vb: "the physics package is on brief 40's Out list",
+  va: "the physics package is on brief 40's Out list",
+  vu: "the physics package is on brief 40's Out list",
+  qty: "the physics and siunitx packages are both on brief 40's Out list, and both define \\qty",
+  // siunitx.
+  si: "the siunitx package is on brief 40's Out list",
+  SI: "the siunitx package is on brief 40's Out list",
+  num: "the siunitx package is on brief 40's Out list",
+  ang: "the siunitx package is on brief 40's Out list",
+  unit: "the siunitx package is on brief 40's Out list",
+  qtylist: "the siunitx package is on brief 40's Out list",
+  SIlist: "the siunitx package is on brief 40's Out list",
+  // TikZ in math, and commutative diagrams.
+  tikz: "TikZ in math is on brief 40's Out list; TikZ/pgf is out of scope everywhere",
+  xymatrix: "commutative diagrams are on brief 40's Out list",
+  // amsmath numbering machinery outside the In list. `\tag` in particular
+  // would otherwise print a number this engine's equation counter never
+  // issued, which is silently-wrong output rather than a missing feature.
+  tag: "manual equation tags (\\tag) are outside brief 40's In list; an equation's number comes from the equation counter",
+  eqref: "amsmath's \\eqref is outside brief 40's In list; \\ref to an equation prints its number without the parentheses",
+  intertext: "amsmath's \\intertext is outside brief 40's In list",
+  substack: "amsmath's \\substack is outside brief 40's In list",
+  numberwithin: "amsmath's \\numberwithin is outside brief 40's In list; equations are numbered straight through the document, as article.cls numbers them",
+};
+
+/** Math environments brief 40 declines, and why. Same contract as the commands above. */
+export const DECLINED_MATH_ENVIRONMENTS: Readonly<Record<string, string>> = {
+  // The Out list names `cases` outright: "cases beyond what array gives".
+  // MathJax renders it cleanly; it is refused anyway (D41 §5).
+  cases: "brief 40's Out list names cases: an array inside \\left\\{ … \\right. sets the same thing (D41 §5 — MathJax renders cases, and the engine declines it anyway so the supported subset stays knowable)",
+  dcases: "the mathtools package is on brief 40's Out list, and cases is on it too",
+  rcases: "the mathtools package is on brief 40's Out list, and cases is on it too",
+  // amsmath displays outside the In list, which is align, align*, gather,
+  // split, equation, equation* and displaymath.
+  aligned: "brief 40's In list covers align, align*, gather and split; the aligned box environment is not on it",
+  alignedat: "brief 40's In list covers align, align*, gather and split; alignedat is not on it",
+  alignat: "brief 40's In list covers align, align*, gather and split; alignat is not on it",
+  "alignat*": "brief 40's In list covers align, align*, gather and split; alignat* is not on it",
+  flalign: "brief 40's In list covers align, align*, gather and split; flalign is not on it",
+  "flalign*": "brief 40's In list covers align, align*, gather and split; flalign* is not on it",
+  multline: "brief 40's In list covers align, align*, gather and split; multline is not on it",
+  "multline*": "brief 40's In list covers align, align*, gather and split; multline* is not on it",
+  "gather*": "brief 40's In list names gather; the unnumbered gather* is not on it — align* sets the same thing",
+  gathered: "brief 40's In list covers align, align*, gather and split; the gathered box environment is not on it",
+  subequations: "amsmath's subequations renumbers a group of equations, and brief 40 numbers them straight through",
+  smallmatrix: "brief 40's In list covers matrix, pmatrix, bmatrix, vmatrix and array; smallmatrix is not on it",
+  // Commutative diagrams.
+  tikzcd: "commutative diagrams are on brief 40's Out list; TikZ/pgf is out of scope everywhere",
+  CD: "commutative diagrams are on brief 40's Out list",
+  xy: "commutative diagrams are on brief 40's Out list",
+};
+
+
+/**
+ * The `math-only` rows for every In-list math command, generated from
+ * `MATH_COMMANDS` so that the allowlist has exactly one definition. Spread
+ * **first** into `BUILTIN_COMMANDS`, so an explicit row below always wins: a
+ * name that means something in text mode as well (`\underline`) is not
+ * math-only, whatever a list of math symbols says.
+ */
+function mathOnlyCommandRows(): Record<string, BuiltinSpec> {
+  const rows: Record<string, BuiltinSpec> = {};
+  for (const name of MATH_COMMANDS) rows[name] = { role: "math-only" };
+  return rows;
+}
+
+/** The `unsupported` rows for every declined math command, from one source. */
+function declinedMathCommandRows(): Record<string, BuiltinSpec> {
+  const rows: Record<string, BuiltinSpec> = {};
+  for (const [name, detail] of Object.entries(DECLINED_MATH_COMMANDS)) {
+    rows[name] = { role: "unsupported", detail };
+  }
+  return rows;
+}
+
 /** Every command name (without its backslash) the engine has heard of. */
 export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
+  // --- mathematics (brief 40) ---
+  // Generated, and spread first so every explicit row below overrides them.
+  ...mathOnlyCommandRows(),
+  ...declinedMathCommandRows(),
+
   // --- preamble ---
   documentclass: { role: "special", id: "documentclass" },
   usepackage: { role: "special", id: "usepackage" },
@@ -268,8 +544,11 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   part: unimplemented("part-level sectioning is out of scope for brief 37"),
   index: unimplemented("index packages are out of scope"),
   glossary: unimplemented("glossary packages are out of scope"),
-  newtheorem: unimplemented("theorem environments are out of scope for brief 37"),
+  newtheorem: unimplemented("theorem environments are out of scope for brief 37, and \\newtheorem is on brief 40's Out list"),
   usetikzlibrary: unimplemented("TikZ/pgf is out of scope"),
+  theoremstyle: unimplemented("theorem environments are on brief 40's Out list"),
+  newtheoremstyle: unimplemented("theorem environments are on brief 40's Out list"),
+  qedhere: unimplemented("theorem environments are on brief 40's Out list"),
   colorbox: unimplemented("colour is out of scope for brief 37"),
   textcolor: unimplemented("colour is out of scope for brief 37"),
   href: unimplemented("hyperlinks are out of scope for brief 37"),
@@ -351,6 +630,7 @@ export const FORMATTING_HOOKS: ReadonlySet<string> = new Set([
   "theparagraph",
   "thepage",
   "thefootnote",
+  "theequation",
   "theenumi",
   "theenumii",
   "theenumiii",
@@ -379,9 +659,44 @@ export type EnvironmentSpec =
    */
   | { role: "float"; class: FloatClass; spanning: boolean }
   | { role: "special"; id: "document" | "abstract" | "verbatim" | "tabular" | "thebibliography" }
+  /**
+   * A display-math environment on brief 40's In list. `variant` is what
+   * `DisplayMathBlock.variant` becomes, and it decides numbering and alignment
+   * — the environment's *name* is kept on the block separately, because
+   * `\begin{equation}` and `\begin{align}` differ in more than a label.
+   */
+  | { role: "display-math"; variant: DisplayMathVariant }
+  /**
+   * A math *structure* environment — `pmatrix`, `array`. Inside math it is part
+   * of the TeX handed to the renderer and never reaches this table; outside
+   * math there is nothing for it to set. The environment twin of
+   * `BuiltinSpec`'s `math-only`, and reported the same way.
+   */
+  | { role: "math-only" }
   | { role: "unsupported"; detail: string };
 
+/**
+ * The `display-math` and `math-only` rows for every In-list math environment,
+ * and the `unsupported` rows for every declined one — generated from
+ * `MATH_ENVIRONMENTS` and `DECLINED_MATH_ENVIRONMENTS` so the allowlist and the
+ * table cannot disagree.
+ */
+function mathEnvironmentRows(): Record<string, EnvironmentSpec> {
+  const rows: Record<string, EnvironmentSpec> = {};
+  for (const [name, variant] of Object.entries(MATH_ENVIRONMENTS)) {
+    rows[name] = variant === null ? { role: "math-only" } : { role: "display-math", variant };
+  }
+  for (const [name, detail] of Object.entries(DECLINED_MATH_ENVIRONMENTS)) {
+    rows[name] = { role: "unsupported", detail };
+  }
+  return rows;
+}
+
 export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
+  // --- mathematics (brief 40) ---
+  // Generated, and spread first so every explicit row below overrides them.
+  ...mathEnvironmentRows(),
+
   document: { role: "special", id: "document" },
   abstract: { role: "special", id: "abstract" },
   verbatim: { role: "special", id: "verbatim" },
@@ -406,15 +721,17 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   // all, which reported `undefined-environment` — a false claim that no such
   // environment exists, for a package brief 39 names as declined on purpose.
   subfigure: { role: "unsupported", detail: "the subcaption package is out of scope for brief 39" },
-  array: { role: "unsupported", detail: "math is brief 40" },
-  equation: { role: "unsupported", detail: "math is brief 40" },
-  "equation*": { role: "unsupported", detail: "math is brief 40" },
-  align: { role: "unsupported", detail: "math is brief 40" },
-  "align*": { role: "unsupported", detail: "math is brief 40" },
-  gather: { role: "unsupported", detail: "math is brief 40" },
-  eqnarray: { role: "unsupported", detail: "math is brief 40" },
-  displaymath: { role: "unsupported", detail: "math is brief 40" },
-  math: { role: "unsupported", detail: "math is brief 40" },
+  // The seven `math is brief 40` placeholders that stood here are gone: brief
+  // 40 landed, and `equation`, `equation*`, `align`, `align*`, `gather`,
+  // `displaymath` and `array` are now rows generated from `MATH_ENVIRONMENTS`
+  // above. The two that stayed behind are the two brief 40 did *not* take.
+  //
+  // `math` is `\(…\)` written as an environment. Inline math is implemented,
+  // but the In list names the two delimiter forms and not this one, and D41 §5
+  // says the gate follows the In list even where the engine could obviously
+  // set the thing — so it is declined explicitly rather than quietly allowed.
+  math: { role: "unsupported", detail: "brief 40's In list names $…$ and \\(…\\) for inline math; the math environment is not on it" },
+  eqnarray: { role: "unsupported", detail: "eqnarray is deprecated even in LaTeX and is not on brief 40's In list; align sets the same thing" },
   center: { role: "unsupported", detail: "centred text is out of scope for brief 37" },
   flushleft: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },
   flushright: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },
@@ -430,8 +747,20 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   list: { role: "unsupported", detail: "the generic list environment is out of scope for brief 37" },
   trivlist: { role: "unsupported", detail: "the generic list environment is out of scope for brief 37" },
   picture: { role: "unsupported", detail: "the picture environment is out of scope" },
-  theorem: { role: "unsupported", detail: "theorem environments are out of scope for brief 37" },
-  proof: { role: "unsupported", detail: "theorem environments are out of scope for brief 37" },
+  // Theorem environments. `theorem` and `proof` were already here from brief
+  // 37; the rest are the conventional `\newtheorem` names an author writes
+  // beside them, and they were in no table at all — so a document using them
+  // was told `lemma` is not a thing, when what is true is that brief 40 lists
+  // theorem environments on its Out list. `\newtheorem` itself is a row in
+  // `BUILTIN_COMMANDS` and reports the same way.
+  theorem: { role: "unsupported", detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list" },
+  proof: { role: "unsupported", detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list" },
+  lemma: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
+  corollary: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
+  proposition: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
+  definition: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
+  remark: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
+  example: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
 };
 
 export function lookupCommand(name: string): BuiltinSpec | undefined {

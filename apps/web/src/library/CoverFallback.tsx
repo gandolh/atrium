@@ -33,16 +33,22 @@ export function CoverFallback({ title, kind = "book" }: { title: string; kind?: 
           `aria-hidden`: it is pure texture, and the real title sits right
           below it for assistive tech. `text-ink/10` is the same "barely
           there" wash the progress-bar track already uses, so contrast stays
-          low in all three themes without a bespoke per-theme value, and
-          `-z-10` keeps it behind the glyph and title it sits under. */}
+          low in all three themes without a bespoke per-theme value.
+
+          **No negative z-index.** It shipped with `-z-10`, which put it behind
+          the *caller's* tinted ground — `CoverCard` paints `bg-tint-{kind}` on
+          an ancestor — so the letter rendered underneath the tile and was
+          invisible in every theme. It is positioned and comes first in DOM
+          order; the glyph and title below are `relative`, which is what keeps
+          them painting over it without pushing this one behind the ground. */}
       <span
         aria-hidden
-        className={`font-display text-ink/10 pointer-events-none absolute -z-10 leading-none font-medium select-none ${coverInitialVariant(title)}`}
+        className={`font-display text-ink/10 pointer-events-none absolute leading-none font-medium select-none ${coverInitialVariant(title)}`}
       >
         {coverInitial(title)}
       </span>
-      <Glyph className="h-8 w-8 text-ink-variant/60" />
-      <span className="font-display text-lg leading-tight font-semibold text-ink">{title}</span>
+      <Glyph className="relative h-8 w-8 text-ink-variant/60" />
+      <span className="font-display relative text-lg leading-tight font-semibold text-ink">{title}</span>
     </span>
   );
 }

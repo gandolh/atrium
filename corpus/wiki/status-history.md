@@ -1,5 +1,5 @@
 ---
-summary: Archive of Atrium's shipped phases through brief 38 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
+summary: Archive of Atrium's shipped phases through brief 44 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
 updated: 2026-08-29
 ---
 
@@ -7,9 +7,59 @@ updated: 2026-08-29
 
 Split out of [status.md](status.md) on 2026-08-26, when that page passed the
 corpus 200-line rule. It kept the current snapshot and the briefs table; this
-holds the narrative of everything that shipped through brief 38, newest first.
+holds the narrative of everything that shipped through brief 44, newest first.
 Nothing here has been rewritten — these are the entries as they were written at
 the time.
+
+---
+
+**2026-08-29 —** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
+built on branch `briefs-44-42-39`.
+
+**44 — the engine runs on a `worker_thread`, and cancel is real.** A compile no
+longer blocks the API: a **10.4 s** compile left the spawning thread with **514
+heartbeats, worst extra gap 1 ms**. Worker-*per-compile*, deliberately — a
+reused worker cannot be `terminate()`d without destroying the next compile's
+host, so stopping it would have to be cooperative, which is exactly what cannot
+work against a synchronous engine that never yields. A `DELETE` now kills a
+compile mid-engine instead of waiting out `LATEX_TIMEOUT_MS`. 3 finders, 3
+Important, all fixed.
+
+**42 — video has real covers, decoded in the browser (D40).** `<video>` → seek →
+`drawImage` → `toBlob`, no ffmpeg, so brief 23's declined binary stands. Capture
+at upload (3 candidate frames, highest luminance variance — one fixed seek hits
+a black fade-in too often) *and* as a **backfill on first playback**, which is
+what covers the existing library with no re-upload. Native aspect at a 640
+bound, letterboxed in the tile. **Everything iOS is unverified — no device
+here.**
+
+**39 — the engine sets a paper, not just a report.** Floats with `[htbp]` and a
+deferral queue, `\includegraphics` embedding real PNG and JPEG, `tabular` with
+measured columns and rules, and a `.bib` file becoming numbered citations.
+**506 tests** (from 332), and **all four brief-37 goldens byte-identical** —
+the load-bearing check, because a page-builder change that silently reflows
+plain prose is the failure mode they exist to catch.
+
+**Brief 39's review broke the pattern this project keeps seeing, and that is
+the interesting part.** For five builds running, every serious defect had
+spanned chunk boundaries. This one lay *inside* a single owned file: a `tabular`
+row that stops short of the last column drew the table's right-hand border
+partway across the grid and dropped every vertical rule past it. Legal LaTeX
+with a diagnostic-free wrong picture — the one failure mode the loud-failure
+contract cannot catch, since nothing was unimplemented and so nothing had
+anything to report. The pre-existing test asserted the case *"stays quiet"*,
+which it did, while rendering wrongly. **Geometry needs assertions on
+coordinates, not on diagnostics.** Fixed, with a test that fails without the fix.
+
+**Not verified by eye:** brief 39's "check a paper-shaped document in the
+preview" acceptance criterion. No browser run this session; the float fixture
+and the `floats.txt` golden cover the geometry programmatically.
+
+**Open for the owner:** brief 40 (math) needs a **34.3 MB** `mathjax-full@3.2.2`
+dependency — Apache-2.0, server-side only, so no browser payload, but a large
+addition to a package that has shipped with `pdf-lib` alone. **Not added,
+awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
+there is a real count of how many coverless videos survive brief 42's backfill.
 
 ---
 
@@ -102,59 +152,7 @@ backup exists outside the repo.
 mismatch, so anything with an outline fails to convert. The two-column and
 scanned-PDF readability checks await a working install.
 
-**Earlier (2026-08-25):** ✅ **Brief 35 shipped — profiles.** An account is now
-a household and a **profile** is a person in it (D35): reading progress, notes
-and four reading preferences moved from user scope to profile scope, switching
-is one tap with no credential, and the picker returns after 24h idle. Built via
-orchestrate → plan-split-dispatch in 3 waves (7 chunks, 3 senior / 4 junior).
-The `reading_progress` rebuild — SQLite cannot ALTER a composite PK — landed all
-8 live rows and both notes on the right Default profile with zero loss, proven
-against a copy before the real DB was touched.
-
-Three scoped finders caught **10 findings (3 Critical)**, all fixed but one
-Minor. Every Critical crossed chunk boundaries and none tripped the gates: a
-switch leaving the reader loaded so one profile's page was written to another's
-row; an offline boot hanging forever on the picker gate; and the preferences
-boot cache flashing the wrong theme on exactly the load its fallback existed
-for. Details in [briefs/done/35-profiles.md](../briefs/done/35-profiles.md).
-
-**Known and accepted:** the account's default profile cannot be deleted (rename
-works); a session whose profile is deleted from another device silently reads as
-Default until reload. **This repo still has no test suite**, which is again why
-the review pass carried the weight.
-
-**Earlier (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
-built, reviewed and committed on `reading-room-rework` (not merged; owner
-controls git).** Seven briefs in four waves via plan-split-dispatch, then a
-three-finder review pass and two fix rounds. **27:** Reading Room tokens, the
-Newsreader + Archivo type stack (retiring Playfair/Source Serif 4/Inter), kind
-tints, motion primitives; precache 3101.92 → 2815.40 KiB after dropping the dead
-`.woff` fallbacks from the glob. **28:** one home — kind became a filter chip
-again, per-type routes kept as redirects, Shelves ⇄ Stacks removed. **32:** the
-reader at a 620px measure in Newsreader, chrome fade, the rail's drag preview on
-an anime.js timeline. **29:** tinted tiles with badges dropped, the Continue
-strip in time-remaining, the dropzone confined to the empty state. **33:** Notes
-as its own destination. **31:** a player dock that survives navigation — the one
-new *capability* in the rework, with no-double-audio guaranteed structurally.
-**30:** cross-library search, client-side and offline-capable.
-
-Review found **14 findings**, all fixed: two Critical (a new video inheriting the
-previous track's position; the wordmark in synthetic bold), nine Important
-(including the dock covering the reader's only scrub control, the search field
-eating a typed space, and synthesised bold inside EPUBs), three Minor. Gates are
-typecheck + build only — **this repo still has no test suite**, which is the
-main reason the review pass carried so much weight.
-
-**Known and accepted, not fixed:** Notes is a row list rather than the comp's
-master-detail split (an architectural change, deliberately deferred — worth
-revisiting); `library:groupBy`/`library:groupView` are orphaned in existing
-users' `localStorage`; three unused exports remain in `grouping.ts`; closing the
-dock while the video surface is mounted leaves an orphaned `<video>`; glyph SVGs
-are duplicated between `PlayerDock` and `CoverFallback`.
-
----
-
-**Everything before 2026-07-20** — the v1 build, the PWA phases, the perf
+**Everything through brief 35** — the v1 build, the PWA phases, the perf
 briefs, the media library and the first grouped-library work — is in
 [status-history-v1.md](status-history-v1.md). Split off on 2026-08-29 when this
 page passed the 200-line rule, the same way it was split off `status.md`.

@@ -99,3 +99,29 @@ inline on the command that starts the server and asserted to resolve inside the
 scratch base before anything starts.** This brief deletes files unattended; the
 2026-08-29 incident in [open-questions.md](../../wiki/open-questions.md) is what
 happens when that redirect is sourced from a file that can vanish.
+
+---
+
+## Outcome (2026-08-30) — shipped, `7b99eb2` (D46)
+
+`sweepOrphanThumbnails` fires fire-and-forget after `listen`, the same shape as
+`backfillLibraryMetadata`. All five guards demonstrated against a scratch
+library, including both never-delete-on-partial-read arms and the case a naive
+keep-set breaks.
+
+**The brief's own premise was wrong and the build caught it.** `listBooks`
+filters conversions (`NOT_CONVERTED`), so it does not return all rows. The
+keep-set is still provably complete — every listed row owns its own cover, and
+`startConvert` refuses a source with `converted_from` set, so no conversion chain
+can exist — and mapping through `coverOwnerId` keeps it correct if that query
+ever changes. Verified independently by the controller. The invariant is stated
+in the doc comment.
+
+**Deviation from the spec, accepted:** an empty keep-set refuses
+*unconditionally* rather than only when the table is non-empty, because the
+row-count query would have meant editing `db.ts`, which another brief owned that
+wave. A strict superset of the required guard; the only cost is that a genuinely
+empty library is never swept.
+
+**Standing note:** on the first real boot of this branch the four genuine orphans
+are deleted. Intended, but it is the first unattended deletion this app performs.

@@ -94,3 +94,39 @@ palette and thickness steps, which shipped and are not this brief's business.
 - Stylus pressure, palm rejection and fast-stroke smoothness unchanged.
 - All three themes checked; `design.md` conformance checklist run.
 - Typecheck + `apps/web` build clean.
+
+---
+
+## Outcome (2026-08-30) — shipped, `0a5fb60` (D45)
+
+The design gate was honoured: a design pass built a live comparison of four
+candidates on identical sample strokes with real perfect-freehand ink, and the
+owner picked from it. **Shipped: `fountain-pen` and a three-pass `pencil`.**
+
+**Two candidates rejected on evidence.** The params-only pencil is a genuine
+negative result — `outlineToPath` re-smooths every outline with quadratic
+midpoints, so lowering `smoothing`/`streamline` moves the spine but never reaches
+the eye, leaving a nib that differs from the pen by opacity alone. A broad-edge
+calligraphic nib is **inexpressible** here: perfect-freehand's per-point radius is
+a scalar, so the outline is always isotropic; faking the angle from direction of
+travel overwrites real stylus pressure and breaks joins on tight curves. A real
+one needs an ellipse-swept second pipeline.
+
+The pencil's grain is three seeded passes; the seed is a sin-hash of the point
+index, not `Math.random`, or the grain crawls on every re-render. Its jitter
+scales with `size`, so it is weak at the thinnest nib — accepted.
+
+**The integration point neither brief anticipated:** brief 49 had duplicated the
+outline logic in `note-pdf.ts`, so adding nibs in the editor alone would have made
+PDF export render them as plain pen — silently. The nib table now lives in
+`packages/shared` (`nibPasses`, `nibNoise`, `nibPassPoints`) and both consume it.
+Verified in the emitted PDF: pencil produces 4 fill ops and 6 alpha states against
+the pen's 2 and 2; fountain-pen's taper yields different geometry.
+
+The tool bar does not grow: one `NibSlot` holds the selected nib behind a picker,
+so its width is independent of nib count and brief 26's above-the-fold finding
+cannot regress by adding more.
+
+**Not verified: the browser pass.** On-screen nib distinctness, the three themes,
+and a pre-existing note rendering unchanged were never checked — the build was cut
+off at exactly those steps. Everything else above is verified programmatically.

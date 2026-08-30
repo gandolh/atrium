@@ -89,3 +89,24 @@ against the text.
   means this changed prose that was already correct.
 - `widestLabel: null` renders exactly as it does today.
 - Typecheck clean; the full `packages/typeset` suite green.
+
+---
+
+## Outcome (2026-08-30) — shipped, `5167a26`
+
+`layoutBibliography` measures `[widestLabel]` the way `table.ts`'s
+`measureColumns` measures a cell, charging one `spend(ctx.budget)`, and passes
+`measured + labelSep` down as a `leftMargin` override. `design.ts` was **not**
+touched — the override is computed at the call site, so `listSpacing`'s contract
+and every other list's geometry are unchanged. `widestLabel === null` falls back
+to the original code path.
+
+All five goldens byte-identical; 647/647. Three new tests assert on `GlyphRun`
+coordinates rather than on the absence of diagnostics — brief 39's lesson.
+
+**This brief's framing was wrong and the build corrected it.** The engine packs
+labels with a right-aligned `hpack` against a declared target width, so an
+oversized label bleeds **leftward past the margin** and the label-to-entry gap
+stays `labelSep` invariantly. The defect is the label mis-registering against the
+page's left margin, not overlapping the prose. The test asserts the observable
+version; the measured regression for `[999]` is 0.56 pt.

@@ -1,5 +1,81 @@
 # Log
 
+## [2026-08-30] build | Briefs 45–51 shipped — the backlog is empty again
+
+One orchestrated run on branch `briefs-45-51`, four waves, a verify gate between
+each. Seven briefs, eight commits, 647 tests green throughout.
+`45‖46‖47‖48 → 49 → 50 → 51`.
+
+**Three briefs were wrong about the code, and the builds corrected them.** That is
+the headline, because all three were *my* specs and each error would have shipped
+a plausible-looking defect.
+
+- **Brief 48's premise:** the spec said `listBooks` returns every row. It filters
+  conversions (`NOT_CONVERTED`). A keep-set built from it would have **deleted a
+  live cover**, because a converted book and its source share one thumbnail. The
+  build proved the keep-set complete a different way — `startConvert` refuses a
+  source with `converted_from` set, so no conversion chain can exist — and kept
+  the `coverOwnerId` mapping so it stays correct if that query changes.
+- **Brief 47's framing:** the spec said an oversized label sets its numbers *into
+  the text*. It does not: the engine right-aligns labels into a declared-width
+  `hpack`, so an oversized label bleeds **leftward past the margin** and the gap to
+  the entry stays `labelSep` invariantly. The test asserts the observable defect.
+- **Brief 51 met a fork nobody had specified.** `.catch("pen")` is **lossy on
+  write-back** — `notes-api.ts` parses through `noteSchema` on every fetch and the
+  editor autosaves from the parsed value, so a stale bundle that opens and touches
+  a fountain-pen note destroys the style. Surfaced to the owner, who chose it
+  anyway over the preserving alternative. Recorded as **D45**, cost and all.
+
+**The integration bug that would have shipped.** Brief 49 duplicated the stroke
+outline logic server-side for PDF export. Brief 51 then added two nibs. Adding
+them in the editor alone would have made export render fountain-pen and pencil as
+**plain pen — silently, no diagnostic**: this project's recurring failure shape.
+Caught at dispatch, not at review; the nib table now lives in `packages/shared`
+and both consume it. Confirmed in the emitted PDF by fill-op and alpha-state
+counts, not by eye.
+
+**An owner override, recorded rather than smoothed over (D46).** Brief 48's reaper
+runs as a **startup sweep**, chosen against a recommended on-demand route on the
+ground that it deletes files on a boot nobody intended — the exact shape of the
+2026-08-29 incident. The guards are consequently load-bearing and the decision
+entry says so, so nobody optimises them away later.
+
+**The storage-root guard earned itself twice.** Every agent ran behind a script
+that asserts all five roots resolve inside a scratch base and refuses to `exec`
+otherwise — inline, never sourced from a file. It refused once for real (a
+chmod'd directory), and the session scratchpad was wiped again by a quota
+interruption, which is the precise failure that booted the API against the real
+library on 2026-08-29. **The real library is untouched: 7 thumbnails, 2 notes,
+no `note_folders` table, no `folder_id` column** — verified by the controller
+directly, not taken on an agent's word. Brief 50 migrated only a *copy*.
+
+**Model routing.** Six chunks senior (opus), one junior (sonnet). Honest for this
+backlog — two briefs delete or migrate persisted data, two touch concurrency, one
+adds a route with an auth surface. Brief 47 went junior despite being typesetting
+geometry because the byte-identical golden gate is a hard objective net and the
+reference pattern (`table.ts measureColumns`) already existed in-repo. It came
+back clean.
+
+**Brief 51 was gated on the owner, correctly.** Its first acceptance criterion was
+a design pick, so a design pass built a live four-nib comparison with real
+perfect-freehand ink instead of guessing. It returned a negative result worth
+keeping: a broad-edge calligraphic nib is **inexpressible** on perfect-freehand,
+whose per-point radius is a scalar and whose outline is therefore always
+isotropic.
+
+**Carried forward, not fixed here.** Brief 46's replay only fires from
+`startLatexCompile`, so the cancel route at `latex-routes.ts:1339` can still read a
+stale `running` row. Brief 45 made `DELETE /profiles/:id` ~340 ms when a compile is
+running, up from ~3 ms, and nothing in `apps/web` was checked against that. Brief
+51's **browser pass never ran** — the build was cut off at exactly those checks.
+Note text exports in Helvetica, not Archivo. `apps/api` still has **no test
+harness**; every brief above was verified by demonstration, which is why the
+outcome notes carry transcripts rather than assertions.
+
+New decisions: **D44** (note export is server-side), **D45** (unknown ink tool
+reads as `pen`, lossily), **D46** (orphan thumbnails reaped on startup). New
+glossary terms: **nib**, **note folder**.
+
 ## [2026-08-29] corpus | `todos/` merged into `briefs/todo/` — one work queue, five new briefs
 
 Owner's call, immediately after the housekeeping below: collapse the two-stage
@@ -187,8 +263,8 @@ command that starts the server and assert every one resolves inside the scratch
 base before anything starts. Recorded in
 [wiki/open-questions.md](wiki/open-questions.md).
 
-**Filed:** [brief 45](briefs/todo/45-profile-delete-cancels-compiles.md) and
-[brief 46](briefs/todo/46-compile-status-write-failure.md), promoted from brief
+**Filed:** [brief 45](briefs/done/45-profile-delete-cancels-compiles.md) and
+[brief 46](briefs/done/46-compile-status-write-failure.md), promoted from brief
 44's review — both can wedge an account's compile slot.
 
 **The pattern across this whole run, worth stating once:** three of the four

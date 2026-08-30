@@ -75,9 +75,9 @@ environment's body is never read in math mode. Still refused by design:
 `\mathsf`, `\mathtt`, `\mathfrak`, `smallmatrix`, `multline`, `alignat`,
 `eqnarray` — D41's accepted cost, each a one-line widening.
 
-**Next:** [brief 45](../briefs/todo/45-profile-delete-cancels-compiles.md)
+**Next:** [brief 45](../briefs/done/45-profile-delete-cancels-compiles.md)
 (profile delete must cancel the compiles it orphans — it can wedge an account's
-slot) and [brief 46](../briefs/todo/46-compile-status-write-failure.md) (a
+slot) and [brief 46](../briefs/done/46-compile-status-write-failure.md) (a
 swallowed status write can wedge until restart). Both promoted from brief 44's
 review, and both re-confirmed unbuilt in the source on 2026-08-29. Then **47**
 (bibliography label width), **48** (orphan-thumbnail reaper) and **49–51**
@@ -87,54 +87,6 @@ review, and both re-confirmed unbuilt in the source on 2026-08-29. Then **47**
 the D33 checklist auto-loads; `HANDOFF.md` + `test-plans/` retired; and
 **`todos/` was merged into `briefs/todo/`** — one queue now, nine trail files
 deleted, five new briefs (47–51). See [../log.md](../log.md).
-
-**Earlier (2026-08-29):** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
-built on branch `briefs-44-42-39`.
-
-**44 — the engine runs on a `worker_thread`, and cancel is real.** A compile no
-longer blocks the API: a **10.4 s** compile left the spawning thread with **514
-heartbeats, worst extra gap 1 ms**. Worker-*per-compile*, deliberately — a
-reused worker cannot be `terminate()`d without destroying the next compile's
-host, so stopping it would have to be cooperative, which is exactly what cannot
-work against a synchronous engine that never yields. A `DELETE` now kills a
-compile mid-engine instead of waiting out `LATEX_TIMEOUT_MS`. 3 finders, 3
-Important, all fixed.
-
-**42 — video has real covers, decoded in the browser (D40).** `<video>` → seek →
-`drawImage` → `toBlob`, no ffmpeg, so brief 23's declined binary stands. Capture
-at upload (3 candidate frames, highest luminance variance — one fixed seek hits
-a black fade-in too often) *and* as a **backfill on first playback**, which is
-what covers the existing library with no re-upload. Native aspect at a 640
-bound, letterboxed in the tile. **Everything iOS is unverified — no device
-here.**
-
-**39 — the engine sets a paper, not just a report.** Floats with `[htbp]` and a
-deferral queue, `\includegraphics` embedding real PNG and JPEG, `tabular` with
-measured columns and rules, and a `.bib` file becoming numbered citations.
-**506 tests** (from 332), and **all four brief-37 goldens byte-identical** —
-the load-bearing check, because a page-builder change that silently reflows
-plain prose is the failure mode they exist to catch.
-
-**Brief 39's review broke the pattern this project keeps seeing, and that is
-the interesting part.** For five builds running, every serious defect had
-spanned chunk boundaries. This one lay *inside* a single owned file: a `tabular`
-row that stops short of the last column drew the table's right-hand border
-partway across the grid and dropped every vertical rule past it. Legal LaTeX
-with a diagnostic-free wrong picture — the one failure mode the loud-failure
-contract cannot catch, since nothing was unimplemented and so nothing had
-anything to report. The pre-existing test asserted the case *"stays quiet"*,
-which it did, while rendering wrongly. **Geometry needs assertions on
-coordinates, not on diagnostics.** Fixed, with a test that fails without the fix.
-
-**Not verified by eye:** brief 39's "check a paper-shaped document in the
-preview" acceptance criterion. No browser run this session; the float fixture
-and the `floats.txt` golden cover the geometry programmatically.
-
-**Open for the owner:** brief 40 (math) needs a **34.3 MB** `mathjax-full@3.2.2`
-dependency — Apache-2.0, server-side only, so no browser payload, but a large
-addition to a package that has shipped with `pdf-lib` alone. **Not added,
-awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
-there is a real count of how many coverless videos survive brief 42's backfill.
 
 **Older entries** — every shipped phase through brief 38, with what each run
 fixed and how it was verified — live in
@@ -178,10 +130,10 @@ got here.
 | 42 | Video covers, decoded in the browser (D40) | **done (2026-08-28)** |
 | 43 | Readable tiles for coverless media (D42) | **done (2026-08-29)**, browser-verified |
 | 44 | Host the typesetting engine on a worker thread | **done (2026-08-28)** |
-| 45 | `DELETE /profiles/:id` must cancel the compiles it orphans | **todo** |
-| 46 | A swallowed compile-status write must not wedge an account | **todo** |
-| 47 | Bibliography must size its label column from `widestLabel` | **todo** |
-| 48 | Reap orphan thumbnails on API startup | **todo** |
-| 49 | Notes: export a note to PDF and image | **todo** |
-| 50 | Notes: folders | **todo** |
-| 51 | Notes: a richer ink tool set (needs a design pass first) | **todo** |
+| 45 | `DELETE /profiles/:id` cancels the compiles it orphans | **done (2026-08-30)** |
+| 46 | A swallowed compile-status write no longer wedges an account | **done (2026-08-30)** |
+| 47 | Bibliography sizes its label column from `widestLabel` | **done (2026-08-30)** |
+| 48 | Reap orphan thumbnails on API startup (D46) | **done (2026-08-30)** |
+| 49 | Notes: export a note to PDF and image (D44) | **done (2026-08-30)** |
+| 50 | Notes: folders | **done (2026-08-30)** |
+| 51 | Notes: fountain-pen + pencil nibs (D45) | **done (2026-08-30)** | **todo** |

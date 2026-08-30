@@ -91,3 +91,33 @@ their own organisation and are not in scope here.
 **Verify against a scratch database with all five storage roots redirected, set
 inline and asserted before the server starts** — this brief ships a schema
 migration. See [open-questions.md](../../wiki/open-questions.md).
+
+---
+
+## Outcome (2026-08-30) — shipped, `77ce483`
+
+`note_folders` with `parent_id`; `notes.folder_id` nullable, so every existing
+note stays at the root with no backfill. Cycles refused server-side by walking
+the parent chain (400 `FOLDER_CYCLE`). Deleting a folder lifts its notes *and*
+child folders to the parent. Every folder query scoped by `profile_id`.
+
+`parent_id` deliberately carries no `ON DELETE` clause: NO ACTION is checked at
+end-of-statement, so `deleteProfile`'s one legitimate bulk delete works
+regardless of row order while a single-folder delete that skipped the lift is
+still refused.
+
+**Consequential change, not scope creep:** the mandated `RESTRICT` on
+`note_folders.profile_id` would have made `DELETE /profiles/:id` throw a raw FK
+error for a profile with folders but no notes, and would have stranded reassigned
+notes in folders the receiving profile cannot see. `reassignNotes` and
+`deleteProfile` now move folders with the notes in one transaction. Brief 45's
+ordering through that route is unchanged — verified.
+
+Verified against a **copy** of the real library, which was itself only ever opened
+readonly: both notes present, openable and byte-identical after migration; brief
+49's export still returns a PDF; tree and collapsed state survive a restart. The
+controller independently confirmed the real database has no `note_folders` table
+and no `folder_id` column.
+
+**Known and accepted:** sibling folders may share a name — a `(profile_id,
+parent_id, name)` unique index would be a separate call.

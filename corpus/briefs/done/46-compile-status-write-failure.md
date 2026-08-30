@@ -67,3 +67,29 @@ explicitly rather than adding it alongside.
 **Verify against a scratch database with all five storage roots redirected, set
 inline and asserted before the server starts** — see the 2026-08-29 incident in
 [open-questions.md](../../wiki/open-questions.md).
+
+---
+
+## Outcome (2026-08-30) — shipped, `aeb7508`
+
+`setLatexCompileStatus` returns `boolean` (`changes > 0`) and exceptions still
+propagate, which makes the distinction representable. `releaseCompileRow` is
+silent on zero rows and, on a throw, logs the SQLite code and parks the write;
+`flushPendingStatusWrites` replays at the top of `startLatexCompile`, before the
+durable guard is read, skipping projects that are compiling again.
+
+**Recovery ruling (the brief required one): retry deferred to the next compile
+attempt.** Not a periodic reap — `reapInterruptedLatexCompiles` flips *every*
+`running` row to `failed`, which is safe only at import. Not an in-process retry
+loop — `better-sqlite3` already retries a busy database for 5 s before throwing,
+so spinning blocks the event loop and adds nothing. Deferring costs nothing while
+the map is empty and makes pressing Compile again the thing that unwedges you.
+The reaper's schedule is unchanged.
+
+Demonstrated by forcing a real `SQLITE_BUSY` with a second connection holding
+`BEGIN IMMEDIATE`: reported by code, then recovered in the same process with no
+restart. The zero-row case produced no output and freed the slot.
+
+**Known gap:** the replay only fires from `startLatexCompile`, so the cancel
+route (`latex-routes.ts:1339`) can still read a stale `running` row. Out of this
+brief's lane; a one-line follow-up.

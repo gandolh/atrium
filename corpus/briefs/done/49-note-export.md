@@ -101,3 +101,30 @@ Calibre convert path, which is unrelated.
   rather than throwing.
 - PNG export of the current page downloads and matches the sheet.
 - Typecheck + `apps/web` build clean.
+
+---
+
+## Outcome (2026-08-30) — shipped, `0231fd8` (D44)
+
+`GET /notes/:id/export.pdf` renders every page as vector, plus a client-side PNG
+of the current page and an export control in the editor. The route reads via
+`getNote(pid(request), id)`, so the active profile is part of the lookup rather
+than a check bolted on after it.
+
+`pdfimages -list` reports **zero image XObjects** — genuinely vector — and an
+800% render of the pen/highlighter crossing is clean with the ruled line visible
+through the amber band. The PNG exported from a dark session is **byte-identical**
+to the light one. A note on another profile 404s, matching `GET /notes/:id`.
+
+Two dependencies added to `apps/api`, both pinned and both already in the
+lockfile: `pdf-lib@1.17.1` matching typeset, and `perfect-freehand@1.2.3`
+matching `apps/web`. The second was not authorised in the brief and was flagged
+rather than slipped in — matching the editor's stroke options requires calling
+the library; hoisting or reimplementation were both worse.
+
+**Known and accepted:** text sets in Helvetica, not Archivo (embedding the brand
+font is a font-asset decision no brief authorised); the editor's one-row textarea
+visually clips long text while the export renders it fully wrapped.
+
+The stroke-outline duplication this created was **removed by brief 51**, which
+hoisted the nib parameter table into `packages/shared`.

@@ -47,3 +47,15 @@ export async function updateNote(
 export async function deleteNote(id: string): Promise<void> {
   await apiFetch(`/notes/${id}`, { method: "DELETE" });
 }
+
+/**
+ * Fetch the whole note as a PDF (brief 49). The server renders it (`apps/api`
+ * has pdf-lib; the browser deliberately carries no PDF writer), so this is
+ * only a transfer — but it still has to go through `apiFetch` rather than a
+ * plain link or `window.open`, because auth here is a bearer token and a
+ * navigation cannot carry one.
+ */
+export async function fetchNotePdf(id: string): Promise<Blob> {
+  const res = await apiFetch(`/notes/${id}/export.pdf`);
+  return res.blob();
+}

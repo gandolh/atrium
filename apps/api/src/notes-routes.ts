@@ -17,6 +17,7 @@ import {
   updateNote,
   type NoteRow,
 } from "./db.js";
+import { pdfFilename, renderNotePdf } from "./note-pdf.js";
 
 /**
  * Notes CRUD (brief 26). Per-profile since brief 35 (D35, decision 3): every
@@ -86,6 +87,35 @@ export function registerNotesRoutes(app: FastifyInstance): void {
     const row = getNote(pid(request), id);
     if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
     return reply.send(noteSchema.parse(toNote(row)));
+  });
+
+  /**
+   * PDF export (brief 49) — all pages, vector, rendered by `note-pdf.ts`.
+   *
+   * It reads the note through `getNote(pid(request), id)`, exactly like
+   * `GET /notes/:id` above: the profile scope is part of the lookup, not a
+   * check bolted on after it, so a note on another profile is a 404 here for
+   * the same reason it is there. An export route that read by id alone would
+   * be a read of someone else's notebook.
+   */
+  app.get("/notes/:id/export.pdf", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id } = request.params as { id: string };
+    const row = getNote(pid(request), id);
+    if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
+    // Parse through the shared schema so `template` picks up its default for
+    // notes stored before that field existed.
+    const note = noteSchema.parse(toNote(row));
+    const bytes = await renderNotePdf(note.title, note.pages);
+    const ascii = pdfFilename(note.title);
+    return reply
+      .header("Content-Type", "application/pdf")
+      .header(
+        "Content-Disposition",
+        `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(
+          `${note.title || "note"}.pdf`,
+        )}`,
+      )
+      .send(Buffer.from(bytes));
   });
 
   app.patch("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {

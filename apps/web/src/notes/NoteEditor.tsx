@@ -24,6 +24,7 @@ import {
 
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { cssToken } from "../lib/tokens";
+import { fetchNotePdf } from "./notes-api";
 import { useNote, useSaveNote } from "./use-notes";
 
 /**
@@ -105,6 +106,169 @@ function strokePath(stroke: Stroke): string {
   return outlineToPath(outline);
 }
 
+/* ------------------------------------------------------------------ export */
+/*
+ * Export (brief 49). The PDF is rendered by the API — `apps/web` carries no PDF
+ * writer and briefs 15/16/17 were spent trimming its payload, while the server
+ * already has pdf-lib. The PNG is the exception and is produced HERE, because
+ * the browser already holds the exact geometry on screen and rasterising it
+ * costs no new dependency on either side: the page is re-serialised as a
+ * standalone SVG and drawn once into a canvas.
+ *
+ * Both exports are a sheet of paper, so both use the theme-independent
+ * `--note-sheet*` tokens (they are defined once at `:root` and never remapped
+ * by `data-theme` — see globals.css). A dark session exports the same light
+ * sheet as a light one.
+ */
+
+/** Ruling line positions in viewBox space, shared by the sheet and the PNG. */
+function ruleLines(template: PageTemplate): { horizontal: number[]; vertical: number[] } {
+  const horizontal: number[] = [];
+  const vertical: number[] = [];
+  if (template === "blank") return { horizontal, vertical };
+  const h = STROKE_VB * PAGE_ASPECT;
+  // Start one step down so the top edge is clear.
+  for (let y = RULE_STEP; y < h - 1; y += RULE_STEP) horizontal.push(y);
+  if (template === "grid") {
+    for (let x = RULE_STEP; x < STROKE_VB - 1; x += RULE_STEP) vertical.push(x);
+  }
+  return { horizontal, vertical };
+}
+
+function xmlEscape(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Greedy word wrap at `maxWidth`, measured in the same font the text box is
+ * rendered in. The sheet wraps its text boxes with a `<textarea>`; a standalone
+ * SVG has no line-breaking of its own, so the export has to do it explicitly or
+ * long text would run off the sheet.
+ */
+function wrapLines(text: string, fontSize: number, fontFamily: string, maxWidth: number): string[] {
+  const ctx = document.createElement("canvas").getContext("2d");
+  const lines: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    if (!ctx) {
+      lines.push(paragraph);
+      continue;
+    }
+    ctx.font = `${fontSize}px ${fontFamily}`;
+    let current = "";
+    for (const word of paragraph.split(/(\s+)/)) {
+      const next = current + word;
+      if (current && ctx.measureText(next).width > maxWidth) {
+        lines.push(current.trimEnd());
+        current = word.trimStart();
+      } else {
+        current = next;
+      }
+    }
+    lines.push(current);
+  }
+  return lines;
+}
+
+/**
+ * One page as a self-contained SVG document. Colours are resolved to literals
+ * because a `var()` cannot cross into a detached SVG, and no font file is
+ * referenced (an `<img>`-rasterised SVG loads no external resources) — the text
+ * boxes name the UI family and fall back to a generic sans.
+ */
+function pageToSvg(page: NotePage): string {
+  const w = STROKE_VB;
+  const h = STROKE_VB * PAGE_ASPECT;
+  const sheet = cssToken("--note-sheet") || "#fdfcfa";
+  const rule = cssToken("--note-sheet-rule") || "#d9d3c4";
+  const ink = cssToken("--note-sheet-ink") || "#1a1917";
+  const family = `${cssToken("--font-ui") || "sans-serif"}, sans-serif`;
+
+  const parts: string[] = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
+    `<rect x="0" y="0" width="${w}" height="${h}" fill="${sheet}"/>`,
+  ];
+
+  const { horizontal, vertical } = ruleLines(page.template ?? "blank");
+  if (horizontal.length || vertical.length) {
+    parts.push(`<g stroke="${rule}" stroke-width="1.2">`);
+    for (const y of horizontal) parts.push(`<line x1="0" y1="${y}" x2="${w}" y2="${y}"/>`);
+    for (const x of vertical) parts.push(`<line x1="${x}" y1="0" x2="${x}" y2="${h}"/>`);
+    parts.push(`</g>`);
+  }
+
+  // Page order, unchanged — that is what keeps a highlighter under the pen.
+  for (const stroke of page.strokes) {
+    const d = strokePath(stroke);
+    if (!d) continue;
+    const opacity = stroke.tool === "highlighter" ? 0.4 : 1;
+    parts.push(`<path d="${d}" fill="${xmlEscape(stroke.color)}" fill-opacity="${opacity}"/>`);
+  }
+
+  for (const box of page.texts) {
+    if (!box.text.trim()) continue;
+    const size = box.size * STROKE_VB;
+    const lines = wrapLines(box.text, size, family, box.w * STROKE_VB);
+    // 0.94em below the box top is the first baseline: half of `leading-snug`'s
+    // extra leading plus a typical ascent.
+    let y = box.y * STROKE_VB + size * 0.94;
+    for (const line of lines) {
+      parts.push(
+        `<text x="${box.x * STROKE_VB}" y="${y}" font-family="${xmlEscape(family)}" font-size="${size}" fill="${ink}">${xmlEscape(line)}</text>`,
+      );
+      y += size * 1.375;
+    }
+  }
+
+  parts.push(`</svg>`);
+  return parts.join("");
+}
+
+/** Hand a blob to the browser as a download and release the object URL. */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** A filesystem-safe name from the note title. */
+function exportFilename(title: string, suffix: string): string {
+  const base = title.replace(/["\\/:*?<>|]/g, "").trim().slice(0, 80);
+  return `${base || "note"}${suffix}`;
+}
+
+/** Width in pixels of the rasterised page — ~170dpi against an A4 sheet. */
+const PNG_WIDTH = 1400;
+
+/** Rasterise one page to PNG at `PNG_WIDTH` and download it. */
+async function downloadPagePng(page: NotePage, filename: string): Promise<void> {
+  const svg = pageToSvg(page);
+  const image = new Image();
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve();
+    image.onerror = () => reject(new Error("The page could not be rendered"));
+    // A data URL keeps the image same-origin, so the canvas is never tainted.
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = PNG_WIDTH;
+  canvas.height = Math.round(PNG_WIDTH * PAGE_ASPECT);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("The page could not be rendered");
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("The page could not be rendered");
+  downloadBlob(blob, filename);
+}
+
 /**
  * The page's background ruling, drawn behind the ink in the same scaled viewBox
  * space (so it scales with the sheet, `preserveAspectRatio="none"` like the ink
@@ -114,17 +278,13 @@ function PageBackground({ template }: { template: PageTemplate }) {
   if (template === "blank") return null;
   const w = STROKE_VB;
   const h = STROKE_VB * PAGE_ASPECT;
-  const lines: ReactNode[] = [];
-  // Horizontal rules (ruled + grid). Start one step down so the top edge is clear.
-  for (let y = RULE_STEP; y < h - 1; y += RULE_STEP) {
-    lines.push(<line key={`h${y}`} x1={0} y1={y} x2={w} y2={y} />);
-  }
-  // Vertical rules (grid only).
-  if (template === "grid") {
-    for (let x = RULE_STEP; x < w - 1; x += RULE_STEP) {
-      lines.push(<line key={`v${x}`} x1={x} y1={0} x2={x} y2={h} />);
-    }
-  }
+  // One geometry source for the sheet and for both exports (`ruleLines`), so a
+  // ruled page cannot rule differently on paper than it does on screen.
+  const { horizontal, vertical } = ruleLines(template);
+  const lines: ReactNode[] = [
+    ...horizontal.map((y) => <line key={`h${y}`} x1={0} y1={y} x2={w} y2={y} />),
+    ...vertical.map((x) => <line key={`v${x}`} x1={x} y1={0} x2={x} y2={h} />),
+  ];
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -159,6 +319,10 @@ export function NoteEditor({ id }: { id: string }) {
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState<string>(() => cssToken(INKS[0].token));
   const [thickness, setThickness] = useState(1);
+
+  // Export state (brief 49): which format is in flight, and the last failure.
+  const [exporting, setExporting] = useState<null | "pdf" | "png">(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Undo/redo stacks of page snapshots (structural changes only).
   const undoRef = useRef<NotePage[][]>([]);
@@ -250,6 +414,38 @@ export function NoteEditor({ id }: { id: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, pages]);
 
+  // --- Export (brief 49) ----------------------------------------------------
+  // The PDF is rendered by the server from the STORED note, so a pending
+  // autosave has to land first — otherwise the download is silently a few
+  // seconds stale. The PNG reads the in-memory page and needs no such flush.
+  async function exportPdf() {
+    setExportError(null);
+    setExporting("pdf");
+    try {
+      const name = title.trim() || "Untitled note";
+      await save.mutateAsync({ title: name, pages });
+      dirtyRef.current = false;
+      downloadBlob(await fetchNotePdf(id), exportFilename(name, ".pdf"));
+    } catch {
+      setExportError("Couldn't export this note.");
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function exportPng() {
+    setExportError(null);
+    setExporting("png");
+    try {
+      const name = title.trim() || "Untitled note";
+      await downloadPagePng(page, exportFilename(name, `-page-${pageIndex + 1}.png`));
+    } catch {
+      setExportError("Couldn't export this page.");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   if (query.isLoading || !loaded) {
     return (
       <main className="grid min-h-[calc(100vh-var(--dock-height,0px))] place-items-center bg-reader-bg text-ink">
@@ -299,8 +495,23 @@ export function NoteEditor({ id }: { id: string }) {
           <div className="flex items-center gap-1">
             <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>↶</IconBtn>
             <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>↷</IconBtn>
+            <ExportControl
+              exporting={exporting}
+              onExportPdf={exportPdf}
+              onExportPng={exportPng}
+              pageLabel={`page ${pageIndex + 1}`}
+            />
           </div>
         </header>
+
+        {/* Export failures are quiet and inline — the same register as the rest
+            of this chrome. `role="status"` so it is announced without stealing
+            focus from the sheet. */}
+        {exportError && (
+          <p role="status" className="px-4 pb-2 font-ui text-xs text-danger">
+            {exportError}
+          </p>
+        )}
 
         <Toolbar
           tool={tool}
@@ -888,6 +1099,62 @@ function Toolbar({
           + Page
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The export control (brief 49) — two plainly-labelled actions rather than a
+ * popover, because there are exactly two and a menu would hide both behind an
+ * extra click. It sits with undo/redo: both are things you do *to* the open
+ * note, not tools you draw with, so neither belongs in the tool bar.
+ *
+ * Reading Room conformance: theme tokens only (no raw hex), `font-ui`
+ * (Archivo) like the rest of the chrome, accent reserved for state — the focus
+ * ring — with the labels themselves in `ink-variant`. The only motion is the
+ * hover colour fade, and it is dropped entirely under `prefers-reduced-motion`.
+ */
+function ExportControl({
+  exporting,
+  onExportPdf,
+  onExportPng,
+  pageLabel,
+}: {
+  exporting: null | "pdf" | "png";
+  onExportPdf: () => void;
+  onExportPng: () => void;
+  pageLabel: string;
+}) {
+  const reducedMotion = usePrefersReducedMotion();
+  const busy = exporting !== null;
+  const item = `rounded-chip px-2 py-1 font-ui text-xs font-medium text-ink-variant hover:text-ink disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-accent ${
+    reducedMotion ? "" : "transition"
+  }`;
+  return (
+    <div className="ml-1 flex items-center gap-0.5 rounded-chip bg-paper-low px-1 py-0.5" role="group" aria-label="Export">
+      <span aria-hidden="true" className="pl-1.5 pr-0.5 font-ui text-xs text-ink-variant/70">
+        ↓
+      </span>
+      <button
+        type="button"
+        className={item}
+        disabled={busy}
+        onClick={onExportPdf}
+        aria-label="Export note as PDF"
+        title="Export note as PDF"
+      >
+        {exporting === "pdf" ? "PDF…" : "PDF"}
+      </button>
+      <button
+        type="button"
+        className={item}
+        disabled={busy}
+        onClick={onExportPng}
+        aria-label={`Export ${pageLabel} as PNG`}
+        title={`Export ${pageLabel} as PNG`}
+      >
+        {exporting === "png" ? "PNG…" : "PNG"}
+      </button>
     </div>
   );
 }

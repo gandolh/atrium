@@ -90,7 +90,7 @@ export {
 } from "./auth.js";
 export type { LoginRequest, LoginResponse, AuthStatus } from "./auth.js";
 
-// --- Notes contract (brief 26) ---------------------------------------------
+// --- Notes contract (brief 26; folders brief 50) ----------------------------
 export {
   PAGE_ASPECT,
   NOTE_TOOLS,
@@ -106,6 +106,12 @@ export {
   noteListSchema,
   createNoteSchema,
   updateNoteSchema,
+  MAX_FOLDER_NAME,
+  noteFolderSchema,
+  noteFolderListSchema,
+  createNoteFolderSchema,
+  updateNoteFolderSchema,
+  moveNoteSchema,
 } from "./notes.js";
 export type {
   NoteTool,
@@ -118,6 +124,10 @@ export type {
   NoteSummary,
   CreateNoteRequest,
   UpdateNoteRequest,
+  NoteFolder,
+  CreateNoteFolderRequest,
+  UpdateNoteFolderRequest,
+  MoveNoteRequest,
 } from "./notes.js";
 
 // --- Profile contract (brief 35) -------------------------------------------

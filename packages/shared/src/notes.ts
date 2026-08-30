@@ -77,18 +77,34 @@ export const noteSchema = z.object({
 });
 export type Note = z.infer<typeof noteSchema>;
 
-/** Lightweight row for the notes list (no page contents). */
+/**
+ * Lightweight row for the notes list (no page contents).
+ *
+ * `folderId` (brief 50) is on the SUMMARY and deliberately NOT on `noteSchema`
+ * above: a note does not know or care what folder it is in — filing is a
+ * property of the *list*, which is the only surface that draws the tree. The
+ * editor loads a `Note`, and its contract is unchanged by folders.
+ * `null` means the root.
+ */
 export const noteSummarySchema = z.object({
   id: z.string(),
   title: z.string(),
   updatedAt: z.string(),
   pageCount: z.number().int().nonnegative(),
+  folderId: z.string().nullable(),
 });
 export type NoteSummary = z.infer<typeof noteSummarySchema>;
 
 export const noteListSchema = z.array(noteSummarySchema);
 
-/** `POST /notes` body — optional title (defaults server-side). */
+/**
+ * `POST /notes` body — optional title (defaults server-side).
+ *
+ * Unchanged by brief 50: a new note is born at the ROOT and filed afterwards
+ * with `PATCH /notes/:id/folder`. Folders are an organising move the owner
+ * makes on a note that already exists, so creation stays the one-field request
+ * it has always been.
+ */
 export const createNoteSchema = z.object({
   title: z.string().min(1).max(200).optional(),
 });
@@ -104,3 +120,64 @@ export const updateNoteSchema = z
     message: "Nothing to update",
   });
 export type UpdateNoteRequest = z.infer<typeof updateNoteSchema>;
+
+/* -------------------------------------------------------------------------
+ * Note folders (brief 50)
+ *
+ * A folder is a ROW with a `parentId`, never a path string: a path cannot be
+ * renamed atomically, and it goes wrong the first time a name contains the
+ * separator. The root is `parentId === null` — there is no root row, so a
+ * fresh profile has an empty folder list and every note sits at the root with
+ * nothing to migrate.
+ * ---------------------------------------------------------------------- */
+
+/** Longest folder name the server accepts — a label, not a document. */
+export const MAX_FOLDER_NAME = 120;
+
+export const noteFolderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** `null` = a top-level folder. Never points outside the owning profile. */
+  parentId: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type NoteFolder = z.infer<typeof noteFolderSchema>;
+
+export const noteFolderListSchema = z.array(noteFolderSchema);
+
+/** `POST /note-folders` body. Omitted/`null` parent means the root. */
+export const createNoteFolderSchema = z.object({
+  name: z.string().trim().min(1).max(MAX_FOLDER_NAME),
+  parentId: z.string().nullable().optional(),
+});
+export type CreateNoteFolderRequest = z.infer<typeof createNoteFolderSchema>;
+
+/**
+ * `PATCH /note-folders/:id` body — rename and/or reparent.
+ *
+ * `parentId: null` is a MOVE TO ROOT, which is why the refine below tests
+ * `!== undefined` rather than truthiness: `null` and "absent" are different
+ * requests here and collapsing them would make root unreachable.
+ */
+export const updateNoteFolderSchema = z
+  .object({
+    name: z.string().trim().min(1).max(MAX_FOLDER_NAME).optional(),
+    parentId: z.string().nullable().optional(),
+  })
+  .refine((v) => v.name !== undefined || v.parentId !== undefined, {
+    message: "Nothing to update",
+  });
+export type UpdateNoteFolderRequest = z.infer<typeof updateNoteFolderSchema>;
+
+/**
+ * `PATCH /notes/:id/folder` body — file a note into a folder, or `null` to
+ * lift it back to the root.
+ *
+ * Its own route rather than a field on `updateNoteSchema` on purpose: the
+ * editor's autosave PATCHes title/pages many times a minute and must never be
+ * able to move a note as a side effect of a save that raced a move.
+ */
+export const moveNoteSchema = z.object({
+  folderId: z.string().nullable(),
+});
+export type MoveNoteRequest = z.infer<typeof moveNoteSchema>;

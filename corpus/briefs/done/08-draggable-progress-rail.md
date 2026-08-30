@@ -2,7 +2,7 @@
 
 ## Context
 
-From [todos/draggable-reading-progress-bar.md](../../todos/draggable-reading-progress-bar.md).
+From `todos/draggable-reading-progress-bar.md`.
 The EPUB reader has a `ProgressRail` (bottom-edge scrub strip: click-to-seek,
 hover tooltip, arrow keys) but it cannot be **dragged** — the user wants to grab
 the bar and scrub horizontally. The PDF reader has **no rail at all**, only a

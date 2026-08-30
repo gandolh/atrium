@@ -4,7 +4,7 @@
 
 Foliate-style catalog integration: search/browse Project Gutenberg inside the
 app and pull a book straight into the library. Source todo (with research +
-sources): [todos/in-app-catalog-download.md](../../todos/in-app-catalog-download.md).
+sources): `todos/in-app-catalog-download.md`.
 
 **Grilled decisions (2026-07-16, owner-confirmed):**
 - v1 source: **Project Gutenberg only**, metadata via the **public Gutendex

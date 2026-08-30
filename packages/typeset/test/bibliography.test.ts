@@ -388,3 +388,117 @@ Known \\cite{k}, unknown \\cite{ghost}.
   assert.match(text, /References/);
   assert.match(text, /Something/);
 });
+
+// --- brief 47: the label column is sized from `widestLabel` -----------------
+
+/**
+ * `thebibliography{widest}` with one `\bibitem[label]{a}` whose own printed
+ * label is `label` — so the two can be set independently, exactly the way a
+ * real widest-label argument and a real entry's label are two different
+ * things in LaTeX.
+ */
+function widestLabelSource(widest: string, label: string): string {
+  return `\\documentclass{article}
+\\begin{document}
+\\begin{thebibliography}{${widest}}
+\\bibitem[${label}]{a} Zzyzxqx entry text.
+\\end{thebibliography}
+\\end{document}
+`;
+}
+
+/** Every glyph run across every page. */
+function glyphRuns(result: ReturnType<typeof compile>): { text: string; x: number; y: number; width: number }[] {
+  return result.pages
+    .flatMap((page) => page.items)
+    .filter((item) => item.kind === "glyphrun")
+    .map((item) => item as { text: string; x: number; y: number; width: number });
+}
+
+/** The one glyph run whose text is exactly `text` — fails loudly if there is not exactly one. */
+function runWithText(result: ReturnType<typeof compile>, text: string): { text: string; x: number; y: number; width: number } {
+  const hits = glyphRuns(result).filter((item) => item.text === text);
+  assert.equal(hits.length, 1, `expected exactly one glyph run with text ${JSON.stringify(text)}, found ${hits.length}`);
+  return hits[0]!;
+}
+
+test("a widestLabel measured to fit sets the label flush with the margin, not spilling past it", () => {
+  const result = compile({ "main.tex": encoder.encode(widestLabelSource("999", "999")) }, "main.tex", { fonts });
+  assert.equal(result.diagnostics.some((d) => d.severity === "error"), false, "unexpected error diagnostics");
+
+  const heading = runWithText(result, "References");
+  const label = runWithText(result, "[999]");
+  const entry = runWithText(result, "Zzyzxqx");
+
+  // `\@biblabel`'s box is right-aligned in `\labelwidth` (`\hss`), so an
+  // *undersized* fixed column bleeds the label's own left edge past the
+  // margin rather than colliding with the entry's text (see this brief's
+  // notes) — which is exactly why "the entry never overlaps the label" is
+  // NOT the discriminating check: that gap is `\labelsep` either way. What a
+  // correctly measured column buys is a label that starts flush with the
+  // margin, same as every other line — no overflow at all, in either
+  // direction. `heading.x` is that margin, read off the "References" heading
+  // rather than hardcoded, since both sit at the same left edge.
+  const epsilon = 0.01;
+  assert.ok(
+    Math.abs(label.x - heading.x) < epsilon,
+    `[999]'s label should start flush with the margin (${heading.x}), started at ${label.x} instead`,
+  );
+  // And still strictly beside the entry text, never overlapping it.
+  assert.ok(
+    entry.x >= label.x + label.width,
+    `entry (x=${entry.x}) starts before the [999] label ends (x+width=${label.x + label.width})`,
+  );
+});
+
+test("a {9} bibliography is visibly tighter than a {999} one, by exactly the measured label width", () => {
+  const narrow = compile({ "main.tex": encoder.encode(widestLabelSource("9", "9")) }, "main.tex", { fonts });
+  const wide = compile({ "main.tex": encoder.encode(widestLabelSource("999", "999")) }, "main.tex", { fonts });
+  assert.equal(narrow.diagnostics.some((d) => d.severity === "error"), false);
+  assert.equal(wide.diagnostics.some((d) => d.severity === "error"), false);
+
+  const narrowLabel = runWithText(narrow, "[9]");
+  const narrowEntry = runWithText(narrow, "Zzyzxqx");
+  const wideLabel = runWithText(wide, "[999]");
+  const wideEntry = runWithText(wide, "Zzyzxqx");
+
+  const epsilon = 0.01;
+  const observedShift = wideEntry.x - narrowEntry.x;
+  const expectedShift = wideLabel.width - narrowLabel.width;
+  // "Visibly tighter": the {9} list's entries sit strictly left of the {999}
+  // list's — not just non-identical, but by a margin real digits produce.
+  assert.ok(observedShift > 1, `expected the {999} column to sit visibly right of {9}'s; shift was ${observedShift}`);
+  // "...and the difference is the measured label width": not approximately —
+  // exactly the two labels' own measured widths apart, because both columns
+  // are `label width + \labelsep` and `\labelsep` does not change with depth.
+  assert.ok(
+    Math.abs(observedShift - expectedShift) < epsilon,
+    `entries shifted by ${observedShift}, but the labels' widths differ by ${expectedShift}`,
+  );
+});
+
+test("widestLabel: null keeps today's fixed geometry, independent of what a label actually measures", () => {
+  // An empty argument — `build.ts:1902` — not an absent environment; this is
+  // the `null` arm this brief must leave alone, deliberately still reported
+  // as the pre-existing `syntax` error naming `thebibliography`.
+  const short = compile({ "main.tex": encoder.encode(widestLabelSource("", "1")) }, "main.tex", { fonts });
+  const long = compile({ "main.tex": encoder.encode(widestLabelSource("", "999")) }, "main.tex", { fonts });
+  for (const result of [short, long]) {
+    const unexpected = result.diagnostics.filter(
+      (d) => d.severity === "error" && !(d.code === "syntax" && d.construct === "thebibliography"),
+    );
+    assert.deepEqual(unexpected, [], "unexpected error diagnostics");
+  }
+
+  const shortEntry = runWithText(short, "Zzyzxqx");
+  const longEntry = runWithText(long, "Zzyzxqx");
+  // The fixed geometry this brief must not touch for `null` does not read the
+  // label's content at all — unlike the measured arm (previous test), the
+  // entry's position here does not move whether the printed label is "[1]"
+  // or "[999]", because `listSpacing`'s table is all it ever consulted.
+  const epsilon = 0.01;
+  assert.ok(
+    Math.abs(shortEntry.x - longEntry.x) < epsilon,
+    `the null arm's entry position moved with the label's content: ${shortEntry.x} vs ${longEntry.x}`,
+  );
+});

@@ -1,5 +1,213 @@
 # Log
 
+## [2026-08-30] build | Briefs 45–51 shipped — the backlog is empty again
+
+One orchestrated run on branch `briefs-45-51`, four waves, a verify gate between
+each. Seven briefs, eight commits, 647 tests green throughout.
+`45‖46‖47‖48 → 49 → 50 → 51`.
+
+**Three briefs were wrong about the code, and the builds corrected them.** That is
+the headline, because all three were *my* specs and each error would have shipped
+a plausible-looking defect.
+
+- **Brief 48's premise:** the spec said `listBooks` returns every row. It filters
+  conversions (`NOT_CONVERTED`). A keep-set built from it would have **deleted a
+  live cover**, because a converted book and its source share one thumbnail. The
+  build proved the keep-set complete a different way — `startConvert` refuses a
+  source with `converted_from` set, so no conversion chain can exist — and kept
+  the `coverOwnerId` mapping so it stays correct if that query changes.
+- **Brief 47's framing:** the spec said an oversized label sets its numbers *into
+  the text*. It does not: the engine right-aligns labels into a declared-width
+  `hpack`, so an oversized label bleeds **leftward past the margin** and the gap to
+  the entry stays `labelSep` invariantly. The test asserts the observable defect.
+- **Brief 51 met a fork nobody had specified.** `.catch("pen")` is **lossy on
+  write-back** — `notes-api.ts` parses through `noteSchema` on every fetch and the
+  editor autosaves from the parsed value, so a stale bundle that opens and touches
+  a fountain-pen note destroys the style. Surfaced to the owner, who chose it
+  anyway over the preserving alternative. Recorded as **D45**, cost and all.
+
+**The integration bug that would have shipped.** Brief 49 duplicated the stroke
+outline logic server-side for PDF export. Brief 51 then added two nibs. Adding
+them in the editor alone would have made export render fountain-pen and pencil as
+**plain pen — silently, no diagnostic**: this project's recurring failure shape.
+Caught at dispatch, not at review; the nib table now lives in `packages/shared`
+and both consume it. Confirmed in the emitted PDF by fill-op and alpha-state
+counts, not by eye.
+
+**An owner override, recorded rather than smoothed over (D46).** Brief 48's reaper
+runs as a **startup sweep**, chosen against a recommended on-demand route on the
+ground that it deletes files on a boot nobody intended — the exact shape of the
+2026-08-29 incident. The guards are consequently load-bearing and the decision
+entry says so, so nobody optimises them away later.
+
+**The storage-root guard earned itself twice.** Every agent ran behind a script
+that asserts all five roots resolve inside a scratch base and refuses to `exec`
+otherwise — inline, never sourced from a file. It refused once for real (a
+chmod'd directory), and the session scratchpad was wiped again by a quota
+interruption, which is the precise failure that booted the API against the real
+library on 2026-08-29. **The real library is untouched: 7 thumbnails, 2 notes,
+no `note_folders` table, no `folder_id` column** — verified by the controller
+directly, not taken on an agent's word. Brief 50 migrated only a *copy*.
+
+**Model routing.** Six chunks senior (opus), one junior (sonnet). Honest for this
+backlog — two briefs delete or migrate persisted data, two touch concurrency, one
+adds a route with an auth surface. Brief 47 went junior despite being typesetting
+geometry because the byte-identical golden gate is a hard objective net and the
+reference pattern (`table.ts measureColumns`) already existed in-repo. It came
+back clean.
+
+**Brief 51 was gated on the owner, correctly.** Its first acceptance criterion was
+a design pick, so a design pass built a live four-nib comparison with real
+perfect-freehand ink instead of guessing. It returned a negative result worth
+keeping: a broad-edge calligraphic nib is **inexpressible** on perfect-freehand,
+whose per-point radius is a scalar and whose outline is therefore always
+isotropic.
+
+**Carried forward, not fixed here.** Brief 46's replay only fires from
+`startLatexCompile`, so the cancel route at `latex-routes.ts:1339` can still read a
+stale `running` row. Brief 45 made `DELETE /profiles/:id` ~340 ms when a compile is
+running, up from ~3 ms, and nothing in `apps/web` was checked against that. Brief
+51's **browser pass never ran** — the build was cut off at exactly those checks.
+Note text exports in Helvetica, not Archivo. `apps/api` still has **no test
+harness**; every brief above was verified by demonstration, which is why the
+outcome notes carry transcripts rather than assertions.
+
+New decisions: **D44** (note export is server-side), **D45** (unknown ink tool
+reads as `pen`, lossily), **D46** (orphan thumbnails reaped on startup). New
+glossary terms: **nib**, **note folder**.
+
+## [2026-08-29] corpus | `todos/` merged into `briefs/todo/` — one work queue, five new briefs
+
+Owner's call, immediately after the housekeeping below: collapse the two-stage
+`todos/` → `briefs/todo/` lifecycle into a single queue. `corpus/todos/` is gone.
+
+**What the two directories actually were.** Not duplicates — `todos/` was prose
+capture (pre-spec) and `briefs/todo/` numbered, ready-to-build specs, which is
+the corpus-flow lifecycle. Merging is a real trade: **there is no longer a
+half-formed capture stage**, so every idea must arrive with a Scope, a
+Files-you-OWN list and Acceptance criteria. `CLAUDE.md` now says so explicitly,
+including a "do not recreate `todos/`" line — the corpus-flow skill bootstraps
+that directory on sight, and without the note the next session would restore it.
+
+**Nine deleted as pure trail.** Seven closed captures whose work shipped in
+briefs 08–27, plus `profile-delete-orphans-compiles` and
+`swallowed-compile-status-write`, which duplicated live briefs 45 and 46. Each
+named the brief that shipped it, every one of those briefs is in `done/`, and
+`log.md` records all of them — the copy went, not the history.
+
+**Four promoted into five briefs, after a grill.**
+
+- **47 — bibliography label width.** `widestLabel` is parsed at
+  [`doc/build.ts:1938`](../packages/typeset/src/doc/build.ts) and read nowhere;
+  `listSpacing` uses a fixed per-depth margin. Invisible at one or two digits,
+  wrong past `[99]`. Same shape as brief 39's `tabular` defect: legal input, no
+  diagnostic, wrong picture — so the acceptance asserts **coordinates**, and
+  requires the five goldens to stay byte-identical rather than be re-baselined.
+- **48 — orphan-thumbnail reaper.** Owner chose a **startup sweep** over the
+  on-demand admin route I recommended. The objection stands and is written into
+  the brief rather than dropped: this deletes files on every boot, including an
+  unintended one, which is the 2026-08-29 incident's exact hazard class. So the
+  guards are specified as load-bearing — build the keep-set from **every** row
+  through `coverOwnerId` (a converted book and its source share one thumbnail,
+  and a filtered list deletes a live cover), never delete on a partial read or an
+  empty keep-set against a populated table, and log every deletion by name.
+- **49, 50, 51 — the notes follow-ups the owner actually wants.** Export to
+  PDF/image, folders, and a richer ink tool set. **Export goes server-side**, and
+  not for effort: `apps/web` has no PDF library and three briefs (15–17) went into
+  trimming its payload, while the server already has `pdf-lib` in the tree and
+  brief 40 built an SVG-path→PDF emitter — the same problem solved once here. The
+  editor's ×1000 viewBox geometry is already a vector description of the page.
+
+**Two follow-ups deliberately not built, and the reason is worth keeping.**
+*Handwriting→text* stays out: it needs an ML/OCR service, which is what the
+2026-07-20 grill ruled against on the self-hosted, no-heavy-deps ethos (D14/D21).
+*Offline editing* was offered and declined — it is the largest of the five and
+the only one needing genuinely new semantics, because last-write-wins (what the
+progress sync uses) **loses ink** when two devices edit one page.
+
+**Brief 50 carries a caveat rather than a silent assumption:** the real library
+holds **2 notes**. Folders solve an organisation problem that does not exist yet.
+The spec is correct whenever it is built; *when* is a scheduling call.
+
+**Brief 51 refuses to start in code.** Nibs are taste, and D33 makes Reading Room
+enforceable — so its first acceptance criterion is that the owner has seen the
+candidate nibs side by side and picked. It also names the back-compat trap that
+matters more than the nibs: widening the `NOTE_TOOLS` enum means a note saved
+with a new nib **fails to parse** on an older client, so it specifies a permissive
+read (unknown tool renders as `pen`). Losing a nib style is a blemish; losing the
+notebook is not.
+
+Roughly twenty links pointed into `todos/` from immutable `done/` briefs and from
+`log.md`. All **de-linked** — the label survives as code text and every claim
+stands. `bash corpus/lint.sh` passes.
+
+## [2026-08-29] corpus | Housekeeping — CLAUDE.md to the root, HANDOFF + test-plans retired, todo backlog reconciled
+
+No app code touched. Four cleanups, each verified against the tree rather than
+against what the corpus claimed.
+
+**`corpus/CLAUDE.md` → `CLAUDE.md` (repo root).** The file carried two
+project-wide, load-bearing things — the Atrium one-liner and the **D33 design
+enforcement** checklist every `apps/web` change must run — and neither was
+auto-loading, because a root `CLAUDE.md` is read at session start and a
+`corpus/`-local one is not. That is a plausible cause of the design checklist
+being missed on frontend work. Moved whole rather than split, so there is one
+file to keep true; every prose path inside it was rewritten for the new depth
+(`index.md` → `corpus/index.md`, `wiki/design.md` → `corpus/wiki/design.md`), and
+`corpus/index.md`'s two pointers now go up a level.
+
+**`corpus/HANDOFF.md` retired.** Checked all seven of its follow-ups before
+deleting: #1 stale covers and #4 the `/atrium/` deploy rename were done
+2026-07-20, #5 notes page templates the same day, #3 the PWA icon PNGs in brief
+27, and #7 agent-browser is now a working MCP server. #6 is D32 standing policy,
+not work. Only **#2 (music/video never visually exercised — no sample media on
+the box)** was still true, and briefs 42/43 have since superseded it by giving
+video real covers and browser-verifying the grid. Everything durable in the file
+already lives in `log.md` and `status-history.md`; it was a snapshot of one
+session in July, kept six weeks past its use.
+
+**`corpus/test-plans/` deleted** (TP-01…TP-06 + both RESULTS). Last run
+2026-07-20. TP-01 still specified *"Quiet Paper"*, *"Recent Reads"* and
+`design/stitch_extracted/screen.png` — all three **explicitly superseded** by D33
+/ Reading Room in briefs 27–33 — so a fresh agent following the plans would have
+been handed a UI spec that contradicts `wiki/design.md`. That is worse than no
+plans. Per-brief browser verification replaced the practice anyway (briefs 40 and
+43 were verified that way, findings straight to this log). `routing.md`'s
+"does it actually work in a browser?" row now routes to the `agent-browser` tools
++ `playwright/`, and notes that the `ui-test-plans` skill can re-scaffold written
+plans against the *current* UI whenever a run wants them.
+
+**Todo backlog reconciled — 12 files, each checked against the code.** Four
+closed as fully shipped: `group-library-by-metadata` (brief 21),
+`improve-loading-state` (brief 10), `in-app-catalog-download` (brief 22, with the
+broader OPDS research noted as deliberately unbuilt), and `video-covers` (briefs
+42 + 43). `rebrand-to-media-gallery` closed too — all four items its promotion
+note left open are settled. It was holding one piece of real work, the
+`/ebook-reader/` → `/atrium/` **server cutover** (config done in vps-deploy on
+2026-07-20, never run: no SSH from the build box); surfaced to the owner, who
+**dropped it** — the commands are in the 2026-07-20 entry below and that is
+tracking enough. `notes-tab` kept its unbuilt follow-ups, which the merge below
+then resolved.
+
+**Left alone, correctly.** `bibliography-widest-label-unused` and
+`orphan-thumbnails` are open and accurate. `profile-delete-orphans-compiles` and
+`swallowed-compile-status-write` stay `promoted` — briefs **45** and **46** are
+still in `todo/`, and both were re-checked in the source: `profile-routes.ts`
+contains no cancel path at all, and `latex-compile.ts`'s `finally` still swallows
+`setLatexCompileStatus` failures identically for a benign zero-row `UPDATE` and
+for `SQLITE_BUSY`/`SQLITE_FULL`.
+
+**Two directories named for todos, and both were load-bearing.** `corpus/todos/`
+was prose capture (pre-spec); `corpus/briefs/todo/` is numbered, ready-to-build
+specs — the corpus-flow lifecycle, not a duplicate, so neither was removed here.
+**Superseded the same day:** the owner then chose to merge them into one queue
+(see the entry above), which deleted `corpus/todos/`.
+
+De-linking note: `log.md` and `briefs/done/18` reference the retired files. Both
+are immutable historical records, so the **links** were converted to plain text
+with a "retired 2026-08-29" marker and every claim left standing.
+`bash corpus/lint.sh` passes.
+
 ## [2026-08-29] verify | Briefs 40 and 43 checked in a browser — two defects that nothing else could have caught
 
 Both briefs had been closed with a recorded verification gap. Closing those gaps
@@ -55,8 +263,8 @@ command that starts the server and assert every one resolves inside the scratch
 base before anything starts. Recorded in
 [wiki/open-questions.md](wiki/open-questions.md).
 
-**Filed:** [brief 45](briefs/todo/45-profile-delete-cancels-compiles.md) and
-[brief 46](briefs/todo/46-compile-status-write-failure.md), promoted from brief
+**Filed:** [brief 45](briefs/done/45-profile-delete-cancels-compiles.md) and
+[brief 46](briefs/done/46-compile-status-write-failure.md), promoted from brief
 44's review — both can wedge an account's compile slot.
 
 **The pattern across this whole run, worth stating once:** three of the four
@@ -772,7 +980,7 @@ canvas → `POST /library/:id/cover`, with a variance-scored pick across ~3
 candidate timestamps and a player-side backfill for existing items. Two gates
 also hide any cover that does exist: the `format === "mp3"` guard around the
 embedded-picture branch (mp4 `covr` is parsed and discarded) and `CoverArt`'s
-`kind !== "video"`. Filed as [todos/video-covers.md](todos/video-covers.md);
+`kind !== "video"`. Filed as `todos/video-covers.md`;
 iOS Safari canvas behavior, the cover-route trust boundary, and whether this
 warrants a decisions.md entry are left for the promote-time grill.
 
@@ -950,7 +1158,7 @@ alone** — both are immutable historical records. `bash corpus/lint.sh` passes
 
 ## [2026-07-20] follow-ups | Cover reconcile + /atrium deploy rename + Notes page templates
 
-Continued the [HANDOFF](HANDOFF.md) — picked up three of its open follow-ups.
+Continued the HANDOFF (`corpus/HANDOFF.md`, retired 2026-08-29) — picked up three of its open follow-ups.
 
 **#1 Stale covers (open-questions):** new startup reconcile `reconcileMissingCovers`
 in [library-routes.ts](../apps/api/src/library-routes.ts) nulls `cover_path` when
@@ -1008,7 +1216,7 @@ normalized-coord degeneracy) + a redundant empty-area dropzone; hardened
 `setPointerCapture`. Verified drawing/erase/text/pages/undo/persist/delete +
 per-user isolation; no horizontal overflow at any width; dark theme legible.
 Typecheck + build clean across all workspaces. See
-[test-plans/TP-06-RESULTS.md](test-plans/TP-06-RESULTS.md) and briefs 24–26 in
+`test-plans/TP-06-RESULTS.md` (retired 2026-08-29) and briefs 24–26 in
 `briefs/done/`. **Not exercised:** populated music/video cards + playback (no
 sample media on the box) — shape logic code-verified only. **Uncommitted —
 owner controls git.**
@@ -1023,7 +1231,7 @@ heavy/off-brand). Grilled four decisions: **(1)** content = ink + movable typed
 text boxes on a page (not full doc-flow); **(2)** engine = vector ink from
 scratch (perfect-freehand, self-hosted); **(3)** storage = per-user server-side
 (reuses accounts + D30/D31); **(4)** structure = paged notebook (not infinite
-canvas). Captured as [todos/notes-tab.md](todos/notes-tab.md) with an
+canvas). Captured as `todos/notes-tab.md` with an
 implementation sketch, the rebrand-nav sequencing dependency, and open questions
 (tool set, eraser mode, templates, export, folders, offline). Corpus-only
 capture; nothing built. **Uncommitted — owner controls git.**
@@ -1041,7 +1249,7 @@ design-research pass (Plex/Jellyfin per-media card shapes + per-type sections;
 Plex-style pivot; **(3)** structure = split into separate Books/Music/Videos
 areas (nav, not in-place filter); **(4)** cards = per-media shapes (books 2:3,
 music square, video 16:9). Captured as
-[todos/rebrand-to-media-gallery.md](todos/rebrand-to-media-gallery.md) — an
+`todos/rebrand-to-media-gallery.md` — an
 epic with a suggested 5-brief split and the exact-name pick as the one blocking
 open decision. Nothing built; corpus-only capture. **Uncommitted — owner
 controls git.**
@@ -1397,7 +1605,7 @@ the reader.
 found+fixed mid-run:** CORS preflight blocked PATCH (default methods allowlist
 omits it) → enumerated methods in `index.ts`. Dark-mode legibility fixed via
 theme-variant token remap. Typecheck ×3 + web build clean. See
-[test-plans/TP-01-home-upload.md](test-plans/TP-01-home-upload.md).
+`test-plans/TP-01-home-upload.md` (retired 2026-08-29).
 
 Not exhaustively verified: sepia theme (spot-checked), EPUB open-to-read with a
 real cover-bearing book, refresh-persistence (books persist server-side by
@@ -1418,7 +1626,7 @@ enforced design system. D2 (single-user, no auth) and D9 (reading *position* is
 session-only) still hold. Design merged from the Stitch exploration
 (`design/stitch_extracted/`) with the existing `--reader-*` reader themes; the
 light reading theme's bg/accent were retuned to match the paper surface.
-Enforcement wired into [CLAUDE.md](CLAUDE.md). See design.md conformance
+Enforcement wired into [CLAUDE.md](../CLAUDE.md). See design.md conformance
 checklist. Implementation follows in the next log entries.
 
 ## [2026-07-02] decision | Corpus bootstrapped + full spec ingested
@@ -1521,7 +1729,7 @@ built (dev script now builds it); live conversion worked only with
 `PYTHONNOUSERSITE=1` (host pip lxml vs distro Calibre — API now sets it;
 verified 200 + valid 28MB PDF in ~6s). UI audit fixes: toolbar wraps at mobile,
 EPUB progress shows a single % chip, favicon, contrast bump. Typecheck ×3
-clean. Full detail: [test-plans/RESULTS.md](test-plans/RESULTS.md).
+clean. Full detail: `test-plans/RESULTS.md` (retired 2026-08-29).
 
 ## [2026-07-02] build | "Quiet paper" EPUB reader redesign + one-step upload flow
 
@@ -1704,7 +1912,7 @@ The library remains shared across users (no per-book ownership).
 
 ## [2026-07-16] todo | Brief 21 filed — group the library by metadata
 
-Captured [todos/group-library-by-metadata.md](todos/group-library-by-metadata.md)
+Captured `todos/group-library-by-metadata.md`
 (with inline web research: EPUB OPF `dc:subject` + `calibre:series` /
 `belongs-to-collection` series conventions; PDF Info dict is best-effort only),
 grilled the owner, and promoted it to
@@ -1741,7 +1949,7 @@ brief's metadata fields — no extra backend work. Ready to build.
 Closed `todos/draggable-reading-progress-bar.md` (shipped in brief 08) and
 `todos/add-platform-password.md` (obsolete — D30 per-user accounts replaced
 the shared password) at the owner's direction. Captured a new todo,
-[todos/in-app-catalog-download.md](todos/in-app-catalog-download.md):
+`todos/in-app-catalog-download.md`:
 Foliate-style in-app download from free/legal catalogs, with inline research —
 OPDS is the standard; Project Gutenberg via Gutendex is the v1 pick (respect
 the PG robot policy, cache catalog queries, download EPUBs through the
@@ -1750,7 +1958,7 @@ its full feeds are patron-gated; Internet Archive lending ruled out.
 
 ## [2026-07-16] todo | Brief 22 filed — Gutenberg discover page
 
-Grilled and promoted [todos/in-app-catalog-download.md](todos/in-app-catalog-download.md)
+Grilled and promoted `todos/in-app-catalog-download.md`
 to [briefs/done/22-gutenberg-discover.md](briefs/done/22-gutenberg-discover.md).
 Locked: v1 = Project Gutenberg via the public Gutendex instance (server-side
 TTL cache, PG robot policy honored); a dedicated `/discover` page with search +

@@ -1,9 +1,63 @@
 ---
-summary: Archive of Atrium's earliest shipped phases — the v1 build through brief 23 (media library), July 2026. Split off status-history.md, which holds the more recent archive.
+summary: Archive of Atrium's earliest shipped phases — the v1 build through brief 35 (profiles), July–August 2026. Split off status-history.md, which holds the more recent archive.
 updated: 2026-08-29
 ---
 
 # Status history — the v1 era (through 2026-07-16)
+
+**Earlier (2026-08-25):** ✅ **Brief 35 shipped — profiles.** An account is now
+a household and a **profile** is a person in it (D35): reading progress, notes
+and four reading preferences moved from user scope to profile scope, switching
+is one tap with no credential, and the picker returns after 24h idle. Built via
+orchestrate → plan-split-dispatch in 3 waves (7 chunks, 3 senior / 4 junior).
+The `reading_progress` rebuild — SQLite cannot ALTER a composite PK — landed all
+8 live rows and both notes on the right Default profile with zero loss, proven
+against a copy before the real DB was touched.
+
+Three scoped finders caught **10 findings (3 Critical)**, all fixed but one
+Minor. Every Critical crossed chunk boundaries and none tripped the gates: a
+switch leaving the reader loaded so one profile's page was written to another's
+row; an offline boot hanging forever on the picker gate; and the preferences
+boot cache flashing the wrong theme on exactly the load its fallback existed
+for. Details in [briefs/done/35-profiles.md](../briefs/done/35-profiles.md).
+
+**Known and accepted:** the account's default profile cannot be deleted (rename
+works); a session whose profile is deleted from another device silently reads as
+Default until reload. **This repo still has no test suite**, which is again why
+the review pass carried the weight.
+
+**Earlier (2026-08-24):** ✅ **The Reading Room rework shipped — briefs 27–33 all
+built, reviewed and committed on `reading-room-rework` (not merged; owner
+controls git).** Seven briefs in four waves via plan-split-dispatch, then a
+three-finder review pass and two fix rounds. **27:** Reading Room tokens, the
+Newsreader + Archivo type stack (retiring Playfair/Source Serif 4/Inter), kind
+tints, motion primitives; precache 3101.92 → 2815.40 KiB after dropping the dead
+`.woff` fallbacks from the glob. **28:** one home — kind became a filter chip
+again, per-type routes kept as redirects, Shelves ⇄ Stacks removed. **32:** the
+reader at a 620px measure in Newsreader, chrome fade, the rail's drag preview on
+an anime.js timeline. **29:** tinted tiles with badges dropped, the Continue
+strip in time-remaining, the dropzone confined to the empty state. **33:** Notes
+as its own destination. **31:** a player dock that survives navigation — the one
+new *capability* in the rework, with no-double-audio guaranteed structurally.
+**30:** cross-library search, client-side and offline-capable.
+
+Review found **14 findings**, all fixed: two Critical (a new video inheriting the
+previous track's position; the wordmark in synthetic bold), nine Important
+(including the dock covering the reader's only scrub control, the search field
+eating a typed space, and synthesised bold inside EPUBs), three Minor. Gates are
+typecheck + build only — **this repo still has no test suite**, which is the
+main reason the review pass carried so much weight.
+
+**Known and accepted, not fixed:** Notes is a row list rather than the comp's
+master-detail split (an architectural change, deliberately deferred — worth
+revisiting); `library:groupBy`/`library:groupView` are orphaned in existing
+users' `localStorage`; three unused exports remain in `grouping.ts`; closing the
+dock while the video surface is mounted leaves an orphaned `<video>`; glyph SVGs
+are duplicated between `PlayerDock` and `CoverFallback`.
+
+---
+
+---
 
 Split off [status-history.md](status-history.md) on 2026-08-29 when that page
 passed the corpus 200-line rule, exactly as it was itself split off

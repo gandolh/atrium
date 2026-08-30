@@ -90,11 +90,21 @@ export {
 } from "./auth.js";
 export type { LoginRequest, LoginResponse, AuthStatus } from "./auth.js";
 
-// --- Notes contract (brief 26) ---------------------------------------------
+// --- Notes contract (brief 26; folders brief 50) ----------------------------
 export {
   PAGE_ASPECT,
   NOTE_TOOLS,
   noteToolSchema,
+  NOTE_NIBS,
+  NOTE_TOOL_LABELS,
+  STROKE_VB,
+  HIGHLIGHTER_OPACITY,
+  HIGHLIGHTER_SCALE,
+  nibNoise,
+  nibPasses,
+  nibPassPoints,
+  hasRealPressure,
+  strokeNibPasses,
   PAGE_TEMPLATES,
   pageTemplateSchema,
   strokePointSchema,
@@ -106,9 +116,18 @@ export {
   noteListSchema,
   createNoteSchema,
   updateNoteSchema,
+  MAX_FOLDER_NAME,
+  noteFolderSchema,
+  noteFolderListSchema,
+  createNoteFolderSchema,
+  updateNoteFolderSchema,
+  moveNoteSchema,
 } from "./notes.js";
 export type {
   NoteTool,
+  NoteNib,
+  NibStrokeOptions,
+  NibPass,
   PageTemplate,
   StrokePoint,
   Stroke,
@@ -118,6 +137,10 @@ export type {
   NoteSummary,
   CreateNoteRequest,
   UpdateNoteRequest,
+  NoteFolder,
+  CreateNoteFolderRequest,
+  UpdateNoteFolderRequest,
+  MoveNoteRequest,
 } from "./notes.js";
 
 // --- Profile contract (brief 35) -------------------------------------------

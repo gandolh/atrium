@@ -10,7 +10,11 @@ import {
   MAX_UPLOAD_MB,
   PORT,
 } from "./config.js";
-import { backfillLibraryMetadata, registerLibraryRoutes } from "./library-routes.js";
+import {
+  backfillLibraryMetadata,
+  registerLibraryRoutes,
+  sweepOrphanThumbnails,
+} from "./library-routes.js";
 import { registerCatalogRoutes } from "./catalog-routes.js";
 import { cancelAllConverts, sweepInterruptedOutputs } from "./convert-jobs.js";
 import { cancelAllLatexCompiles } from "./latex-compile.js";
@@ -104,6 +108,13 @@ async function start(): Promise<void> {
     // are logged, not fatal.
     void backfillLibraryMetadata(app.log).catch((err) => {
       app.log.error({ err }, "library metadata backfill failed");
+    });
+    // Reap thumbnails no live row can claim (brief 48). Same fire-and-forget
+    // shape for the same reason: it deletes files, so it must never be able to
+    // stop the API from serving. It refuses to delete anything on a partial
+    // read — see `sweepOrphanThumbnails`, where that refusal is the point.
+    void sweepOrphanThumbnails(app.log).catch((err) => {
+      app.log.error({ err }, "orphan thumbnail sweep failed");
     });
     // `db.ts` reaps rows left `running` by a process that died mid-conversion;
     // this reclaims the disk those same jobs were using. The converted book's

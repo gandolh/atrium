@@ -2,7 +2,7 @@
 
 ## Context
 
-From [todos/add-platform-password.md](../../todos/add-platform-password.md).
+From `todos/add-platform-password.md`.
 Single shared password for the whole platform — no per-user accounts (D2
 stands: this is a credential, not an account system). Design locked with the
 user (2026-07-07): **API-enforced** (the deployment is public; a UI-only gate

@@ -1,7 +1,8 @@
 # Task 45 — `DELETE /profiles/:id` must cancel the compiles it orphans
 
 **Promoted 2026-08-29** from
-[todos/profile-delete-orphans-compiles.md](../../todos/profile-delete-orphans-compiles.md),
+the `profile-delete-orphans-compiles` capture (retired 2026-08-29
+with `corpus/todos/`; this brief carries its full content),
 which was filed during brief 44's review. Pre-existing — brief 44 did not
 introduce it and deliberately did not fix it.
 
@@ -61,3 +62,22 @@ projects are already gone.
 **Verify against a scratch database with all five storage roots redirected, set
 inline and asserted before the server starts** — see the 2026-08-29 incident in
 [open-questions.md](../../wiki/open-questions.md).
+
+---
+
+## Outcome (2026-08-30) — shipped, `ef166fd`
+
+`DELETE /profiles/:id` reads `listLatexProjects` **before** the cascade, awaits
+`cancelAndSettleLatexCompile` per project, then removes the trees with the same
+helper and ordering `DELETE /latex/:id` uses.
+
+**Demonstrated, not asserted.** With a 20.5 s compile running: the account was
+refused with 409 at t+3.02 s; the delete returned at t+3.44 s having cancelled
+and settled; the next compile on a *different profile of the same account* was
+accepted immediately and finished by t+4.33 s. Before the change it would have
+waited to ~t+20.5 s, or to `LATEX_TIMEOUT_MS`.
+
+Two things worth carrying: the route now takes ~340 ms when a compile is running
+(it was always ~3 ms) and nothing in `apps/web` was checked against that; and it
+gained an import edge `profile-routes → latex-routes` for `removeProjectTree`,
+verified acyclic, chosen over duplicating the ENOTEMPTY retry logic.

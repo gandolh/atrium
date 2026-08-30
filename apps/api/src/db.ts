@@ -179,6 +179,25 @@ export interface NoteRow {
   data: string;
   created_at: string;
   updated_at: string;
+  /**
+   * Which folder the note is filed in, or NULL for the root (brief 50).
+   * Nullable is the migration's safety property — see `ensureNoteFolderColumn`.
+   */
+  folder_id: string | null;
+}
+
+/**
+ * One **note folder** (brief 50): a node in a per-profile tree of folders that
+ * notes are filed into. `parent_id === null` is a top-level folder; there is no
+ * root row. Names are free text and are NOT unique — two folders may share a
+ * name, because a folder is a label the owner chose, not a key.
+ */
+export interface NoteFolderRow {
+  id: string;
+  profile_id: string;
+  parent_id: string | null;
+  name: string;
+  created_at: string;
 }
 
 /**
@@ -390,6 +409,46 @@ db.exec(`
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
+`);
+
+// Note folders (brief 50). A folder is a ROW with a `parent_id`, never a path
+// string: a path cannot be renamed atomically and goes wrong the first time a
+// name contains the separator. The **root is `parent_id IS NULL`** — there is
+// no root row, so an untouched profile simply has no folders.
+//
+// The two foreign keys here differ on purpose, the way brief 38 decision 11
+// treats such differences as chosen rather than defaulted:
+//
+//   note_folders.profile_id -> profiles(id)      ON DELETE RESTRICT
+//   note_folders.parent_id  -> note_folders(id)  (NO ACTION — see below)
+//
+// `profile_id` matches `notes.profile_id` exactly, and for the same reason:
+// deleting a profile must go through `reassignNotes`, which now moves the
+// folders along with the notes filed in them (a note handed to another profile
+// while its folder stayed behind would point across a profile boundary).
+// RESTRICT makes forgetting that a loud constraint error rather than a silent
+// dangling reference.
+//
+// `parent_id` deliberately carries NO `ON DELETE` clause. NO ACTION in SQLite
+// is checked at the END of the statement, not per row, which is what makes the
+// one legitimate bulk delete — every folder of one profile, in `deleteProfile`
+// — succeed regardless of the order rows come off the table, while a delete of
+// a SINGLE folder that still has children is refused. That refusal is the
+// point: `deleteNoteFolder` must lift the children to the deleted folder's
+// parent first (brief 50 rule 5), and the constraint is what stops a future
+// caller quietly skipping the lift. A CASCADE here would take whole subtrees.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS note_folders (
+    id         TEXT NOT NULL PRIMARY KEY,
+    profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
+    parent_id  TEXT REFERENCES note_folders(id),
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  -- The listing is "every folder of one profile"; the child lookup and the
+  -- ancestry walk both filter on (profile_id, parent_id).
+  CREATE INDEX IF NOT EXISTS note_folders_profile_parent
+    ON note_folders(profile_id, parent_id);
 `);
 
 // LaTeX drafts and published versions (brief 38). Kept in their own statement,
@@ -794,6 +853,47 @@ function ensureProgressVersionColumn(): void {
 }
 
 /**
+ * Idempotent column add for `notes` (brief 50 rule 2): which folder a note is
+ * filed in. **NULLABLE, and that is the whole safety argument.** NULL means the
+ * root, so every note that exists when this first runs stays exactly where its
+ * owner last saw it, with no backfill, no rewrite of `data`, and nothing to get
+ * wrong. Notes are the one subsystem where the content was *authored* rather
+ * than uploaded, so the migration that touches them has to be the boring one.
+ *
+ * A plain `ALTER TABLE ADD COLUMN`, emphatically NOT the create-copy-drop-rename
+ * rebuild — the same call `ensureProgressVersionColumn` above makes, for the
+ * same reason. That rebuild exists only because `migrateToProfileScope` had to
+ * change a composite PRIMARY KEY. Nothing of the sort happens here: this is one
+ * nullable column beside the existing ones, and reaching for a rebuild anyway
+ * would run the one migration in the repo that can destroy authored work in
+ * order to add a column.
+ *
+ * `ON DELETE SET NULL`, deliberately not CASCADE and not RESTRICT. **Deleting a
+ * folder must never delete a notebook** (brief 50 rule 5): a CASCADE here would
+ * be a second, silent path to exactly the loss that rule forbids, and it would
+ * be reached by a mis-click. SET NULL means the worst a stray folder delete can
+ * do is lift a note back to the root, where it is still there and still
+ * openable. (The route does better than the constraint — it lifts notes to the
+ * deleted folder's PARENT before deleting — but the constraint is the floor,
+ * and the floor must not be lossy.) SQLite accepts a REFERENCES clause on ADD
+ * COLUMN only when the new column defaults to NULL, which this one does — the
+ * same rule `ensureSessionColumns` and `ensureProgressVersionColumn` rely on —
+ * so the constraint is real and not quietly dropped.
+ *
+ * MUST run after `migrateToProfileScope`: on a pre-brief-35 database that
+ * function drops and recreates `notes` from a DDL that has never heard of this
+ * column, so adding it first would silently lose it.
+ */
+function ensureNoteFolderColumn(): void {
+  if (!columnsOf("notes").has("folder_id")) {
+    db.exec(
+      `ALTER TABLE notes ADD COLUMN folder_id TEXT
+         REFERENCES note_folders(id) ON DELETE SET NULL`,
+    );
+  }
+}
+
+/**
  * What a row reaped by `reapInterruptedConversions` says. Exported so the job
  * runner and the status button can recognise this specific failure rather than
  * string-matching a sentence that may be reworded.
@@ -848,6 +948,9 @@ dropLegacyPathColumns();
 // After migrateToProfileScope, which rebuilds `reading_progress` wholesale on a
 // pre-brief-35 database — see the note on the function.
 ensureProgressVersionColumn();
+// Same ordering rule, same reason: that migration rebuilds `notes` too, from a
+// DDL with no `folder_id` in it.
+ensureNoteFolderColumn();
 ensureDefaultProfiles();
 ensureConvertIndex();
 reapInterruptedConversions();
@@ -1474,9 +1577,24 @@ export function updateProfile(
  * `SQLITE_CONSTRAINT_FOREIGNKEY` while the profile still owns any. Call
  * `reassignNotes` first; the constraint is there so that forgetting is a loud
  * error rather than silently destroyed authored work.
+ *
+ * Its **note folders** (brief 50) are removed here instead, in the same
+ * transaction, and that asymmetry is the point: a folder holds no authored
+ * content, it is a label around content. By the time this runs either the
+ * profile had notes and `reassignNotes` already carried the folders across with
+ * them, or it had none and what is left is empty labels on a profile that is
+ * going away. `note_folders.profile_id` is RESTRICT like `notes.profile_id`, so
+ * skipping this step would fail the delete outright rather than orphan a row —
+ * the constraint is doing its job either way. The bulk delete is safe in one
+ * statement because `parent_id` carries no `ON DELETE` clause: NO ACTION is
+ * checked at the end of the statement, by which point no child is left behind
+ * whatever order the rows came off the table.
  */
 export function deleteProfile(id: string): boolean {
-  return statements.deleteProfile.run(id).changes > 0;
+  return db.transaction(() => {
+    folderStatements.removeByProfile.run(id);
+    return statements.deleteProfile.run(id).changes > 0;
+  })();
 }
 
 /**
@@ -1544,8 +1662,8 @@ const noteStatements = {
     "SELECT * FROM notes WHERE id = ? AND profile_id = ?",
   ),
   insert: db.prepare<NoteRow>(`
-    INSERT INTO notes (id, profile_id, title, data, created_at, updated_at)
-    VALUES (@id, @profile_id, @title, @data, @created_at, @updated_at)
+    INSERT INTO notes (id, profile_id, title, data, created_at, updated_at, folder_id)
+    VALUES (@id, @profile_id, @title, @data, @created_at, @updated_at, @folder_id)
   `),
   // Only the owning profile's row is touched; COALESCE lets a title-only or
   // data-only PATCH leave the other column intact.
@@ -1559,6 +1677,13 @@ const noteStatements = {
   remove: db.prepare<[string, string]>("DELETE FROM notes WHERE id = ? AND profile_id = ?"),
   reassign: db.prepare<[string, string]>(
     "UPDATE notes SET profile_id = ? WHERE profile_id = ?",
+  ),
+  // File a note into a folder (or NULL for the root). Separate from `update`
+  // because it deliberately does NOT touch `updated_at`: moving a notebook
+  // between folders is filing, not editing, and it must not reorder the
+  // most-recently-updated list or make the row look freshly written.
+  setFolder: db.prepare<[string | null, string, string]>(
+    "UPDATE notes SET folder_id = ? WHERE id = ? AND profile_id = ?",
   ),
 };
 
@@ -1610,7 +1735,186 @@ export function deleteNote(profileId: string, id: string): boolean {
  * profiles belong to the same account first; this does not.
  */
 export function reassignNotes(fromProfileId: string, toProfileId: string): number {
-  return noteStatements.reassign.run(toProfileId, fromProfileId).changes;
+  return reassignNotesTx(fromProfileId, toProfileId);
+}
+
+/**
+ * File a note into `folderId` (or `null` for the root). Returns whether a row
+ * changed, so an unknown id or another profile's note 404s exactly as it does
+ * everywhere else here — the profile scope is IN the statement, not a check
+ * afterwards. The caller must have already resolved `folderId` through
+ * `getNoteFolder(profileId, ...)`; this does not validate it beyond the foreign
+ * key (which would only catch a wholly unknown id, not another profile's).
+ */
+export function setNoteFolder(
+  profileId: string,
+  id: string,
+  folderId: string | null,
+): boolean {
+  return noteStatements.setFolder.run(folderId, id, profileId).changes > 0;
+}
+
+// --- Note folders (brief 50) -------------------------------------------------
+//
+// Same discipline as `noteStatements` above and as the LaTeX statements below:
+// every lookup is scoped by `profile_id` in the SQL rather than checked after
+// the fact, so a folder id belonging to another profile simply is not found and
+// the route answers 404 — there is no way to write a handler that forgets.
+
+const folderStatements = {
+  listByProfile: db.prepare<[string]>(
+    "SELECT * FROM note_folders WHERE profile_id = ? ORDER BY name COLLATE NOCASE",
+  ),
+  getByProfile: db.prepare<[string, string]>(
+    "SELECT * FROM note_folders WHERE id = ? AND profile_id = ?",
+  ),
+  insert: db.prepare<NoteFolderRow>(`
+    INSERT INTO note_folders (id, profile_id, parent_id, name, created_at)
+    VALUES (@id, @profile_id, @parent_id, @name, @created_at)
+  `),
+  // Rename only — reparenting goes through `setNoteFolderParent`, which is a
+  // different operation with a cycle check in front of it.
+  rename: db.prepare<[string, string, string]>(
+    "UPDATE note_folders SET name = ? WHERE id = ? AND profile_id = ?",
+  ),
+  setParent: db.prepare<[string | null, string, string]>(
+    "UPDATE note_folders SET parent_id = ? WHERE id = ? AND profile_id = ?",
+  ),
+  // The two "lift to the deleted folder's parent" statements (rule 5).
+  liftChildFolders: db.prepare<[string | null, string, string]>(
+    "UPDATE note_folders SET parent_id = ? WHERE parent_id = ? AND profile_id = ?",
+  ),
+  liftNotes: db.prepare<[string | null, string, string]>(
+    "UPDATE notes SET folder_id = ? WHERE folder_id = ? AND profile_id = ?",
+  ),
+  remove: db.prepare<[string, string]>(
+    "DELETE FROM note_folders WHERE id = ? AND profile_id = ?",
+  ),
+  reassign: db.prepare<[string, string]>(
+    "UPDATE note_folders SET profile_id = ? WHERE profile_id = ?",
+  ),
+  removeByProfile: db.prepare<[string]>("DELETE FROM note_folders WHERE profile_id = ?"),
+};
+
+/**
+ * A hard ceiling on how far an ancestry walk will climb. The cycle check below
+ * is what keeps the tree acyclic, but a walk that TRUSTS that property to
+ * terminate would spin forever on a database that somehow acquired a cycle
+ * anyway (a hand-edited row, a restored backup). Bounding the loop turns that
+ * from a hung request into a refusal, which is the failure the brief actually
+ * cares about: "a cycle hangs the list render".
+ */
+const MAX_FOLDER_DEPTH = 64;
+
+/** All of a profile's folders, name-ordered (the tree is assembled by the caller). */
+export function listNoteFolders(profileId: string): NoteFolderRow[] {
+  return folderStatements.listByProfile.all(profileId) as NoteFolderRow[];
+}
+
+/** One folder, only if it belongs to `profileId` (else undefined → the route 404s). */
+export function getNoteFolder(profileId: string, id: string): NoteFolderRow | undefined {
+  return folderStatements.getByProfile.get(id, profileId) as NoteFolderRow | undefined;
+}
+
+export function insertNoteFolder(row: NoteFolderRow): void {
+  folderStatements.insert.run(row);
+}
+
+/**
+ * Would making `parentId` the parent of `folderId` create a cycle?
+ *
+ * Walks UP from the proposed parent; if the walk ever reaches `folderId`, the
+ * proposed parent is one of its own descendants and the move would detach a
+ * ring from the root — a subtree that is unreachable from the list, whose
+ * render never terminates. `parentId === folderId` is the degenerate case of
+ * the same thing and is caught by the first comparison.
+ *
+ * Scoped by profile like every other read here, so a parent on another profile
+ * is simply not found and the walk stops (the route rejects that id separately,
+ * with a 404 — this function's job is only the cycle).
+ */
+export function wouldCycleNoteFolder(
+  profileId: string,
+  folderId: string,
+  parentId: string | null,
+): boolean {
+  let cursor = parentId;
+  for (let depth = 0; cursor !== null && depth < MAX_FOLDER_DEPTH; depth += 1) {
+    if (cursor === folderId) return true;
+    cursor = getNoteFolder(profileId, cursor)?.parent_id ?? null;
+  }
+  // Ran out of depth without reaching the root: treat the chain as suspect and
+  // refuse rather than write into it.
+  return cursor !== null;
+}
+
+/** Rename a folder. Returns whether a row changed (false = unknown / not yours). */
+export function renameNoteFolder(profileId: string, id: string, name: string): boolean {
+  return folderStatements.rename.run(name, id, profileId).changes > 0;
+}
+
+/**
+ * Reparent a folder (`null` = move to the root). Callers MUST have checked
+ * `wouldCycleNoteFolder` first — this writes what it is told.
+ */
+export function setNoteFolderParent(
+  profileId: string,
+  id: string,
+  parentId: string | null,
+): boolean {
+  return folderStatements.setParent.run(parentId, id, profileId).changes > 0;
+}
+
+/**
+ * Delete a folder, **keeping everything inside it** (brief 50 rule 5). Child
+ * folders and filed notes are lifted to the deleted folder's own parent — so
+ * deleting a top-level folder puts its contents at the root, and deleting a
+ * nested one puts them one level up. Nothing is ever removed but the folder row
+ * itself.
+ *
+ * That rule is not a nicety. A folder is organisation; a note is authored work
+ * that exists nowhere else. Deleting a container must therefore never be a way
+ * to delete its contents, however deep the mis-click went.
+ *
+ * One transaction: the lifts and the delete either all land or none do, so
+ * there is no window in which a note points at a folder row that is gone. The
+ * lifts also have to come first for the `parent_id` foreign key — with no
+ * `ON DELETE` clause it is NO ACTION, so a delete leaving children behind is
+ * refused outright.
+ *
+ * Returns whether the folder existed on this profile.
+ */
+export function deleteNoteFolder(profileId: string, id: string): boolean {
+  const folder = getNoteFolder(profileId, id);
+  if (!folder) return false;
+  db.transaction(() => {
+    folderStatements.liftChildFolders.run(folder.parent_id, id, profileId);
+    folderStatements.liftNotes.run(folder.parent_id, id, profileId);
+    folderStatements.remove.run(id, profileId);
+  })();
+  return true;
+}
+
+/**
+ * `reassignNotes`'s real body: move a profile's notes AND the folders they are
+ * filed in, as one transaction.
+ *
+ * The folders have to travel with the notes. `notes.folder_id` names a
+ * `note_folders` row, and every folder read is scoped by `profile_id` — so a
+ * note handed to the account's default profile while its folder stayed on the
+ * deleted one would be filed in a folder that profile cannot see. The note
+ * would still open (nothing is lost), but the list could not place it. Moving
+ * both keeps the tree the owner built intact on the other side.
+ *
+ * Returns the number of NOTES moved, which is what the delete-profile route
+ * reports; the folder count is an implementation detail of keeping them
+ * consistent.
+ */
+function reassignNotesTx(fromProfileId: string, toProfileId: string): number {
+  return db.transaction(() => {
+    folderStatements.reassign.run(toProfileId, fromProfileId);
+    return noteStatements.reassign.run(toProfileId, fromProfileId).changes;
+  })();
 }
 
 // --- LaTeX projects & published versions (brief 38) --------------------------
@@ -1760,9 +2064,31 @@ export function touchLatexProject(id: string, now: string): void {
  * moved off `running` on every exit path, including cancellation and failure.
  * `reapInterruptedLatexCompiles` is the backstop for the one exit path code
  * cannot cover, a crash.
+ *
+ * ## Two ways this can "not work", and they are nothing alike (brief 46)
+ *
+ * **The row did not match** — the project was deleted mid-compile, which is a
+ * real case (a profile delete cascades `latex_projects.profile_id`). That is
+ * *not* an exception: `better-sqlite3` runs the UPDATE happily and reports
+ * `changes === 0`. It is also entirely benign — a row that no longer exists
+ * cannot be stuck on `running` — so it is returned as `false` rather than
+ * raised, and the caller is expected to shrug.
+ *
+ * **The write failed** — `SQLITE_BUSY`, `SQLITE_FULL`, `SQLITE_READONLY`. The
+ * row is still there and still says whatever it said before, which on the
+ * release path means still `running`. `better-sqlite3` throws a `SqliteError`
+ * carrying a `code`, and that throw is deliberately left to propagate.
+ *
+ * Returning `false` for the first and throwing for the second is the whole
+ * point: callers used to see one undifferentiated failure and had no way to
+ * tell "nothing to do" from "the slot is now wedged". Returning `void` made
+ * that distinction unrepresentable, so it was not made.
+ *
+ * @returns whether a row matched. `false` means the project is gone, not that
+ *   anything went wrong.
  */
-export function setLatexCompileStatus(id: string, status: CompileStatus): void {
-  latexStatements.setCompileStatus.run(status, id);
+export function setLatexCompileStatus(id: string, status: CompileStatus): boolean {
+  return latexStatements.setCompileStatus.run(status, id).changes > 0;
 }
 
 /**

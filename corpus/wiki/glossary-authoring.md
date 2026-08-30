@@ -29,6 +29,19 @@ One vector ink mark — sampled points with pressure, rendered via
 perfect-freehand. Coordinates are normalized to page width.
 _Avoid_: path, line, scribble, mark
 
+**Nib**:
+The stored kind of an ink stroke — `pen`, `fountain-pen`, `pencil` or
+`highlighter` — and the perfect-freehand parameters that draw it. The parameter
+table lives in `packages/shared` because the editor and the PDF export both set
+the same ink (D44, D45).
+_Avoid_: brush, pen type, tool (the editor's *tool* also covers eraser + text,
+which are modes, not stored stroke kinds)
+
+**Note folder**:
+A per-profile container nesting notes and other folders. Root is `parent_id IS
+NULL`; deleting one lifts its contents to the parent rather than removing them.
+_Avoid_: notebook (that is a **note**), collection, tag, category
+
 **Text box**:
 A movable typed-text element placed on a note page.
 _Avoid_: label, annotation, caption, textarea

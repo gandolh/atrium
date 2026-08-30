@@ -10,7 +10,7 @@ metadata (`calibre:series`/`calibre:series_index`, or EPUB 3
 `belongs-to-collection` + `group-position`); PDFs have a best-effort Info dict.
 
 Source todo (with research + sources):
-[todos/group-library-by-metadata.md](../../todos/group-library-by-metadata.md).
+`todos/group-library-by-metadata.md`.
 
 **Grilled decisions (2026-07-16, owner-confirmed):**
 - Group keys: **author, series, and subject/genre** (plus "none" default).

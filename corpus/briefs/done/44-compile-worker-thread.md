@@ -127,7 +127,7 @@ because that id addresses a project that no longer exists.
 **Found, deliberately not fixed** (filed as todos, both pre-existing and
 byte-identical to the pre-brief-44 code):
 
-- [`DELETE /profiles/:id` never cancels the compiles on the profile it deletes](../../todos/profile-delete-orphans-compiles.md)
+- ``DELETE /profiles/:id` never cancels the compiles on the profile it deletes`
   — the **root cause** of one of this brief's findings. Brief 44 fixed only the
   mis-reporting; the slot stays uncancellable until it ends on its own.
-- [a swallowed `setLatexCompileStatus` failure can wedge an account until restart](../../todos/swallowed-compile-status-write.md).
+- `a swallowed `setLatexCompileStatus` failure can wedge an account until restart`.

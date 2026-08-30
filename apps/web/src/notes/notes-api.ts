@@ -1,7 +1,10 @@
 import {
+  noteFolderListSchema,
+  noteFolderSchema,
   noteListSchema,
   noteSchema,
   type Note,
+  type NoteFolder,
   type NotePage,
   type NoteSummary,
 } from "@ebook-reader/shared";
@@ -46,4 +49,71 @@ export async function updateNote(
 
 export async function deleteNote(id: string): Promise<void> {
   await apiFetch(`/notes/${id}`, { method: "DELETE" });
+}
+
+/**
+ * Fetch the whole note as a PDF (brief 49). The server renders it (`apps/api`
+ * has pdf-lib; the browser deliberately carries no PDF writer), so this is
+ * only a transfer — but it still has to go through `apiFetch` rather than a
+ * plain link or `window.open`, because auth here is a bearer token and a
+ * navigation cannot carry one.
+ */
+export async function fetchNotePdf(id: string): Promise<Blob> {
+  const res = await apiFetch(`/notes/${id}/export.pdf`);
+  return res.blob();
+}
+
+/* -------------------------------------------------------------------------
+ * Note folders (brief 50). Same thin-wrapper shape as the note calls above;
+ * responses validate against the shared contract. Mounted at `/note-folders`
+ * rather than `/notes/folders` — see the comment on the routes in the API.
+ * ---------------------------------------------------------------------- */
+
+export async function fetchNoteFolders(): Promise<NoteFolder[]> {
+  const res = await apiFetch("/note-folders");
+  return noteFolderListSchema.parse(await res.json());
+}
+
+export async function createNoteFolder(
+  name: string,
+  parentId: string | null = null,
+): Promise<NoteFolder> {
+  const res = await apiFetch("/note-folders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, parentId }),
+  });
+  return noteFolderSchema.parse(await res.json());
+}
+
+/**
+ * Rename and/or reparent a folder. `parentId: null` means "move to the root",
+ * so the field is sent whenever the caller passes it — including as null — and
+ * omitted only when it is absent from `fields`.
+ */
+export async function updateNoteFolder(
+  id: string,
+  fields: { name?: string; parentId?: string | null },
+): Promise<NoteFolder> {
+  const res = await apiFetch(`/note-folders/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  });
+  return noteFolderSchema.parse(await res.json());
+}
+
+/** Delete a folder. The server lifts its notes and subfolders to its parent. */
+export async function deleteNoteFolder(id: string): Promise<void> {
+  await apiFetch(`/note-folders/${id}`, { method: "DELETE" });
+}
+
+/** File a note into a folder, or `null` to lift it back to the root. */
+export async function moveNote(id: string, folderId: string | null): Promise<Note> {
+  const res = await apiFetch(`/notes/${id}/folder`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ folderId }),
+  });
+  return noteSchema.parse(await res.json());
 }

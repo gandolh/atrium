@@ -2,7 +2,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NotePage, NoteSummary } from "@ebook-reader/shared";
 
 import { useActiveProfileId } from "../lib/auth";
-import { createNote, deleteNote, fetchNote, fetchNotes, updateNote } from "./notes-api";
+import {
+  createNote,
+  createNoteFolder,
+  deleteNote,
+  deleteNoteFolder,
+  fetchNote,
+  fetchNoteFolders,
+  fetchNotes,
+  moveNote,
+  updateNote,
+  updateNoteFolder,
+} from "./notes-api";
 
 /**
  * React Query hooks for notes (brief 26). Mirrors the library hooks' shape:
@@ -71,5 +82,75 @@ export function useSaveNote(id: string) {
   return useMutation({
     mutationFn: (fields: { title?: string; pages?: NotePage[] }) => updateNote(id, fields),
     onSuccess: () => void qc.invalidateQueries({ queryKey: notesKey(profileId) }),
+  });
+}
+
+/* -------------------------------------------------------------------------
+ * Note folders (brief 50)
+ *
+ * Their own query key, carrying the active profile for exactly the reason the
+ * note keys do: a folder tree belongs to one person, and a cached tree served
+ * after a switch would draw the previous profile's shelves around the new
+ * profile's notes.
+ *
+ * Every folder mutation invalidates BOTH keys. That is not belt-and-braces:
+ * deleting a folder lifts its notes to the parent, so the note list's
+ * `folderId`s change without a single note being edited. A folder mutation
+ * that refreshed only the folder list would leave notes drawn under a folder
+ * that no longer exists.
+ * ---------------------------------------------------------------------- */
+
+const foldersKey = (profileId: string | null) => ["note-folders", profileId] as const;
+
+export function useNoteFolders() {
+  const profileId = useActiveProfileId();
+  return useQuery({ queryKey: foldersKey(profileId), queryFn: fetchNoteFolders });
+}
+
+/** Invalidate the folder tree and the note list together — see the note above. */
+function useInvalidateTree() {
+  const qc = useQueryClient();
+  const profileId = useActiveProfileId();
+  return () => {
+    void qc.invalidateQueries({ queryKey: foldersKey(profileId) });
+    void qc.invalidateQueries({ queryKey: notesKey(profileId) });
+  };
+}
+
+export function useCreateFolder() {
+  const invalidate = useInvalidateTree();
+  return useMutation({
+    mutationFn: (vars: { name: string; parentId: string | null }) =>
+      createNoteFolder(vars.name, vars.parentId),
+    onSuccess: invalidate,
+  });
+}
+
+/** Rename and/or reparent. `parentId: null` moves the folder to the root. */
+export function useUpdateFolder() {
+  const invalidate = useInvalidateTree();
+  return useMutation({
+    mutationFn: (vars: { id: string; name?: string; parentId?: string | null }) =>
+      updateNoteFolder(vars.id, { name: vars.name, parentId: vars.parentId }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Delete a folder. Its notes and subfolders survive, lifted to its parent. */
+export function useDeleteFolder() {
+  const invalidate = useInvalidateTree();
+  return useMutation({
+    mutationFn: (id: string) => deleteNoteFolder(id),
+    onSuccess: invalidate,
+  });
+}
+
+/** File a note into a folder (`null` = the root). */
+export function useMoveNote() {
+  const invalidate = useInvalidateTree();
+  return useMutation({
+    mutationFn: (vars: { id: string; folderId: string | null }) =>
+      moveNote(vars.id, vars.folderId),
+    onSuccess: invalidate,
   });
 }

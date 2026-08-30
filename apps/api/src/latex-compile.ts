@@ -447,6 +447,124 @@ interface CompileJob {
  */
 const jobs = new Map<string, CompileJob>();
 
+// --- When the durable half cannot be written (brief 46) ----------------------
+
+/**
+ * `projectId → the terminal status that could not be written`.
+ *
+ * The narrow, real hole in the slot-release discipline. `runCompile`'s `finally`
+ * frees the in-process half unconditionally (`jobs.delete`) and then writes the
+ * durable half. If that write *fails* — `SQLITE_BUSY` because something else
+ * holds the write lock past the driver's own timeout, `SQLITE_FULL` because the
+ * disk the PDFs just filled is the disk the database is on — the row is left on
+ * `running` with nothing running. From then on `getRunningLatexCompile` refuses
+ * every compile on the ACCOUNT with a 409 naming a project that finished
+ * minutes ago, and because `reapInterruptedLatexCompiles` runs **at import**,
+ * only a restart clears it.
+ *
+ * The old code could not even see this case: it caught the throw and the
+ * zero-row UPDATE in one `catch {}` and treated both as benign, inferring
+ * "nothing to worry about" from the *fact* that a write did not take rather
+ * than from *why*. `setLatexCompileStatus` now returns `false` for the benign
+ * one and throws for the real one, and this map is where the real one is parked.
+ *
+ * **The recovery ruling (brief 46 item 3) is: retry, deferred.** Not a periodic
+ * reap — `reapInterruptedLatexCompiles` flips *every* `running` row to `failed`,
+ * which is safe only at import, when nothing is running; on a timer it would
+ * shoot live compiles in the head. Not "leave it to restart", because that is
+ * the bug. And not an immediate retry loop either: `better-sqlite3` is
+ * **synchronous** and already retries a busy database for its own 5 s timeout
+ * before throwing, so spinning here would block the API's event loop for another
+ * five seconds per attempt — punishing every other request in the process for
+ * one project's failed write, having added nothing SQLite had not already tried.
+ *
+ * So the retry is **deferred to the next `startLatexCompile`**, which replays
+ * this map before it reads the guard (`flushPendingStatusWrites`). It costs
+ * nothing while the map is empty, it happens exactly where a wedged account is
+ * noticed, and it makes the person's natural reaction — press Compile again —
+ * the thing that unwedges them. No timer, and no change to the reaper's schedule.
+ *
+ * Deliberately in-process, and bounded in size (one entry per project,
+ * overwritten) rather than in time: it is not a durable queue and does not need
+ * to be, because a restart is the one event that makes it unnecessary.
+ */
+const pendingStatusWrites = new Map<string, CompileStatus>();
+
+/** `better-sqlite3` hangs a `code` (`SQLITE_BUSY`, `SQLITE_FULL`, …) on the
+ *  errors it throws. That string is the difference between "the database was
+ *  busy" and "there is a bug in the SQL", so it is reported by name. */
+function sqliteErrorCode(cause: unknown): string | null {
+  const code: unknown = cause instanceof Error ? (cause as { code?: unknown }).code : undefined;
+  return typeof code === "string" ? code : null;
+}
+
+/**
+ * Move the row off `running`, telling apart the two failures the old `catch {}`
+ * collapsed. Never throws — it is called from a `finally` that must not be
+ * escaped — and, as before brief 46, contains **no `await`**, so no compile can
+ * start between `jobs.delete` and this write.
+ *
+ * - **Zero rows matched** → silent, and correct. The project was deleted
+ *   mid-compile (brief 45); a row that does not exist cannot hold a slot.
+ * - **The write threw** → reported loudly and parked in `pendingStatusWrites`
+ *   for the next `startLatexCompile` to replay. See that map for why the retry
+ *   is deferred rather than immediate.
+ */
+function releaseCompileRow(projectId: string, status: CompileStatus): void {
+  try {
+    const matched = setLatexCompileStatus(projectId, status);
+    pendingStatusWrites.delete(projectId);
+    if (!matched) return;
+    // The files on disk changed (the artifacts), and the project list is
+    // ordered by `updated_at`. A compile is the one thing that changes a project
+    // without going through a file write. Inside the same `try` because it is
+    // the same database — if it fails, the whole (idempotent) pair is requeued.
+    touchLatexProject(projectId, new Date().toISOString());
+  } catch (cause) {
+    pendingStatusWrites.set(projectId, status);
+    const code = sqliteErrorCode(cause);
+    console.error(
+      `[latex] could not record compile_status='${status}' for project ${projectId} — ` +
+        `${code === null ? describeCause(cause) : `${code}: ${describeCause(cause)}`}. ` +
+        "The row still says 'running' while nothing is running, so this account's compile slot is " +
+        "held in the DATABASE (the in-process slot is already free). Queued for replay: the next " +
+        "compile attempt on this process will clear it, and reapInterruptedLatexCompiles clears it " +
+        "at the next restart.",
+    );
+  }
+}
+
+/**
+ * Replay every status write that failed, before anything READS the durable half
+ * of the guard. Called at the top of `startLatexCompile` — the one place that is
+ * both a write path and where a wedged account is actually felt, so the repair
+ * happens exactly where the damage shows.
+ *
+ * Best-effort by construction: a write that fails again stays queued for the
+ * attempt after this one. Silent on failure — `releaseCompileRow` already shouted
+ * once, and a fresh copy of that paragraph per retry is noise, not information.
+ */
+function flushPendingStatusWrites(): void {
+  for (const [projectId, status] of [...pendingStatusWrites]) {
+    // A project that is compiling again owns its own row; our terminal status is
+    // stale and must not be written over its `running`.
+    if (jobs.has(projectId)) {
+      pendingStatusWrites.delete(projectId);
+      continue;
+    }
+    try {
+      setLatexCompileStatus(projectId, status);
+      pendingStatusWrites.delete(projectId);
+      console.warn(
+        `[latex] recovered: compile_status='${status}' finally recorded for project ${projectId}; ` +
+          "the compile slot it was holding is free again.",
+      );
+    } catch {
+      // Still broken. Leave it queued — the next compile attempt tries again.
+    }
+  }
+}
+
 /** The refusal or the acceptance. Refusals are values, not exceptions: a second
  *  concurrent compile is an ordinary 409, not a bug. */
 export type StartLatexCompileResult =
@@ -468,6 +586,14 @@ export type StartLatexCompileResult =
  * through `profiles.user_id` for the same reason (D35).
  */
 export function startLatexCompile(project: LatexProjectRow, userId: string): StartLatexCompileResult {
+  // Before anything READS the durable half, finish writing it (brief 46). A
+  // status write that failed earlier left some row on `running` with nothing
+  // running, and the guard below cannot tell that row from a live compile — so
+  // it would answer 409 for a compile that ended long ago. Synchronous, so it
+  // still holds the no-await rule the next paragraph depends on, and a no-op in
+  // the overwhelming case where the map is empty.
+  flushPendingStatusWrites();
+
   // Durable half first, because it also covers a compile this process did not
   // start — and, after a crash, is reaped to `failed` at import rather than
   // resumed, so it can never wedge a slot across a restart.
@@ -528,6 +654,11 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
   jobs.set(project.id, job);
   try {
     setLatexCompileStatus(project.id, "running");
+    // Belt and braces: `flushPendingStatusWrites` above will normally have
+    // cleared this already, but if the flush failed and *this* write somehow
+    // did not, a queued terminal status from a previous run must not be
+    // replayed over the `running` we just wrote.
+    pendingStatusWrites.delete(project.id);
     job.done = scheduleCompile(job);
   } catch (cause) {
     jobs.delete(project.id);
@@ -767,9 +898,12 @@ export function runningLatexCompileInProcess(userId: string): LatexProjectRow | 
  *    artifact writes;
  *  - the **map entry** is deleted in the same `finally`, first, so that even a
  *    failing DB write cannot leave the in-process half claimed;
- *  - the DB write is itself wrapped, because `setLatexCompileStatus` on a
- *    project deleted mid-compile is a harmless zero-row UPDATE but a *broken*
- *    database is not, and a throw at that point would escape the `finally`;
+ *  - the DB write goes through `releaseCompileRow`, which cannot throw out of
+ *    the `finally` and which splits the two cases the one-line `catch {}` here
+ *    used to conflate: `setLatexCompileStatus` on a project deleted mid-compile
+ *    is a harmless zero-row UPDATE and stays silent, while a database that
+ *    refuses the write is retried, reported, and queued for the next compile
+ *    attempt to replay (brief 46; see `pendingStatusWrites`);
  *  - and the one path code cannot cover — the process dying — is covered by
  *    `reapInterruptedLatexCompiles()` in `db.ts`, which runs at import.
  *
@@ -812,19 +946,16 @@ async function runCompile(job: CompileJob): Promise<LatexCompileResult> {
     // would hold the engine's whole heap for the life of the process while the
     // slot it was compiling against is already free.
     stopWorker(job, "abandoned");
-    try {
-      setLatexCompileStatus(job.projectId, status);
-      // The files on disk changed (the artifacts), and the project list is
-      // ordered by `updated_at`. A compile is the one thing that changes a
-      // project without going through a file write.
-      touchLatexProject(job.projectId, new Date().toISOString());
-    } catch {
-      // The row is gone (the project was deleted mid-compile — a zero-row
-      // UPDATE, which is the correct outcome and not an error) or the database
-      // itself is unavailable. Either way the slot is already released: the map
-      // entry above is gone, and a row that no longer exists cannot be
-      // `running`.
-    }
+    // The durable half. Two failures used to be swallowed by one `catch {}`
+    // here, and only one of them deserved it: a zero-row UPDATE (the project was
+    // deleted mid-compile) is the correct outcome, while a database that refuses
+    // the write leaves the row on `running` with nothing running and wedges the
+    // whole account until a restart. `releaseCompileRow` tells them apart, keeps
+    // the first silent, and reports the second then queues it for the next
+    // compile attempt to replay — see `pendingStatusWrites`. It never throws
+    // and contains no `await`, so the `finally` is still
+    // inescapable.
+    releaseCompileRow(job.projectId, status);
   }
 
   return outcome;

@@ -9,6 +9,10 @@
 # relative markdown link resolves on disk, and that no page's BODY (frontmatter
 # excluded) exceeds ~200 lines. Mechanical only — the human sweep for stale
 # claims / contradictions still lives in the skill's §7.
+#
+# One exemption to the link check: a link to SOURCE CODE from a brief in done/
+# or superseded/ is warned about, not failed. Those briefs are immutable, so
+# they cannot be updated when code moves — see the long note at the check.
 
 set -uo pipefail
 
@@ -89,8 +93,34 @@ for f in "$WIKI_DIR"/*.md; do
 done
 
 # 3) Relative links resolve, across the whole corpus.
+#
+# One exemption, and it exists because two of CLAUDE.md's rules would otherwise
+# contradict each other: **briefs are immutable**, and **every relative link
+# resolves**. A finished brief cites the code as it stood the day it shipped, so
+# the first rename or refactor breaks a link in a file nobody is allowed to
+# edit. Brief 52 (the api module/Knex restructure, 2026-08-30) broke 24 of them
+# at once.
+#
+# So a link from `briefs/done/` or `briefs/superseded/` that points OUT of the
+# corpus — i.e. at source code — is reported as a **stale** warning and does not
+# fail the run. It is history, and history is allowed to name files that have
+# since moved.
+#
+# Everything else still fails, deliberately:
+#   - links *within* the corpus from any file (brief → brief, brief → wiki),
+#     because those are navigation and a broken one strands a reader;
+#   - every link from `wiki/`, because a wiki page describes the code as it is
+#     now, and a stale path there is a false claim;
+#   - every link from `briefs/todo/`, because a todo brief names the files it is
+#     about to change and a wrong path is a wrong spec.
+stale=0
 while IFS= read -r f; do
   dir="$(dirname "$f")"
+  # Historical briefs: code links may have rotted since they were written.
+  historical=0
+  case "$f" in
+    "$CORPUS_DIR"/briefs/done/*|"$CORPUS_DIR"/briefs/superseded/*) historical=1 ;;
+  esac
   # Pull every ](target) markdown link target.
   grep -oE '\]\([^)]+\)' "$f" 2>/dev/null | sed -E 's/^\]\(//; s/\)$//' | while IFS= read -r target; do
     # Skip URLs, mail, and pure in-page anchors.
@@ -99,12 +129,25 @@ while IFS= read -r f; do
     esac
     path="${target%%#*}"          # strip #anchor
     [[ -z "$path" ]] && continue
-    if [[ ! -e "$dir/$path" ]]; then
+    [[ -e "$dir/$path" ]] && continue
+    # Does the target point outside the corpus (i.e. at source code)?
+    resolved="$(cd "$dir" 2>/dev/null && printf '%s' "$(realpath -m "$path" 2>/dev/null)")"
+    outside=1
+    case "$resolved" in "$CORPUS_DIR"/*|"$CORPUS_DIR") outside=0 ;; esac
+    if (( historical )) && (( outside )); then
+      echo "lint: $(basename "$f"): stale code link (historical brief, not a failure) -> $target" >&2
+      echo "STALE" >> "$CORPUS_DIR/.lint-stale"
+    else
       echo "lint: $(basename "$f"): broken relative link -> $target" >&2
       echo "BROKEN" >> "$CORPUS_DIR/.lint-broken"
     fi
   done
 done < <(find "$CORPUS_DIR" -name '*.md')
+
+if [[ -f "$CORPUS_DIR/.lint-stale" ]]; then
+  stale="$(wc -l < "$CORPUS_DIR/.lint-stale" | tr -d ' ')"
+  rm -f "$CORPUS_DIR/.lint-stale"
+fi
 
 if [[ -f "$CORPUS_DIR/.lint-broken" ]]; then
   fail=1
@@ -115,4 +158,8 @@ if (( fail )); then
   echo "lint: FAILED" >&2
   exit 1
 fi
-echo "lint: OK — wiki frontmatter, link resolution, and page sizes all pass."
+if (( stale > 0 )); then
+  echo "lint: OK — wiki frontmatter, link resolution, and page sizes all pass ($stale stale code link(s) in historical briefs, listed above)."
+else
+  echo "lint: OK — wiki frontmatter, link resolution, and page sizes all pass."
+fi

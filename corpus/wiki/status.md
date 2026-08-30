@@ -1,11 +1,36 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-08-29
+updated: 2026-08-30
 ---
 
-# Status — 2026-08-29
+# Status — 2026-08-30
 
-**Latest (2026-08-29):** ✅ **Briefs 40 and 43 shipped — the brief backlog is
+**Latest (2026-08-30):** ✅ **Brief 52 shipped — `apps/api` is modular and runs
+on Knex.** 18 flat files became six domain modules, each controller / service /
+model, with `src/database/` (Knex instance, one idempotent baseline migration,
+boot tasks) and `src/common/`. The 2,210-line `db.ts` is gone, and the schema no
+longer arrives as a side effect of an `import` — `initDatabase()` is awaited
+before `listen`, so a failed migration stops the server instead of surfacing as
+a 500 on the first request. **D24's synchronous-API clause is revised → D47.**
+
+**What the async move cost, and why it was worth writing down.** Three
+correctness properties held *only* because `better-sqlite3` statements could not
+be interleaved, and all three would have failed silently: the conversion
+single-flight (two concurrent requests could both spawn `ebook-convert` — now one
+atomic `claimConvertSlot` UPDATE), the compile single-flight (now an explicitly
+await-free claim region), and `cancelAndSettleLatexCompile`, which could return
+*immediately while reporting that it had waited* on a job whose promise was not
+yet assigned — orphaning a build tree on delete-mid-compile. The bug class is
+"an invariant that was paid for by the runtime, not by the code".
+
+**Verified, not tested.** A copy of the live database (all five storage roots
+redirected per D39) migrated with every row count preserved and no FK
+violations; 128 live requests across every route group; both single-flight
+guards confirmed under six-way concurrency; clean SIGTERM. Typecheck + build
+green, 647/647 tests pass. **`apps/api` still has no automated tests** — now the
+largest gap in the repo, and much cheaper to close than it was.
+
+**Previously (2026-08-29):** ✅ **Briefs 40 and 43 shipped — the brief backlog is
 empty.** Every brief 01–44 is now in `briefs/done/` or `superseded/`.
 
 **40 — the engine sets mathematics.** Inline math on the text baseline, displays

@@ -1,5 +1,41 @@
 # Log
 
+## [2026-08-30] done | Brief 52 — `apps/api` restructured into modules; data layer moved to Knex
+
+Owner-requested, both halves in one pass. **Layering:** 18 flat files became
+`src/modules/{auth,profiles,library,catalog,notes,latex}/`, each
+controller (HTTP) / service (rules) / model (SQL), plus `src/database/`,
+`src/common/`, and `app.ts` split from `index.ts`. The 2,210-line `db.ts` is
+gone. **Knex:** all 63 data functions are async, the schema and migrations moved
+into one idempotent baseline migration run before `listen` instead of at module
+import, and both seed scripts now migrate first. Driver is still
+`better-sqlite3`; pool pinned to one connection.
+
+**D24's synchronous-API clause is revised → D47**, raised as a conflict before
+any code was written and chosen by the owner with the blast radius and the
+missing test suite both on the table.
+
+The async move exposed **three real bugs** that had held only because two
+statements could not be interleaved: the conversion single-flight (fixed with an
+atomic `claimConvertSlot` UPDATE), the compile single-flight (fixed with an
+await-free claim region), and `cancelAndSettleLatexCompile` returning
+immediately on a null `job.done` while reporting that it had waited — which
+would have orphaned a build tree on every delete-mid-compile. One window was
+accepted and documented rather than closed.
+
+Verified against a **copy** of the live DB with all five storage roots
+redirected (D39): row counts preserved, `note_folders` + `notes.folder_id`
+added, no FK violations, re-run is a no-op; 128 live requests over every route
+group; 6 concurrent compiles → 1×202 + 5×409; 6 concurrent converts → 1×202 +
+5×409 and exactly one `running` row; clean SIGTERM; no unhandled rejections.
+Typecheck + build green, 647/647 tests pass. Real `library.db` untouched.
+
+**`apps/api` still has no automated tests** — the largest remaining gap, and now
+much cheaper to close. See
+[briefs/done/52-api-modular-layering-knex.md](briefs/done/52-api-modular-layering-knex.md).
+**Uncommitted — owner controls git.**
+
+
 ## [2026-08-30] build | Briefs 45–51 shipped — the backlog is empty again
 
 One orchestrated run on branch `briefs-45-51`, four waves, a verify gate between
@@ -950,7 +986,7 @@ rebuild with row-count verification. Amends D30/D31. Filed as
 
 Owner asked for PDF→EPUB conversion with "show EPUB" / "show original" on PDF
 books. Research finding that shapes the brief: `runEbookConvert`
-([calibre.ts](../apps/api/src/calibre.ts)) is **already format-agnostic** —
+([calibre.service.ts](../apps/api/src/modules/library/calibre.service.ts)) is **already format-agnostic** —
 Calibre infers both formats from the extensions, so `in.pdf → out.epub` needs no
 change to the spawn wrapper; and `filePathFor(id, format)` already yields a
 free, non-colliding `library/<id>.epub` beside the PDF. What is *not* reusable is
@@ -1161,7 +1197,7 @@ alone** — both are immutable historical records. `bash corpus/lint.sh` passes
 Continued the HANDOFF (`corpus/HANDOFF.md`, retired 2026-08-29) — picked up three of its open follow-ups.
 
 **#1 Stale covers (open-questions):** new startup reconcile `reconcileMissingCovers`
-in [library-routes.ts](../apps/api/src/library-routes.ts) nulls `cover_path` when
+in [library.controller.ts](../apps/api/src/modules/library/library.controller.ts) nulls `cover_path` when
 the thumbnail file is gone (stale absolute-path rows from another box), so
 `hasCover` reports false and the client renders its fallback tile instead of
 firing the doomed cover request that surfaced as `ERR_BLOCKED_BY_ORB`. Fired off

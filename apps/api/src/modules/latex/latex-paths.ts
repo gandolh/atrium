@@ -1,6 +1,6 @@
 import { lstat, realpath } from "node:fs/promises";
 import { isAbsolute, join, normalize, resolve, sep } from "node:path";
-import { projectDirFor } from "./paths.js";
+import { projectDirFor } from "../../common/paths.js";
 
 /**
  * Path confinement for LaTeX projects (brief 38, step 4).

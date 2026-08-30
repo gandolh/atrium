@@ -1,6 +1,6 @@
 ---
-summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), layer boundaries, the auth guard, and the upload→store→read data flow.
-updated: 2026-08-25
+summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
+updated: 2026-08-30
 ---
 
 # Architecture
@@ -121,7 +121,7 @@ that last being D34's linked-row rule (a converted book shares its source's
 thumbnail). Bytes live on disk; the disk is also the sole authority on whether
 a cover exists, so `hasCover` is a `stat` rather than a column and cannot drift.
 
-Tables (`db.ts`):
+Tables (created by `src/database/migrations/`, queried by each module's model):
 - `books`: `id, title, author, format, size_bytes, progress, created_at,
   last_opened_at, series, series_index, subjects, source, source_id, kind,
   duration_seconds, converted_from, convert_status, convert_error,
@@ -156,6 +156,12 @@ Tables (`db.ts`):
   on the **profile** since D35 (was `user_id`; the composite PK meant SQLite
   could not ALTER it, so brief 35 rebuilt the table).
 
+## Backend layering (`apps/api/src`)
+
+Six domain modules, each **controller** (HTTP) / **service** (rules) / **model**
+(SQL), plus `database/`, `common/`, and `app.ts` split from `index.ts` (D47).
+Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
+
 ## Frontend stack (`apps/web`)
 - **TanStack Router** — routes between views (home/upload ↔ reader).
 - **TanStack Query** — library/notes/profile queries; the convert control polls
@@ -169,7 +175,10 @@ Tables (`db.ts`):
 
 ## Backend stack (`apps/api`)
 - **Fastify** + `@fastify/multipart` (upload) + `@fastify/cors`.
-- **`better-sqlite3`** (D24) — synchronous single-file DB for the library.
+- **Knex** over **`better-sqlite3`** (D24 as revised by D47) — same driver,
+  still synchronous underneath, but every query is a promise. One connection in
+  the pool, which is what keeps transactions exclusive and `foreign_keys` (a
+  per-connection pragma) a property of the database.
 - **Library routes** (D24): `POST /library`, `GET /library`, `GET /library/:id`,
   `GET /library/:id/file`, `GET /library/:id/cover`,
   `PATCH /library/:id/progress`, `DELETE /library/:id`, and the convert pair

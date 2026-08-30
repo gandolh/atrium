@@ -1,76 +1,30 @@
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import multipart from "@fastify/multipart";
-import { isCalibreAvailable } from "./calibre.js";
-import { registerAuthGuard, registerAuthRoutes } from "./auth.js";
-import {
-  CONVERT_TIMEOUT_MS,
-  HOST,
-  MAX_UPLOAD_BYTES,
-  MAX_UPLOAD_MB,
-  PORT,
-} from "./config.js";
+import { buildApp } from "./app.js";
+import { CONVERT_TIMEOUT_MS, HOST, MAX_UPLOAD_MB, PORT } from "./common/config.js";
+import { initDatabase } from "./database/bootstrap.js";
+import { closeDatabase } from "./database/knex.js";
+import { isCalibreAvailable } from "./modules/library/calibre.service.js";
+import { cancelAllConverts, sweepInterruptedOutputs } from "./modules/library/convert.service.js";
 import {
   backfillLibraryMetadata,
-  registerLibraryRoutes,
   sweepOrphanThumbnails,
-} from "./library-routes.js";
-import { registerCatalogRoutes } from "./catalog-routes.js";
-import { cancelAllConverts, sweepInterruptedOutputs } from "./convert-jobs.js";
-import { cancelAllLatexCompiles } from "./latex-compile.js";
-import { registerLatexRoutes } from "./latex-routes.js";
-import { registerNotesRoutes } from "./notes-routes.js";
-import { registerProfileRoutes } from "./profile-routes.js";
+} from "./modules/library/library-maintenance.service.js";
+import { cancelAllLatexCompiles } from "./modules/latex/latex-compile.service.js";
 
-const app = Fastify({
-  logger: {
-    serializers: {
-      // Cover-image <img> tags carry the platform-password token as ?token=
-      // (a static credential) — it must never reach logs in plaintext.
-      req(request) {
-        return {
-          method: request.method,
-          url: request.url.replace(/([?&]token=)[^&]*/g, "$1[redacted]"),
-          host: request.headers?.host,
-          remoteAddress: request.ip,
-          remotePort: request.socket?.remotePort,
-        };
-      },
-    },
-  },
-});
-
-// Permissive CORS — single-user tool, web talks cross-origin via VITE_API_URL
-// (decisions.md D14; no Vite proxy). Enumerate methods so the library routes'
-// PATCH/DELETE (with a JSON body → preflighted) aren't blocked; the default
-// allowlist omits PATCH. PUT joins it for brief 38's file-write route
-// (`PUT /latex/:id/files/*`), which is likewise preflighted and would otherwise
-// be blocked in the browser while working perfectly under `app.inject`.
-await app.register(cors, {
-  origin: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-});
-
-// 50MB (from MAX_UPLOAD_MB) upload ceiling (D15). @fastify/multipart truncates
-// past this; the route inspects `file.truncated` and returns TOO_LARGE.
-await app.register(multipart, {
-  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
-});
-
-// Per-user session guard. Registered app-wide BEFORE the routes so every
-// non-allowlisted request must present a valid session token.
-registerAuthGuard(app);
-
-app.get("/health", async () => {
-  return { status: "ok" };
-});
-
-registerAuthRoutes(app);
-registerLibraryRoutes(app);
-registerCatalogRoutes(app);
-registerNotesRoutes(app);
-registerProfileRoutes(app);
-registerLatexRoutes(app);
+/**
+ * Process entry point: bring the database up, build the app, listen, and shut
+ * down cleanly.
+ *
+ * ## Why the database is an awaited step now
+ *
+ * It used to happen as a side effect of importing `db.ts` — the schema, every
+ * migration and the two job reapers ran synchronously at module load, before
+ * anything could ask whether they had worked. With Knex none of that can be
+ * synchronous, so `initDatabase()` is an explicit `await` **before**
+ * `app.listen()`. That ordering is the contract: a migration that fails stops
+ * the server from coming up at all, rather than being discovered by the first
+ * request that reads a column which does not exist.
+ */
+const app = await buildApp();
 
 /**
  * Startup probe for `ebook-convert`. Missing Calibre is NOT fatal — the server
@@ -80,8 +34,7 @@ registerLatexRoutes(app);
  * actually convert.
  */
 async function checkCalibre(): Promise<void> {
-  const available = await isCalibreAvailable();
-  if (available) {
+  if (await isCalibreAvailable()) {
     app.log.info("Calibre `ebook-convert` found on PATH — conversion enabled.");
     return;
   }
@@ -97,6 +50,9 @@ async function checkCalibre(): Promise<void> {
 
 async function start(): Promise<void> {
   try {
+    // Migrations and the boot-time data repairs. Before `listen`, deliberately:
+    // nothing may serve a request against a database whose shape is unknown.
+    await initDatabase();
     await checkCalibre();
     await app.listen({ port: PORT, host: HOST });
     app.log.info(
@@ -116,10 +72,11 @@ async function start(): Promise<void> {
     void sweepOrphanThumbnails(app.log).catch((err) => {
       app.log.error({ err }, "orphan thumbnail sweep failed");
     });
-    // `db.ts` reaps rows left `running` by a process that died mid-conversion;
-    // this reclaims the disk those same jobs were using. The converted book's
-    // id never outlived the process, so the output is named from the SOURCE row
-    // precisely so it can still be found here (convert-jobs.ts `inProgressPath`).
+    // `initDatabase` reaps rows left `running` by a process that died
+    // mid-conversion; this reclaims the disk those same jobs were using. The
+    // converted book's id never outlived the process, so the output is named
+    // from the SOURCE row precisely so it can still be found here
+    // (`convert.service.ts` `inProgressPath`).
     void sweepInterruptedOutputs()
       .then((removed) => {
         if (removed > 0) app.log.info({ removed }, "removed interrupted conversion output");
@@ -133,25 +90,45 @@ async function start(): Promise<void> {
   }
 }
 
-// A conversion child is spawned with `detached: false`, so a plain SIGTERM to
-// this process leaves `ebook-convert` running and its output orphaned — the
-// very leak the boot sweep above exists to clean up. Killing in-flight jobs on
-// a clean shutdown means there is usually nothing left to sweep.
+/**
+ * Stop in-flight work, then close the server and the database pool.
+ *
+ * A conversion child is spawned with `detached: false`, so a plain SIGTERM to
+ * this process leaves `ebook-convert` running and its output orphaned — the
+ * very leak the boot sweep exists to clean up. Killing in-flight jobs on a
+ * clean shutdown means there is usually nothing left to sweep.
+ *
+ * Async now, because cancelling a conversion writes to the database (it resets
+ * the source row to `none`). The handler therefore awaits rather than
+ * fire-and-forgetting: exiting mid-write is exactly the "row left `running`
+ * with nothing running" state the reapers exist to clean up, and there is no
+ * reason to create work for the next boot when the write takes milliseconds.
+ */
+async function shutdown(signal: string): Promise<void> {
+  const cancelled = await cancelAllConverts();
+  if (cancelled > 0) app.log.info({ signal, cancelled }, "cancelled conversions on shutdown");
+  // LaTeX compiles have no child process to orphan — the engine is in-process
+  // (D38) — so this is not about leaked work but about the *slot*. A compile
+  // still holding one when the process goes down leaves its row `running`, and
+  // `reapInterruptedLatexCompiles()` flips those to `failed` on the way back up.
+  // Cancelling here *terminates* the compile's worker thread (brief 44) rather
+  // than waiting for the engine to notice a flag at its next step boundary — a
+  // document nobody will read is not worth delaying a shutdown for, and the
+  // thread dies with the process regardless.
+  const compiles = cancelAllLatexCompiles();
+  if (compiles > 0) app.log.info({ signal, compiles }, "cancelled LaTeX compiles on shutdown");
+  await app.close();
+  // Last, so nothing above can find the pool already destroyed.
+  await closeDatabase();
+  process.exit(0);
+}
+
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, () => {
-    const cancelled = cancelAllConverts();
-    if (cancelled > 0) app.log.info({ cancelled }, "cancelled conversions on shutdown");
-    // LaTeX compiles have no child process to orphan — the engine is in-process
-    // (D38) — so this is not about leaked work but about the *slot*. A compile
-    // still holding one when the process goes down leaves its row `running`,
-    // and `reapInterruptedLatexCompiles()` in db.ts flips those to `failed` at
-    // import on the way back up. Cancelling here *terminates* the compile's
-    // worker thread (brief 44) rather than waiting for the engine to notice a
-    // flag at its next step boundary — a document nobody will read is not worth
-    // delaying a shutdown for, and the thread dies with the process regardless.
-    const compiles = cancelAllLatexCompiles();
-    if (compiles > 0) app.log.info({ compiles }, "cancelled LaTeX compiles on shutdown");
-    void app.close().then(() => process.exit(0));
+    void shutdown(signal).catch((err) => {
+      app.log.error({ err }, "shutdown failed");
+      process.exit(1);
+    });
   });
 }
 

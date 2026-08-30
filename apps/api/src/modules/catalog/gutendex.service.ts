@@ -1,39 +1,23 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import {
-  catalogSearchParamsSchema,
-  importRequestSchema,
-  kindForFormat,
-  type CatalogBook,
-  type CatalogSearchParams,
-  type CatalogSearchResponse,
+import type {
+  CatalogBook,
+  CatalogSearchParams,
+  CatalogSearchResponse,
 } from "@ebook-reader/shared";
-import {
-  GUTENDEX_BASE_URL,
-  LIBRARY_FILES_DIR,
-  MAX_UPLOAD_BYTES,
-  THUMBNAILS_DIR,
-} from "./config.js";
-import { insertBook, toLibraryBook } from "./db.js";
-import { coverPathFor, filePathFor } from "./paths.js";
-import { extractMeta } from "./extract.js";
+import { GUTENDEX_BASE_URL } from "../../common/config.js";
 
 /**
- * Catalog (Project Gutenberg) proxy + import routes — brief 22.
+ * The Gutendex client — brief 22's upstream half, and the only code in the app
+ * that talks to Project Gutenberg.
  *
- * - `GET /catalog/gutenberg` proxies the public Gutendex `/books` endpoint
- *   (search / topic / language / page, popular by default), maps its response
- *   to the shared `catalogBook` wire shape, and serves repeats from a short
- *   in-memory TTL cache so we stay polite to the community instance.
- * - `POST /library/import { gutenbergId }` resolves one book via Gutendex,
- *   downloads its EPUB (the single gutenberg.org request per the robot policy,
- *   size-capped), then runs the EXISTING extract→store pipeline and inserts a
- *   normal library row with `source: 'gutenberg'`.
+ * It knows how to search the public Gutendex `/books` endpoint, how to map its
+ * response to the shared `catalogBook` wire shape, how to resolve one book by
+ * id, and how to download an EPUB under a byte cap. It knows nothing about the
+ * library: turning a download into a stored book is `catalog.service.ts`, and
+ * answering HTTP is `catalog.controller.ts`.
  *
- * Both routes sit behind the app-wide auth guard (index.ts) — no bespoke auth.
- * Errors match the library routes' JSON shape: `{ error: string }`.
+ * A short in-memory TTL cache sits in front of the search so repeats stay
+ * polite to the community instance.
  */
 
 // Upstream request budgets. Kept generous enough for a real book download but
@@ -54,7 +38,7 @@ const CACHE_MAX_ENTRIES = 200;
 const catalogCache = new Map<string, { data: CatalogSearchResponse; expires: number }>();
 
 /** Normalized, order-stable cache key for a set of search params. */
-function cacheKey(params: CatalogSearchParams): string {
+export function cacheKey(params: CatalogSearchParams): string {
   return JSON.stringify({
     q: params.q?.toLowerCase() ?? "",
     topic: params.topic?.toLowerCase() ?? "",
@@ -64,7 +48,7 @@ function cacheKey(params: CatalogSearchParams): string {
   });
 }
 
-function cacheGet(key: string): CatalogSearchResponse | null {
+export function cacheGet(key: string): CatalogSearchResponse | null {
   const hit = catalogCache.get(key);
   if (!hit) return null;
   if (hit.expires <= Date.now()) {
@@ -74,7 +58,7 @@ function cacheGet(key: string): CatalogSearchResponse | null {
   return hit.data;
 }
 
-function cacheSet(key: string, data: CatalogSearchResponse): void {
+export function cacheSet(key: string, data: CatalogSearchResponse): void {
   catalogCache.set(key, { data, expires: Date.now() + CACHE_TTL_MS });
   if (catalogCache.size > CACHE_MAX_ENTRIES) {
     // Map preserves insertion order — drop the oldest entry.
@@ -174,7 +158,7 @@ function gutendexSearchUrl(params: CatalogSearchParams): string {
 }
 
 /** Fetch + map a Gutendex search page. Throws on network/HTTP/timeout error. */
-async function fetchCatalog(params: CatalogSearchParams): Promise<CatalogSearchResponse> {
+export async function fetchCatalog(params: CatalogSearchParams): Promise<CatalogSearchResponse> {
   const res = await fetch(gutendexSearchUrl(params), {
     signal: AbortSignal.timeout(GUTENDEX_TIMEOUT_MS),
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
@@ -193,7 +177,7 @@ async function fetchCatalog(params: CatalogSearchParams): Promise<CatalogSearchR
  * mapped catalog book plus the raw EPUB URL (needed for the download, which the
  * mapped shape doesn't carry). null when Gutendex knows no such id.
  */
-async function resolveGutenbergBook(
+export async function resolveGutenbergBook(
   id: number,
 ): Promise<{ book: CatalogBook; epubUrl: string | null } | null> {
   const url = gutendexBooksUrl();
@@ -210,7 +194,7 @@ async function resolveGutenbergBook(
 }
 
 /** Thrown when a download exceeds the byte cap (mapped to a 413). */
-class OverCapError extends Error {}
+export class OverCapError extends Error {}
 
 /**
  * Download `url` into memory, aborting if it exceeds `maxBytes`. Buffers (like
@@ -219,7 +203,7 @@ class OverCapError extends Error {}
  * Rejects a too-large Content-Length up front, and re-checks while streaming in
  * case the header lies or is absent.
  */
-async function downloadCapped(url: string, maxBytes: number): Promise<Buffer> {
+export async function downloadCapped(url: string, maxBytes: number): Promise<Buffer> {
   const res = await fetch(url, {
     signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     headers: { "User-Agent": USER_AGENT },
@@ -241,121 +225,4 @@ async function downloadCapped(url: string, maxBytes: number): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-const UPSTREAM_ERROR = "Project Gutenberg's catalog (Gutendex) is unavailable. Please retry.";
-
-export function registerCatalogRoutes(app: FastifyInstance): void {
-  // --- GET /catalog/gutenberg — proxy + TTL cache ---------------------------
-  app.get("/catalog/gutenberg", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = catalogSearchParamsSchema.safeParse(request.query);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid catalog query." });
-    }
-    const params = parsed.data;
-    const key = cacheKey(params);
-
-    const cached = cacheGet(key);
-    if (cached) {
-      request.log.info({ key }, "catalog cache hit (served from TTL cache)");
-      return reply.send(cached);
-    }
-
-    try {
-      const data = await fetchCatalog(params);
-      cacheSet(key, data);
-      request.log.info({ key }, "catalog cache miss (fetched from Gutendex)");
-      return reply.send(data);
-    } catch (err) {
-      request.log.error({ err }, "Gutendex catalog request failed");
-      return reply.status(502).send({ error: UPSTREAM_ERROR });
-    }
-  });
-
-  // --- POST /library/import — pull a Gutenberg book into the library ---------
-  app.post("/library/import", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = importRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "gutenbergId must be a positive integer." });
-    }
-    const { gutenbergId } = parsed.data;
-
-    // 1. Resolve metadata + the EPUB URL via Gutendex.
-    let resolved: { book: CatalogBook; epubUrl: string | null } | null;
-    try {
-      resolved = await resolveGutenbergBook(gutenbergId);
-    } catch (err) {
-      request.log.error({ err, gutenbergId }, "Gutendex resolve failed");
-      return reply.status(502).send({ error: UPSTREAM_ERROR });
-    }
-    if (!resolved) {
-      return reply.status(404).send({ error: `No Project Gutenberg book #${gutenbergId}.` });
-    }
-    if (!resolved.epubUrl) {
-      return reply.status(422).send({ error: "This book has no EPUB edition to import." });
-    }
-    const { book, epubUrl } = resolved;
-
-    // 2. Download the EPUB (the one gutenberg.org request; size-capped).
-    let bytes: Buffer;
-    try {
-      bytes = await downloadCapped(epubUrl, MAX_UPLOAD_BYTES);
-    } catch (err) {
-      if (err instanceof OverCapError) {
-        return reply.status(413).send({ error: "The book's EPUB exceeds the size limit." });
-      }
-      request.log.error({ err, gutenbergId }, "Gutenberg EPUB download failed");
-      return reply.status(502).send({ error: "Downloading the EPUB from Project Gutenberg failed. Please retry." });
-    }
-
-    // 3. Run the EXISTING extract→store pipeline (mirrors the upload route).
-    const id = randomUUID();
-    const format = "epub" as const;
-    const filePath = filePathFor(id, format);
-    await mkdir(LIBRARY_FILES_DIR, { recursive: true });
-    await writeFile(filePath, bytes);
-
-    let meta;
-    try {
-      meta = await extractMeta(bytes, format, `${book.title}.epub`);
-      if (meta.cover) {
-        await mkdir(THUMBNAILS_DIR, { recursive: true });
-        // Derived location, not stored — same as the upload route.
-        await writeFile(coverPathFor(id), meta.cover);
-      }
-    } catch (err) {
-      request.log.warn({ err }, "cover/metadata extraction failed for import");
-      meta = {
-        title: book.title,
-        author: book.authors[0] ?? null,
-        series: null,
-        seriesIndex: null,
-        subjects: book.subjects,
-        cover: null,
-      };
-    }
-
-    const now = new Date().toISOString();
-    const row = {
-      id,
-      title: meta.title,
-      author: meta.author,
-      format,
-      size_bytes: bytes.length,
-      progress: 0,
-      created_at: now,
-      last_opened_at: null,
-      series: meta.series,
-      series_index: meta.seriesIndex,
-      subjects: JSON.stringify(meta.subjects),
-      // Catalog provenance: remember where it came from + its Gutenberg id so
-      // the /discover UI can badge it as "In library".
-      source: "gutenberg" as const,
-      source_id: String(gutenbergId),
-      // Catalog imports are always EPUB books (brief 23); no playback duration.
-      kind: kindForFormat(format),
-      duration_seconds: null,
-    };
-    insertBook(row);
-
-    return reply.status(201).send(toLibraryBook(row));
-  });
-}
+export const UPSTREAM_ERROR = "Project Gutenberg's catalog (Gutendex) is unavailable. Please retry.";

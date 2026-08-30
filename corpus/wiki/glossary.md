@@ -173,6 +173,31 @@ _Avoid_: the theme, the style guide, the design language, **Quiet Paper** and
 **Quiet Gallery** (both retired 2026-08-24 — the two names the previous system
 drifted between)
 
+## API layering (D47)
+
+**Model**:
+A module's data-access file and the ONLY code allowed to query its tables — async
+Knex functions, not a domain object. `library.model.ts` owns `books`.
+_Avoid_: repository, DAO, entity, row object
+
+**Service**:
+Where a module's rules live. Decides, orchestrates, touches the filesystem, and
+returns a **tagged union** for any normal answer — never a status code.
+_Avoid_: manager, handler, use case, business logic layer
+
+**Controller**:
+A module's HTTP file: validate, pick the status code, stream bytes. No rules, no
+queries.
+_Avoid_: router, routes file, endpoint, handler
+
+**Baseline migration**:
+`20260830000000-baseline.ts` — the one **idempotent** migration, needed because
+the pre-Knex schema was rebuilt on every boot and left no history to replay: it
+must be correct on a fresh database AND on a live one already migrated with
+nothing recording that. **Every later migration is an ordinary forward migration
+and must NOT be idempotent.**
+_Avoid_: initial migration, schema migration, the setup migration
+
 > **Authored content** — Note, Note page, Stroke, Text box, LaTeX project,
 > Draft, Published document, Version — lives in
 > [glossary-authoring.md](glossary-authoring.md). Same authority, split for size

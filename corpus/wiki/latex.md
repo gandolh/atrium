@@ -69,7 +69,7 @@ writer to simplify a document that was never too complex.
 **The engine runs on a `worker_thread`** (brief 44). `compile()` is still a
 synchronous function — that is its contract and it did not change — but it no
 longer runs on the API's thread: `latex-compile.ts` spawns
-[`latex-worker.ts`](../../apps/api/src/latex-worker.ts) per compile and awaits
+[`latex-worker.ts`](../../apps/api/src/modules/latex/latex-worker.ts) per compile and awaits
 its result, so the process keeps reading requests throughout. Measured on a
 **10.4 s** compile: the spawning thread logged **514 heartbeats, worst extra gap
 1 ms**.

@@ -5,18 +5,18 @@ import { join } from "node:path";
 import AdmZip from "adm-zip";
 import { pdf } from "pdf-to-img";
 import { convertTargetForFormat, type ConvertStatus, type FileType } from "@ebook-reader/shared";
-import { startEbookConvert, type RunningConvert } from "./calibre.js";
-import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "./config.js";
-import { filePathFor } from "./paths.js";
+import { startEbookConvert, type RunningConvert } from "./calibre.service.js";
+import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "../../common/config.js";
+import { filePathFor } from "../../common/paths.js";
 import {
   getConvertedBook,
   getRunningConvert,
   insertConvertedBook,
-  markConvertRunning,
+  claimConvertSlot,
   resetConvert,
   setConvertStatus,
-  type BookRow,
-} from "./db.js";
+} from "./library.model.js";
+import type { BookRow } from "./library.types.js";
 
 /**
  * The convert job runner (brief 34, D34) — the async half of **Convert**.
@@ -150,10 +150,10 @@ interface ConvertJob {
  * result. Reuses `cancelConvert`, so each job resets its source row to `none`
  * and discards its output exactly as a user-initiated cancel would.
  */
-export function cancelAllConverts(): number {
+export async function cancelAllConverts(): Promise<number> {
   let cancelled = 0;
   for (const sourceBookId of [...jobs.keys()]) {
-    if (cancelConvert(sourceBookId)) cancelled += 1;
+    if (await cancelConvert(sourceBookId)) cancelled += 1;
   }
   return cancelled;
 }
@@ -163,10 +163,13 @@ export function cancelAllConverts(): number {
 const jobs = new Map<string, ConvertJob>();
 
 /**
- * The decision a `POST /library/:id/convert` needs, made synchronously so the
- * route can answer immediately and so nothing can `await` between the
- * single-flight check and `markConvertRunning` (which is what makes the guard
- * a guard).
+ * The decision a `POST /library/:id/convert` needs. The route answers with it
+ * immediately; the work continues in the background.
+ *
+ * The single-flight guarantee does NOT come from the ordering of the statements
+ * below — every query is a promise, so requests can interleave anywhere. It
+ * comes from `claimConvertSlot`, one atomic UPDATE that either takes the slot or
+ * reports that someone else holds it.
  *
  * Every refusal carries a `message` that is fit to show a person as-is.
  */
@@ -195,7 +198,7 @@ export type StartConvertResult =
  * same source throws. A `?force=1` re-run must DELETE the existing conversion
  * (row and file) first — this runner will not insert over one.
  */
-export function startConvert(source: BookRow): StartConvertResult {
+export async function startConvert(source: BookRow): Promise<StartConvertResult> {
   if (source.converted_from !== null) {
     return {
       kind: "derived",
@@ -211,7 +214,7 @@ export function startConvert(source: BookRow): StartConvertResult {
     };
   }
 
-  const existing = getConvertedBook(source.id);
+  const existing = await getConvertedBook(source.id);
   if (existing) {
     return {
       kind: "exists",
@@ -220,20 +223,11 @@ export function startConvert(source: BookRow): StartConvertResult {
     };
   }
 
-  // Single-flight (decision 6): one conversion at a time, refused rather than
-  // queued. The library is shared across accounts with no per-book ownership
-  // (D30/D24), so "one per account" and "one at a time" are the same question.
-  // The row is checked first because it also covers a job this process didn't
-  // start; the map is checked as well so a child whose row was reset out from
-  // under it still can't be doubled up on.
-  const running = getRunningConvert();
-  if (running) {
-    return {
-      kind: "busy",
-      message: `“${running.title}” is being converted right now. Only one conversion runs at a time — try again when it finishes, or cancel it.`,
-      runningBook: running,
-    };
-  }
+  // Single-flight, in-process half (decision 6): one conversion at a time,
+  // refused rather than queued. Checked before the durable claim below because
+  // a child whose row was reset out from under it is still occupying the CPU
+  // and the output path, and because reading the map needs no await — nothing
+  // can interleave between this check and the claim that follows it.
   const [firstActive] = jobs.values();
   if (firstActive) {
     return {
@@ -258,7 +252,24 @@ export function startConvert(source: BookRow): StartConvertResult {
     // which is a row status the person can see — better than a throw here.
   }
 
-  markConvertRunning(source.id, startedAt);
+  // Single-flight, durable half. One atomic UPDATE decides it: the library is
+  // shared across accounts with no per-book ownership (D30/D24), so "one per
+  // account" and "one at a time" are the same question, and asking SQLite means
+  // the answer does not depend on how two concurrent requests interleave. See
+  // `claimConvertSlot` for why this is not a read followed by a write.
+  if (!(await claimConvertSlot(source.id, startedAt))) {
+    // Lost the claim — something else holds the slot. Read it now, purely to
+    // name the book in the refusal; if it has finished in the meantime the
+    // message falls back to the generic wording rather than inventing a title.
+    const running = await getRunningConvert();
+    return {
+      kind: "busy",
+      message: running
+        ? `“${running.title}” is being converted right now. Only one conversion runs at a time — try again when it finishes, or cancel it.`
+        : "Another conversion is running. Only one conversion runs at a time — try again in a moment.",
+      runningBook: running ?? source,
+    };
+  }
 
   const handle = startEbookConvert(
     // Derived from the source row, never read off it — see `paths.ts`.
@@ -305,12 +316,12 @@ export function startConvert(source: BookRow): StartConvertResult {
  * Returns false for a row stuck `running` from a previous process: those are
  * reaped to `failed` at boot (decision 7), never cancellable.
  */
-export function cancelConvert(sourceBookId: string): boolean {
+export async function cancelConvert(sourceBookId: string): Promise<boolean> {
   const job = jobs.get(sourceBookId);
   if (!job) return false;
   job.cancelled = true;
   job.handle.cancel();
-  resetConvert(sourceBookId);
+  await resetConvert(sourceBookId);
   return true;
 }
 
@@ -323,10 +334,10 @@ export function isConverting(sourceBookId: string): boolean {
 /**
  * True when the job was cancelled, having cleaned up its output.
  *
- * `cancelConvert` resets the source row synchronously and returns, so by the
- * time this reads the flag the row already says `none` and the user has been
- * told it stopped. All that is left is to make that true: drop the output and
- * commit nothing. Called after every await on the path to the insert.
+ * `cancelConvert` awaits the source-row reset before it returns, so by the time
+ * this reads the flag the row already says `none` and the user has been told it
+ * stopped. All that is left is to make that true: drop the output and commit
+ * nothing. Called after every await on the path to the insert.
  */
 async function abandonIfCancelled(job: ConvertJob): Promise<boolean> {
   if (!job.cancelled) return false;
@@ -413,7 +424,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
     }
 
     try {
-      insertConvertedBook({
+      await insertConvertedBook({
         id: job.convertedBookId,
         sourceBookId: source.id,
         format: targetFormat,
@@ -432,12 +443,12 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
       return;
     }
 
-    setConvertStatus(source.id, status);
+    await setConvertStatus(source.id, status);
   } catch {
     // Last resort: something outside every case above went wrong. Say so on
     // the row rather than leaving it `running` forever.
     try {
-      setConvertStatus(source.id, "failed", "The conversion failed unexpectedly.");
+      await setConvertStatus(source.id, "failed", "The conversion failed unexpectedly.");
     } catch {
       // The DB itself is gone; there is nowhere left to record anything.
     }
@@ -449,7 +460,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
 /** Record a failure on the source and remove whatever partial output exists. */
 async function fail(sourceId: string, targetPath: string, message: string): Promise<void> {
   await discard(targetPath);
-  setConvertStatus(sourceId, "failed", message);
+  await setConvertStatus(sourceId, "failed", message);
 }
 
 /** Remove a partial/abandoned output. Never throws — a leftover file is a

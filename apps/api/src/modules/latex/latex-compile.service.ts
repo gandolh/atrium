@@ -13,9 +13,9 @@ import {
   LATEX_MAX_OUTPUT_BYTES,
   LATEX_MAX_PROJECT_BYTES,
   LATEX_TIMEOUT_MS,
-} from "./config.js";
-import { projectDirFor } from "./paths.js";
-import { getRunningLatexCompile, setLatexCompileStatus, touchLatexProject, type LatexProjectRow } from "./db.js";
+} from "../../common/config.js";
+import { projectDirFor } from "../../common/paths.js";
+import { getRunningLatexCompile, setLatexCompileStatus, touchLatexProject, type LatexProjectRow } from "./latex.model.js";
 // Types only. `latex-worker.ts` is loaded as a *thread entry point* from a
 // `file:` URL and is never imported as a module — see `runEngineInWorker`.
 import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js";
@@ -425,10 +425,14 @@ interface CompileJob {
    * The job's own outcome promise — the same one the route awaits.
    *
    * Held on the job so that `cancelAndSettleLatexCompile` can wait for the work
-   * to actually FINISH rather than merely be told to stop. Null for the instant
-   * between claiming the slot and scheduling the work (see `startLatexCompile`);
-   * nothing outside this module can observe that window, because the job is not
-   * reachable until `startLatexCompile` returns.
+   * to actually FINISH rather than merely be told to stop.
+   *
+   * Typed nullable only because the job object is constructed a few lines before
+   * the promise exists. **Every job reachable through `jobs` has a non-null
+   * `done`**: `startLatexCompile` assigns it in the same synchronous region as
+   * the `jobs.set`, specifically so that a `job.done?.` on the delete path can
+   * never short-circuit into "I waited" when it did not. See the long note at
+   * that assignment for the orphaned-artifacts failure this prevents.
    */
   done: Promise<LatexCompileResult> | null;
 }
@@ -472,11 +476,13 @@ const jobs = new Map<string, CompileJob>();
  * reap — `reapInterruptedLatexCompiles` flips *every* `running` row to `failed`,
  * which is safe only at import, when nothing is running; on a timer it would
  * shoot live compiles in the head. Not "leave it to restart", because that is
- * the bug. And not an immediate retry loop either: `better-sqlite3` is
- * **synchronous** and already retries a busy database for its own 5 s timeout
- * before throwing, so spinning here would block the API's event loop for another
- * five seconds per attempt — punishing every other request in the process for
- * one project's failed write, having added nothing SQLite had not already tried.
+ * the bug. And not an immediate retry loop either: Knex's driver here is still
+ * `better-sqlite3`, whose calls run **synchronously on this thread** inside the
+ * promise, and which already retries a busy database for its own 5 s timeout
+ * before throwing. Spinning would therefore still block the API's event loop for
+ * another five seconds per attempt — punishing every other request in the
+ * process for one project's failed write, having added nothing SQLite had not
+ * already tried. Wrapping it in a promise changed none of that.
  *
  * So the retry is **deferred to the next `startLatexCompile`**, which replays
  * this map before it reads the guard (`flushPendingStatusWrites`). It costs
@@ -500,9 +506,29 @@ function sqliteErrorCode(cause: unknown): string | null {
 
 /**
  * Move the row off `running`, telling apart the two failures the old `catch {}`
- * collapsed. Never throws — it is called from a `finally` that must not be
- * escaped — and, as before brief 46, contains **no `await`**, so no compile can
- * start between `jobs.delete` and this write.
+ * collapsed. Never rejects — it is called from a `finally` that must not be
+ * escaped.
+ *
+ * ## The window this opens, named rather than hidden (2026-08-30, the Knex move)
+ *
+ * This used to contain no `await` at all, so `jobs.delete` in the caller's
+ * `finally` and this write were one indivisible step and a compile could not
+ * start between them. Every query is a promise now, so there IS a window: the
+ * in-process half is already free while the row still says `running`.
+ *
+ * That window is **safe but visible**. It cannot wedge anything — the write
+ * lands a moment later, or fails and is queued in `pendingStatusWrites` for the
+ * next attempt to replay, exactly as before. What it can do is make a compile
+ * request arriving inside it read the stale row and answer 409 "wait for it to
+ * finish" about a compile that finished microseconds ago. The next attempt
+ * succeeds.
+ *
+ * It is left as a transient 409 rather than closed with a third "releasing"
+ * state because the alternative — deleting the map entry only after the write —
+ * reopens the far worse failure the ordering exists to prevent: a database
+ * write that throws would then leave the in-process slot claimed forever, which
+ * is brief 34's Critical and wedges the account until a restart. A spurious
+ * retry-able refusal is the cheaper end of that trade.
  *
  * - **Zero rows matched** → silent, and correct. The project was deleted
  *   mid-compile (brief 45); a row that does not exist cannot hold a slot.
@@ -510,16 +536,16 @@ function sqliteErrorCode(cause: unknown): string | null {
  *   for the next `startLatexCompile` to replay. See that map for why the retry
  *   is deferred rather than immediate.
  */
-function releaseCompileRow(projectId: string, status: CompileStatus): void {
+async function releaseCompileRow(projectId: string, status: CompileStatus): Promise<void> {
   try {
-    const matched = setLatexCompileStatus(projectId, status);
+    const matched = await setLatexCompileStatus(projectId, status);
     pendingStatusWrites.delete(projectId);
     if (!matched) return;
     // The files on disk changed (the artifacts), and the project list is
     // ordered by `updated_at`. A compile is the one thing that changes a project
     // without going through a file write. Inside the same `try` because it is
     // the same database — if it fails, the whole (idempotent) pair is requeued.
-    touchLatexProject(projectId, new Date().toISOString());
+    await touchLatexProject(projectId, new Date().toISOString());
   } catch (cause) {
     pendingStatusWrites.set(projectId, status);
     const code = sqliteErrorCode(cause);
@@ -544,7 +570,7 @@ function releaseCompileRow(projectId: string, status: CompileStatus): void {
  * attempt after this one. Silent on failure — `releaseCompileRow` already shouted
  * once, and a fresh copy of that paragraph per retry is noise, not information.
  */
-function flushPendingStatusWrites(): void {
+async function flushPendingStatusWrites(): Promise<void> {
   for (const [projectId, status] of [...pendingStatusWrites]) {
     // A project that is compiling again owns its own row; our terminal status is
     // stale and must not be written over its `running`.
@@ -553,7 +579,7 @@ function flushPendingStatusWrites(): void {
       continue;
     }
     try {
-      setLatexCompileStatus(projectId, status);
+      await setLatexCompileStatus(projectId, status);
       pendingStatusWrites.delete(projectId);
       console.warn(
         `[latex] recovered: compile_status='${status}' finally recorded for project ${projectId}; ` +
@@ -576,28 +602,44 @@ export type StartLatexCompileResult =
 /**
  * Start compiling `project`, in the background, on behalf of `userId`.
  *
- * The decision is made **synchronously** — no `await` between the single-flight
- * check and `setLatexCompileStatus(id, "running")`, because an await there is
- * precisely what would let two requests both see a free slot and both take it.
+ * ## Where the single-flight guarantee actually comes from
+ *
+ * It used to come from the whole function being synchronous: no `await` could
+ * fall between the check and the claim, so two requests could not both see a
+ * free slot. Every query is a promise now, and the durable read below is one —
+ * so that reasoning no longer covers it and something else has to.
+ *
+ * What covers it is the **in-process half, claimed synchronously**. The
+ * `runningLatexCompileInProcess` check and the `jobs.set` that follows it have
+ * **no `await` between them** (the region is marked below, and the job object is
+ * built inside it precisely so nothing async can creep in). Two concurrent
+ * requests therefore serialise on the map: whichever resumes first walks that
+ * whole region in one uninterrupted turn and takes the slot, and the other
+ * finds the entry and is refused. The map is what makes this a guard; the
+ * durable read in front of it is an earlier, cheaper refusal that also covers
+ * compiles this process did not start.
+ *
  * The work itself starts on a later turn of the event loop (see
  * `scheduleCompile`).
  *
  * `userId` is the account, not the profile: `getRunningLatexCompile` joins
  * through `profiles.user_id` for the same reason (D35).
  */
-export function startLatexCompile(project: LatexProjectRow, userId: string): StartLatexCompileResult {
+export async function startLatexCompile(
+  project: LatexProjectRow,
+  userId: string,
+): Promise<StartLatexCompileResult> {
   // Before anything READS the durable half, finish writing it (brief 46). A
   // status write that failed earlier left some row on `running` with nothing
   // running, and the guard below cannot tell that row from a live compile — so
-  // it would answer 409 for a compile that ended long ago. Synchronous, so it
-  // still holds the no-await rule the next paragraph depends on, and a no-op in
-  // the overwhelming case where the map is empty.
-  flushPendingStatusWrites();
+  // it would answer 409 for a compile that ended long ago. A no-op in the
+  // overwhelming case where the map is empty.
+  await flushPendingStatusWrites();
 
   // Durable half first, because it also covers a compile this process did not
   // start — and, after a crash, is reaped to `failed` at import rather than
   // resumed, so it can never wedge a slot across a restart.
-  const running = getRunningLatexCompile(userId);
+  const running = await getRunningLatexCompile(userId);
   if (running) {
     return {
       kind: "busy",
@@ -605,7 +647,15 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
       runningProject: running,
     };
   }
-  // In-process half, checked account-wide too. This catches the window the row
+  // ### BEGIN the atomic region — NO `await` from here down to `jobs.set`
+  //
+  // This is the whole single-flight guarantee (see the header). Everything
+  // between this comment and `jobs.set` runs in one uninterrupted turn of the
+  // event loop, so two concurrent callers cannot both pass it. Adding an
+  // `await` anywhere inside — a lookup, a stat, a log flush — silently removes
+  // the guard and lets two compiles start on one account.
+  //
+  // In-process half, checked account-wide. It catches the window the row
   // cannot: a project deleted mid-compile takes its `running` row with it, so
   // the durable slot silently disappears while the job is still holding the
   // engine. Without this check a second compile would start against a process
@@ -638,30 +688,51 @@ export function startLatexCompile(project: LatexProjectRow, userId: string): Sta
   // ## The claim is all-or-nothing, and this try/catch is what makes it so
   //
   // `jobs.set` is the in-process half of the guard and `runCompile`'s `finally`
-  // is the ONLY thing that ever releases it — but that `finally` belongs to a
-  // function that has not been scheduled yet. So anything that throws between
-  // the two lines below leaves a map entry no code path will ever delete: the
-  // exception escapes to the route as a 500, `runCompile` never runs, and every
-  // subsequent `startLatexCompile` on this ACCOUNT then matches the
-  // `for (const job of jobs.values())` check above and returns 409 — for every
-  // project, on every profile, until the process restarts. Compilation is
-  // wedged account-wide by a failure that had nothing to do with compiling.
+  // is the ONLY thing that ever releases it. So the claim and the thing that
+  // will release it have to be established together, which is why both lines
+  // below are here rather than after the status write.
   //
-  // `setLatexCompileStatus` is a database write, and `SQLITE_FULL` is entirely
-  // plausible for a feature whose whole job is writing PDFs, zips and covers.
-  // This is brief 34's Critical in the in-memory half: a claimed slot that is
-  // never released. Unclaim, then rethrow.
+  // ### WHY `scheduleCompile` IS CALLED HERE AND NOT AFTER THE `await`
+  //
+  // It used to sit inside the `try` below, which was correct while this whole
+  // function was synchronous — nothing could observe the job between `jobs.set`
+  // and the assignment. With an `await` in between, `job.done` is null for a
+  // real window, and `cancelAndSettleLatexCompile` — the delete path — reads
+  // exactly that field: it does `await job.done?.catch(...)`, so a null `done`
+  // makes it return *immediately*, reporting that it waited when it did not.
+  // `DELETE /latex/:id` would then `rm -r` the tree, the compile would start
+  // afterwards and recreate `.atrium-build/`, and those bytes would be orphaned
+  // for the life of the installation with no row pointing at them — the precise
+  // failure `cancelAndSettleLatexCompile` was written to prevent.
+  //
+  // Scheduling inside the atomic region closes it: any job reachable through
+  // `jobs` always has a `done` to wait on. Nothing runs yet — `scheduleCompile`
+  // only builds a promise around a `setImmediate` — so this stays synchronous.
   jobs.set(project.id, job);
+  job.done = scheduleCompile(job);
+  // ### END the atomic region — the slot is claimed; awaiting is safe again.
+
   try {
-    setLatexCompileStatus(project.id, "running");
+    await setLatexCompileStatus(project.id, "running");
     // Belt and braces: `flushPendingStatusWrites` above will normally have
     // cleared this already, but if the flush failed and *this* write somehow
     // did not, a queued terminal status from a previous run must not be
     // replayed over the `running` we just wrote.
     pendingStatusWrites.delete(project.id);
-    job.done = scheduleCompile(job);
   } catch (cause) {
-    jobs.delete(project.id);
+    // `setLatexCompileStatus` is a database write, and `SQLITE_FULL` is
+    // entirely plausible for a feature whose whole job is writing PDFs, zips
+    // and covers. This is brief 34's Critical in the in-memory half: a claimed
+    // slot that is never released.
+    //
+    // The job is already scheduled, so the slot is NOT released by deleting the
+    // map entry here — that would free the in-process half while a job is still
+    // about to run against it, letting a second compile start alongside this
+    // one. Cancel it and wait for its own `finally` to do the releasing, which
+    // is the single writer of that transition. Then rethrow: the route answers
+    // 500 and the account is left with a free slot either way.
+    cancelLatexCompile(project.id);
+    await job.done.catch(() => undefined);
     throw cause;
   }
 
@@ -952,10 +1023,11 @@ async function runCompile(job: CompileJob): Promise<LatexCompileResult> {
     // the write leaves the row on `running` with nothing running and wedges the
     // whole account until a restart. `releaseCompileRow` tells them apart, keeps
     // the first silent, and reports the second then queues it for the next
-    // compile attempt to replay — see `pendingStatusWrites`. It never throws
-    // and contains no `await`, so the `finally` is still
-    // inescapable.
-    releaseCompileRow(job.projectId, status);
+    // compile attempt to replay — see `pendingStatusWrites`. It never rejects,
+    // so awaiting it here cannot escape the `finally`. The map entry above is
+    // already gone by this point, which is the ordering that matters; see
+    // `releaseCompileRow` for the small window that opens between the two.
+    await releaseCompileRow(job.projectId, status);
   }
 
   return outcome;

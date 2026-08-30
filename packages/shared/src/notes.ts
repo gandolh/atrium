@@ -14,10 +14,52 @@ import { z } from "zod";
 /** Portrait page aspect (height / width) — roughly A-series paper. */
 export const PAGE_ASPECT = 1.414;
 
-/** v1 ink tools (grilled): a solid pen and a translucent highlighter. */
-export const NOTE_TOOLS = ["pen", "highlighter"] as const;
-export const noteToolSchema = z.enum(NOTE_TOOLS);
-export type NoteTool = z.infer<typeof noteToolSchema>;
+/**
+ * The stored ink kinds. v1 shipped `pen` + `highlighter`; brief 51 added
+ * `fountain-pen` and `pencil` after a side-by-side design pass.
+ *
+ * Order matters only for the tool bar, which reads the nib list below.
+ */
+export const NOTE_TOOLS = ["pen", "fountain-pen", "pencil", "highlighter"] as const;
+
+/**
+ * `.catch("pen")` — an unknown tool value reads back as `pen` instead of
+ * throwing. Widening a `z.enum` is a contract change that fails in BOTH
+ * directions, and this picks which way it fails: a note saved with a nib a
+ * stale client has never heard of still OPENS there, drawn with the plain pen.
+ * A bare `z.enum` would throw at `noteSchema.parse` and take the whole note
+ * with it. Losing a nib style is a blemish; losing the notebook is not.
+ *
+ * ## The accepted cost (decided by the owner, brief 51 — do not "fix" this)
+ *
+ * This is LOSSY, not merely permissive. `apps/web/src/notes/notes-api.ts`
+ * parses every fetched note through `noteSchema.parse`, and the editor
+ * autosaves from the *parsed* value — so a client on a stale bundle that opens
+ * and touches a fountain-pen note rewrites those strokes to `pen`
+ * PERMANENTLY. The preserving alternative (keep the raw string, render the
+ * fallback) was put to the owner alongside this one and rejected: a single
+ * always-current SPA bundle makes the stale-client window small, and one
+ * always-valid `NoteTool` union keeps every consumer branch-free.
+ */
+export const noteToolSchema = z.enum(NOTE_TOOLS).catch("pen");
+export type NoteTool = (typeof NOTE_TOOLS)[number];
+
+/**
+ * The ink nibs — the tools that lay down a stroke you pick a *style* for.
+ * `highlighter` is an ink tool but not a nib: it is a flat chisel with its own
+ * width scale and translucency, and it sits beside these in the tool bar
+ * rather than inside the nib picker.
+ */
+export const NOTE_NIBS = ["pen", "fountain-pen", "pencil"] as const;
+export type NoteNib = (typeof NOTE_NIBS)[number];
+
+/** Human labels for the tool bar / nib picker. */
+export const NOTE_TOOL_LABELS: Record<NoteTool, string> = {
+  pen: "Pen",
+  "fountain-pen": "Fountain pen",
+  pencil: "Pencil",
+  highlighter: "Highlighter",
+};
 
 /**
  * Page background ruling (v1 follow-up): plain paper, horizontal ruled lines, or
@@ -42,6 +84,203 @@ export const strokeSchema = z.object({
   points: z.array(strokePointSchema),
 });
 export type Stroke = z.infer<typeof strokeSchema>;
+
+/* -------------------------------------------------------------------------
+ * Nib geometry (brief 51) — ONE parameter table, two renderers
+ *
+ * A stroke's outline is rebuilt from its points in three places: the editor's
+ * live sheet + PNG export (`apps/web/src/notes/NoteEditor.tsx`) and the
+ * server-side PDF export (`apps/api/src/note-pdf.ts`, brief 49). Brief 49
+ * already duplicated the `perfect-freehand` options once, and adding two nibs
+ * to only one of the copies would render a fountain pen as a plain pen in the
+ * PDF with no error and no diagnostic. So the *parameters* live here, in the
+ * package both apps already import, and only the `getStroke` call itself is
+ * duplicated. `perfect-freehand` stays a dependency of the two apps — this
+ * file describes its options, it does not import it.
+ *
+ * ## Why a nib is a LIST of passes
+ *
+ * Every nib is `perfect-freehand` parameters, never a second ink pipeline —
+ * but the pencil needs three overlaid passes at different widths, offsets and
+ * opacities to read as graphite, so the table's unit is a *pass* and the
+ * one-pass nibs are simply lists of length one.
+ * ---------------------------------------------------------------------- */
+
+/**
+ * The editor's scaled working space. perfect-freehand's smoothing/streamline
+ * math is tuned for pixel-scale inputs and degenerates into huge blobs on
+ * normalized 0..1 coordinates (live-audit bug #3, brief 26), so geometry is
+ * computed with points and sizes multiplied by this. **Storage stays
+ * normalized**; only the geometry is scaled.
+ */
+export const STROKE_VB = 1000;
+
+/** The highlighter's fill opacity — a translucent wash over what it crosses. */
+export const HIGHLIGHTER_OPACITY = 0.4;
+
+/** Nib width multiplier for the highlighter's chisel, relative to the pen. */
+export const HIGHLIGHTER_SCALE = 4;
+
+/**
+ * `perfect-freehand`'s `StrokeOptions`, restated structurally so this package
+ * needs no dependency on it. Field-for-field compatible with what `getStroke`
+ * accepts.
+ */
+export interface NibStrokeOptions {
+  size: number;
+  thinning: number;
+  smoothing: number;
+  streamline: number;
+  simulatePressure: boolean;
+  easing?: (t: number) => number;
+  start?: { taper: number; easing?: (t: number) => number };
+  end?: { taper: number; easing?: (t: number) => number };
+}
+
+/** One filled outline of a stroke. A nib is one or more of these, in order. */
+export interface NibPass {
+  /** Options for this pass's `getStroke` call. */
+  options: NibStrokeOptions;
+  /** `fill-opacity` for the resulting path. */
+  opacity: number;
+  /**
+   * Absolute (already `× size`) jitter amplitude applied to the INPUT points
+   * before `getStroke`, and the seed that makes it deterministic. `0` means
+   * "use the points as they are".
+   */
+  jitter: number;
+  jitterSeed: number;
+}
+
+/**
+ * Deterministic ±1 noise from a seed and a point index — a sin-hash, **never
+ * `Math.random`**. The pencil's grain must be byte-identical on every render:
+ * a random offset would make the graphite crawl on every React re-render and
+ * would put different grain in the PDF than on the screen.
+ */
+export function nibNoise(seed: number, index: number): number {
+  const x = Math.sin((index + 1) * 12.9898 + seed * 78.233) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+}
+
+/**
+ * The pencil's three passes, as picked in brief 51's design pass: a full-width
+ * base plus two narrower, progressively more scattered passes. Cumulative
+ * alpha ≈ 0.70, so it sits lighter on the page than the pen.
+ *
+ * Known and accepted: the jitter is a multiple of `size`, so the grain scales
+ * with the nib and all but vanishes at the thinnest width. Decoupling it would
+ * make the tooth constant in absolute units and therefore wrong at the thick
+ * nib; the owner took the trade.
+ */
+const PENCIL_PASSES = [
+  { scale: 1.0, amp: 0.0, opacity: 0.42, seed: 1 },
+  { scale: 0.76, amp: 0.32, opacity: 0.3, seed: 37 },
+  { scale: 0.5, amp: 0.68, opacity: 0.26, seed: 91 },
+] as const;
+
+/**
+ * The passes that draw one stroke of `tool` at `size` (already in `STROKE_VB`
+ * units — i.e. `stroke.size * STROKE_VB`).
+ *
+ * `realPressure` says whether the points carry genuine stylus pressure; when
+ * they do not, perfect-freehand simulates it from velocity, which is what lets
+ * a mouse-drawn line still taper.
+ */
+export function nibPasses(tool: NoteTool, size: number, realPressure: boolean): NibPass[] {
+  const simulatePressure = !realPressure;
+  switch (tool) {
+    // A flat chisel: `thinning: 0` is what gives the highlighter a constant
+    // width instead of a pressure-tapered nib.
+    case "highlighter":
+      return [
+        {
+          options: { size, thinning: 0, smoothing: 0.5, streamline: 0.5, simulatePressure },
+          opacity: HIGHLIGHTER_OPACITY,
+          jitter: 0,
+          jitterSeed: 0,
+        },
+      ];
+
+    // A flex nib. The squared `easing` is what makes it a fountain pen: light
+    // pressure now means *very* light, so the line swells and thins far more
+    // than the pen's. The long end taper is the lifted-off hairline.
+    case "fountain-pen":
+      return [
+        {
+          options: {
+            size,
+            thinning: 0.85,
+            smoothing: 0.62,
+            streamline: 0.38,
+            simulatePressure,
+            easing: (t) => t * t,
+            start: { taper: size * 0.8 },
+            end: { taper: size * 4, easing: (t) => 1 - (1 - t) * (1 - t) },
+          },
+          opacity: 1,
+          jitter: 0,
+          jitterSeed: 0,
+        },
+      ];
+
+    // Graphite. The grain is opacity + seeded jitter across three passes, NOT
+    // a bitmap texture and NOT `smoothing`/`streamline` alone: both renderers
+    // re-smooth the finished outline with quadratic midpoints, so lowering
+    // those changes the stroke's spine and never reaches its edge.
+    case "pencil":
+      return PENCIL_PASSES.map((p) => ({
+        options: {
+          size: size * p.scale,
+          thinning: 0.62,
+          smoothing: 0.1,
+          streamline: 0.18,
+          simulatePressure,
+        },
+        opacity: p.opacity,
+        jitter: size * p.amp,
+        jitterSeed: p.seed,
+      }));
+
+    // The baseline, unchanged since v1 — every stored `pen` stroke, and every
+    // stroke an unknown tool falls back to, must keep drawing exactly this.
+    case "pen":
+    default:
+      return [
+        {
+          options: { size, thinning: 0.55, smoothing: 0.5, streamline: 0.5, simulatePressure },
+          opacity: 1,
+          jitter: 0,
+          jitterSeed: 0,
+        },
+      ];
+  }
+}
+
+/** True when the points carry genuine stylus pressure rather than the 0.5 default. */
+export function hasRealPressure(points: readonly StrokePoint[]): boolean {
+  return points.some((p) => p[2] > 0 && p[2] !== 0.5);
+}
+
+/**
+ * A stroke's points in `STROKE_VB` space, offset by one pass's seeded jitter.
+ * Returns `[x, y, pressure]` triples ready to hand to `getStroke`.
+ */
+export function nibPassPoints(points: readonly StrokePoint[], pass: NibPass): number[][] {
+  if (pass.jitter === 0) {
+    return points.map((p) => [p[0] * STROKE_VB, p[1] * STROKE_VB, p[2]]);
+  }
+  return points.map((p, i) => [
+    p[0] * STROKE_VB + nibNoise(pass.jitterSeed, i) * pass.jitter,
+    p[1] * STROKE_VB + nibNoise(pass.jitterSeed + 0.5, i) * pass.jitter,
+    p[2],
+  ]);
+}
+
+/** The passes for a whole stored stroke — the entry point both renderers use. */
+export function strokeNibPasses(stroke: Stroke): NibPass[] {
+  return nibPasses(stroke.tool, stroke.size * STROKE_VB, hasRealPressure(stroke.points));
+}
 
 export const textBoxSchema = z.object({
   id: z.string(),

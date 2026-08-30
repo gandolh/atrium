@@ -13,9 +13,18 @@ import {
 } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
+  HIGHLIGHTER_SCALE,
+  NOTE_NIBS,
+  NOTE_TOOLS,
+  NOTE_TOOL_LABELS,
   PAGE_ASPECT,
   PAGE_TEMPLATES,
+  STROKE_VB,
+  nibPassPoints,
+  strokeNibPasses,
+  type NoteNib,
   type NotePage,
+  type NoteTool,
   type PageTemplate,
   type Stroke,
   type StrokePoint,
@@ -39,7 +48,18 @@ import { useNote, useSaveNote } from "./use-notes";
  * legible in dark mode; the surrounding chrome themes normally.
  */
 
-type Tool = "pen" | "highlighter" | "eraser" | "text";
+/**
+ * What the pointer does on the sheet. The stored ink kinds (`NoteTool`) plus
+ * two *modes* that leave nothing behind of their own — the eraser removes
+ * strokes and the text tool places boxes, so neither is a stroke `tool` value.
+ */
+type Tool = NoteTool | "eraser" | "text";
+
+const INK_TOOLS = new Set<string>(NOTE_TOOLS);
+/** Is the active tool one that lays down ink (rather than erase / text)? */
+function isInkTool(tool: Tool): tool is NoteTool {
+  return INK_TOOLS.has(tool);
+}
 
 // The pen palette. A stroke's colour is PERSISTED into the note, so it has to
 // be stored as a concrete value rather than a `var()` — but the values still
@@ -56,13 +76,12 @@ const INKS = [
 ] as const;
 // Nib widths as a fraction of page width (resolution-independent).
 const THICKNESS = [0.004, 0.007, 0.012] as const;
-const HIGHLIGHTER_SCALE = 4;
 const ERASE_RADIUS = 0.02;
-// perfect-freehand's smoothing/streamline math is tuned for pixel-scale inputs;
-// running it on tiny normalized (0..1) coordinates degenerates into huge blobs.
-// So compute stroke geometry in a scaled-up viewBox space (points ×VB, size
-// ×VB) while storage stays normalized. The SVG uses the same viewBox.
-const STROKE_VB = 1000;
+// `STROKE_VB` (the scaled-up geometry space that keeps perfect-freehand from
+// degenerating on normalized 0..1 coordinates) and `HIGHLIGHTER_SCALE` now come
+// from @ebook-reader/shared, alongside the nib parameter table the PDF exporter
+// reads from the same place. Storage is still normalized; the SVG below uses
+// the same viewBox.
 
 // Pinch-to-zoom bounds for the page sheet (mobile). 1 = fit-to-column (the
 // resting layout); the sheet never zooms out past that.
@@ -92,18 +111,27 @@ function outlineToPath(outline: number[][]): string {
   return d.join(" ");
 }
 
-/** perfect-freehand outline for a stroke, computed in the scaled viewBox space. */
-function strokePath(stroke: Stroke): string {
-  const realPressure = stroke.points.some((p) => p[2] > 0 && p[2] !== 0.5);
-  const scaled = stroke.points.map((p) => [p[0] * STROKE_VB, p[1] * STROKE_VB, p[2]]);
-  const outline = getStroke(scaled, {
-    size: stroke.size * STROKE_VB,
-    thinning: stroke.tool === "highlighter" ? 0 : 0.55,
-    smoothing: 0.5,
-    streamline: 0.5,
-    simulatePressure: !realPressure,
-  });
-  return outlineToPath(outline);
+/** One filled path of a stroke: an outline in viewBox space plus its opacity. */
+type StrokeLayer = { d: string; opacity: number };
+
+/**
+ * The filled outlines of a stroke, computed in the scaled viewBox space — one
+ * per nib pass. The pen, fountain pen and highlighter are a single layer; the
+ * pencil is three, and its stacked opacities are what read as graphite.
+ *
+ * The `perfect-freehand` options are NOT written here. They live once in
+ * `packages/shared/src/notes.ts` because `apps/api/src/note-pdf.ts` rebuilds
+ * the same geometry for the PDF export (brief 49) — a nib added to only one of
+ * the two would export as a plain pen with no error and no diagnostic.
+ */
+function strokeLayers(stroke: Stroke): StrokeLayer[] {
+  if (stroke.points.length === 0) return [];
+  const layers: StrokeLayer[] = [];
+  for (const pass of strokeNibPasses(stroke)) {
+    const d = outlineToPath(getStroke(nibPassPoints(stroke.points, pass), pass.options));
+    if (d) layers.push({ d, opacity: pass.opacity });
+  }
+  return layers;
 }
 
 /* ------------------------------------------------------------------ export */
@@ -200,12 +228,14 @@ function pageToSvg(page: NotePage): string {
     parts.push(`</g>`);
   }
 
-  // Page order, unchanged — that is what keeps a highlighter under the pen.
+  // Page order, unchanged — that is what keeps a highlighter under the pen. A
+  // multi-pass nib emits several paths, in their own order, inside that.
   for (const stroke of page.strokes) {
-    const d = strokePath(stroke);
-    if (!d) continue;
-    const opacity = stroke.tool === "highlighter" ? 0.4 : 1;
-    parts.push(`<path d="${d}" fill="${xmlEscape(stroke.color)}" fill-opacity="${opacity}"/>`);
+    for (const layer of strokeLayers(stroke)) {
+      parts.push(
+        `<path d="${layer.d}" fill="${xmlEscape(stroke.color)}" fill-opacity="${layer.opacity}"/>`,
+      );
+    }
   }
 
   for (const box of page.texts) {
@@ -316,7 +346,10 @@ export function NoteEditor({ id }: { id: string }) {
   const [pageIndex, setPageIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
+  // The tool bar keeps ONE ink-nib slot (see `Toolbar`), so the last nib the
+  // user picked has to survive a trip through the eraser or the text tool.
   const [tool, setTool] = useState<Tool>("pen");
+  const [nib, setNib] = useState<NoteNib>("pen");
   const [color, setColor] = useState<string>(() => cssToken(INKS[0].token));
   const [thickness, setThickness] = useState(1);
 
@@ -516,6 +549,8 @@ export function NoteEditor({ id }: { id: string }) {
         <Toolbar
           tool={tool}
           setTool={setTool}
+          nib={nib}
+          setNib={setNib}
           color={color}
           setColor={setColor}
           thickness={thickness}
@@ -749,13 +784,12 @@ function NoteSheet({
     pointsRef.current = [];
     setLive(null);
     if (pts.length > 1) {
-      const size = tool === "highlighter" ? thickness * HIGHLIGHTER_SCALE : thickness;
-      const stroke: Stroke = {
-        tool: tool === "highlighter" ? "highlighter" : "pen",
-        color,
-        size,
-        points: pts,
-      };
+      // `endStroke` returns early for the eraser and the text tool never starts
+      // one, so the tool here is always an ink kind; `pen` is a total-function
+      // fallback, not a real branch.
+      const inkTool: NoteTool = isInkTool(tool) ? tool : "pen";
+      const size = inkTool === "highlighter" ? thickness * HIGHLIGHTER_SCALE : thickness;
+      const stroke: Stroke = { tool: inkTool, color, size, points: pts };
       onBeginChange();
       onMutatePage((p) => ({ ...p, strokes: [...p.strokes, stroke] }));
     }
@@ -797,23 +831,16 @@ function NoteSheet({
         className="pointer-events-none absolute inset-0 h-full w-full"
       >
         {page.strokes.map((s, i) => (
-          <path
-            key={i}
-            d={strokePath(s)}
-            fill={s.color}
-            fillOpacity={s.tool === "highlighter" ? 0.4 : 1}
-          />
+          <InkStroke key={i} stroke={s} />
         ))}
         {live && live.length > 0 && (
-          <path
-            d={strokePath({
-              tool: tool === "highlighter" ? "highlighter" : "pen",
+          <InkStroke
+            stroke={{
+              tool: isInkTool(tool) ? tool : "pen",
               color,
               size: tool === "highlighter" ? thickness * HIGHLIGHTER_SCALE : thickness,
               points: live,
-            })}
-            fill={color}
-            fillOpacity={tool === "highlighter" ? 0.4 : 1}
+            }}
           />
         )}
       </svg>
@@ -853,6 +880,22 @@ function NoteSheet({
         <span aria-hidden="true">⤢</span> {Math.round(transform.scale * 100)}%
       </button>
     )}
+    </>
+  );
+}
+
+/**
+ * One stroke as SVG. A nib is a LIST of passes, so this is a fragment of paths
+ * rather than a single `<path>` — the pencil's three overlaid, seeded-jittered
+ * outlines are what give it its tooth.
+ */
+function InkStroke({ stroke }: { stroke: Stroke }) {
+  const layers = strokeLayers(stroke);
+  return (
+    <>
+      {layers.map((layer, i) => (
+        <path key={i} d={layer.d} fill={stroke.color} fillOpacity={layer.opacity} />
+      ))}
     </>
   );
 }
@@ -938,9 +981,184 @@ function TextBoxView({
   );
 }
 
+/* ------------------------------------------------------------- nib picker */
+/*
+ * Brief 51 added two nibs, and brief 26's live audit + brief 33 both say the
+ * tool bar must stay above the fold at 375px. Six flat buttons would have made
+ * the tool group alone wider than a phone's toolbar row, so the three nibs
+ * share ONE slot with a popover — the bar is the same size it was with two
+ * tools, and there is room left for the ink, thickness and page-background
+ * groups beside it.
+ */
+
+/**
+ * A live sample of a nib, drawn with the real `strokeLayers` — so the picker
+ * shows what the nib actually does rather than a glyph standing in for it.
+ * That is also the honest answer to "is this nib distinct?": if two rows look
+ * the same here, they look the same on the page.
+ */
+const SWATCH_POINTS: StrokePoint[] = Array.from({ length: 28 }, (_, i) => {
+  const t = i / 27;
+  return [
+    0.05 + t * 0.9,
+    0.11 - Math.sin(t * Math.PI * 1.6) * 0.022,
+    // A pressure swell, so the fountain pen's flex and the pen's gentler
+    // taper are both visible. Never 0.5, so this reads as REAL pressure and
+    // the sample is not at the mercy of simulated velocity.
+    0.14 + Math.sin(t * Math.PI) * 0.84,
+  ];
+});
+const SWATCH_SIZE = 0.05;
+const SWATCH_VIEWBOX = "30 30 940 150";
+
+function NibSwatch({ nib, color, className }: { nib: NoteNib; color: string; className: string }) {
+  const layers = strokeLayers({ tool: nib, color, size: SWATCH_SIZE, points: SWATCH_POINTS });
+  return (
+    <svg viewBox={SWATCH_VIEWBOX} className={className} aria-hidden="true">
+      {layers.map((layer, i) => (
+        <path key={i} d={layer.d} fill={color} fillOpacity={layer.opacity} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The three nib marks, as inline line icons (design.md: line icons, 1.75
+ * stroke, no icon font). One barrel shape; the tip is the discriminator —
+ * bare wedge, wedge with a nib slit, wedge with a wood band.
+ */
+const NIB_ICON_PATHS: Record<NoteNib, string[]> = {
+  pen: ["M4 20 L6.5 14.5 L15.5 5.5 L18.5 8.5 L9.5 17.5 Z"],
+  "fountain-pen": ["M4 20 L7 13.5 L15.5 5 L19 8.5 L10.5 17 Z", "M4 20 L11.5 12.5"],
+  pencil: ["M4 20 L6.5 14.5 L15.5 5.5 L18.5 8.5 L9.5 17.5 Z", "M6.5 14.5 L9.5 17.5", "M12.5 8.5 L15.5 11.5"],
+};
+
+function NibIcon({ nib }: { nib: NoteNib }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {NIB_ICON_PATHS[nib].map((d) => (
+        <path key={d} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * The ink slot: a radio in the tool group that also opens the nib list.
+ *
+ * One click when the slot is NOT active selects it (with whatever nib was last
+ * used) — the common case costs nothing. Clicking it again opens the list, and
+ * the caret is what says the slot has one. Nothing here animates beyond the
+ * colour fade the rest of the chrome uses, so there is no reduced-motion path
+ * to lose.
+ */
+function NibSlot({
+  nib,
+  active,
+  onSelect,
+  color,
+}: {
+  nib: NoteNib;
+  active: boolean;
+  onSelect: (nib: NoteNib) => void;
+  color: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss on an outside press or Escape — a popover that can only be closed
+  // by picking something is a trap on a phone.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={active}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${NOTE_TOOL_LABELS[nib]} — choose nib`}
+        title={`${NOTE_TOOL_LABELS[nib]} — choose nib`}
+        onClick={() => {
+          if (active) setOpen((v) => !v);
+          else {
+            onSelect(nib);
+            setOpen(false);
+          }
+        }}
+        className={`grid h-9 w-12 grid-flow-col place-items-center gap-0.5 rounded-card transition focus-visible:outline-2 focus-visible:outline-accent ${
+          active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
+        }`}
+      >
+        <NibIcon nib={nib} />
+        <span aria-hidden="true" className="font-ui text-[9px] leading-none">
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Nib"
+          className="absolute left-0 top-full z-30 mt-1.5 flex w-56 flex-col gap-0.5 rounded-card border border-line-soft bg-paper-raised p-1 shadow-l1"
+        >
+          {NOTE_NIBS.map((value) => {
+            const chosen = active && value === nib;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={chosen}
+                onClick={() => {
+                  onSelect(value);
+                  setOpen(false);
+                }}
+                className={`flex items-center gap-2 rounded-card px-2 py-1.5 text-left font-ui text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-accent ${
+                  chosen ? "bg-paper-low text-accent" : "text-ink-variant hover:bg-paper-low hover:text-ink"
+                }`}
+              >
+                <NibIcon nib={value} />
+                <span className="w-24 shrink-0">{NOTE_TOOL_LABELS[value]}</span>
+                <NibSwatch nib={value} color={color} className="h-5 w-full min-w-0" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Toolbar({
   tool,
   setTool,
+  nib,
+  setNib,
   color,
   setColor,
   thickness,
@@ -955,6 +1173,9 @@ function Toolbar({
 }: {
   tool: Tool;
   setTool: (t: Tool) => void;
+  /** The nib the single ink slot is currently loaded with. */
+  nib: NoteNib;
+  setNib: (n: NoteNib) => void;
   color: string;
   setColor: (c: string) => void;
   thickness: number;
@@ -969,9 +1190,9 @@ function Toolbar({
   onNextPage: () => void;
   onAddPage: () => void;
 }) {
+  // The three nibs share the ink slot; these are the tools that do not.
   const tools: { value: Tool; label: string; glyph: string }[] = [
-    { value: "pen", label: "Pen", glyph: "✎" },
-    { value: "highlighter", label: "Highlighter", glyph: "▄" },
+    { value: "highlighter", label: NOTE_TOOL_LABELS.highlighter, glyph: "▄" },
     { value: "eraser", label: "Eraser", glyph: "⌫" },
     { value: "text", label: "Text", glyph: "T" },
   ];
@@ -986,6 +1207,15 @@ function Toolbar({
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-line-soft/50 px-4 py-2.5">
       <div role="radiogroup" aria-label="Tool" className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5">
+        <NibSlot
+          nib={nib}
+          active={tool === nib}
+          color={color}
+          onSelect={(next) => {
+            setNib(next);
+            setTool(next);
+          }}
+        />
         {tools.map((t) => {
           const active = tool === t.value;
           return (

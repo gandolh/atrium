@@ -1,6 +1,14 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { getStroke } from "perfect-freehand";
-import { PAGE_ASPECT, type NotePage, type Stroke, type TextBox } from "@ebook-reader/shared";
+import {
+  PAGE_ASPECT,
+  STROKE_VB,
+  nibPassPoints,
+  strokeNibPasses,
+  type NotePage,
+  type Stroke,
+  type TextBox,
+} from "@ebook-reader/shared";
 
 /**
  * Note → PDF (brief 49). One PDF page per note page, all vector.
@@ -23,11 +31,18 @@ import { PAGE_ASPECT, type NotePage, type Stroke, type TextBox } from "@ebook-re
  * ## Matching the editor
  *
  * The ink outlines are rebuilt with the SAME `perfect-freehand` options the
- * editor uses (`apps/web/src/notes/NoteEditor.tsx`), including the ×1000
- * working space: perfect-freehand's smoothing degenerates on normalized 0..1
- * coordinates, so geometry is computed at `STROKE_VB` scale and then mapped
- * into points. An outline is a FILLED path, not a stroked line — stroking it
- * would draw both of its edges.
+ * editor uses, including the ×1000 working space: perfect-freehand's smoothing
+ * degenerates on normalized 0..1 coordinates, so geometry is computed at
+ * `STROKE_VB` scale and then mapped into points. An outline is a FILLED path,
+ * not a stroked line — stroking it would draw both of its edges.
+ *
+ * Those options are NOT restated here. Brief 49 originally copied them out of
+ * `NoteEditor.tsx`, and brief 51's two new nibs would then have had to be added
+ * in two places — miss one and a fountain pen exports as a plain pen with no
+ * error and no diagnostic. The parameter table now lives once in
+ * `packages/shared/src/notes.ts` (`nibPasses` / `strokeNibPasses`) and both
+ * renderers call `getStroke` with what it hands them. A nib is a LIST of
+ * passes, because the pencil is three overlaid outlines.
  *
  * Stroke order is preserved exactly, which is what keeps a highlighter under
  * the pen it crosses; the highlighter's translucency rides on a real PDF
@@ -46,8 +61,6 @@ import { PAGE_ASPECT, type NotePage, type Stroke, type TextBox } from "@ebook-re
 const PAGE_WIDTH_PT = 595.28;
 const PAGE_HEIGHT_PT = PAGE_WIDTH_PT * PAGE_ASPECT;
 
-/** The editor's scaled working space — see the note on perfect-freehand above. */
-const STROKE_VB = 1000;
 /** viewBox units → points. */
 const VB_TO_PT = PAGE_WIDTH_PT / STROKE_VB;
 
@@ -61,8 +74,6 @@ const SHEET_COLOR = rgb(0xfd / 255, 0xfc / 255, 0xfa / 255);
 const RULE_COLOR = rgb(0xd9 / 255, 0xd3 / 255, 0xc4 / 255);
 const SHEET_INK_COLOR = rgb(0x1a / 255, 0x19 / 255, 0x17 / 255);
 
-/** The editor's highlighter opacity (`fillOpacity={0.4}`). */
-const HIGHLIGHTER_OPACITY = 0.4;
 /** Tailwind's `leading-snug`, which the text boxes are rendered with. */
 const TEXT_LINE_HEIGHT = 1.375;
 /**
@@ -129,26 +140,37 @@ function outlineToPath(outline: number[][]): string {
   return parts.join(" ");
 }
 
+/** One filled path of a stroke: its outline in `STROKE_VB` space + its opacity. */
+export interface StrokeLayer {
+  d: string;
+  opacity: number;
+}
+
 /**
- * The filled outline of one stroke, in `STROKE_VB` space.
+ * The filled outlines of one stroke, in `STROKE_VB` space — one layer per nib
+ * pass (`packages/shared/src/notes.ts`). The pen, fountain pen and highlighter
+ * yield a single layer; the pencil yields three, whose stacked opacities are
+ * what read as graphite.
  *
- * Every option here must stay identical to `strokePath` in `NoteEditor.tsx` —
- * including `thinning: 0` for the highlighter, which is what gives it a flat
- * chisel edge instead of a pressure-tapered nib. Exported so a caller can
- * inspect the geometry without building a document.
+ * Exported so a caller can inspect the geometry without building a document.
+ */
+export function strokeOutlineLayers(stroke: Stroke): StrokeLayer[] {
+  if (stroke.points.length === 0) return [];
+  const layers: StrokeLayer[] = [];
+  for (const pass of strokeNibPasses(stroke)) {
+    const d = outlineToPath(getStroke(nibPassPoints(stroke.points, pass), pass.options));
+    if (d) layers.push({ d, opacity: pass.opacity });
+  }
+  return layers;
+}
+
+/**
+ * The first (widest) outline of a stroke. Kept from brief 49 for callers that
+ * want one path — but note it is NOT the whole picture for a multi-pass nib
+ * like the pencil, so the renderer below uses `strokeOutlineLayers`.
  */
 export function strokeOutlinePath(stroke: Stroke): string {
-  if (stroke.points.length === 0) return "";
-  const realPressure = stroke.points.some((p) => p[2] > 0 && p[2] !== 0.5);
-  const scaled = stroke.points.map((p) => [p[0] * STROKE_VB, p[1] * STROKE_VB, p[2]]);
-  const outline = getStroke(scaled, {
-    size: stroke.size * STROKE_VB,
-    thinning: stroke.tool === "highlighter" ? 0 : 0.55,
-    smoothing: 0.5,
-    streamline: 0.5,
-    simulatePressure: !realPressure,
-  });
-  return outlineToPath(outline);
+  return strokeOutlineLayers(stroke)[0]?.d ?? "";
 }
 
 /** The page's background ruling, from the same geometry the editor rules with. */
@@ -236,16 +258,19 @@ function drawNotePage(page: PDFPage, notePage: NotePage, font: PDFFont): void {
   // Stroke order is the page's own order — that is what puts a highlighter
   // under the pen it crosses. Do not sort by tool.
   for (const stroke of notePage.strokes) {
-    const d = strokeOutlinePath(stroke);
-    if (!d) continue;
-    page.drawSvgPath(d, {
-      // `drawSvgPath` flips y for us, so the origin is the page's TOP-left.
-      x: 0,
-      y: PAGE_HEIGHT_PT,
-      scale: VB_TO_PT,
-      color: parseInkColor(stroke.color),
-      opacity: stroke.tool === "highlighter" ? HIGHLIGHTER_OPACITY : 1,
-    });
+    const color = parseInkColor(stroke.color);
+    // A nib may be several stacked passes (the pencil's grain), and their
+    // order within the stroke matters as much as the stroke order does.
+    for (const layer of strokeOutlineLayers(stroke)) {
+      page.drawSvgPath(layer.d, {
+        // `drawSvgPath` flips y for us, so the origin is the page's TOP-left.
+        x: 0,
+        y: PAGE_HEIGHT_PT,
+        scale: VB_TO_PT,
+        color,
+        opacity: layer.opacity,
+      });
+    }
   }
 
   for (const box of notePage.texts) drawTextBox(page, box, font);

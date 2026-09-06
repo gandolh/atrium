@@ -1,0 +1,32 @@
+# Atrium's API. Build context is the repo root (..).
+#
+# `.env` here is written by the deploy (0600); it carries APP_PASSWORD, which
+# gates every route.
+services:
+  atrium-api:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile
+      target: prod
+    image: atrium-api:1.0
+    ports:
+      # LOOPBACK ONLY. This service used to bind 0.0.0.0 on the HOST, which put
+      # its "Caddy is the only way in" property entirely at the mercy of the
+      # firewall. It still binds 0.0.0.0 — but inside its own network namespace,
+      # and this line is what decides who can actually reach it.
+      - "127.0.0.1:${PORT:-8788}:${PORT:-8788}"
+    env_file:
+      - .env
+    volumes:
+      # The library: database, uploaded originals, cover thumbnails. Bind-mounted
+      # at the paths the API already writes to, so no book moved.
+      - ${ATRIUM_DATA_DIR:-../apps/api/data}:/app/apps/api/data
+      - ${ATRIUM_LIBRARY_DIR:-../apps/api/library}:/app/apps/api/library
+      - ${ATRIUM_IMAGES_DIR:-../apps/api/images}:/app/apps/api/images
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- \"http://127.0.0.1:${PORT:-8788}/health\""]
+      interval: 30s
+      timeout: 5s
+      # Calibre makes this image slow to first byte; give it room.
+      start_period: 20s

@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+corpus
+*.md
+.env
+infrastructure/.env
+apps/api/data
+apps/api/library
+apps/api/images
+**/*.map

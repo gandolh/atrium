@@ -9,8 +9,10 @@ import { maxUploadBytesFromMb } from "@ebook-reader/shared";
  * import time. Unlike the previous "safe defaults" scheme, every variable in
  * the .env contract is now REQUIRED — a missing or malformed value aborts
  * startup with a clear message instead of silently falling back. See
- * .env.example for the full contract. (User accounts are NOT configured here —
- * they live in the DB and are created by scripts/seed.ts.)
+ * .env.example for the full contract.
+ *
+ * User accounts are **not here and not in this database** — Ward owns them.
+ * What is here is how to reach Ward and how to prove atrium is atrium.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src (or dist)
@@ -40,6 +42,29 @@ const envSchema = z.object({
   MAX_UPLOAD_MB: z.coerce.number().positive(),
   CONVERT_TIMEOUT_MS: z.coerce.number().int().positive(),
   CONVERT_JOB_TIMEOUT_MS: z.coerce.number().int().positive(),
+
+  /**
+   * Ward, the estate's identity service. All three are **required**, and each
+   * is required for a different reason worth stating.
+   *
+   * `WARD_PUBLIC_ORIGIN` is also the expected `iss` on every token, compared as
+   * an exact string — a bare origin, no trailing slash.
+   *
+   * `WARD_API_BASE_PATH` is `/ward-api` in this estate and has no default on
+   * purpose. Defaulting it to `""` resolves the JWKS to
+   * `<origin>/.well-known/jwks.json`, a path nothing serves; that shipped once
+   * in the reference client and would have made every app in the estate reject
+   * every token on the deploy that carried it.
+   *
+   * `WARD_APP_KEY` is atrium's own service key, issued from Ward's console.
+   * Without it `POST /ward-api/introspect` refuses every call, which is a total
+   * outage for this app rather than a degraded mode — hence required rather
+   * than optional, so a missing one stops the boot instead of surfacing as a
+   * 503 on somebody's first page load.
+   */
+  WARD_PUBLIC_ORIGIN: z.string().url(),
+  WARD_API_BASE_PATH: z.string().min(1),
+  WARD_APP_KEY: z.string().min(1),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -63,6 +88,16 @@ const env = parsed.data;
 
 export const PORT = env.PORT;
 export const HOST = env.HOST;
+
+/** Ward's public origin, and the `iss` every access token must carry. */
+export const WARD_PUBLIC_ORIGIN = env.WARD_PUBLIC_ORIGIN.replace(/\/+$/, "");
+/** Ward's prefix behind Caddy — `/ward-api`. See the schema note. */
+export const WARD_API_BASE_PATH = env.WARD_API_BASE_PATH;
+/**
+ * Atrium's Ward service key. **A secret.** Server-side only — it must never be
+ * exposed to the web client, put in a Vite variable, or logged.
+ */
+export const WARD_APP_KEY = env.WARD_APP_KEY;
 
 export const MAX_UPLOAD_MB = env.MAX_UPLOAD_MB;
 export const MAX_UPLOAD_BYTES = maxUploadBytesFromMb(MAX_UPLOAD_MB);

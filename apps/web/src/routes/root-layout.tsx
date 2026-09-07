@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { Outlet } from "@tanstack/react-router";
 
-import { AuthGate } from "../auth/LockScreen";
+import { AuthGate } from "../auth/AuthGate";
 import { PlaybackHost } from "../player/PlaybackHost";
 import { DOCK_HEIGHT_PX } from "../player/PlayerDock";
 import { UpdateToast } from "../pwa/UpdateToast";
@@ -47,8 +47,8 @@ export function RootLayout() {
         <Outlet />
         <PlaybackHost />
       </AuthGate>
-      {/* App-level, outside the auth gate: a new deploy should surface even on
-          the lock screen so the app is never stuck on an old version. */}
+      {/* App-level, outside the auth gate: a new deploy should surface even
+          while signing in, so the app is never stuck on an old version. */}
       <UpdateToast />
     </div>
   );

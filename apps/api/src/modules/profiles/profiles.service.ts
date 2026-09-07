@@ -7,7 +7,7 @@ import {
 } from "@ebook-reader/shared";
 import { projectDirFor } from "../../common/paths.js";
 import { isForeignKeyViolation, isUniqueViolation } from "../../database/errors.js";
-import { setSessionActiveProfile } from "../auth/auth.model.js";
+import { setSelectedProfile } from "./profile-selection.model.js";
 import { cancelAndSettleLatexCompile } from "../latex/latex-compile.service.js";
 import { listLatexProjects } from "../latex/latex.model.js";
 import { removeProjectTree } from "../latex/project-tree.service.js";
@@ -55,8 +55,8 @@ export type DeleteProfileResult =
   | { ok: false; reason: "DEFAULT_PROFILE" }
   | { ok: false; reason: "HAS_NOTES"; noteCount: number };
 
-export async function listAccountProfiles(userId: string): Promise<ProfileRow[]> {
-  return listProfiles(userId);
+export async function listAccountProfiles(subject: string): Promise<ProfileRow[]> {
+  return listProfiles(subject);
 }
 
 /**
@@ -67,16 +67,16 @@ export async function listAccountProfiles(userId: string): Promise<ProfileRow[]>
  * pass the check and one would then 500.
  */
 export async function createAccountProfile(
-  userId: string,
+  subject: string,
   fields: { name: string; color: ProfileColor },
 ): Promise<CreateProfileResult> {
-  if ((await countProfiles(userId)) >= MAX_PROFILES_PER_ACCOUNT) {
+  if ((await countProfiles(subject)) >= MAX_PROFILES_PER_ACCOUNT) {
     return { ok: false, reason: "LIMIT", limit: MAX_PROFILES_PER_ACCOUNT };
   }
 
   const row: ProfileRow = {
     id: randomUUID(),
-    user_id: userId,
+    subject,
     name: fields.name,
     color: fields.color,
     // Never client-supplied: the default is the account's fallback and is fixed
@@ -137,16 +137,20 @@ export async function renameAccountProfile(
 export async function deleteAccountProfile(
   profile: ProfileRow,
   options: {
-    userId: string;
+    subject: string;
     reassign: boolean;
-    /** The caller's own session token, so its active profile can be re-pointed. */
-    sessionToken?: string;
+    /**
+     * The caller's own device — the Ward token's `sid` — so its selection can
+     * be re-pointed. Was the atrium session token, back when a session row held
+     * the active profile.
+     */
+    sid?: string;
     /** True when the caller is currently *acting as* the profile being deleted. */
     isActiveProfile: boolean;
     log: FastifyBaseLogger;
   },
 ): Promise<DeleteProfileResult> {
-  if ((await countProfiles(options.userId)) <= 1) return { ok: false, reason: "LAST_PROFILE" };
+  if ((await countProfiles(options.subject)) <= 1) return { ok: false, reason: "LAST_PROFILE" };
   if (profile.is_default === 1) return { ok: false, reason: "DEFAULT_PROFILE" };
 
   const notes = await listNotes(profile.id);
@@ -158,7 +162,7 @@ export async function deleteAccountProfile(
 
   // Guaranteed by the is_default refusal above (the deleted profile is never
   // the default, and every account has one).
-  const fallback = (await getDefaultProfile(options.userId))!;
+  const fallback = (await getDefaultProfile(options.subject))!;
   if (notes.length > 0) await reassignNotes(profile.id, fallback.id);
 
   /*
@@ -208,13 +212,14 @@ export async function deleteAccountProfile(
     throw err;
   }
 
-  // The FK is ON DELETE SET NULL, so the caller stays logged in either way and
-  // the guard would fall back to the default on the next request. Re-pointing
-  // the session here anyway keeps the row naming a profile that exists, so
-  // "which profile am I?" has one answer and not two. Other devices on other
-  // sessions were SET NULL and take the guard's fallback.
-  if (options.sessionToken && options.isActiveProfile) {
-    await setSessionActiveProfile(options.sessionToken, fallback.id);
+  // `profile_selections.profile_id` is ON DELETE CASCADE, so every device that
+  // had this profile selected simply loses its row and the guard falls back to
+  // the account's default on the next request — the caller included. Writing
+  // the caller's selection explicitly anyway keeps "which profile am I?"
+  // answered by a row rather than by a fallback, so the manage screen does not
+  // appear to jump to a different profile than the one it lands on.
+  if (options.sid && options.isActiveProfile) {
+    await setSelectedProfile(options.subject, options.sid, fallback.id);
   }
 
   // The trees go after the rows — the same ordering, and the same shared
@@ -231,12 +236,21 @@ export async function deleteAccountProfile(
 }
 
 /**
- * The switch. Free by design (D35, decision 5) — no password, no PIN — and the
- * whole of it server-side is one column: no new token, so other tabs on the
- * same session follow rather than being logged out.
+ * The switch. Free by design (D35, decision 5) — no password, no PIN — and
+ * still one write server-side.
+ *
+ * Ward is not involved and must not be: switching profiles issues no token,
+ * touches no session, and is invisible to the identity service. Other tabs on
+ * the same device follow, because they share the `sid`; other devices do not,
+ * because they do not. That is exactly the old behaviour, with the atrium
+ * session row replaced by `(subject, sid)`.
  */
-export async function activateProfile(token: string, profile: ProfileRow): Promise<void> {
-  await setSessionActiveProfile(token, profile.id);
+export async function activateProfile(
+  subject: string,
+  sid: string,
+  profile: ProfileRow,
+): Promise<void> {
+  await setSelectedProfile(subject, sid, profile.id);
 }
 
 export function readPreferences(profile: ProfileRow): Preferences {

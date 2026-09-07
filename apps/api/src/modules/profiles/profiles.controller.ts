@@ -29,8 +29,11 @@ import {
  * confirms the id exists on somebody else's account.
  */
 export function registerProfileRoutes(app: FastifyInstance): void {
-  // The app-wide guard (auth.guard.ts) attaches both, or 401s, so these are safe.
-  const accountId = (request: FastifyRequest): string => request.authUser!.id;
+  // The app-wide guard (ward/ward.guard.ts) attaches both, or answers 401/403,
+  // so these are safe on every route in this file.
+  const accountId = (request: FastifyRequest): string => request.ward!.subject;
+  /** The device this request came from — the Ward token's refresh family. */
+  const deviceId = (request: FastifyRequest): string => request.ward!.sid;
 
   /**
    * Resolve `:id` to a profile **on the caller's own account**, or answer 404
@@ -44,7 +47,7 @@ export function registerProfileRoutes(app: FastifyInstance): void {
   ): Promise<ProfileRow | null> {
     const { id } = request.params as { id?: string };
     const row = id ? await getProfile(id) : undefined;
-    if (!row || row.user_id !== accountId(request)) {
+    if (!row || row.subject !== accountId(request)) {
       void reply.status(404).send({ error: "NOT_FOUND" });
       return null;
     }
@@ -87,9 +90,9 @@ export function registerProfileRoutes(app: FastifyInstance): void {
 
     const query = request.query as { reassign?: unknown } | undefined;
     const result = await deleteAccountProfile(profile, {
-      userId: accountId(request),
+      subject: accountId(request),
       reassign: query?.reassign === "1" || query?.reassign === "true",
-      sessionToken: request.authToken,
+      sid: deviceId(request),
       isActiveProfile: request.authProfile?.id === profile.id,
       log: request.log,
     });
@@ -108,9 +111,11 @@ export function registerProfileRoutes(app: FastifyInstance): void {
   app.post("/profiles/:id/activate", async (request: FastifyRequest, reply: FastifyReply) => {
     const profile = await ownedProfile(request, reply);
     if (!profile) return reply;
-    // The guard sets authToken on every non-allowlisted request, and this route
-    // is not allowlisted.
-    await activateProfile(request.authToken!, profile);
+    // The guard sets `ward` on every non-allowlisted request, and this route is
+    // not allowlisted. Activation is now recorded against the **device**
+    // (`subject` + `sid`) rather than against an atrium session row, which
+    // keeps D35's per-device behaviour with no sessions table to hold it.
+    await activateProfile(accountId(request), deviceId(request), profile);
     return reply.send(profileSchema.parse(toProfile(profile)));
   });
 

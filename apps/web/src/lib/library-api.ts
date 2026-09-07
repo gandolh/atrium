@@ -8,7 +8,7 @@ import {
   type LibrarySort,
 } from "@ebook-reader/shared";
 import { z } from "zod";
-import { apiFetch, apiUrl, getAuthToken } from "./api-client";
+import { apiFetch, apiUrl } from "./api-client";
 
 /**
  * Library API calls (decisions.md D24). Thin wrappers over the Fastify library
@@ -155,17 +155,20 @@ export async function deleteBookVersion(id: string, versionId: string): Promise<
 }
 
 /**
- * Absolute URL for a book's cover thumbnail (served from disk, D25). Cover
- * `<img>` tags can't send an `Authorization` header, so when auth is enabled
- * the token rides along as a query param instead (brief 09).
+ * Absolute URL for a book's cover thumbnail (served from disk, D25).
+ *
+ * A plain URL now, with no credential in it. `<img>` tags cannot send an
+ * `Authorization` header, which is why this used to append `?token=` — and
+ * Ward's cookie is `Path=/` on the shared origin, so the browser attaches it to
+ * an image request on its own. Deleting the query parameter deleted a session
+ * token from every cover URL in the app, the browser history and the API's
+ * request log.
+ *
+ * **If covers ever stop loading, this is the first thing to check**, and the
+ * cause will not be here: it will be the cookie not reaching the API's origin.
  */
 export function coverUrl(id: string): string {
-  const url = apiUrl(`/library/${id}/cover`);
-  const token = getAuthToken();
-  if (token) {
-    url.searchParams.set("token", token);
-  }
-  return url.toString();
+  return apiUrl(`/library/${id}/cover`).toString();
 }
 
 /**

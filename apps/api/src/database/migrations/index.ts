@@ -1,5 +1,6 @@
 import type { Knex } from "knex";
 import * as baseline from "./20260830000000-baseline.js";
+import * as wardCutover from "./20260906000000-ward-cutover.js";
 
 /**
  * The migration list, as **static imports** rather than a directory Knex scans.
@@ -29,6 +30,7 @@ interface Migration {
 
 const MIGRATIONS: Migration[] = [
   { name: "20260830000000-baseline", up: baseline.up, down: baseline.down },
+  { name: "20260906000000-ward-cutover", up: wardCutover.up, down: wardCutover.down },
 ];
 
 /**

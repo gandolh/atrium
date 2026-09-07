@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Knex } from "knex";
 import { knex } from "./knex.js";
 import { migrationSource } from "./migrations/index.js";
+import { isUniqueViolation } from "./errors.js";
 
 /**
  * Everything the database needs before the API serves its first request:
@@ -44,41 +45,49 @@ export async function runMigrations(): Promise<void> {
 }
 
 /**
- * Give every account that has no profile at all a `Default` one (brief 35
- * decision 2).
+ * Give one account its `Default` profile if it has none (brief 35 decision 2).
  *
- * A boot task, not a migration, and the distinction is load-bearing: it is the
- * safety net that keeps "every account has at least one profile" true for
- * accounts seeded *after* the migration ran, which the auth guard's
- * default-profile fallback and the login response both rely on. A no-op once
- * each account has one.
+ * ## Why this is per-subject now, and no longer a boot sweep
  *
- * Takes a `Knex` so the baseline migration can call it **inside** the
- * profile-scope rebuild's transaction, where rows are rehomed by joining
- * through the profiles this creates. That shared call is deliberate: two copies
- * of this rule would be free to drift, and the migration's row-count assertion
- * would then roll back on the difference.
+ * It used to run over every row of `users` at startup. Atrium has no `users`
+ * table any more — Ward owns accounts — and **atrium cannot enumerate them**:
+ * Ward exposes who *this request* is, never a list of who exists. So the sweep
+ * has become a lazy provision, called by the guard the first time a subject
+ * arrives.
+ *
+ * That is a better fit for the model than the sweep was, because the moment a
+ * person becomes able to use atrium is not a deploy or a restart — it is a
+ * superuser issuing an `atrium` grant in Ward's console, which atrium is never
+ * told about. The first request after that grant is the only event atrium can
+ * actually observe, and it is exactly when this runs.
+ *
+ * Idempotent and safe to call on every request: it is one indexed count, and it
+ * inserts only when that count is zero. The unique index on
+ * `(subject, name)` is what makes the race harmless — two tabs arriving
+ * together both see zero, both insert "Default", and one loses on the
+ * constraint rather than producing two default profiles.
  */
-export async function ensureDefaultProfiles(db: Knex = knex): Promise<void> {
-  const orphans = (await db("users as u")
-    .select("u.id as id")
-    .whereNotExists(db("profiles as p").select(db.raw("1")).whereRaw("p.user_id = u.id"))) as {
-    id: string;
-  }[];
-  if (orphans.length === 0) return;
+export async function ensureDefaultProfile(subject: string, db: Knex = knex): Promise<void> {
+  const existing = await db("profiles").where({ subject }).first();
+  if (existing) return;
 
-  const now = new Date().toISOString();
-  await db("profiles").insert(
-    orphans.map((user) => ({
+  try {
+    await db("profiles").insert({
       id: randomUUID(),
-      user_id: user.id,
+      subject,
       name: "Default",
       color: "cream",
       is_default: 1,
       preferences: null,
-      created_at: now,
-    })),
-  );
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    // The lost side of the two-tabs race above. The winner created exactly the
+    // row this call wanted to exist, so there is nothing to report and nothing
+    // to retry — rethrowing would turn a benign race into a 500 on somebody's
+    // first ever page load.
+    if (!isUniqueViolation(error)) throw error;
+  }
 }
 
 /**
@@ -117,13 +126,16 @@ export async function reapInterruptedLatexCompiles(): Promise<number> {
 }
 
 /**
- * The full boot sequence, in the one order that is correct: schema first, then
- * the profile safety net (nothing profile-scoped can be repaired before the
- * profiles exist), then the two job reapers.
+ * The full boot sequence: schema first, then the two job reapers.
+ *
+ * The profile safety net used to run here as a third step. It does not any
+ * more, and its absence is the change rather than an oversight — atrium cannot
+ * enumerate Ward's accounts, so "every account has a profile" cannot be swept
+ * for at boot. `ensureDefaultProfile` is now called per subject by the guard;
+ * see its comment.
  */
 export async function initDatabase(): Promise<void> {
   await runMigrations();
-  await ensureDefaultProfiles();
   await reapInterruptedConversions();
   await reapInterruptedLatexCompiles();
 }

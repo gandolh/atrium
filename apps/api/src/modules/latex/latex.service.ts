@@ -429,11 +429,12 @@ export function sendFile(
 
 // --- Routes ------------------------------------------------------------------
 
-// The app-wide guard (auth.ts) attaches both or 401s, so neither is optional
-// in practice. The **profile** owns projects; the **account** is the security
-// boundary and the compile single-flight scope (D35).
+// The app-wide guard (ward/ward.guard.ts) attaches both or answers 401/403, so
+// neither is optional in practice. The **profile** owns projects; the
+// **account** — now Ward's subject — is the security boundary and the compile
+// single-flight scope (D35).
 export const pid = (request: FastifyRequest): string => request.authProfile!.id;
-export const uid = (request: FastifyRequest): string => request.authUser!.id;
+export const uid = (request: FastifyRequest): string => request.ward!.subject;
 
 /**
  * Rule 1, in one place. Resolve `:id` to a project **on the caller's own

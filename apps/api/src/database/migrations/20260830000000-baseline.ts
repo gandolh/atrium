@@ -1,7 +1,7 @@
 import type { Knex } from "knex";
 import type { FileType } from "@ebook-reader/shared";
 import { coverOwnerId, coverPathFor, filePathFor } from "../../common/paths.js";
-import { ensureDefaultProfiles } from "../bootstrap.js";
+import { randomUUID } from "node:crypto";
 
 /**
  * THE BASELINE MIGRATION — the whole schema as it stood on 2026-08-30, plus
@@ -52,6 +52,43 @@ const BOOK_COLUMNS: Record<string, string> = {
   convert_error: "TEXT",
   convert_started_at: "TEXT",
 };
+
+
+/**
+ * Give every `users` row with no profile a `Default` one — **the legacy shape**.
+ *
+ * This used to be `bootstrap.ts#ensureDefaultProfiles`, shared between that
+ * boot sweep and the rebuild below. It is a local copy now, and the duplication
+ * is deliberate: atrium moved to Ward on 2026-09-06, `users` was dropped, and
+ * the live helper takes a Ward subject and knows nothing about local accounts.
+ *
+ * This migration runs **before** that cutover, against a database that still
+ * has `users` and `profiles.user_id`. It is a historical artifact and must keep
+ * describing the world as it was — sharing code with the present would mean the
+ * past silently changing shape every time the present does, which is exactly
+ * how a replayed migration history corrupts an old database.
+ */
+async function seedLegacyDefaultProfiles(db: Knex): Promise<void> {
+  const orphans = (await db("users as u")
+    .select("u.id as id")
+    .whereNotExists(db("profiles as p").select(db.raw("1")).whereRaw("p.user_id = u.id"))) as {
+    id: string;
+  }[];
+  if (orphans.length === 0) return;
+
+  const now = new Date().toISOString();
+  await db("profiles").insert(
+    orphans.map((user) => ({
+      id: randomUUID(),
+      user_id: user.id,
+      name: "Default",
+      color: "cream",
+      is_default: 1,
+      preferences: null,
+      created_at: now,
+    })),
+  );
+}
 
 export async function up(knex: Knex): Promise<void> {
   await createCoreTables(knex);
@@ -339,7 +376,7 @@ async function migrateToProfileScope(knex: Knex): Promise<void> {
   try {
     await knex.transaction(async (trx) => {
       // Rows are rehomed by joining through these, so they must exist first.
-      await ensureDefaultProfiles(trx);
+      await seedLegacyDefaultProfiles(trx);
 
       if (progressNeedsMigration) {
         await trx.raw(`

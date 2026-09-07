@@ -1,19 +1,17 @@
-import { apiUrl, getAuthToken } from "../lib/api-client";
+import { apiUrl } from "../lib/api-client";
 
 /**
  * Absolute URL for a book's original bytes, for a media element's `src` (brief
- * 23). Native `<audio>`/`<video>` elements can't send an `Authorization`
- * header, so — exactly like cover `<img>` tags (`coverUrl`) — the in-memory
- * bearer token rides along as a `?token=` query param when auth is enabled.
+ * 23).
+ *
+ * No credential in the URL. Native `<audio>`/`<video>` elements cannot send an
+ * `Authorization` header — which is why this carried `?token=` — but they do
+ * send cookies, and Ward's session cookie is `Path=/` on the shared origin.
  *
  * The server serves this route with HTTP Range support (206 / `Accept-Ranges`),
- * so the element can seek/scrub without downloading the whole file.
+ * so the element can seek and scrub without downloading the whole file. Range
+ * requests carry cookies like any other, so seeking keeps working.
  */
 export function mediaFileUrl(id: string): string {
-  const url = apiUrl(`/library/${id}/file`);
-  const token = getAuthToken();
-  if (token) {
-    url.searchParams.set("token", token);
-  }
-  return url.toString();
+  return apiUrl(`/library/${id}/file`).toString();
 }

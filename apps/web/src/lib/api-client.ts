@@ -6,10 +6,26 @@
  * `useMutation`) lands in brief 05. `apiFetch` is the shared low-level
  * wrapper future calls build on.
  *
- * Auth (brief 09): this module owns the in-memory bearer token and a single
- * "unauthorized" callback, rather than importing `./auth` directly — `auth.ts`
- * imports `apiFetch` from here, so importing it back would be circular.
- * `auth.ts` calls `setAuthToken`/`setOnUnauthorized` to wire itself up.
+ * ## Auth is Ward's, and this module carries no token
+ *
+ * There is no bearer token here any more. Atrium's session is Ward's
+ * `ward_session` cookie — `Path=/` on the shared origin — so the browser
+ * attaches it to every request without this module doing anything, including to
+ * `<img>` tags for cover art. That is what let `?token=` and `getAuthToken()`
+ * be deleted outright rather than replaced.
+ *
+ * What survives is the single "unauthorized" callback, for the same
+ * circular-import reason as before: `auth.ts` imports `apiFetch` from here, so
+ * this file must not import it back.
+ *
+ * ## `credentials: "include"` is required, and is easy to lose
+ *
+ * `fetch` omits cookies on a cross-origin request by default, and atrium's web
+ * client talks to its API through `VITE_API_URL` — which is cross-origin in
+ * development (D14: explicit base URL, no Vite proxy) even though it is
+ * same-origin in the deployed estate. Without this every dev request would
+ * arrive at the API with no cookie and 401, while production worked fine, which
+ * is the worst possible split to debug.
  */
 
 // Required — `vite.config.ts` throws at startup if VITE_API_URL is unset, so
@@ -46,32 +62,36 @@ export class ApiError extends Error {
   }
 }
 
-let authToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
+let onForbidden: (() => void) | null = null;
 
-/** Set (or clear, with `null`) the bearer token attached to every `apiFetch` call. */
-export function setAuthToken(token: string | null): void {
-  authToken = token;
-}
-
-/** Current in-memory token, if any (used by `coverUrl` for `<img>` tags that can't send headers). */
-export function getAuthToken(): string | null {
-  return authToken;
-}
-
-/** Registers the callback fired when any (non-exempt) call gets a 401 — see `skipAuthRedirect`. */
+/** Registers the callback fired when a call gets a 401 — Ward sends us to sign in. */
 export function setOnUnauthorized(handler: () => void): void {
   onUnauthorized = handler;
 }
 
 /**
- * Thin fetch wrapper against `API_BASE_URL`. Joins `path` onto the base,
- * attaches `Authorization: Bearer <token>` when one is set, and throws
- * `ApiError` on non-2xx responses.
+ * Registers the callback fired on a **403**.
  *
- * `skipAuthRedirect` opts a call out of the global 401 handler — used only by
- * `POST /auth/login`, where a 401 is the expected "wrong password" signal, not
- * a stale/invalid token that should re-lock the app.
+ * Kept separate from the 401 handler, and that separation is the point: a 403
+ * from atrium means a live, valid Ward session held by somebody with no atrium
+ * grant. Sending them to the login page would be a loop — they are already
+ * signed in, signing in again changes nothing, and only a superuser issuing a
+ * grant can resolve it. They need to be told that, not redirected.
+ */
+export function setOnForbidden(handler: () => void): void {
+  onForbidden = handler;
+}
+
+/**
+ * Thin fetch wrapper against `API_BASE_URL`. Joins `path` onto the base, sends
+ * Ward's cookie, and throws `ApiError` on non-2xx responses.
+ *
+ * `skipAuthRedirect` opts a call out of the global 401 handler. Nothing uses it
+ * any more — it existed for `POST /auth/login`, where a 401 meant "wrong
+ * password" rather than "stale session" — but it is kept because the
+ * distinction it encodes is real and the next caller that needs it should not
+ * have to reinvent the plumbing.
  */
 export async function apiFetch(
   path: string,
@@ -80,15 +100,17 @@ export async function apiFetch(
 ): Promise<Response> {
   const url = apiUrl(path);
   const headers = new Headers(init?.headers);
-  if (authToken) {
-    headers.set("Authorization", `Bearer ${authToken}`);
-  }
 
-  const response = await fetch(url, { ...init, headers });
+  // See the header: without this, cookies are dropped on the cross-origin dev
+  // request and every call 401s in development while production works.
+  const response = await fetch(url, { ...init, headers, credentials: "include" });
 
   if (!response.ok) {
     if (response.status === 401 && !options?.skipAuthRedirect) {
       onUnauthorized?.();
+    }
+    if (response.status === 403) {
+      onForbidden?.();
     }
     // Best-effort: most error responses in this app are JSON (`{error, ...}`),
     // but a 204 has no body and a reverse proxy can hand back an HTML error

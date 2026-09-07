@@ -21,8 +21,12 @@ import { knex } from "../../database/knex.js";
  */
 export interface ProfileRow {
   id: string;
-  /** The owning account. */
-  user_id: string;
+  /**
+   * The owning account, as **Ward's subject** — opaque, stable, never
+   * recycled. Was `user_id`, a local `users.id`, until atrium moved to Ward;
+   * there is no local accounts table any more and there must not be one.
+   */
+  subject: string;
   /** 1–24 chars; unique per account via the `profiles_user_name` index. */
   name: string;
   /** A Reading Room kind-tint token name (`PROFILE_COLORS`), never a hex. */
@@ -83,9 +87,9 @@ const PROGRESS_COLUMNS = ["book_id", "progress", "locator", "updated_at", "versi
  * An account's profiles, default first then oldest first, so the picker's order
  * is stable across renames and the account's default always leads.
  */
-export async function listProfiles(userId: string): Promise<ProfileRow[]> {
+export async function listProfiles(subject: string): Promise<ProfileRow[]> {
   return (await knex("profiles")
-    .where({ user_id: userId })
+    .where({ subject })
     .orderBy([
       { column: "is_default", order: "desc" },
       { column: "created_at", order: "asc" },
@@ -94,22 +98,22 @@ export async function listProfiles(userId: string): Promise<ProfileRow[]> {
 
 /**
  * One profile by id, or undefined. The id is client-supplied at every route
- * that takes one, so callers MUST compare `row.user_id` against the caller's
- * account before acting on it — profiles are not a security boundary, but
+ * that takes one, so callers MUST compare `row.subject` against the caller's
+ * Ward subject before acting on it — profiles are not a security boundary, but
  * accounts are.
  */
 export async function getProfile(id: string): Promise<ProfileRow | undefined> {
   return (await knex("profiles").where({ id }).first()) as ProfileRow | undefined;
 }
 
-export async function getDefaultProfile(userId: string): Promise<ProfileRow | undefined> {
-  return (await knex("profiles").where({ user_id: userId, is_default: 1 }).first()) as
+export async function getDefaultProfile(subject: string): Promise<ProfileRow | undefined> {
+  return (await knex("profiles").where({ subject, is_default: 1 }).first()) as
     | ProfileRow
     | undefined;
 }
 
-export async function countProfiles(userId: string): Promise<number> {
-  const [row] = await knex("profiles").where({ user_id: userId }).count({ n: "*" });
+export async function countProfiles(subject: string): Promise<number> {
+  const [row] = await knex("profiles").where({ subject }).count({ n: "*" });
   return Number(row?.n ?? 0);
 }
 

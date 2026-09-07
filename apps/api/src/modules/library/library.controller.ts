@@ -324,9 +324,9 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
 
   // --- PATCH /library/:id/progress — save the target profile's position ------
   app.patch("/library/:id/progress", async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = request.authUser;
+    const session = request.ward;
     const activeProfile = request.authProfile;
-    if (!user || !activeProfile) return reply.status(401).send({ error: "UNAUTHORIZED" });
+    if (!session || !activeProfile) return reply.status(401).send({ error: "UNAUTHORIZED" });
     const { id } = request.params as { id: string };
     const row = await getBook(id);
     if (!row) return reply.status(404).send({ error: "Book not found." });
@@ -350,7 +350,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     let targetProfileId = activeProfile.id;
     if (parsed.data.profileId !== undefined) {
       const target = await getProfile(parsed.data.profileId);
-      if (!target || target.user_id !== user.id) {
+      if (!target || target.subject !== session.subject) {
         return reply.status(404).send({ error: "NOT_FOUND" });
       }
       targetProfileId = target.id;

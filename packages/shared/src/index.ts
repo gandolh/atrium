@@ -82,13 +82,18 @@ export type {
   ImportRequest,
 } from "./catalog.js";
 
-// --- Auth contract (brief 09) ----------------------------------------------
-export {
-  loginRequestSchema,
-  loginResponseSchema,
-  authStatusSchema,
-} from "./auth.js";
-export type { LoginRequest, LoginResponse, AuthStatus } from "./auth.js";
+/*
+ * The auth contract is gone (2026-09-06). Atrium authenticates nobody: Ward
+ * owns credentials, sessions and the one login page for the estate, so there is
+ * no login request, no login response and no auth-status shape for the client
+ * and the API to agree on. What replaced it is not a schema — it is the
+ * `ward_session` cookie the browser already holds, validated server-side on
+ * every request.
+ *
+ * The profile contract below **stays**, and stays atrium's: profiles are an
+ * identity boundary inside one account and never a security one (D35), and Ward
+ * does not know they exist.
+ */
 
 // --- Notes contract (brief 26; folders brief 50) ----------------------------
 export {

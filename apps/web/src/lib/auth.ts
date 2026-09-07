@@ -1,39 +1,38 @@
 import { create } from "zustand";
-import {
-  authStatusSchema,
-  loginResponseSchema,
-  type LoginRequest,
-  profileListSchema,
-  type Profile,
-} from "@ebook-reader/shared";
+import { profileListSchema, type Profile } from "@ebook-reader/shared";
 
-import { ApiError, apiFetch, setAuthToken, setOnUnauthorized } from "./api-client";
+import { ApiError, setOnForbidden, setOnUnauthorized } from "./api-client";
 import { activateProfile, fetchProfiles } from "./profiles-api";
 import { queryClient } from "./query-client";
+import { goToWardLogin } from "./ward";
 
 /**
- * Web-side auth gate: per-user accounts (username + password). The library is
- * shared across users. `GET /auth/status` reports whether auth is required
- * (always true now); the app stays behind `LockScreen` until `POST /auth/login`
- * returns a session token.
+ * Web-side session state. **Atrium no longer authenticates anybody.**
  *
- * The token is mirrored to localStorage so a refresh doesn't re-lock, and
- * pushed into `api-client`'s in-memory holder (`setAuthToken`) since that
- * module attaches it to every `apiFetch` call and can't import this file back
- * (see api-client.ts's header comment on the circular-import seam).
+ * Identity is Ward's: the browser holds a `ward_session` cookie at `Path=/` on
+ * the shared origin, atrium's API validates it on every request, and this store
+ * never sees a token, a password or a username/password form. What it does is
+ * decide which of three things the app is looking at — signed in, not signed
+ * in, or signed in without permission — and hold the **profile** half, which is
+ * still entirely atrium's (D35: Ward does not know profiles exist).
  *
- * Brief 35 adds the **active profile** to this same store rather than a sibling
- * one. Two reasons it belongs here: the 401 re-lock below has to drop the token
- * AND the profile in one atomic reset (a re-login as a different account that
- * inherited the previous account's profile id would read the wrong person's
- * shelf), and the login response now carries both halves — a separate store
- * would have to be poked from inside this one anyway. An account is the
- * household and the security boundary; a profile is a person in it and an
- * identity boundary only (D35), so nothing here is a permission check.
+ * There is no `login` here and there must not be one. Signing in is a
+ * navigation to `/ward/login?next=…`, not a request atrium makes.
+ *
+ * There is also no stored token. The one piece of localStorage left is the
+ * remembered *profile choice*, which is a preference and not a credential —
+ * losing it costs somebody one tap on the picker.
+ *
+ * Brief 35 put the **active profile** in this same store rather than a sibling
+ * one, and that still holds: the 401 handler below has to drop the session
+ * state and the profile in one atomic reset, because a device that signed in as
+ * a different account while keeping the previous account's profile id would
+ * read the wrong person's shelf. An account is the household and the security
+ * boundary; a profile is a person in it and an identity boundary only (D35), so
+ * nothing here is a permission check — the permission check is the `atrium`
+ * grant, and it happens in the API.
  */
 
-const TOKEN_KEY = "ebook-reader.token";
-const USERNAME_KEY = "ebook-reader.username";
 /** The device's remembered profile choice — an id, and only ever a hint. */
 const PROFILE_KEY = "ebook-reader.profile";
 /** Device cache of the account's profile list — see `readStoredProfiles`. */
@@ -54,46 +53,6 @@ const PROFILE_ACTIVITY_KEY = "ebook-reader.profile-activity";
  * would tax the 90% of loads that are one person on their own phone.
  */
 export const PROFILE_PICKER_IDLE_MS = 24 * 60 * 60 * 1000;
-
-function readStoredToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredToken(token: string | null): void {
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-    }
-  } catch {
-    /* token persistence is best-effort */
-  }
-}
-
-function readStoredUsername(): string | null {
-  try {
-    return localStorage.getItem(USERNAME_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredUsername(username: string | null): void {
-  try {
-    if (username) {
-      localStorage.setItem(USERNAME_KEY, username);
-    } else {
-      localStorage.removeItem(USERNAME_KEY);
-    }
-  } catch {
-    /* username persistence is best-effort */
-  }
-}
 
 function readStoredProfileId(): string | null {
   try {
@@ -127,8 +86,8 @@ function writeStoredProfileId(id: string | null): void {
  *
  * It is display data only — reachable by anyone holding the device, which is
  * fine because a profile is an identity boundary and never a security one
- * (D35). It is cleared on the 401 re-lock, since the next person to log in is
- * not necessarily the account this list belongs to.
+ * (D35). It is cleared whenever the session ends, since the next person to sign
+ * in on this device is not necessarily the account this list belongs to.
  */
 function readStoredProfiles(): Profile[] {
   try {
@@ -194,13 +153,25 @@ function hasFreshChoice(): boolean {
 const FRESH_CHOICE_AT_BOOT = hasFreshChoice();
 stampActivity();
 
-export type AuthGateStatus = "checking" | "locked" | "unlocked";
+/**
+ * What the app is looking at.
+ *
+ * `forbidden` is the state that did not exist before Ward and is the one worth
+ * naming: a valid, live session held by somebody with **no atrium grant**.
+ * Collapsing it into `locked` would send them to a login page they are already
+ * past, in a loop — only a superuser issuing a grant resolves it, so the app has
+ * to say so rather than redirect.
+ */
+export type AuthGateStatus = "checking" | "locked" | "forbidden" | "unlocked";
 
 interface AuthState {
   status: AuthGateStatus;
-  /** Username of the signed-in user, once known (from login or storage). */
+  /**
+   * Kept for the header, and now only ever set from a server response — atrium
+   * has no login form to learn it from and does not persist it.
+   */
   username: string | null;
-  /** Inline login-form error (wrong credentials), cleared on each attempt. */
+  /** A message for the gate screen. Not a login error; there is no login here. */
   error: string | null;
   /**
    * The full active-profile row, once the server has told us (login, boot
@@ -228,10 +199,8 @@ interface AuthState {
    * profile on this account. Cleared by `switchProfile`.
    */
   pickerRequired: boolean;
-  /** Call once on app start: resolves whether the gate should show at all. */
+  /** Call once on app start: asks the API who we are and settles `status`. */
   checkStatus: () => Promise<void>;
-  /** Submit username + password; on success unlocks, on 401 sets `error`. */
-  login: (username: string, password: string) => Promise<void>;
   /**
    * Make `id` the active profile: activate it server-side, drop every cached
    * row from the previous profile, then flip the store. Throws `ApiError` on
@@ -260,115 +229,80 @@ function mergeProfile(profiles: Profile[], profile: Profile): Profile[] {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   status: "checking",
-  username: readStoredUsername(),
+  username: null,
   error: null,
   activeProfile: null,
   activeProfileId: readStoredProfileId(),
   profiles: readStoredProfiles(),
   pickerRequired: !FRESH_CHOICE_AT_BOOT,
 
+  /**
+   * Ask the API who we are, and settle `status` from the answer.
+   *
+   * `GET /profiles` is the probe rather than a dedicated status endpoint, and
+   * that is deliberate: it is a real, guarded, profile-scoped call, so it
+   * exercises exactly the path every other request takes. A dedicated
+   * `/auth/status` would be a second definition of "am I in", free to disagree
+   * with the first — and atrium deleted the one it had for that reason.
+   *
+   * It also answers the follow-up question in the same round trip. A successful
+   * probe *is* the profile list, so there is no separate fetch afterwards.
+   */
   async checkStatus() {
     try {
-      const res = await apiFetch("/auth/status", undefined, { skipAuthRedirect: true });
-      const { required } = authStatusSchema.parse(await res.json());
+      const profiles = await fetchProfiles();
 
-      if (!required) {
-        set({ status: "unlocked", error: null });
+      const stored = readStoredProfileId();
+      const remembered = FRESH_CHOICE_AT_BOOT
+        ? profiles.find((p) => p.id === stored)
+        : undefined;
+      const active = remembered ?? defaultProfile(profiles);
+
+      writeStoredProfiles(profiles);
+      set({
+        status: "unlocked",
+        error: null,
+        profiles,
+        activeProfile: active ?? null,
+        activeProfileId: active?.id ?? null,
+        // Same rule as before: the 24-hour window suppresses the picker only
+        // for a device whose person has already chosen. A server-assigned
+        // default is not a choice.
+        pickerRequired: remembered === undefined,
+      });
+
+      // The device's remembered profile may not be the one the server has
+      // selected for this device session; move it if so, in the background.
+      if (remembered) void activateProfile(remembered.id).catch(() => undefined);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        // Not signed in. The api-client's 401 handler has already started the
+        // navigation to Ward; setting `locked` is what the app paints in the
+        // moment before the browser leaves.
+        set({ status: "locked", error: null });
+        return;
+      }
+      if (err instanceof ApiError && err.status === 403) {
+        set({
+          status: "forbidden",
+          error:
+            "You are signed in, but this account has no access to atrium. " +
+            "Ask the administrator to grant it.",
+        });
         return;
       }
 
-      const token = readStoredToken();
-      if (token) {
-        setAuthToken(token);
-        set({ status: "unlocked", error: null });
-        // Unlock first, reconcile after: the app paints from the seeded
-        // profile id (already correct on a returning device) instead of
-        // waiting on two requests.
-        void reconcileProfiles();
-      } else {
-        set({ status: "locked", error: null });
-      }
-    } catch {
-      // API unreachable or errored — don't strand the user on a lock screen
-      // they can't resolve (login would fail the same way); render the app
-      // and let the existing per-request error states (e.g. home.tsx's
-      // "API may be offline") surface the problem instead.
+      /*
+       * The API is unreachable, or Ward is (a 503 from the guard). Do NOT send
+       * anybody to a login page: signing in goes through the same identity
+       * service that is currently not answering, so the redirect would be a
+       * loop that looks like a broken password.
+       *
+       * Render the app instead and let the existing per-request error states
+       * surface it — the same choice this store made before Ward, for the same
+       * reason.
+       */
       set({ status: "unlocked", error: null });
-    }
-  },
-
-  async login(username, password) {
-    set({ error: null });
-    try {
-      const res = await apiFetch(
-        "/auth/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password } satisfies LoginRequest),
-        },
-        { skipAuthRedirect: true },
-      );
-      const {
-        token,
-        username: resolved,
-        profile,
-        profiles,
-      } = loginResponseSchema.parse(await res.json());
-      writeStoredToken(token);
-      writeStoredUsername(resolved);
-      setAuthToken(token);
-
-      // The login response carries the whole picker, so there is no follow-up
-      // `GET /profiles` here. The server activated the account's default; a
-      // device with a fresh remembered choice skips the picker, and then the
-      // session has to be moved onto that choice or every request would be
-      // scoped to Default while the header names someone else.
-      const rememberedId = readStoredProfileId();
-      const remembered = FRESH_CHOICE_AT_BOOT
-        ? profiles.find((p) => p.id === rememberedId)
-        : undefined;
-      let active = profile;
-      if (remembered && remembered.id !== profile.id) {
-        try {
-          active = await activateProfile(remembered.id);
-        } catch {
-          // Couldn't move the session — show the picker rather than let the
-          // header and the server disagree about who is reading.
-          active = profile;
-        }
-      } else if (remembered) {
-        active = remembered;
-      }
-
-      // A remembered id from a DIFFERENT account can't match anything in this
-      // list, so logging in as someone else always lands on the picker.
-      const skipPicker = active.id === remembered?.id;
-      const merged = mergeProfile(profiles, active);
-      // Remember ONLY a profile the person actually picked. Writing the
-      // server-assigned default here made an un-picked default look exactly
-      // like a choice: log in, walk away without tapping, and the next load
-      // saw a fresh remembered id and skipped the picker for another 24h —
-      // so everyone's reading landed on Default. Decision 6 lets the 24h rule
-      // suppress the picker only for a device whose person has ALREADY
-      // chosen, and `skipPicker` is precisely that condition.
-      if (skipPicker) writeStoredProfileId(active.id);
-      writeStoredProfiles(merged);
-      set({
-        status: "unlocked",
-        username: resolved,
-        error: null,
-        activeProfile: active,
-        activeProfileId: active.id,
-        profiles: merged,
-        pickerRequired: !skipPicker,
-      });
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        set({ error: "Incorrect username or password." });
-      } else {
-        set({ error: "Something went wrong. Please try again." });
-      }
     }
   },
 
@@ -435,61 +369,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 /**
- * Boot reconcile: the stored profile id is a hint, the server's session is the
- * truth. `GET /profiles` can't report which profile the session has active, so
- * the only way to make the two provably agree is to assert the device's choice
- * with `activate` and take its answer — which also turns a stale id (a profile
- * deleted from another device) into a 404 we can fall back from, instead of a
- * header naming someone who no longer exists.
+ * Any 401 means Ward's session is gone — expired, revoked, or signed out from
+ * another app. Hand over to Ward's login page.
+ *
+ * The local state is cleared **before** the navigation, not instead of it. The
+ * redirect is not instantaneous, and whatever renders in the meantime must not
+ * be the previous person's shelf.
  */
-async function reconcileProfiles(): Promise<void> {
-  try {
-    const profiles = await fetchProfiles();
-    const stored = readStoredProfileId();
-    const target = profiles.find((p) => p.id === stored) ?? defaultProfile(profiles);
-    if (!target) return;
-
-    const active = await activateProfile(target.id);
-    const previous = useAuthStore.getState().activeProfileId;
-    if (previous !== active.id) {
-      // The seed was wrong, so everything fetched under it belongs to someone
-      // else. The keys change with the state flip below, but clear anyway —
-      // belt and braces is the whole point of step 7.
-      queryClient.clear();
-    }
-    // Re-affirm an existing choice, never mint one: `target` falls back to the
-    // account default when nothing is stored, and writing that id would turn a
-    // guess into a remembered pick (same defect as login's, below).
-    if (active.id === stored) writeStoredProfileId(active.id);
-    writeStoredProfiles(mergeProfile(profiles, active));
-    useAuthStore.setState((s) => ({
-      activeProfile: active,
-      activeProfileId: active.id,
-      profiles: mergeProfile(profiles, active),
-      // A remembered id that no longer names a real profile is not a
-      // remembered choice, however fresh the timestamp is.
-      pickerRequired: s.pickerRequired || active.id !== stored,
-    }));
-  } catch {
-    // Offline or the API is down. Keep the seeded id: it's what this device
-    // last used, the app already painted with it, and dropping it would only
-    // trade a possibly-stale identity for none at all.
-  }
-}
-
-// Wire the api-client's 401 callback to re-lock: any authenticated call that
-// comes back 401 means the stored token is stale/invalid.
 setOnUnauthorized(() => {
-  writeStoredToken(null);
-  writeStoredUsername(null);
-  // The profile id goes with the token. Left behind, a re-login as a different
-  // account would inherit the previous account's profile id — and since the
-  // remembered timestamp is device activity rather than account state, that id
-  // would have looked fresh enough to skip the picker.
+  /*
+   * The remembered profile id goes too. Left behind, signing in as a different
+   * account on this device would inherit the previous account's profile id —
+   * and because the remembered timestamp is *device* activity rather than
+   * account state, that id would look fresh enough to skip the picker. The
+   * result is one household member's reading silently attributed to another.
+   */
   writeStoredProfileId(null);
   writeStoredProfiles([]);
-  setAuthToken(null);
-  // Whoever logs in next is not necessarily who just got locked out.
+  // Whoever signs in next is not necessarily who just got signed out.
   queryClient.clear();
   useAuthStore.setState({
     status: "locked",
@@ -500,11 +397,33 @@ setOnUnauthorized(() => {
     profiles: [],
     pickerRequired: true,
   });
+
+  goToWardLogin();
 });
 
-// Seed api-client's in-memory token from storage immediately at module load,
-// before `checkStatus` (or any other apiFetch call) runs.
-setAuthToken(readStoredToken());
+/**
+ * A 403 is a live session with no atrium grant, and it must **not** redirect.
+ *
+ * Sending somebody to a login page they are already past is a loop: they sign
+ * in successfully, come back, and are refused again for a reason signing in
+ * cannot address. Only a superuser issuing an `atrium` grant resolves it, so
+ * the app stops and says that.
+ *
+ * The caches are cleared for the same reason as above — whatever is on screen
+ * belongs to a session that has just been refused.
+ */
+setOnForbidden(() => {
+  queryClient.clear();
+  useAuthStore.setState({
+    status: "forbidden",
+    activeProfile: null,
+    activeProfileId: null,
+    profiles: [],
+    error:
+      "You are signed in, but this account has no access to atrium. " +
+      "Ask the administrator to grant it.",
+  });
+});
 
 /**
  * The active profile's id — the identity every profile-scoped cache key and

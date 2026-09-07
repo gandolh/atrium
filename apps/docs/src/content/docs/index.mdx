@@ -1,0 +1,75 @@
+---
+title: Atrium
+description: A personal cloud space — a household media library of books, music and video, plus authored Notes and LaTeX documents.
+tableOfContents: false
+---
+
+import Diagram from '../../components/Diagram.astro'
+
+Atrium is a personal cloud space: a **household media library** — books, music,
+video — and a place to **author** things, in Notes and in LaTeX. One home, no
+tabs; kind is a filter, not an address.
+
+<dl class="doc-facts">
+  <dt>Runs at</dt>
+  <dd><code>/atrium</code> (web) and <code>/atrium-api</code> (API) on the estate's single origin</dd>
+  <dt>Made of</dt>
+  <dd>Four workspaces — <code>apps/web</code>, <code>apps/api</code>, <code>packages/shared</code>, <code>packages/typeset</code></dd>
+  <dt>Stores</dt>
+  <dd>SQLite via Knex, plus files on disk; profiles scope what a person sees</dd>
+  <dt>Identity</dt>
+  <dd>Ward — atrium keeps no accounts and no passwords since the cutover</dd>
+  <dt>Sets its own maths</dt>
+  <dd><code>@ebook-reader/typeset</code> is a TypeScript LaTeX-subset compiler written here</dd>
+</dl>
+
+## What this site is, and what it is not
+
+Atrium's corpus is **eighteen maintained wiki pages**, and they are good. This
+site therefore **renders** them rather than restating them — architecture,
+design, the reader, LaTeX, typesetting, decisions and status all come straight
+from `corpus/` on every build and carry a banner saying so.
+
+Only three things are authored here, because the corpus does not have them:
+
+- [**HTTP API**](/api/) — the route table, module by module.
+- [**Data model**](/data/) — the tables, and what the Ward cutover did to them.
+- This page.
+
+Everything else is either corpus or generated. The
+[packages reference](/reference/) is TypeDoc over `@ebook-reader/shared` and
+`@ebook-reader/typeset`, so the contracts the web and API agree on cannot drift
+from what the code exports.
+
+## How it fits together
+
+<Diagram
+  name="architecture"
+  title="Atrium — workspaces, storage, and the Ward boundary"
+  caption="The dashed boundary is the one that changed most recently: atrium holds no credentials at all now, only an opaque subject from Ward"
+  height={820}
+/>
+
+## The four structural moves
+
+From [design.md](/wiki/design/), which is enforced for every `apps/web` change.
+A decision that serves none of them is decoration.
+
+1. **One home, no tabs.** Kind is a filter chip with a count, not an address.
+2. **Continue is the hero.** What you left open leads the page, in *time
+   remaining*, not percent.
+3. **Tint carries kind.** Each media kind owns a paper tone, so a mixed grid
+   reads without badges.
+4. **Playback persists.** A dock at the foot of the app survives navigation.
+
+## Where to go next
+
+| If you want to | Read |
+|---|---|
+| Understand the layout | [Architecture](/wiki/architecture/) |
+| Add or change an endpoint | [API layering](/wiki/api-layering/), then [HTTP API](/api/) |
+| Touch anything visual | [Design — Reading Room](/wiki/design/) |
+| Work on the reader | [The reader](/wiki/reader/) |
+| Work on LaTeX | [The /latex destination](/wiki/latex/) → [the engine](/wiki/typeset/) |
+| Know why something is the way it is | [Decisions (D1–D47)](/wiki/decisions/) |
+| Know what is happening now | [Status](/wiki/status/) |

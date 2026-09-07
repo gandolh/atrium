@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Upload → store → read, and the two things that branch off it",
+    "viewBox": [
+      1080,
+      780
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "main",
+        "label": "The main path",
+        "focus": [
+          "upload",
+          "validate",
+          "extract",
+          "blobs",
+          "reader"
+        ],
+        "note": "A file is validated, has its metadata and cover pulled out, and becomes a library row."
+      },
+      {
+        "id": "convert",
+        "label": "Conversion",
+        "focus": [
+          "rows",
+          "calibre",
+          "versions"
+        ],
+        "note": "Calibre produces a LINKED row, never a replacement — both formats stay in the library."
+      },
+      {
+        "id": "scoped",
+        "label": "What is per-profile",
+        "focus": [
+          "rows",
+          "progress",
+          "reader"
+        ],
+        "note": "The library is shared; only progress, notes and preferences are profile-scoped."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "In"
+    },
+    {
+      "label": "Check"
+    },
+    {
+      "label": "Derive"
+    },
+    {
+      "label": "Store"
+    },
+    {
+      "label": "Read"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "upload",
+      "type": "frontend",
+      "label": "Upload",
+      "sublabel": "POST /library",
+      "stage": 0,
+      "row": 0,
+      "tag": "50 MB cap"
+    },
+    {
+      "id": "import",
+      "type": "external",
+      "label": "Gutendex",
+      "sublabel": "catalog import",
+      "stage": 0,
+      "row": 3,
+      "tag": "no file"
+    },
+    {
+      "id": "validate",
+      "type": "security",
+      "label": "Validate",
+      "sublabel": "type + truncation",
+      "stage": 1,
+      "row": 1,
+      "tag": "413 if truncated"
+    },
+    {
+      "id": "extract",
+      "type": "backend",
+      "label": "Extract",
+      "sublabel": "metadata + cover",
+      "stage": 2,
+      "row": 1
+    },
+    {
+      "id": "calibre",
+      "type": "backend",
+      "label": "Calibre job",
+      "sublabel": "async, cancellable",
+      "stage": 2,
+      "row": 4,
+      "tag": "quality-graded"
+    },
+    {
+      "id": "blobs",
+      "type": "database",
+      "label": "Files on disk",
+      "sublabel": "bytes, covers",
+      "stage": 3,
+      "row": 0
+    },
+    {
+      "id": "rows",
+      "type": "database",
+      "label": "books",
+      "sublabel": "metadata row",
+      "stage": 3,
+      "row": 2,
+      "tag": "shared"
+    },
+    {
+      "id": "versions",
+      "type": "database",
+      "label": "document_versions",
+      "sublabel": "linked formats",
+      "stage": 3,
+      "row": 4
+    },
+    {
+      "id": "progress",
+      "type": "database",
+      "label": "reading_progress",
+      "sublabel": "per profile",
+      "stage": 4,
+      "row": 3,
+      "tag": "scoped"
+    },
+    {
+      "id": "reader",
+      "type": "frontend",
+      "label": "Reader",
+      "sublabel": "PDF + EPUB",
+      "stage": 4,
+      "row": 1,
+      "tag": "resume"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-upload",
+      "from": "upload",
+      "to": "validate",
+      "label": "the file",
+      "classification": "multipart",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-import",
+      "from": "import",
+      "to": "validate",
+      "label": "catalog result",
+      "classification": "no bytes yet",
+      "variant": "dashed"
+    },
+    {
+      "id": "f-extract",
+      "from": "validate",
+      "to": "extract",
+      "label": "accepted",
+      "classification": "typed",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-blobs",
+      "from": "extract",
+      "to": "blobs",
+      "label": "bytes + cover",
+      "classification": "on disk"
+    },
+    {
+      "id": "f-rows",
+      "from": "extract",
+      "to": "rows",
+      "label": "metadata",
+      "classification": "SQLite",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-convert",
+      "from": "rows",
+      "to": "calibre",
+      "label": "convert request",
+      "classification": "async",
+      "variant": "dashed"
+    },
+    {
+      "id": "f-versions",
+      "from": "calibre",
+      "to": "versions",
+      "label": "linked row",
+      "classification": "never a replacement",
+      "route": "straight",
+      "labelAt": [
+        700,
+        660
+      ]
+    },
+    {
+      "id": "f-read",
+      "from": "rows",
+      "to": "reader",
+      "label": "the collection",
+      "classification": "shared",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f-progress",
+      "from": "reader",
+      "to": "progress",
+      "label": "position",
+      "classification": "per profile",
+      "variant": "security",
+      "labelAt": [
+        960,
+        340
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "The main path",
+      "items": [
+        "A file is checked before anything derives from it — a truncated upload is a 413, not a half-row",
+        "Metadata and cover are extracted once, at ingest, not on every read",
+        "The bytes go to disk and the row points at them; the database is metadata only"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Conversion branches, it does not replace",
+      "items": [
+        "Calibre runs asynchronously and can be cancelled mid-job",
+        "The output is a LINKED library row, so both formats stay readable",
+        "document_versions is the same mechanism published LaTeX output uses"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What a profile actually scopes",
+      "items": [
+        "The media library is SHARED across profiles — this is deliberate",
+        "Progress, notes, LaTeX projects and preferences are scoped",
+        "Scoping is applied in SQL, never as a filter over rows already fetched"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+---
+title: HTTP API
+description: Every route atrium serves, grouped by module, with the guard and the conventions that hold across all of them.
+---
+
+Atrium is served behind `handle_path /atrium-api/*`, which **strips the
+prefix**. A route written `/library` is `GET /atrium-api/library` to a caller.
+Every path below is as the server sees it.
+
+One generic prefix for the whole API is deliberate: every current and future
+route rides under `/atrium-api/` with no per-route edit in the estate's shared
+Caddyfile.
+
+## What guards them
+
+`registerWardGuard(app)` runs **app-wide, before any route is registered**, so
+every non-allowlisted request arrives with an authenticated caller holding an
+atrium grant.
+
+Atrium's long-standing rule that **no route does its own auth** survived the
+move to Ward. If you are adding an endpoint, you do not add an auth check — you
+add it to the allowlist if, and only if, it must be anonymous.
+
+Allowlisted today: `GET /health`, and `OPTIONS` preflights.
+
+:::note[`?token=` is gone, and so is the redaction that protected it]
+Cover `<img>` tags used to carry the session token in the query string, because
+an `<img>` cannot send an `Authorization` header — so every request URL was a
+potential credential and the log serialiser scrubbed it. Ward's cookie is
+`Path=/` on the shared origin and the browser attaches it to an image request
+unasked, so no token reaches a URL any more. The fallback and its redaction were
+removed together.
+:::
+
+## Library — books, music, video
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/library` | The collection, filtered by kind and scoped to the active profile. |
+| `POST` | `/library` | Upload. 50 MB ceiling; a truncated upload answers `413`. |
+| `POST` | `/library/import` | Import from a catalog result rather than a file. |
+| `GET` | `/library/:id` | One item. |
+| `DELETE` | `/library/:id` | Remove it. |
+| `GET` | `/library/:id/file` | The bytes. |
+| `GET` | `/library/:id/cover` | Cover art. |
+| `POST` | `/library/:id/cover` | Replace cover art. |
+| `PATCH` | `/library/:id/progress` | Reading/listening position. Profile-scoped. |
+| `GET` | `/library/:id/versions` | Linked versions — the same book in either format. |
+| `POST` | `/library/:id/convert` | Start a Calibre conversion job. |
+| `DELETE` | `/library/:id/convert` | Cancel it. |
+
+Conversion is asynchronous and cancellable, and produces a **linked library
+row** rather than replacing the original — see [Conversion](/wiki/conversion/).
+
+## Catalog
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/catalog/gutenberg` | Search Project Gutenberg via Gutendex, for import. |
+
+## Notes
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/notes` | Notes for the active profile. |
+| `POST` | `/notes` | Create. |
+| `GET` | `/notes/:id` | One note. |
+| `PATCH` | `/notes/:id` | Update content. |
+| `DELETE` | `/notes/:id` | Delete. |
+| `PATCH` | `/notes/:id/folder` | Move between folders. |
+| `GET` | `/notes/:id/export.pdf` | Render to PDF. |
+| `GET` | `/note-folders` | The folder tree. |
+| `POST` | `/note-folders` | Create a folder. |
+| `PATCH` | `/note-folders/:id` | Rename. |
+| `DELETE` | `/note-folders/:id` | Delete. |
+
+## Profiles
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/profiles` | Every profile on this account. |
+| `POST` | `/profiles` | Create one. |
+| `PATCH` | `/profiles/:id` | Rename, recolour. |
+| `DELETE` | `/profiles/:id` | Delete — **cascades to everything profile-scoped**. |
+| `POST` | `/profiles/:id/activate` | Switch. Free: no password, no PIN. |
+| `GET` | `/profiles/:id/preferences` | Reading preferences. |
+| `PATCH` | `/profiles/:id/preferences` | Update them. |
+
+Switching a profile is deliberately frictionless — a profile is an identity
+*inside* an account, not a security boundary. The security boundary is the Ward
+grant. Since the cutover, which profile a **device** last activated is keyed on
+the Ward token's `sid`, so switching on one device does not switch the others.
+
+## LaTeX
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/latex` | Projects. |
+| `POST` | `/latex` | Create a project. |
+| `GET` | `/latex/:id` | One project. |
+| `PATCH` | `/latex/:id` | Update metadata. |
+| `DELETE` | `/latex/:id` | Delete. |
+| `POST` | `/latex/:id/rename` | Rename. |
+| `GET` | `/latex/:id/files` | The project tree. |
+| `GET` | `/latex/:id/files/*` | Read one file. |
+| `POST` | `/latex/:id/files/*` | Write one file. |
+| `DELETE` | `/latex/:id/files/*` | Delete one file. |
+| `POST` | `/latex/:id/compile` | Start a compile. |
+| `POST` | `/latex/:id/cancel` | Cancel it. |
+| `GET` | `/latex/:id/log` | Compile diagnostics. |
+| `GET` | `/latex/:id/pdf` | The output. |
+| `POST` | `/latex/:id/publish` | Publish into the library as a versioned document. |
+
+The engine is atrium's own — a TypeScript LaTeX-subset compiler that performs
+**no I/O** and is hosted on a worker thread. See [the engine](/wiki/typeset/).
+
+## Conventions
+
+- **`PATCH`, `PUT` and `DELETE` are enumerated in the CORS config.** The default
+  allowlist omits `PATCH`, and these routes carry JSON bodies so they are
+  preflighted. A method missing there works perfectly under `app.inject` and
+  fails only in a browser — which is exactly the kind of bug the enumeration
+  exists to prevent.
+- **Uploads cap at 50 MB.** `@fastify/multipart` truncates past the limit; the
+  routes inspect `file.truncated` and answer `413` rather than storing a
+  half-file.
+- **Outcomes are tagged unions, not exceptions.** A service returns a
+  discriminated result and the controller maps it to a status code. See
+  [API layering](/wiki/api-layering/).
+- **Profile scoping happens in SQL**, not in a filter after the fact — also
+  [API layering](/wiki/api-layering/).

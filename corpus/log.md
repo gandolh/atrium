@@ -2056,3 +2056,110 @@ final-position flush and stale-format misrouting) — fixed. Live E2E with real
 CC0 media on a scratch DB; typecheck + build green. See
 [briefs/done/23-media-library.md](briefs/done/23-media-library.md).
 **Uncommitted — owner controls git.**
+
+## [2026-09-06] change | atrium moves to Ward: all of its own auth deleted, profiles re-keyed onto subjects
+
+**D53.** Atrium authenticates nobody now. Deleted outright: `users`, `sessions`,
+`password.ts`, the whole `modules/auth/` tree, `scripts/seed.ts`,
+`GET /auth/status`, `POST /auth/login`, and `packages/shared/src/auth.ts`.
+Identity is Ward's — a `ward_session` cookie at `Path=/` on the shared origin,
+verified locally against Ward's JWKS (EdDSA, algorithm **pinned as a literal**,
+never read from the token header) and then introspected for liveness with a
+30-second cache.
+
+**Atrium hand-writes its Ward client** in `apps/api/src/modules/ward/` rather
+than importing a shared package — the estate decided against one, because these
+repos are separate checkouts that vps-deploy `npm ci`s independently and no
+build resolves a workspace package from another repo. The contract all five
+apps implement is `wzd_auth/corpus/wiki/integrating.md`; `wzd_auth/client/` is
+the tested reference this was adapted from.
+
+**The guard grew a third outcome and it is the interesting one.** 401 is no
+session; **403 is a live Ward session holding no `atrium` grant**, which must
+not redirect to login — the person is already signed in, signing in again
+changes nothing, and only a superuser issuing a grant resolves it, so a redirect
+would be a loop that looks like a broken password. 503 is Ward unreachable or
+atrium's own app key refused; it fails closed and is deliberately never
+reported as "signed out", for the same reason — a login page served by a service
+that is down cannot help.
+
+**`?token=` is gone, and that is the concrete payoff of the one-origin
+topology.** It existed only because cover `<img>` and `<audio>`/`<video>` tags
+cannot send an `Authorization` header. A `Path=/` cookie is sent on those
+requests automatically, so `coverUrl`, `mediaFileUrl`, `getAuthToken` and
+`app.ts`'s `?token=` log-redaction serialiser were all deleted together. No
+session token appears in any URL, browser history or request log any more.
+
+**Profiles survived untouched, which was the point of the re-key.**
+`reading_progress`, `notes` and the LaTeX projects all hang off `profile_id`,
+so changing what a profile *belongs to* left every one of those rows correctly
+attached — one column at the top of the chain moved and nothing below it did.
+Two consequences needed real thought:
+
+- **The active profile had nowhere to live.** It was `sessions.active_profile_id`
+  and there is no sessions table. It moved to `profile_selections (subject, sid)`,
+  keyed on the access token's **refresh-family claim** — one browser, one
+  sign-in — which reproduces per-device switching exactly. A per-account column
+  would have silently lost that: switching to "Kids" on the laptop would have
+  switched the phone.
+- **"Every account has a profile" could no longer be swept for.** It ran over
+  `users` at boot, and atrium cannot enumerate Ward's accounts — Ward answers
+  who *this request* is, never who exists. It is now a lazy per-subject
+  provision called by the guard, which is a better fit anyway: the moment
+  somebody becomes able to use atrium is a superuser issuing a grant in Ward's
+  console, an event atrium is never told about, so their first request is the
+  only thing it can observe.
+
+**The web client lost its login form**, not just its token. `lib/auth.ts` keeps
+the profile half and drops the credential half entirely; `LockScreen.tsx`
+became `AuthGate.tsx`, which redirects rather than prompting. `apiFetch` sends
+`credentials: "include"` — required, and easy to lose: the web client talks to
+the API through `VITE_API_URL`, which is cross-origin in development even though
+it is same-origin in the deployed estate, so without it every dev request would
+401 while production worked.
+
+**This migration destroys every atrium account**, by the estate's decision — a
+full prune rather than a mapping invented at cutover. The cascade takes profiles
+and everything under them. `20260906000000-ward-cutover.ts` has no meaningful
+`down` and says so. **Take a database copy before running it.**
+
+Typecheck clean across all workspaces; 647 tests pass (the typeset package's —
+the API has no suite). Nothing has been run against a real browser or a deployed
+Ward.
+
+## [2026-09-06] done | A documentation site at `/atrium/docs`, rendering the corpus rather than restating it
+
+`apps/docs` — Astro + Starlight, built by `npm run docs -w @ebook-reader/docs-site`
+and deployed at the estate's new `/<project>/docs` convention.
+
+**Deliberately thin on authored prose.** Atrium's corpus is eighteen maintained
+wiki pages and they are good, so the site *renders* them — `sync-corpus.mjs`
+writes all nineteen (wiki + log) into the content tree on every build, gitignored
+and banner-marked so nobody edits the copy. Only three pages are authored, and
+only because the corpus lacks them: an orientation page, the **HTTP route table**
+(module by module, with the app-wide guard and the CORS-method trap that only
+fails in a browser), and the **data model** (the tables, profile scoping in SQL,
+and what the Ward cutover removed — including why there must not be a `users`
+table).
+
+**Reference is generated, not written.** TypeDoc over the two published packages,
+`@ebook-reader/shared` and `@ebook-reader/typeset`, so the contracts `web` and
+`api` compile against cannot drift from the docs.
+
+**Two archify diagrams**, compiled from typed JSON in `apps/docs/diagrams/` and
+validated before they ship: the workspace/storage architecture with the Ward
+boundary, and the upload→store→read data flow with its two branches (conversion
+producing a *linked* row, and what a profile actually scopes).
+
+**The docs wear Reading Room.** Palette, the Newsreader/Archivo split and the
+"accent means state only, the solid control is ink" rule are taken from
+`wiki/design.md` (D33), with fonts self-hosted from the same `@fontsource`
+packages `apps/web` uses. The light/dark toggle is **kept** — unlike Ward's docs,
+which are light-only — because atrium is a three-theme reading app and
+documentation for a reading surface that offered no choice would contradict what
+it documents. Sepia is not offered: it is a reading-surface theme, and this is
+chrome.
+
+Typecheck clean, 647 tests pass, `apps/docs` added under the existing `apps/*`
+workspace glob with a `docs` script rather than a `build` script so
+`npm run build --workspaces` is unaffected.

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["../../packages/shared", "../../packages/typeset"],
+  "out": "public/reference",
+  "name": "Atrium — shared contracts and the typesetting engine",
+  "hideGenerator": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "sort": ["source-order"],
+  "categorizeByGroup": true
+}

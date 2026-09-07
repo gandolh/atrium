@@ -1,0 +1,104 @@
+---
+title: Data model
+description: The tables, what profile scoping means in practice, and what the Ward cutover removed — including why there is deliberately no users table any more.
+---
+
+import Diagram from '../../components/Diagram.astro'
+
+SQLite through Knex, plus files on disk. Migrations live in
+`apps/api/src/database/migrations/` and are registered explicitly — see
+[API layering](/wiki/api-layering/).
+
+## The tables
+
+| Table | Holds |
+|---|---|
+| `books` | Every library item — books, music, video. The name predates the gallery. |
+| `reading_progress` | Position per item, **per profile**. |
+| `document_versions` | Linked versions: the same book in either format, and published LaTeX output. |
+| `notes` | Authored notes. |
+| `note_folders` | Their tree. |
+| `latex_projects` | LaTeX projects. |
+| `profiles` | Identities inside an account. |
+| `profile_selections` | Which profile a **device** last activated. |
+
+<Diagram
+  name="library-flow"
+  title="Upload → store → read, and the two things that branch off it"
+  caption="Two things are worth reading off this: the bytes never enter the database, and conversion produces a linked row rather than replacing anything"
+  height={820}
+/>
+
+## What the Ward cutover did
+
+The `20260906000000-ward-cutover` migration is the most consequential one in the
+repo, and it is destructive by decision.
+
+**Dropped, in dependency order:** `sessions`, then `profiles`, then `users`.
+
+**There is no `users` table any more, and there must not be.** Ward owns
+accounts. A local `users` table would be a second, stale answer to "who exists".
+
+**`profiles` was rebuilt rather than altered**, because SQLite cannot `ALTER` a
+foreign key. The new table carries `subject` — Ward's opaque, stable,
+never-recycled identifier — in place of `user_id`, and carries **no foreign key
+at all**: there is no local table for a subject to reference.
+
+That is a real narrowing of what the database guarantees, and it is worth
+stating plainly. Referential integrity for the subject is **Ward's**. Atrium's
+guarantee is smaller and still worth having: a profile row always carries the
+subject that owns it, and every child cascades from the profile.
+
+### `profile_selections`, and why `sid`
+
+It replaces `sessions.active_profile_id`, keyed on the Ward access token's
+`sid` claim — the refresh family id.
+
+Keying on the session rather than the account is what preserves the old
+behaviour that mattered: switching profiles on one device does not switch them
+on the others. When there is no row the guard falls back to the account's
+default, so a deleted profile taking its selections with it (`ON DELETE
+CASCADE`) is a clean outcome rather than a dangling one.
+
+### The migration turns foreign keys off, outside a transaction
+
+```ts
+await knex.raw('PRAGMA foreign_keys = OFF')
+```
+
+SQLite **silently ignores that pragma inside a transaction**, which would make
+the drops fail on the very foreign keys they are removing. Migrations therefore
+run with `disableTransactions: true`, and the pragma is restored in a `finally`
+so a failed migration does not leave the connection with integrity checking off
+for everything after it.
+
+:::danger[There is no meaningful `down`]
+Reversing the cutover would have to invent password hashes for accounts that no
+longer exist and re-derive local ids for subjects Ward issued. `down` drops what
+`up` created so a re-run is not blocked, and is explicit that the data is not
+coming back.
+
+**The recovery path is the database copy taken before `up` ran** — the only
+thing that ever could have been. The repo already carries a
+`backup-pre-brief35-*` directory from the last time a change touched
+profile-scoped rows.
+:::
+
+## Profile scoping
+
+Everything a person authors or reads is scoped to a profile: reading progress,
+notes, LaTeX projects, preferences. **The media library itself is shared** —
+only identity, progress, notes and preferences are scoped.
+
+Scoping is applied **in SQL**, in the model layer, not as a filter over rows
+already fetched. That is an [API layering](/wiki/api-layering/) rule and it is a
+correctness one: a filter applied after the fact is a filter somebody can forget.
+
+## Files on disk
+
+The database holds metadata; the bytes do not live in it. Uploads, covers,
+converted output and LaTeX project trees are files, and the row points at them.
+
+The practical consequence for backups: **a database dump alone is not a backup
+of atrium.** The file tree has to come with it, and the two have to be
+consistent with each other.

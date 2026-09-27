@@ -11,7 +11,7 @@ the repo, and "much cheaper to close than it was". This sweep shows what it
 costs. Four of its confirmed defects are the kind one request in a test would
 have caught, and that typecheck and "verified by hand" did not:
 
-- **[Brief 53](53-storage-roots-resolve-from-api-package.md):** a file move
+- **[Brief 53](../done/53-storage-roots-resolve-from-api-package.md):** a file move
   shifted every default storage root.
 - **[Brief 54](54-latex-compile-slot-keyed-on-subject.md):** a Knex column
   string named a column that no longer exists.

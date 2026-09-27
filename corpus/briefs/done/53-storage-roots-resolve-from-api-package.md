@@ -119,7 +119,7 @@ beside a populated library.
   - both empty → boots.
 - The startup log names all five roots.
 - Typecheck and build are clean.
-- If [brief 63](63-api-test-harness.md)'s harness has landed, pin the resolution
+- If [brief 63](../todo/63-api-test-harness.md)'s harness has landed, pin the resolution
   in a test.
 
 **Do not "prove" the fix by booting the API on its defaults on this machine.** The

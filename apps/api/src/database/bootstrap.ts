@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 import type { Knex } from "knex";
+import {
+  DATA_DIR,
+  DB_PATH,
+  DOCUMENT_VERSIONS_DIR,
+  LATEX_PROJECTS_DIR,
+  LIBRARY_FILES_DIR,
+  THUMBNAILS_DIR,
+} from "../common/config.js";
 import { knex } from "./knex.js";
 import { migrationSource } from "./migrations/index.js";
 import { isUniqueViolation } from "./errors.js";
@@ -135,7 +144,37 @@ export async function reapInterruptedLatexCompiles(): Promise<number> {
  * see its comment.
  */
 export async function initDatabase(): Promise<void> {
+  refuseFreshDatabaseBesideFiles();
   await runMigrations();
   await reapInterruptedConversions();
   await reapInterruptedLatexCompiles();
+}
+
+/**
+ * Stop before migrations create a new database beside a library that already
+ * has files (brief 53).
+ *
+ * No `library.db` while the uploads or thumbnails directory holds entries is
+ * never a normal first boot. It is a storage root resolving somewhere
+ * unintended, as brief 53's anchors did, or a test that redirected the database
+ * but not the files, the shape of the 2026-08-25 incident. Carrying on would
+ * serve an empty library over the real files and write new uploads next to
+ * them. A genuinely empty first boot (no database, empty or absent
+ * directories) passes. Dotfiles are ignored so a stray `.gitkeep` is not a
+ * library.
+ */
+function refuseFreshDatabaseBesideFiles(): void {
+  if (existsSync(DB_PATH)) return;
+
+  const populated = [LIBRARY_FILES_DIR, THUMBNAILS_DIR].filter(
+    (dir) => existsSync(dir) && readdirSync(dir).some((name) => !name.startsWith(".")),
+  );
+  if (populated.length === 0) return;
+
+  throw new Error(
+    `Refusing to create a new database at ${DB_PATH}: there are already files in ${populated.join(" and ")}, ` +
+      "so a storage root is pointing somewhere unintended. Resolved roots: " +
+      `data ${DATA_DIR}, library ${LIBRARY_FILES_DIR}, thumbnails ${THUMBNAILS_DIR}, ` +
+      `latex ${LATEX_PROJECTS_DIR}, versions ${DOCUMENT_VERSIONS_DIR}.`,
+  );
 }

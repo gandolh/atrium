@@ -2163,3 +2163,23 @@ chrome.
 Typecheck clean, 647 tests pass, `apps/docs` added under the existing `apps/*`
 workspace glob with a `docs` script rather than a `build` script so
 `npm run build --workspaces` is unaffected.
+
+## [2026-09-27] done | Brief 53 — storage roots and `.env` resolve from the API package again
+
+`config.ts` now finds `API_ROOT` by walking up to the first `package.json` named
+`@ebook-reader/api` instead of counting `..`, so brief 52's move into `common/`
+can no longer shift the roots, and a move that leaves the package behind fails at
+import with a message naming where it looked. Printed rather than booted, per the
+brief: from `src` under tsx and from the built `dist`, with a clean environment,
+`.env` is `<repo>/.env` and loaded, and all five roots are `apps/api/<root>`. A
+copy of the module outside the package refuses to load. The "API ready" line now
+names all five roots and the `.env` path. `initDatabase` refuses to create a
+database beside a non-empty library or thumbnails directory, naming every resolved
+root: checked on a scratch base (absent database plus one file → exit 1, no
+database written; all empty → boots). Brief 63's harness has not landed, so there
+is no pinning test yet. Typecheck clean, 647 tests pass.
+
+**Before deploying this:** per the brief, check whether production ran a build
+after `0cf1e7f`. If it did, the container may hold rows and uploads under
+`/app/apps/api/dist/{data,library,images}` that exist nowhere else; copy them out
+first, because this fix points the API back at the bind-mounted library.

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
@@ -15,18 +15,46 @@ import { maxUploadBytesFromMb } from "@ebook-reader/shared";
  * What is here is how to reach Ward and how to prove atrium is atrium.
  */
 
-const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src (or dist)
-const API_ROOT = resolve(HERE, "..");
+const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src/common (or dist/common)
+
+/**
+ * The API package's directory: the first directory above this file whose
+ * `package.json` is named `@ebook-reader/api`.
+ *
+ * Found by name rather than by counting `..`, because counting is what broke
+ * (brief 53). Brief 52 moved this file one level down, into `common/`, and every
+ * storage root and the `.env` path silently moved one level with it: the API
+ * booted on a brand-new empty database while the real library sat beside it.
+ * Walking to the package works from `src` under tsx and from the built `dist`
+ * alike, and if a move ever leaves the package behind, startup fails here
+ * instead of resolving somewhere new.
+ */
+function findApiRoot(start: string): string {
+  for (let dir = start; ; dir = dirname(dir)) {
+    const manifest = resolve(dir, "package.json");
+    if (existsSync(manifest) && JSON.parse(readFileSync(manifest, "utf8")).name === "@ebook-reader/api") {
+      return dir;
+    }
+    if (dirname(dir) === dir) {
+      throw new Error(
+        `config.ts: no @ebook-reader/api package.json above ${start}, so the storage roots and .env cannot be resolved.`,
+      );
+    }
+  }
+}
+
+const API_ROOT = findApiRoot(HERE);
 const REPO_ROOT = resolve(API_ROOT, "..", "..");
 
 /**
  * Load the single repo-root `.env` into process.env before validating.
  * Best-effort: in production the variables may be injected by the process
  * manager (pm2/systemd) rather than a file, so a missing `.env` is fine — the
- * schema check below is the real gate.
+ * schema check below is the real gate. Both are exported for the startup log.
  */
-const ENV_FILE = resolve(REPO_ROOT, ".env");
-if (existsSync(ENV_FILE)) {
+export const ENV_FILE = resolve(REPO_ROOT, ".env");
+export const ENV_FILE_LOADED = existsSync(ENV_FILE);
+if (ENV_FILE_LOADED) {
   process.loadEnvFile(ENV_FILE);
 }
 
@@ -121,8 +149,9 @@ export const CONVERT_JOB_TIMEOUT_MS = env.CONVERT_JOB_TIMEOUT_MS;
 
 /**
  * Library storage roots (decisions.md D24/D25). Everything lives under the
- * API package's `data/` (DB) and sibling dirs, resolved relative to this
- * source file so it's stable regardless of cwd (dev `tsx` vs built `dist/`).
+ * API package's `data/` (DB) and sibling dirs, resolved from the package
+ * itself (`findApiRoot` above) so it's stable regardless of cwd and of where
+ * this file sits (dev `tsx` vs built `dist/`).
  * All three are gitignored. Override the base with `LIBRARY_DATA_DIR` (an
  * optional deploy override, not part of the required .env contract).
  */

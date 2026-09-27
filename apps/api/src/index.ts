@@ -1,5 +1,17 @@
 import { buildApp } from "./app.js";
-import { CONVERT_TIMEOUT_MS, HOST, MAX_UPLOAD_MB, PORT } from "./common/config.js";
+import {
+  CONVERT_TIMEOUT_MS,
+  DATA_DIR,
+  DOCUMENT_VERSIONS_DIR,
+  ENV_FILE,
+  ENV_FILE_LOADED,
+  HOST,
+  LATEX_PROJECTS_DIR,
+  LIBRARY_FILES_DIR,
+  MAX_UPLOAD_MB,
+  PORT,
+  THUMBNAILS_DIR,
+} from "./common/config.js";
 import { initDatabase } from "./database/bootstrap.js";
 import { closeDatabase } from "./database/knex.js";
 import { isCalibreAvailable } from "./modules/library/calibre.service.js";
@@ -55,8 +67,22 @@ async function start(): Promise<void> {
     await initDatabase();
     await checkCalibre();
     await app.listen({ port: PORT, host: HOST });
+    // Every storage root, in the first line an operator reads. Two incidents and
+    // brief 53 were all a root silently pointing somewhere unintended; this is
+    // where the next one shows.
     app.log.info(
-      { maxUploadMb: MAX_UPLOAD_MB, convertTimeoutMs: CONVERT_TIMEOUT_MS },
+      {
+        maxUploadMb: MAX_UPLOAD_MB,
+        convertTimeoutMs: CONVERT_TIMEOUT_MS,
+        storageRoots: {
+          data: DATA_DIR,
+          library: LIBRARY_FILES_DIR,
+          thumbnails: THUMBNAILS_DIR,
+          latex: LATEX_PROJECTS_DIR,
+          versions: DOCUMENT_VERSIONS_DIR,
+        },
+        envFile: { path: ENV_FILE, loaded: ENV_FILE_LOADED },
+      },
       "API ready",
     );
     // Backfill series/subjects metadata for pre-existing rows (brief 21). Fired

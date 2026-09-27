@@ -37,7 +37,7 @@ Three smaller problems in the same files:
   route". D53 deleted that mechanism.
 - The image sets no storage-root env at all, so where it writes depends entirely
   on source-relative resolution in `config.ts`. That resolution is currently
-  wrong ([brief 53](53-storage-roots-resolve-from-api-package.md)). A container
+  wrong ([brief 53](../done/53-storage-roots-resolve-from-api-package.md)). A container
   should name its mount points explicitly rather than inherit them from the depth
   of a source file.
 

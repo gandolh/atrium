@@ -2183,3 +2183,36 @@ is no pinning test yet. Typecheck clean, 647 tests pass.
 after `0cf1e7f`. If it did, the container may hold rows and uploads under
 `/app/apps/api/dist/{data,library,images}` that exist nowhere else; copy them out
 first, because this fix points the API back at the bind-mounted library.
+
+## [2026-09-27] decision | D54 — development runs on one origin; brief 65 mostly lands
+
+Owner's call, made for every Ward app at once: option A. D14 is revised and D54
+records why. The web dev server serves the app under `/atrium/` (`BASE_PATH`),
+proxies `/atrium-api` to the API with the prefix stripped, and proxies `/ward` and
+`/ward-api` to `WARD_PUBLIC_ORIGIN`, the local Ward container in
+`wzd_auth/infrastructure/local`, whose `seed.mjs` registers atrium, grants the
+owner account and writes `WARD_APP_KEY`. `VITE_API_URL` is
+`http://localhost:5173/atrium-api` in `.env.example`. The proxy rewrites `Origin`
+to Ward's only for requests from a page on the dev server, which is what lets
+Ward's same-origin check on `/refresh` and `/logout` pass. `api-client.ts`'s
+comment now says `credentials: "include"` is necessary but not sufficient, and
+the README has a local-run section.
+
+Verified in a headless browser against the local Ward on scratch storage roots:
+`/atrium/` sent a signed-out visitor to `localhost:5173/ward/login?next=/atrium/`,
+signing in came back to the profile picker and then the library; with the atrium
+grant revoked the page said the account has no access, with no loop; with Ward
+stopped the API answered 503 `IDENTITY_UNAVAILABLE` once the 30-second cache ran
+out. A production-env build still carries `https://gandolh.ro/atrium-api` and the
+relative `/ward/login?next=`, with no `localhost` anywhere in `dist`.
+
+**Brief 65 stays in `todo/`** for two things: CORS still reflects any origin
+(narrowing it to an allowlist is a production change nobody asked for yet), and
+with Ward down the page sits on "Loading…" instead of an unavailable state,
+because the gate resolves an outage as unlocked and the profile picker then waits
+for profiles that cannot load. That second one is brief 61's territory.
+
+Found on the way, not atrium's: Ward's own Sign out does nothing in a browser.
+`/logout` clears cookies only when it is handed the refresh token, and
+`ward_refresh` is scoped to `/ward-api/refresh`, so the browser never sends it
+there. Reported to the owner.

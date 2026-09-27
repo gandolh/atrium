@@ -32,8 +32,10 @@ export async function buildApp(): Promise<FastifyInstance> {
    */
   const app = Fastify({ logger: true });
 
-  // Permissive CORS — single-user tool, web talks cross-origin via VITE_API_URL
-  // (D14; no Vite proxy). Enumerate methods so the library routes' PATCH/DELETE
+  // Permissive CORS, from when the web client talked to the API cross-origin
+  // (D14). Since D54 it no longer does, in dev or in the deploy: both put the
+  // API on the page's origin, and narrowing this to an allowlist is what brief
+  // 65 still leaves open. Enumerate methods so the library routes' PATCH/DELETE
   // (with a JSON body → preflighted) aren't blocked; the default allowlist omits
   // PATCH. PUT joins it for brief 38's file-write route (`PUT /latex/:id/files/*`),
   // which is likewise preflighted and would otherwise be blocked in the browser

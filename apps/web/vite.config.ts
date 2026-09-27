@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -8,6 +8,43 @@ import { VitePWA } from "vite-plugin-pwa";
 // The single .env lives at the repo root (shared with the API), so point Vite's
 // env loading there instead of the default per-app dir.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/**
+ * Local dev on one origin, the way Caddy serves the deploy (D54, revising D14):
+ * `/atrium-api` is the API with the prefix stripped, and `/ward` + `/ward-api`
+ * are the Ward the API trusts (WARD_PUBLIC_ORIGIN; locally the container in
+ * wzd_auth/infrastructure/local). With VITE_API_URL pointed at this server's
+ * own /atrium-api, the cookie, Ward's redirect back to /atrium/ and signing out
+ * behave as they do in the deploy, and CORS never comes into it.
+ *
+ * Ward refuses /refresh and /logout unless the request's Origin is its own. A
+ * request from a page on this dev server would be same-origin in the deploy, so
+ * its Origin is rewritten to say so. Anything else keeps its Origin and its
+ * Sec-Fetch-Site, and Ward still refuses it.
+ */
+function devProxy(env: Record<string, string>): Record<string, ProxyOptions> {
+  const proxy: Record<string, ProxyOptions> = {
+    "/atrium-api": {
+      target: `http://localhost:${env.PORT}`,
+      rewrite: (url) => url.replace(/^\/atrium-api/, ""),
+    },
+  };
+  if (!env.WARD_PUBLIC_ORIGIN) return proxy;
+
+  const ward = new URL(env.WARD_PUBLIC_ORIGIN).origin;
+  proxy["^/ward(-api)?(/|$)"] = {
+    target: ward,
+    configure: (server) => {
+      server.on("proxyReq", (proxyReq, req) => {
+        const origin = req.headers.origin;
+        if (origin && URL.canParse(origin) && new URL(origin).host === req.headers.host) {
+          proxyReq.setHeader("origin", ward);
+        }
+      });
+    },
+  };
+  return proxy;
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -48,6 +85,7 @@ export default defineConfig(({ mode }) => {
   return {
     base,
     envDir: REPO_ROOT,
+    server: { proxy: devProxy(env) },
     plugins: [
       react(),
       tailwindcss(),

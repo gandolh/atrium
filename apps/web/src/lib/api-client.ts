@@ -1,6 +1,8 @@
 /**
- * Base API client. Reads `VITE_API_URL` (decisions.md D14 — explicit CORS
- * base URL, no Vite proxy). Falls back to the local Fastify dev port.
+ * Base API client. Reads `VITE_API_URL`: the estate's `/atrium-api` in the
+ * deploy, and the web dev server's own `/atrium-api` in development, which Vite
+ * proxies to the API (decisions.md D54, revising D14). Either way the page and
+ * the API share an origin.
  *
  * This is plumbing only: the `POST /convert` call (with TanStack Query's
  * `useMutation`) lands in brief 05. `apiFetch` is the shared low-level
@@ -18,14 +20,14 @@
  * circular-import reason as before: `auth.ts` imports `apiFetch` from here, so
  * this file must not import it back.
  *
- * ## `credentials: "include"` is required, and is easy to lose
+ * ## `credentials: "include"` is necessary, not sufficient
  *
- * `fetch` omits cookies on a cross-origin request by default, and atrium's web
- * client talks to its API through `VITE_API_URL` — which is cross-origin in
- * development (D14: explicit base URL, no Vite proxy) even though it is
- * same-origin in the deployed estate. Without this every dev request would
- * arrive at the API with no cookie and 401, while production worked fine, which
- * is the worst possible split to debug.
+ * What actually gets the cookie to the API is the shared origin: `fetch` sends
+ * cookies on a same-origin request by default. The flag only matters if
+ * `VITE_API_URL` ever points at another origin, and there it is not enough on
+ * its own. The browser also wants `Access-Control-Allow-Credentials` from the
+ * API, which atrium's CORS does not send, so it refuses every response. That is
+ * why development proxies the API instead of going cross-origin (D54).
  */
 
 // Required — `vite.config.ts` throws at startup if VITE_API_URL is unset, so

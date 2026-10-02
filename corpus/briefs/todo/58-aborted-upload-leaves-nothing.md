@@ -100,4 +100,4 @@ start:
 - A normal upload and a normal import behave exactly as before: same row, same
   cover, same response.
 - Typecheck and build are clean.
-- If [brief 63](63-api-test-harness.md)'s harness exists, the abort case is a test.
+- If [brief 63](../done/63-api-test-harness.md)'s harness exists, the abort case is a test.

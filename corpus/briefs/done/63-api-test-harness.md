@@ -11,13 +11,13 @@ the repo, and "much cheaper to close than it was". This sweep shows what it
 costs. Four of its confirmed defects are the kind one request in a test would
 have caught, and that typecheck and "verified by hand" did not:
 
-- **[Brief 53](../done/53-storage-roots-resolve-from-api-package.md):** a file move
+- **[Brief 53](53-storage-roots-resolve-from-api-package.md):** a file move
   shifted every default storage root.
-- **[Brief 54](54-latex-compile-slot-keyed-on-subject.md):** a Knex column
+- **[Brief 54](../todo/54-latex-compile-slot-keyed-on-subject.md):** a Knex column
   string named a column that no longer exists.
-- **[Brief 61](61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
+- **[Brief 61](../todo/61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
   where D53 requires 503.
-- **[Brief 60](60-ward-cutover-prunes-what-it-drops.md):** a migration's
+- **[Brief 60](../todo/60-ward-cutover-prunes-what-it-drops.md):** a migration's
   cascade never ran.
 
 Most of the harness's seams already exist:
@@ -115,3 +115,9 @@ discipline.
 - Typecheck covers `test/`, and typecheck and build are clean.
 - The outcome note lists which briefs among 53–62 already have a regression test
   here, and which still need one.
+
+## Outcome (2026-10-03)
+
+Done as specified, and taken ahead of 54–62 so they can land with tests. Harness: `test/setup.ts` (asserted scratch roots, cleanup registered first), `test/fake-ward.ts`, `test/harness.ts` (`buildTestApp()` → `close()`), `tsconfig.test.json`, and `buildApp({ wardClient })`. 18 tests over guard, first contact, scoping, library round trip and migrations all pass. The sabotaged setup refuses to run, real storage is unchanged (path/size/mtime hash), root `npm run test` runs typeset and API, and typecheck and build are clean.
+
+**Regression tests for 53–62:** none here yet. Each of those briefs adds its own; 54 is next.

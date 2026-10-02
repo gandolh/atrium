@@ -1,0 +1,12 @@
+{
+  // Typechecks `test/` alongside `src/` without ever emitting it: the build
+  // config includes only `src`, so nothing under `test/` can reach dist.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src", "test"]
+}

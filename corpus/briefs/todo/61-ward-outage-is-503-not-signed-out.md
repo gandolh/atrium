@@ -100,5 +100,5 @@ injected failing key fetch.
 - A token signed by an unknown key still gets 401 after jose's cooldown-limited
   refetch.
 - Typecheck and build are clean, and the upstream change is linked in the outcome.
-- The tests live in [brief 63](63-api-test-harness.md)'s harness if it exists,
+- The tests live in [brief 63](../done/63-api-test-harness.md)'s harness if it exists,
   otherwise in a `node --test` file beside `ward.client.ts`.

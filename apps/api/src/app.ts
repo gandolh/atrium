@@ -8,6 +8,7 @@ import { registerLibraryRoutes } from "./modules/library/library.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
 import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
 import { registerWardGuard } from "./modules/ward/ward.guard.js";
+import type { WardClient } from "./modules/ward/ward.client.js";
 
 /**
  * Build the Fastify instance: plugins, the Ward guard, then every module's
@@ -18,8 +19,11 @@ import { registerWardGuard } from "./modules/ward/ward.guard.js";
  * the shutdown handlers, and this owns what the app is made of. It is also what
  * makes the app reachable from `app.inject` without a process listening on a
  * port.
+ *
+ * `wardClient` is the test seam (brief 63): a test injects a scripted client,
+ * and production omits it so the guard builds one from the environment.
  */
-export async function buildApp(): Promise<FastifyInstance> {
+export async function buildApp(options: { wardClient?: WardClient } = {}): Promise<FastifyInstance> {
   /*
    * The `?token=` log redaction is gone with the fallback it protected.
    *
@@ -54,7 +58,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // The Ward session guard. Registered app-wide BEFORE the routes so every
   // non-allowlisted request has an authenticated caller holding an atrium
   // grant. Atrium's rule that no route does its own auth survives the move.
-  registerWardGuard(app);
+  registerWardGuard(app, { client: options.wardClient });
 
   app.get("/health", async () => {
     return { status: "ok" };

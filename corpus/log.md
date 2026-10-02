@@ -2216,3 +2216,22 @@ Found on the way, not atrium's: Ward's own Sign out does nothing in a browser.
 `/logout` clears cookies only when it is handed the refresh token, and
 `ward_refresh` is scoped to `/ward-api/refresh`, so the browser never sends it
 there. Reported to the owner.
+
+## [2026-10-03] done | Brief 63 — `apps/api` has a test harness that cannot touch the real library
+
+Taken before brief 54, so that 54 and the sweep's other API fixes can each land with a regression test, as 63 asks. `npm run test -w @ebook-reader/api` is `node --import tsx --import ./test/setup.ts --test 'test/**/*.test.ts'`, one process per file.
+
+- **`test/setup.ts`** points all five roots at a fresh temp directory, sets `config.ts`'s required env, imports `config.ts`, and throws unless every resolved root is inside that directory. `process.loadEnvFile` never overrides a variable already set, so the repo `.env` cannot pull a root back. With `THUMBNAILS_DIR` deleted from a copy of the setup, the run refused: `THUMBNAILS_DIR = …/apps/api/images/thumbnails`, 0 pass, exit 1. Cleanup is registered before the assertion, so a refused run leaves no temp directory either.
+- **`test/fake-ward.ts`** scripts `WardClient.authenticate`, so the real guard's mapping is what gets tested. `buildApp({ wardClient })` is the only production change.
+- **Suite (18):**
+  - guard: no cookie 401, `WardUnavailableError` 503 `IDENTITY_UNAVAILABLE`, prm-only grant 403 `NO_ATRIUM_GRANT`, granted 200, `/health` open;
+  - first contact: one `Default` profile, and five concurrent first requests give five 200s and one profile;
+  - scoping: another subject's note, folder and LaTeX project all 404;
+  - library: a pdf-lib fixture uploads (file and cover in the scratch roots), lists, serves 200/206 (`bytes=0-99`, 100 bytes)/416, deletes 204 with file and thumbnail gone;
+  - migrations: twice, and `PRAGMA foreign_key_check` is empty.
+- **One trap, recorded in api-layering.md:** without closing the knex pool, each test process stays alive and the run hangs. `buildTestApp()` returns `close()`.
+
+The real storage directories (`data` 6 files, `library` 9, `images` 7, `latex` 1, `versions` 0) hashed identically by path, size and mtime before and after a run. Root `npm run test` runs typeset (647) and API (18). Typecheck now covers `test/`, typecheck and build are clean, and `dist` holds no test files.
+
+Regression tests among briefs 53–62: none yet, since each is that brief's own job. Still needed: 53 (roots resolve from the package), 54 (compile on a post-cutover schema), 55–58, 60 (cutover prunes), 61 (Ward outage 503), 62. Brief 54 is next and adds its own.
+

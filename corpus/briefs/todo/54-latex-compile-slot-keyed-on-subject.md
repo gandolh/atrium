@@ -89,6 +89,6 @@ start:
     runs gets the existing 409;
   - a compile from a **different subject** is not blocked.
 - Typecheck and build are clean.
-- If [brief 63](63-api-test-harness.md)'s harness exists, add a test that runs a
+- If [brief 63](../done/63-api-test-harness.md)'s harness exists, add a test that runs a
   compile request against a post-cutover schema. This bug is exactly what such a
   test catches and typecheck does not.

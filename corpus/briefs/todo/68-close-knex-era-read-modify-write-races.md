@@ -82,7 +82,7 @@ and `reassignNotes` in `note-folders.model.ts:100-149`.
 ## Acceptance
 
 Run each race through `Promise.all`, via `app.inject` if
-[brief 63](63-api-test-harness.md) has landed, or via the service functions
+[brief 63](../done/63-api-test-harness.md) has landed, or via the service functions
 otherwise, on a scratch database:
 
 - **Opposite folder moves:** exactly one succeeds, the other answers `CYCLE`, and

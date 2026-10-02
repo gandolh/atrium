@@ -1,6 +1,6 @@
 ---
-summary: How apps/api is organised since D47 — the six domain modules, what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, and how Knex migrations are registered.
-updated: 2026-08-30
+summary: How apps/api is organised since D47 — the six domain modules, what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, how Knex migrations are registered, and how the API test harness keeps tests off the real library.
+updated: 2026-10-03
 ---
 
 # API layering (`apps/api/src`)
@@ -55,3 +55,13 @@ which breaks between `.ts` under tsx in dev and `.js` under `dist/` in
 production). `20260830000000-baseline.ts` is idempotent because it has to bring
 both a fresh database and a pre-Knex one to the same place; **every migration
 after it is an ordinary forward migration and must not be.**
+
+## Tests (brief 63)
+
+`npm run test -w @ebook-reader/api` runs `node --import tsx --import ./test/setup.ts --test 'test/**/*.test.ts'`. Each file is its own process and so owns its own database.
+
+- **`test/setup.ts` refuses to be unsafe.** It points all five storage roots at a fresh `mkdtemp` directory, sets the env `config.ts` requires, imports `config.ts`, and **throws unless every resolved root is inside that directory**, before anything opens `knex.ts`. Drop one root and the run stops, naming it. The scratch directory is removed on exit.
+- **`test/fake-ward.ts`** implements `WardClient` from a script (cookie token → caller, or a thrown Ward error). The real guard maps it, so 401/403/503 are tested as shipped. `buildApp({ wardClient })` is the one production seam.
+- **`test/harness.ts`'s `buildTestApp()`** migrates, builds the app with the fake Ward, silences its logger, and returns `close()`. Close it: the knex pool otherwise keeps the process alive and the run hangs.
+- A fix in `apps/api` should land with a test here. Typecheck covers `test/` (`tsconfig.test.json`); nothing under `test/` is emitted.
+

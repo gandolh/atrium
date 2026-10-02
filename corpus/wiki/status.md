@@ -1,9 +1,11 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-08-30
+updated: 2026-10-03
 ---
 
-# Status — 2026-08-30
+# Status — 2026-10-03
+
+**Latest (2026-10-03):** the 2026-09-25 improvements sweep (briefs 54–72) is being worked through; see the brief table. ✅ **Brief 63: `apps/api` has a test harness** (18 tests over the guard, first contact, profile scoping, the library round trip and migrations), so the "largest gap" below is closing, one regression test per fix.
 
 **Latest (2026-08-30):** ✅ **Brief 52 shipped — `apps/api` is modular and runs
 on Knex.** 18 flat files became six domain modules, each controller / service /
@@ -161,4 +163,7 @@ got here.
 | 48 | Reap orphan thumbnails on API startup (D46) | **done (2026-08-30)** |
 | 49 | Notes: export a note to PDF and image (D44) | **done (2026-08-30)** |
 | 50 | Notes: folders | **done (2026-08-30)** |
-| 51 | Notes: fountain-pen + pencil nibs (D45) | **done (2026-08-30)** | **todo** |
+| 51 | Notes: fountain-pen + pencil nibs (D45) | **done (2026-08-30)** |
+| 52 | `apps/api` modules + Knex (D47) | **done (2026-08-30)** |
+| 53 | Storage roots and `.env` resolve from the API package again | **done (2026-09-27)** |
+| 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

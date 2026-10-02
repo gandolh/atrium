@@ -1,7 +1,8 @@
 # Atrium's API. Build context is the repo root (..).
 #
-# `.env` here is written by the deploy (0600); it carries APP_PASSWORD, which
-# gates every route.
+# `.env` here is written by the deploy (0600). It carries Ward's three variables
+# (WARD_PUBLIC_ORIGIN, WARD_API_BASE_PATH, WARD_APP_KEY) and the tuning knobs;
+# identity is Ward's (D53), so there is no password of atrium's own.
 services:
   atrium-api:
     build:
@@ -23,6 +24,11 @@ services:
       - ${ATRIUM_DATA_DIR:-../apps/api/data}:/app/apps/api/data
       - ${ATRIUM_LIBRARY_DIR:-../apps/api/library}:/app/apps/api/library
       - ${ATRIUM_IMAGES_DIR:-../apps/api/images}:/app/apps/api/images
+      # The LaTeX side: drafts, and every published version's PDF and source
+      # zip. Their rows are in the database above, so their bytes must persist
+      # alongside it (brief 55).
+      - ${ATRIUM_LATEX_DIR:-../apps/api/latex}:/app/apps/api/latex
+      - ${ATRIUM_VERSIONS_DIR:-../apps/api/versions}:/app/apps/api/versions
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- \"http://127.0.0.1:${PORT:-8788}/health\""]

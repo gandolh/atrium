@@ -80,10 +80,20 @@ COPY --parents packages/*/package.json ./
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8788
-# The library — the SQLite database, the uploaded originals and the cover
-# thumbnails. All three are bind mounts on the VPS, pointing at the directories
-# that already hold the books, so containerizing moved nothing.
-VOLUME /app/apps/api/data /app/apps/api/library /app/apps/api/images
+# All five storage roots (D39), named here rather than inherited from where
+# config.ts happens to sit in the source tree: a file move once re-pointed every
+# default root (brief 53). The paths are the ones the first three mounts already
+# used, so no book moved.
+ENV LIBRARY_DATA_DIR=/app/apps/api/data \
+    LIBRARY_FILES_DIR=/app/apps/api/library \
+    THUMBNAILS_DIR=/app/apps/api/images/thumbnails \
+    LATEX_PROJECTS_DIR=/app/apps/api/latex \
+    DOCUMENT_VERSIONS_DIR=/app/apps/api/versions
+# The library (database, originals, covers) and the LaTeX side (drafts and
+# every published version). All five are bind mounts on the VPS. The last two
+# used to live in the writable layer, so every recreate lost the drafts and
+# versions the bind-mounted database still pointed at (brief 55).
+VOLUME /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/api/latex /app/apps/api/versions
 EXPOSE 8788
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health" || exit 1

@@ -167,4 +167,5 @@ got here.
 | 52 | `apps/api` modules + Knex (D47) | **done (2026-08-30)** |
 | 53 | Storage roots and `.env` resolve from the API package again | **done (2026-09-27)** |
 | 54 | LaTeX compile slot keyed on the Ward subject (was a dropped column) | **done (2026-10-03)** |
+| 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker checks owed; vps-deploy follow-up in the brief |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

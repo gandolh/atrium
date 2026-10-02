@@ -99,3 +99,24 @@ Three smaller problems in the same files:
   - `docker compose up --force-recreate`;
   - the draft and the version's PDF are still served.
 - No path under the real library is used for this check.
+
+## Outcome (2026-10-03)
+
+The file changes are done; **the Docker acceptance is not run**, because Docker is unavailable on this machine (WSL integration off).
+- **Dockerfile:** `ENV` names all five roots at the existing in-container paths, and `VOLUME` declares all five.
+- **Compose:** bind-mounts `ATRIUM_LATEX_DIR` and `ATRIUM_VERSIONS_DIR` beside the existing three, and its header comment now describes the Ward variables instead of `APP_PASSWORD`.
+- **`.dockerignore`:** gains `apps/api/latex`, `apps/api/versions` and `testing_files`.
+
+Checked without Docker: the compose file parses with five mounts, and `config.ts` given the image's exact `ENV` resolves `DB_PATH` to `/app/apps/api/data/library.db` and the other four roots to their mount paths.
+
+**Still owed, with Docker:**
+- a `--progress=plain` build, confirming the context excludes the three paths;
+- the container's startup log showing all five roots;
+- the scratch-dirs recreate test (create and publish a project, `up --force-recreate`, the draft and version still served).
+
+**For the vps-deploy owner (separate repo, not edited here):** `stacks/atrium.ts` must:
+- pass host dirs for `ATRIUM_LATEX_DIR` and `ATRIUM_VERSIONS_DIR`;
+- add `/apps/api/latex` and `/apps/api/versions` to `persistentState.excludes`, or rsync `--delete` wipes them;
+- drop the dead `APP_PASSWORD` secret and `CONVERT_TIMEOUT_MS` (the latter once brief 69 lands).
+
+Until the first two land, the deploy keeps losing drafts and versions on every recreate.

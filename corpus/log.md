@@ -2245,3 +2245,10 @@ Regression tests among briefs 53–62: none yet, since each is that brief's own 
 All three fail without the fix, with the exact `no such column: p.user_id`.
 
 That failure's 500 body carried the **full SQL, bound subject included**: atrium has no error handler, and Fastify's default echoes the message. Filed as brief 73.
+
+## [2026-10-03] done | Brief 55 — the container persists all five storage roots and names them itself
+
+The image declared and compose mounted only `data`, `library` and `images`. LaTeX drafts (`latex/`) and published versions (`versions/`) lived in the writable layer, so every recreate lost bytes the bind-mounted database still pointed at. The Dockerfile now sets all five roots by `ENV` at the existing in-container paths and declares all five as volumes. Compose mounts `ATRIUM_LATEX_DIR`/`ATRIUM_VERSIONS_DIR`, and its header describes Ward's variables, not `APP_PASSWORD`. `.dockerignore` drops `apps/api/latex`, `apps/api/versions` and `testing_files` from the context.
+
+Docker is unavailable here, so the build, startup-log and recreate checks are **owed**. What was checked: compose parses with five mounts, and `config.ts` under the image's `ENV` resolves every root to its mount path. **The deploy still loses drafts until vps-deploy's `stacks/atrium.ts` passes the two new host dirs and excludes them from its rsync `--delete`**; the full hand-off is in the brief's outcome.
+

@@ -9,4 +9,7 @@ infrastructure/.env
 apps/api/data
 apps/api/library
 apps/api/images
+apps/api/latex
+apps/api/versions
+testing_files
 **/*.map

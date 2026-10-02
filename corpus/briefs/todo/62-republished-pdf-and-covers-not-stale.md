@@ -105,5 +105,5 @@ start:
   a 304 on reopen.
 - Typecheck and build are clean. For the web card changes, run the design
   conformance checklist in [design.md](../../wiki/design.md).
-- Note that [brief 54](54-latex-compile-slot-keyed-on-subject.md) must land first
+- Note that [brief 54](../done/54-latex-compile-slot-keyed-on-subject.md) must land first
   for publishing to work at all.

@@ -390,7 +390,7 @@ interface CompileJob {
   /** The account the slot is claimed against — the guard is per account, not
    *  per profile (D35: switching profiles is free, so a per-profile limit is
    *  no limit at all). */
-  readonly userId: string;
+  readonly subject: string;
   readonly project: LatexProjectRow;
   readonly signal: CompileSignal;
   readonly startedAt: number;
@@ -600,7 +600,7 @@ export type StartLatexCompileResult =
   | { kind: "busy"; message: string; runningProject: LatexProjectRow };
 
 /**
- * Start compiling `project`, in the background, on behalf of `userId`.
+ * Start compiling `project`, in the background, on behalf of `subject`.
  *
  * ## Where the single-flight guarantee actually comes from
  *
@@ -622,12 +622,12 @@ export type StartLatexCompileResult =
  * The work itself starts on a later turn of the event loop (see
  * `scheduleCompile`).
  *
- * `userId` is the account, not the profile: `getRunningLatexCompile` joins
- * through `profiles.user_id` for the same reason (D35).
+ * `subject` is the Ward account, not the profile: `getRunningLatexCompile`
+ * joins through `profiles.subject` for the same reason (D35, D53).
  */
 export async function startLatexCompile(
   project: LatexProjectRow,
-  userId: string,
+  subject: string,
 ): Promise<StartLatexCompileResult> {
   // Before anything READS the durable half, finish writing it (brief 46). A
   // status write that failed earlier left some row on `running` with nothing
@@ -639,7 +639,7 @@ export async function startLatexCompile(
   // Durable half first, because it also covers a compile this process did not
   // start — and, after a crash, is reaped to `failed` at import rather than
   // resumed, so it can never wedge a slot across a restart.
-  const running = await getRunningLatexCompile(userId);
+  const running = await getRunningLatexCompile(subject);
   if (running) {
     return {
       kind: "busy",
@@ -660,7 +660,7 @@ export async function startLatexCompile(
   // the durable slot silently disappears while the job is still holding the
   // engine. Without this check a second compile would start against a process
   // that is already busy.
-  const inProcess = runningLatexCompileInProcess(userId);
+  const inProcess = runningLatexCompileInProcess(subject);
   if (inProcess) {
     return {
       kind: "busy",
@@ -675,7 +675,7 @@ export async function startLatexCompile(
   const deadline = startedAt + LATEX_TIMEOUT_MS;
   const job: CompileJob = {
     projectId: project.id,
-    userId,
+    subject,
     project,
     signal: createCompileSignal(deadline),
     startedAt,
@@ -916,16 +916,16 @@ export function cancelAllLatexCompiles(): number {
 }
 
 /** Whether THIS process is compiling `projectId`. The in-process half of the
- *  guard; `getRunningLatexCompile(userId)` is the durable half. */
+ *  guard; `getRunningLatexCompile(subject)` is the durable half. */
 export function isCompilingLatexProject(projectId: string): boolean {
   return jobs.has(projectId);
 }
 
 /**
- * The project whose job is holding `userId`'s single-flight slot **in this
+ * The project whose job is holding `subject`'s single-flight slot **in this
  * process**, or `null`. The **account-scoped** in-process half of the guard —
  * `isCompilingLatexProject` answers the per-project question, and
- * `getRunningLatexCompile(userId)` in `db.ts` is the durable half.
+ * `getRunningLatexCompile(subject)` in `latex.model.ts` is the durable half.
  *
  * `startLatexCompile` has always consulted this, inline; it is a named export
  * because the two halves can disagree in one direction that matters, and any
@@ -941,9 +941,9 @@ export function isCompilingLatexProject(projectId: string): boolean {
  * longer exist in the database, which is exactly the case this exists for, so
  * callers must not assume `:id`-style routes can reach it.
  */
-export function runningLatexCompileInProcess(userId: string): LatexProjectRow | null {
+export function runningLatexCompileInProcess(subject: string): LatexProjectRow | null {
   for (const job of jobs.values()) {
-    if (job.userId === userId) return job.project;
+    if (job.subject === subject) return job.project;
   }
   return null;
 }

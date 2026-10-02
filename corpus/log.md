@@ -2235,3 +2235,13 @@ The real storage directories (`data` 6 files, `library` 9, `images` 7, `latex` 1
 
 Regression tests among briefs 53–62: none yet, since each is that brief's own job. Still needed: 53 (roots resolve from the package), 54 (compile on a post-cutover schema), 55–58, 60 (cutover prunes), 61 (Ward outage 503), 62. Brief 54 is next and adds its own.
 
+## [2026-10-03] done | Brief 54 — LaTeX compile, publish and cancel work again after the Ward cutover
+
+`getRunningLatexCompile` still joined on `profiles.user_id`, which the cutover migration replaced with `subject`, so all three LaTeX write routes were 500s on any migrated database. Now `.where("p.subject", subject)`, and the misleading `userId` naming is `subject` throughout the compile service, model and cancel route. The first regression test on brief 63's harness, `test/latex-compile.test.ts`, covers it:
+- compile 200 `ready`, publish OK, cancel 200;
+- a second profile of the same subject blocked with 409 while one project is `running`;
+- another subject not blocked.
+
+All three fail without the fix, with the exact `no such column: p.user_id`.
+
+That failure's 500 body carried the **full SQL, bound subject included**: atrium has no error handler, and Fastify's default echoes the message. Filed as brief 73.

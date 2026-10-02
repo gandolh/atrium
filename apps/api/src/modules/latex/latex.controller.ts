@@ -637,9 +637,9 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     // blocked: the compile route was refusing every one of their projects with
     // a 409 naming the vanished project, and this route said nothing was
     // running. Two routes, one guard, opposite answers.
-    const userId = uid(request);
-    const runningRow = await getRunningLatexCompile(userId);
-    const running = runningRow ?? runningLatexCompileInProcess(userId);
+    const subject = uid(request);
+    const runningRow = await getRunningLatexCompile(subject);
+    const running = runningRow ?? runningLatexCompileInProcess(subject);
     if (running && running.id !== project.id) {
       // A slot held with no row behind it. The job is real and still typesetting,
       // but its project cannot be addressed by any route any more — `POST

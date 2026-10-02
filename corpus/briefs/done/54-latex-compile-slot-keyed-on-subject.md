@@ -92,3 +92,12 @@ start:
 - If [brief 63](../done/63-api-test-harness.md)'s harness exists, add a test that runs a
   compile request against a post-cutover schema. This bug is exactly what such a
   test catches and typecheck does not.
+
+## Outcome (2026-10-03)
+
+Done. The query reads `.where("p.subject", subject)`, and `userId` is `subject` across the compile service, the model and the cancel route, with the `profiles.user_id` comments corrected. Outside migrations, `user_id` now appears only in history-explaining comments. Acceptance runs in brief 63's harness (`test/latex-compile.test.ts`, a database through every migration including the cutover):
+- compile answers 200 `ready`, publish succeeds, and cancel answers 200;
+- with one of the subject's projects marked `running`, a compile from a **second profile of that subject** gets 409 `COMPILE_BUSY` naming it;
+- a **different subject** compiles (200).
+
+With the model fix reverted, all three fail with `no such column: p.user_id`. 21 API tests pass, and typecheck and build are clean. That failure also showed the 500 body carrying the full SQL, filed as [brief 73](../todo/73-500s-do-not-echo-the-error.md).

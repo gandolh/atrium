@@ -13,7 +13,7 @@ have caught, and that typecheck and "verified by hand" did not:
 
 - **[Brief 53](53-storage-roots-resolve-from-api-package.md):** a file move
   shifted every default storage root.
-- **[Brief 54](../todo/54-latex-compile-slot-keyed-on-subject.md):** a Knex column
+- **[Brief 54](54-latex-compile-slot-keyed-on-subject.md):** a Knex column
   string named a column that no longer exists.
 - **[Brief 61](../todo/61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
   where D53 requires 503.

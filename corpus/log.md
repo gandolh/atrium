@@ -2402,3 +2402,12 @@ Each check-and-write is now one transaction inside its model function, every sta
 ## [2026-10-03] done | Brief 69 — retired what removed features left behind
 
 Deleted `password.ts`, `scripts/seed.example.ts`, the `seed` script and its ignore entry, all D53 debris. `CONVERT_TIMEOUT_MS`, required but used only in a log line since D34 retired the synchronous convert route, is gone from the schema, `index.ts`, `.env.example` and the test harness. D29's parenthetical is updated. The API boots with the variable present (ignored) and absent.
+
+## [2026-10-03] done | Brief 70 — dropping several files adds all of them, or says why not
+
+All three upload entry points read only the first file, so an album drop added one track, silently.
+- `UploadZone` now hands up every file (`onFiles`, a `multiple` picker) and names the rejected ones, keeping the old message for a single file.
+- `useUploadQueue` uploads them one after another and names any that fail.
+- The buttons read "Adding 3 of 12…".
+
+Browser-verified on a scratch base: 3 + 1 invalid landed in drop order with the invalid one named; the picker did the same; and a mid-queue API kill reported the failed file, which a retry then added.

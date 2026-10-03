@@ -34,7 +34,13 @@ import {
  *
  * Both validate every format the library understands — books (PDF/EPUB),
  * music (MP3), and video (MP4/WebM) — by ext/MIME (D13) before handing the
- * file up; the parent does the actual upload.
+ * files up; the parent does the actual upload.
+ *
+ * **Every file, not the first** (brief 70). Music arrives as albums, and a
+ * drop or pick of twelve files used to add one and discard eleven without a
+ * word. All three entry points now hand up every valid file, in order, and
+ * each file is validated on its own: the invalid ones are named with the
+ * reason, and they never block the rest.
  *
  * `disabled` (offline, brief 20 item 4) mutes the hero zone / suppresses the
  * overlay — upload is an online-only action.
@@ -63,6 +69,18 @@ const ACCEPT = [
 const INVALID_TYPE_MESSAGE =
   "Unsupported file type. Please upload a book (PDF/EPUB), music (MP3), or video (MP4/WebM) file.";
 
+/**
+ * The rejection message. One file alone keeps the original wording, so a
+ * single-file drop reads exactly as it always did; with several, the rejected
+ * ones are named, since the rest are being added.
+ */
+function rejectionMessage(rejected: File[], total: number): string {
+  if (total === 1) return INVALID_TYPE_MESSAGE;
+  const names = rejected.map((f) => f.name).join(", ");
+  const count = rejected.length === 1 ? "1 file wasn't added" : `${rejected.length} files weren't added`;
+  return `${count}: ${names} (unsupported type). Books (PDF/EPUB), music (MP3) and video (MP4/WebM) only.`;
+}
+
 /** Imperative surface for the header's "Add to library" button. */
 export interface UploadZoneHandle {
   /** Open the file picker. */
@@ -70,14 +88,18 @@ export interface UploadZoneHandle {
 }
 
 export function UploadZone({
-  onFile,
+  onFiles,
   busy,
+  busyLabel = "Uploading…",
   disabled = false,
   variant = "hero",
   browseRef,
 }: {
-  onFile: (file: File) => void;
+  /** Every valid file of one drop or pick, in order. Never called empty. */
+  onFiles: (files: File[]) => void;
   busy: boolean;
+  /** The hero button's text while busy, e.g. "Adding 3 of 12…". */
+  busyLabel?: string;
   disabled?: boolean;
   variant?: "hero" | "ambient";
   /** Filled with `{ browse }` so a sibling (the header button) can open the picker. */
@@ -89,16 +111,16 @@ export function UploadZone({
   const [error, setError] = useState<string | null>(null);
 
   const accept = useCallback(
-    (file: File) => {
+    (list: ArrayLike<File> | null | undefined) => {
+      const files = Array.from(list ?? []);
+      if (files.length === 0) return;
       setError(null);
-      const type = detectFileType(file.name, file.type);
-      if (type) {
-        onFile(file);
-      } else {
-        setError(INVALID_TYPE_MESSAGE);
-      }
+      const valid = files.filter((file) => detectFileType(file.name, file.type) !== null);
+      const rejected = files.filter((file) => !valid.includes(file));
+      if (rejected.length > 0) setError(rejectionMessage(rejected, files.length));
+      if (valid.length > 0) onFiles(valid);
     },
-    [onFile],
+    [onFiles],
   );
 
   useEffect(() => {
@@ -132,8 +154,7 @@ export function UploadZone({
       setWindowDrag(false);
       if (!hasFiles(e)) return;
       e.preventDefault();
-      const file = e.dataTransfer?.files?.[0];
-      if (file) accept(file);
+      accept(e.dataTransfer?.files);
     };
     window.addEventListener("dragenter", onEnter);
     window.addEventListener("dragover", onOver);
@@ -151,20 +172,21 @@ export function UploadZone({
     event.preventDefault();
     setDragActive(false);
     if (disabled) return;
-    const file = event.dataTransfer.files[0];
-    if (file) accept(file);
+    accept(event.dataTransfer.files);
   }
 
   const input = (
     <input
       ref={inputRef}
       type="file"
+      multiple
       accept={ACCEPT}
       disabled={disabled}
       onChange={(e) => {
-        const file = e.target.files?.[0];
+        // Copied before the reset below, which empties the live FileList.
+        const files = Array.from(e.target.files ?? []);
         e.target.value = ""; // allow re-selecting the same file
-        if (file) accept(file);
+        accept(files);
       }}
       className="hidden"
     />
@@ -248,9 +270,9 @@ export function UploadZone({
           onClick={() => inputRef.current?.click()}
           disabled={busy || disabled}
           title={disabled ? "Requires connection" : undefined}
-          className="rounded-card bg-ink-fill px-6 py-2.5 text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+          className="rounded-card bg-ink-fill px-6 py-2.5 text-sm font-semibold tabular-nums text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
         >
-          {disabled ? "Requires connection" : busy ? "Uploading…" : "Upload a file"}
+          {disabled ? "Requires connection" : busy ? busyLabel : "Upload files"}
         </button>
 
         {input}

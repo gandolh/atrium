@@ -82,3 +82,42 @@ rejected, with its reason.
 - Typecheck and build are clean, and the design checklist passes.
 - Verify against a scratch base with all five storage roots set inline and
   asserted before start.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**`UploadZone`:**
+- `onFile(file)` became `onFiles(files)`.
+- The window drop target, the hero drop zone and the picker hand up every file. The input gained `multiple`.
+- Each file is validated on its own (D13's shared check):
+  - A **single** invalid file keeps the original message, so a one-file drop reads as before.
+  - With several, the rejected ones are named: "1 file wasn't added: notes.docx (unsupported type). …".
+  - Valid files proceed regardless.
+- An optional `busyLabel` replaces the hero button's fixed "Uploading…". "Upload a file" now reads "Upload files".
+
+**`useUploadQueue`** (in `use-library.ts`):
+- It sends files one after another through the existing `useUploadBook` mutation, so the library refreshes and video covers are captured per file, as before.
+- Files dropped mid-queue join its end.
+- A failed file is recorded by name and the queue continues. The list clears when the next batch starts from idle.
+
+**`LibraryHome`** shows "Adding 3 of 12…" on the header button and the hero button while a queue of several runs, and "Uploading…" for one. The failure alert names the file, or lists several.
+
+**Browser check** (scratch base, all roots asserted, scripted Ward):
+- **Window drop of Alpha, Beta, notes.docx and Gamma:**
+  - the label went "Adding 1 of 3…", then 2, then 3;
+  - three sequential `POST /library` landed, created in drop order (Alpha, Beta, Gamma);
+  - notes.docx was named in the alert.
+- **The picker with three files:** the same queue.
+- **Single files:** a single valid drop showed "Uploading…", and a single `.txt` showed the original unsupported-type message.
+- **API killed after the first of three 10 MB uploads:**
+  - Theta had already landed;
+  - **Iota** was reported, "Upload failed: Iota.pdf. Is the API running?…";
+  - after a restart, re-dropping Iota added it and cleared the alert.
+
+**Design checklist.**
+- Existing tokens and classes only; the alert reuses the danger styling.
+- No accent on anything new, and no new animation, so there is nothing for reduced motion to stop.
+- `tabular-nums` added to both buttons, now that they show counts.
+
+Typecheck and build are clean.

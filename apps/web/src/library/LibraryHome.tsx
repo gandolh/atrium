@@ -10,7 +10,7 @@ import {
 } from "@ebook-reader/shared";
 
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
-import { useDeleteBook, useLibraryList, useOfflineDownload, useUploadBook } from "../lib/use-library";
+import { useDeleteBook, useLibraryList, useOfflineDownload, useUploadQueue } from "../lib/use-library";
 import { useReconnectProgressSync } from "../lib/use-progress-sync";
 import { STAGGER_MS, motionTransition, usePrefersReducedMotion } from "../lib/motion";
 import { AppHeader } from "../components/AppHeader";
@@ -129,7 +129,13 @@ export function LibraryHome() {
   // snapshots, not the server's answer — see `useReconnectProgressSync`.
   useReconnectProgressSync(books, isOffline);
 
-  const upload = useUploadBook();
+  // Several files upload one after another (brief 70); one file is a queue of one.
+  const uploads = useUploadQueue();
+  const uploading = uploads.progress !== null;
+  const uploadLabel =
+    uploads.progress && uploads.progress.total > 1
+      ? `Adding ${uploads.progress.current} of ${uploads.progress.total}…`
+      : "Uploading…";
   const remove = useDeleteBook();
   const uploadHandle = useRef<UploadZoneHandle | null>(null);
   const reduced = usePrefersReducedMotion();
@@ -244,11 +250,11 @@ export function LibraryHome() {
               <button
                 type="button"
                 onClick={browse}
-                disabled={upload.isPending || isOffline}
+                disabled={uploading || isOffline}
                 title={isOffline ? "Requires connection" : undefined}
-                className="rounded-card bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:bg-paper-container disabled:text-ink-variant"
+                className="rounded-card bg-ink-fill px-4 py-2 font-ui text-sm font-semibold tabular-nums text-on-ink-fill transition hover:opacity-90 disabled:bg-paper-container disabled:text-ink-variant"
               >
-                {upload.isPending ? "Uploading…" : "+ Add"}
+                {uploading ? uploadLabel : "+ Add"}
               </button>
             )}
           </>
@@ -265,17 +271,20 @@ export function LibraryHome() {
           simultaneous second one would double-fire a single drop. */}
       {!libraryEmpty && (
         <UploadZone
-          onFile={(file) => upload.mutate(file)}
-          busy={upload.isPending}
+          onFiles={uploads.add}
+          busy={uploading}
+          busyLabel={uploadLabel}
           disabled={isOffline}
           variant="ambient"
           browseRef={uploadHandle}
         />
       )}
 
-      {upload.isError && (
+      {uploads.failed.length > 0 && (
         <p role="alert" className="-mt-4 rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger">
-          Upload failed. Is the API running? Please try again.
+          {uploads.failed.length === 1
+            ? `Upload failed: ${uploads.failed[0]}. Is the API running? Please try again.`
+            : `Couldn't add ${uploads.failed.length} files: ${uploads.failed.join(", ")}. Is the API running? Please try again.`}
         </p>
       )}
 
@@ -350,8 +359,9 @@ export function LibraryHome() {
             </div>
             <div className="w-full max-w-xl">
               <UploadZone
-                onFile={(file) => upload.mutate(file)}
-                busy={upload.isPending}
+                onFiles={uploads.add}
+                busy={uploading}
+                busyLabel={uploadLabel}
                 disabled={isOffline}
                 variant="hero"
                 browseRef={uploadHandle}

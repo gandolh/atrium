@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { LibraryBook, LibrarySort } from "@ebook-reader/shared";
 
@@ -105,6 +105,65 @@ export function useUploadBook() {
       startUploadCoverCapture(book, file, qc);
     },
   });
+}
+
+/** Where an upload queue stands: the file being sent, out of how many. */
+export interface UploadQueueProgress {
+  /** 1-based position of the file in flight. */
+  current: number;
+  total: number;
+}
+
+/**
+ * Upload several files **one after another** (brief 70). An album is a dozen
+ * MP3s, and the drop used to add the first and silently discard the rest.
+ *
+ * Sequential on purpose: the API has one database connection (D47) and
+ * CPU-bound extraction, so a queue is kinder than a dozen parallel POSTs, and
+ * the library fills in drop order. Files added while a queue runs join its
+ * end. A failed file is recorded by name and the queue carries on; the list
+ * clears when the next batch starts from idle. Each upload is the ordinary
+ * `useUploadBook` mutation, so the library refreshes (and a video's cover is
+ * captured) per file, as before.
+ */
+export function useUploadQueue() {
+  const upload = useUploadBook();
+  const mutateRef = useRef(upload.mutateAsync);
+  mutateRef.current = upload.mutateAsync;
+
+  const pending = useRef<File[]>([]);
+  const running = useRef(false);
+  const counts = useRef({ done: 0, total: 0 });
+  const [progress, setProgress] = useState<UploadQueueProgress | null>(null);
+  const [failed, setFailed] = useState<string[]>([]);
+
+  const add = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    if (!running.current) setFailed([]);
+    pending.current.push(...files);
+    counts.current.total += files.length;
+    setProgress({ current: counts.current.done + 1, total: counts.current.total });
+    if (running.current) return;
+
+    running.current = true;
+    void (async () => {
+      for (let file = pending.current.shift(); file; file = pending.current.shift()) {
+        setProgress({ current: counts.current.done + 1, total: counts.current.total });
+        try {
+          await mutateRef.current(file);
+        } catch {
+          const name = file.name;
+          setFailed((names) => [...names, name]);
+        }
+        counts.current.done += 1;
+      }
+      running.current = false;
+      counts.current = { done: 0, total: 0 };
+      setProgress(null);
+    })();
+  }, []);
+
+  return { add, progress, failed };
 }
 
 /**

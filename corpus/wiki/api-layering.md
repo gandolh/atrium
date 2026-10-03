@@ -48,6 +48,11 @@ Two conventions that carry weight:
   and LaTeX query is keyed on `profile_id` as well as `id`, so a foreign id is
   simply *not found* — which is why those routes answer **404, never 403**. A 403
   would confirm the id exists on somebody else's account.
+- **A thrown error is a 500 that says nothing** (brief 73). One `setErrorHandler`
+  in `app.ts` answers any 5xx `{ error: "INTERNAL" }` and logs the real error; a
+  Knex error's message is its SQL, bound values included. A 4xx raised by Fastify
+  (bad JSON, body too large) keeps its message. A route-level `errorHandler`
+  passes what it does not handle on with `reply.send(error)`, which reaches it.
 
 **Migrations** live in `database/migrations/` and are registered by **static
 import** in its `index.ts` (a scanned directory picks a loader by file extension,

@@ -99,7 +99,7 @@ got here.
 | 70 | Multi-file drop/pick uploads every file sequentially; rejects named | **done (2026-10-03)** |
 | 71 | Corpus and `CLAUDE.md` describe the Ward auth that exists | **done (2026-10-03)** |
 | 72 | Dependency and Node versions back in line with D21 and D23 (Node 24) | **done (2026-10-03)**; Node line taken on the recommendation, owner may revisit |
-| 73 | A 500 does not send the error's message (SQL) to the client | todo |
+| 73 | A 500 does not send the error's message (SQL) to the client | **done (2026-10-03)** |
 | 74 | Picking the already-active profile is remembered | todo |
 | 75 | Switching back to a converted twin resumes from a stale row | todo |
 | 76 | Reopening a book in the same session refetches it when it changed | todo |

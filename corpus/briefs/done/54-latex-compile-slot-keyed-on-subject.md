@@ -100,4 +100,4 @@ Done. The query reads `.where("p.subject", subject)`, and `userId` is `subject` 
 - with one of the subject's projects marked `running`, a compile from a **second profile of that subject** gets 409 `COMPILE_BUSY` naming it;
 - a **different subject** compiles (200).
 
-With the model fix reverted, all three fail with `no such column: p.user_id`. 21 API tests pass, and typecheck and build are clean. That failure also showed the 500 body carrying the full SQL, filed as [brief 73](../todo/73-500s-do-not-echo-the-error.md).
+With the model fix reverted, all three fail with `no such column: p.user_id`. 21 API tests pass, and typecheck and build are clean. That failure also showed the 500 body carrying the full SQL, filed as [brief 73](73-500s-do-not-echo-the-error.md).

@@ -50,3 +50,20 @@ keeps its status and its own message, because those describe the request.
 
 - The test above passes, and fails without the handler.
 - `npm run test`, typecheck and build are clean.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Change.** `app.ts` gets one `setErrorHandler`, set right after `Fastify()` and before every plugin, hook and route, so all of them inherit it.
+- **`statusCode >= 500` (or none):** it logs the error with the request's logger, so with its request id, and answers `500 { error: "INTERNAL" }`.
+- **Anything below 500:** it hands the error back with `reply.send(error)`. In Fastify 5.9 that goes to the parent (default) handler, so a Fastify-raised 4xx keeps exactly today's status and body.
+- The notes routes' own `errorHandler` (brief 56) already passes non-413 errors on with `reply.send(error)`, and that reaches this handler. No route handler was touched.
+
+**Tests** (`test/errors.test.ts`; the app is built directly so the test can register a throwing route before `ready`):
+- a route throwing an error whose message is SQL gets 500 `{ error: "INTERNAL" }`, with no `select` in the body;
+- a **real** SQLite failure behind the notes route's own error handler, a `BEFORE UPDATE` trigger raising during `PATCH /notes/:id`, gets the same 500 `INTERNAL`;
+- malformed JSON still gets 400 `FST_ERR_CTP_INVALID_JSON_BODY`;
+- an over-cap note still gets 413 `NOTE_TOO_LARGE`.
+
+The two 500 cases fail without the handler. 73 API tests pass, and typecheck and build are clean. `api-layering.md` records the convention.

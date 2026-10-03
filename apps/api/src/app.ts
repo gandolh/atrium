@@ -35,6 +35,26 @@ export async function buildApp(options: { wardClient?: WardClient } = {}): Promi
    */
   const app = Fastify({ logger: true });
 
+  /**
+   * One app-wide error handler (brief 73). Set before anything is registered,
+   * so every route's handler, and every route-level `errorHandler` that passes
+   * an error on with `reply.send(error)`, ends here.
+   *
+   * Fastify's default answers a 500 with the error's own `message`, and for a
+   * Knex/SQLite error that is the **full SQL statement with its bound values**
+   * (brief 54's regression run received one, Ward subject included). A server
+   * error tells the client only that it happened; the real error goes to the
+   * log with the request id. A 4xx raised by Fastify itself (bad JSON, a body
+   * too large, an unsupported media type) describes the request, so it keeps
+   * its status and message: passed on to Fastify's default handler unchanged.
+   */
+  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
+    const status = error.statusCode ?? 500;
+    if (status < 500) return reply.send(error);
+    request.log.error({ err: error }, "unhandled error");
+    return reply.status(500).send({ error: "INTERNAL" });
+  });
+
   // No CORS (brief 65). It was permissive (`origin: true`, every origin
   // reflected) from when the web client called the API cross-origin (D14).
   // Since D54 nothing does: the deploy and development both serve the API on

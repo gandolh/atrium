@@ -2424,3 +2424,7 @@ CLAUDE.md, architecture.md, api-layering.md and the glossary still described D30
 ## [2026-10-03] done | Brief 72 — dependency and Node versions back in line with D21 and D23
 
 Every caret is pinned to its resolved version. `sharp` is one 0.35.4 copy. The Node line moves to 24 (`.nvmrc` 24.14.1, `engines` `>=24`, `@types/node` 24.19.1), matching the dev box and the container. That was taken on the brief's recommendation without the owner, and D23 marks it revisitable. `npm ci`, typecheck, build, test (647 + 69) and the docs build all pass.
+
+## [2026-10-03] done | Brief 73 — a 500 does not send the error's message to the client
+
+atrium had no error handler, so Fastify's default answered a 500 with the error's message: for a Knex error, the full SQL with bound values. One `setErrorHandler` in `app.ts`, set before everything, now answers any 5xx `{ error: "INTERNAL" }` and logs the real error. A Fastify 4xx keeps its message. `test/errors.test.ts` covers a thrown SQL-message error and a real SQLite failure behind the notes route's own handler.

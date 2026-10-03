@@ -1,6 +1,6 @@
 ---
 summary: The project's vocabulary — one canonical name per concept Atrium uses in a specific way, with the synonyms it displaces; the page that stops the same thing being called three names.
-updated: 2026-08-24
+updated: 2026-10-03
 ---
 
 # Glossary
@@ -17,7 +17,7 @@ they stop coming back. A term with two live meanings is two terms — see
 
 **Library**:
 The single shared, server-owned collection of everything uploaded, across all
-media kinds. Shared across users; only progress and identity are per-user (D31).
+media kinds. Shared across accounts and profiles; progress, notes and preferences are per-profile (D35).
 _Avoid_: collection, shelf, gallery, catalog
 
 **Shelves / Stacks** _(retired 2026-08-24, D33)_:
@@ -100,9 +100,9 @@ profile is an **identity** boundary and never a security one (D35).
 _Avoid_: user, account, persona, member
 
 **Account**:
-The household — the credential that logs in, and the security boundary
-(D30). Holds up to five profiles and one shared library. People who need real
-separation from each other need separate accounts, not separate profiles.
+A Ward subject holding an `atrium` grant (D53): the household, and the security boundary. Ward owns it;
+atrium stores only its subject (`profiles.subject`). Holds up to five profiles and one shared library.
+People who need real separation need separate accounts, not separate profiles.
 _Avoid_: profile, user, tenant, household (use *account* in code and copy)
 
 ## Reading state
@@ -139,15 +139,15 @@ _Avoid_: scrubber, slider, seek bar, progress bar (that is the cover's)
 
 ## Access
 
-**Seeded account**:
-A user record created by the operator via the seed script. There is no
-self-registration, by design (D30).
+**Seeded account** _(retired 2026-09-06, D53)_:
+An account created by atrium's seed script (D30). Atrium creates none now: a superuser grants a Ward account access. Use **Account**.
 _Avoid_: signup, registration, member
 
 **Session**:
-An opaque, server-stored random token traded for a username and password, sent as
-a bearer token or `?token=` query param. Not a JWT and not a cookie (D30).
-_Avoid_: JWT, cookie, API key, login token, auth token
+Ward's sign-in as atrium sees it (D53): the `ward_session` cookie (`Path=/`, shared origin), an EdDSA JWT
+the guard verifies locally, then confirms live with Ward (cached 30 s). Its `sid` names the device, which
+keys the active profile. Atrium issues none of its own; the D30 token and `?token=` were removed.
+_Avoid_: login token, auth token, API key
 
 ## Offline
 

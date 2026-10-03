@@ -2411,3 +2411,12 @@ All three upload entry points read only the first file, so an album drop added o
 - The buttons read "Adding 3 of 12…".
 
 Browser-verified on a scratch base: 3 + 1 invalid landed in drop order with the invalid one named; the picker did the same; and a mid-queue API kill reported the failed file, which a retry then added.
+
+## [2026-10-03] done | Brief 71 — the corpus and CLAUDE.md describe the auth that exists
+
+CLAUDE.md, architecture.md, api-layering.md and the glossary still described D30's deleted auth: users, sessions, scrypt, `/auth/*`, `?token=` and the seed script.
+- They now describe Ward's guard and `profiles.subject`/`profile_selections`, checked against the guard, the cutover migration and the selection model.
+- Glossary: **Session** and **Account** are redefined, and **Seeded account** is retired.
+- D17 is marked revised (2026-09-06, the container image, reason from commit `6dc88fe`).
+- status.md gained the 2026-09-06, 09-27 and 10-03 entries and rows 63 and 71–77. Its August narrative moved into the archive chain, with a new `status-history-v2.md` so every page stays under 200 lines.
+- Two stale code comments in `ward.guard.ts` are noted in the outcome.

@@ -62,15 +62,21 @@ artist→author, album→series, track→series_index, genre→subjects — so g
 works on music unchanged — with embedded art as a square 400×400 cover.
 `GET /library/:id/file` honors **HTTP Range** (206/`Content-Range`, 416,
 `Accept-Ranges: bytes` always) for seek/scrub; `/read` branches on `kind` to
-lazy `AudioPlayer`/`VideoPlayer` (native controls, `?token=` src, per-user
-resume via the same `reading_progress` PATCH, per profile since D35). Offline downloads remain
+lazy `AudioPlayer`/`VideoPlayer` (native controls, a plain `src` the
+`ward_session` cookie rides on, per-profile resume via the same
+`reading_progress` PATCH). Offline downloads remain
 books-only; no transcoding/ffmpeg.
 
-**Auth (D30) — an `onRequest` guard in front of everything:**
+**Identity is Ward's (D53)**: an `onRequest` guard in front of everything (`modules/ward/ward.guard.ts`). The D30 `users`/`sessions` tables, `/auth/*`, scrypt and `?token=` were removed at the cutover (`migrations/20260906000000-ward-cutover.ts`).
 ```
-web login ──POST /auth/login (username+password)──► verify scrypt hash → mint session token
-     every request ──Bearer <token> / ?token=<token>──► guard resolves session → request.authUser
-     (allowlist: POST /auth/login, GET /auth/status, GET /health, OPTIONS)  else → 401
+every request ──ward_session cookie (Path=/, shared origin)──► verify locally (EdDSA, Ward's JWKS)
+     → ask Ward /introspect: live? grants? (cached 30 s per token)
+     → 401 no/dead session      (client navigates to /ward/login?next=/atrium/)
+     → 403 NO_ATRIUM_GRANT      (live session, no `atrium` grant; never redirects)
+     → 503 IDENTITY_UNAVAILABLE (Ward unreachable or atrium's app key refused; fails closed)
+     → else: first request ever for this subject provisions a Default profile,
+       then request.ward + request.authProfile (selected per device via profile_selections)
+     (allowlist: GET /health, OPTIONS)
 ```
 
 **Reading (100% client-side once the file is fetched):**
@@ -94,7 +100,7 @@ D1/D15). See [conversion.md](conversion.md).
 ## Server-side storage (D25)
 ```
 apps/api/
-  data/library.db            SQLite (better-sqlite3) — books, users, profiles, sessions, reading_progress
+  data/library.db            SQLite (better-sqlite3) — books, profiles, profile_selections, reading_progress, notes, LaTeX projects
   library/<id>.<ext>         original uploaded PDF/EPUB files
   images/thumbnails/<id>.jpg extracted cover thumbnails
 ```
@@ -137,20 +143,21 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
 - `document_versions`: `id, book_id → books ON DELETE CASCADE, version_no,
   published_at`, unique on `(book_id, version_no)` — one publish each. **No path
   columns** (D39); both artifacts derive from the version id.
-- `users`: `id, username (unique), password_hash (scrypt), created_at` —
-  operator-seeded accounts (D30).
-- `sessions`: `token PK, user_id → users ON DELETE CASCADE, created_at` — opaque
-  login sessions (D30).
 - `books` also carries the convert link (D34): `converted_from` (FK to
   `books.id`, `ON DELETE CASCADE`, unique — at most one conversion per source),
   plus `convert_status` / `convert_error` / `convert_started_at`. The three list
   statements filter `converted_from IS NULL`, which is what keeps one card per
   book — and what search, chips, grouping and counts all inherit, since they run
   client-side over that list.
-- `profiles`: `(user_id, name)` unique → `name, color, is_default, preferences`
-  — the people inside one account (D35). `preferences` is a JSON blob (theme,
+- `profiles`: `id, subject, name, color, is_default, preferences, created_at`,
+  unique on `(subject, name)`, where `subject` is the Ward account (no FK: Ward
+  owns accounts) — the people inside one account (D35, re-keyed by D53). `preferences` is a JSON blob (theme,
   font settings, page mode, TOC sidebar), which is why D9 no longer holds for
   those four.
+- `profile_selections`: `(subject, sid) PK → profile_id → profiles ON DELETE
+  CASCADE, updated_at` — which profile a device last activated, keyed on the
+  Ward token's `sid` so switching on one device does not switch the others
+  (`profiles/profile-selection.model.ts`).
 - `reading_progress`: `(profile_id, book_id) PK` → `progress, locator,
   updated_at`, both FKs `ON DELETE CASCADE` — progress + resume position, keyed
   on the **profile** since D35 (was `user_id`; the composite PK meant SQLite
@@ -183,17 +190,10 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
   `GET /library/:id/file`, `GET /library/:id/cover`,
   `PATCH /library/:id/progress`, `DELETE /library/:id`, and the convert pair
   `POST /library/:id/convert` / `DELETE /library/:id/convert` (D34).
-- **Auth** (D30, `auth.ts` + `password.ts`): app-wide `onRequest` guard +
-  `POST /auth/login` / `GET /auth/status` / `POST /auth/logout`; scrypt password
-  hashing; opaque sessions. Accounts seeded by `scripts/seed.ts` (no
-  self-registration). Reading progress (D31) via `reading_progress`, keyed on
-  the active **profile** since D35 — the guard resolves
-  `request.authProfile` alongside `request.authUser`, and a session whose
-  profile is missing or dangling falls back to the account default rather than
-  401-ing. Notes are profile-scoped too.
+- **Ward guard** (D53, `modules/ward/`): see the diagram above; a stale selected profile falls back to the default, never a 401.
 - **Cover extraction** (D26): EPUB OPF manifest cover; PDF page-1 render → JPEG.
-- `POST /convert` — unchanged, still stateless; shells out to Calibre
-  `ebook-convert` via child process.
+- **Conversion** (D34): `POST`/`DELETE /library/:id/convert`, an async job
+  shelling out to Calibre `ebook-convert`; the stateless `POST /convert` is gone.
 
 ## Client↔server wiring
 One origin in development as in the deploy (D54): the web dev server proxies

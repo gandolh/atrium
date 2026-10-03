@@ -1,5 +1,5 @@
 ---
-summary: Locked tech/design decisions (D1–D47) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
+summary: Locked tech/design decisions (D1–D54) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
 updated: 2026-10-03
 ---
 
@@ -34,7 +34,7 @@ keep it that way. Terminology that a decision settles belongs in
 | ~~D14~~ | ~~**CORS + `VITE_API_URL`** (no Vite proxy)~~ **REVISED 2026-09-27 → D54** | Explicit base URL, deploy-ready |
 | ~~D15~~ | ~~**Convert limits: 50MB / 60s / structured errors / no queue**~~ **60s REVISED 2026-08-25 → D34** (50MB cap and "no queue" stand) | A conversion is now an async job with a 24h reaper, one at a time, cancellable — a synchronous 60s cap cannot hold a real PDF→EPUB |
 | D16 | **Tailwind + Base UI** | Fast chrome; unstyled accessible primitives keep the Kindle look |
-| D17 | **Local dev only** — `npm run dev`, no Docker/deploy | Personal tool |
+| ~~D17~~ | ~~**Local dev only** — `npm run dev`, no Docker/deploy~~ **REVISED 2026-09-06**: atrium is deployed to the estate VPS by vps-deploy, behind Caddy on the shared origin, and since 2026-09-06 the API ships as a container (`infrastructure/Dockerfile`, `infrastructure/docker-compose.yml`, commit `6dc88fe`); `npm run dev` stays the local loop (D54) | Personal tool. Revised because the app runs in production now; the container moved Calibre off the shared VPS and into this repo |
 | D18 | **No bookmarks/highlights in v1** | Pointless without persistence |
 | D19 | **In-book search IS in v1** | Kept during scoping |
 | D20 | **Tailwind v4** (with `@base-ui/react`) | Matches Base UI's documented examples; greenfield 2026 build |

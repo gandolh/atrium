@@ -16,11 +16,11 @@ rules, a model owns the SQL, and the dependencies only ever point that way.**
 src/
   index.ts        bring the database up → listen → shut down
   app.ts          build the Fastify instance: plugins, guard, module routes
-  common/         config.ts · paths.ts · password.ts
+  common/         config.ts · paths.ts
   database/       knex.ts · bootstrap.ts · errors.ts · migrations/
   modules/
-    auth/         controller · service · model · guard
-    profiles/     controller · service · model · mapper
+    ward/         client · guard · types   (D53: the guard; no auth module, no password.ts)
+    profiles/     controller · service · model · mapper · profile-selection model
     library/      controller · service · model · types · mapper
                   + extract · calibre · convert · maintenance services
     catalog/      controller · service · gutendex service

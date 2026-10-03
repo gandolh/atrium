@@ -1,15 +1,126 @@
 ---
-summary: Archive of Atrium's shipped phases through brief 44 — what each run delivered, what it fixed, and how it was verified. Split out of status.md, which keeps the current snapshot.
-updated: 2026-08-29
+summary: Archive of Atrium's most recent shipped phases — briefs 39–52, 2026-08-29 to 2026-08-30 (the engine's math, the worker thread, the Knex move) — what each run delivered, fixed and verified. Split out of status.md, which keeps the current snapshot.
+updated: 2026-10-03
 ---
 
 # Status history
 
 Split out of [status.md](status.md) on 2026-08-26, when that page passed the
 corpus 200-line rule. It kept the current snapshot and the briefs table; this
-holds the narrative of everything that shipped through brief 44, newest first.
+holds the most recent narrative, newest first; older entries moved to
+[status-history-v2.md](status-history-v2.md) on 2026-10-03 when this page filled.
 Nothing here has been rewritten — these are the entries as they were written at
 the time.
+
+---
+
+**2026-08-30 —** ✅ **Brief 52 shipped — `apps/api` is modular and runs
+on Knex.** 18 flat files became six domain modules, each controller / service /
+model, with `src/database/` (Knex instance, one idempotent baseline migration,
+boot tasks) and `src/common/`. The 2,210-line `db.ts` is gone, and the schema no
+longer arrives as a side effect of an `import` — `initDatabase()` is awaited
+before `listen`, so a failed migration stops the server instead of surfacing as
+a 500 on the first request. **D24's synchronous-API clause is revised → D47.**
+
+**What the async move cost, and why it was worth writing down.** Three
+correctness properties held *only* because `better-sqlite3` statements could not
+be interleaved, and all three would have failed silently: the conversion
+single-flight (two concurrent requests could both spawn `ebook-convert` — now one
+atomic `claimConvertSlot` UPDATE), the compile single-flight (now an explicitly
+await-free claim region), and `cancelAndSettleLatexCompile`, which could return
+*immediately while reporting that it had waited* on a job whose promise was not
+yet assigned — orphaning a build tree on delete-mid-compile. The bug class is
+"an invariant that was paid for by the runtime, not by the code".
+
+**Verified, not tested.** A copy of the live database (all five storage roots
+redirected per D39) migrated with every row count preserved and no FK
+violations; 128 live requests across every route group; both single-flight
+guards confirmed under six-way concurrency; clean SIGTERM. Typecheck + build
+green, 647/647 tests pass. **`apps/api` still has no automated tests** — now the
+largest gap in the repo, and much cheaper to close than it was.
+
+**Earlier (2026-08-29):** ✅ **Briefs 40 and 43 shipped — the brief backlog is
+empty.** Every brief 01–44 is now in `briefs/done/` or `superseded/`.
+
+**40 — the engine sets mathematics.** Inline math on the text baseline, displays
+centred with numbers at the margin, `\ref` into the existing reference pass,
+growing delimiters, matrices, integrals and the symbol coverage. MathJax v4 SVG
+through our own SVG→PDF emitter, **gated to the declared subset** (D41).
+**637 tests** (from 506 when this backlog started), all five goldens
+byte-identical. Verified by eye: a paper-shaped document rasterised at 2× and
+looked at — 7 formulas, one page, one pre-existing `\date` warning.
+
+**The defect worth remembering:** wave 1 left math **silently dropped** —
+`layout/vlist.ts` had no arm for either new kind and **neither dispatcher was
+exhaustiveness-checked**, so growing the unions produced no typecheck error. A
+document compiled to a valid PDF with **zero diagnostics and no mathematics on
+it**, while `\ref` still resolved so even the labels looked healthy. Fixed, and
+all three dispatchers now carry a `never` guard — that second half is the point.
+The bug class is not "math was forgotten", it is "a switch over a union can grow
+in silence".
+
+**A real purity hole closed along the way.** Leaving MathJax's `require` and
+`autoload` enabled lets a *document* trigger a component load off disk
+(`\require{physics}`, or a plain `\color{red}{x}` via autoload). Same class as
+`\write18`, arriving through a dependency instead of our own code. Both dropped.
+
+**43 — coverless tiles tell each other apart**, by a hashed title initial whose
+size and corner vary. **D42's second axis was corrected on measurement:** the
+ground-lightness ladder it originally specified was ~10× stronger than the kind
+signal (0.1871 vs 0.0194 in OKLab), so the grid would have read by lightness
+rather than kind — the exact D33 inversion the brief exists to prevent. No mix
+value works; the palette is near-achromatic. Both axes now sit on the
+letterform and the ground is untouched.
+
+**Both verification gaps were then closed in a browser, and each caught a defect
+nothing else could have.**
+
+**Brief 40 shipped an engine the app could not use.** Every engine test passed
+and the rasterised PDF looked right, yet the preview reported *"8 errors — math
+typesetting is brief 40, a separate future brief"*: `apps/api` imports the
+**built** package and `dist/` was a day stale, and `latex-worker.ts` never
+injected the renderer at all. **The brief's own "do not touch `apps/api`" made
+its headline acceptance unreachable** — brief 38 needed no change to show new
+*diagnostics*, which is not the same as rendering. Fixed; measured cost
+prose-only 867 ms, math 996 ms.
+
+**Brief 43's initial was rendering behind the tile.** 18 correctly-hashed spans
+existed at full size with computed visibility `true`, and were invisible in
+every theme: `-z-10` put the letter behind the *ancestor's* tinted ground rather
+than behind its own siblings. Fixed, then verified on a seeded 18-item grid in
+light and dark.
+
+**An incident, no data lost:** resuming after a quota interruption, the
+scratchpad holding the storage-root redirects had been wiped, so the dev servers
+booted against the **real** library and applied briefs 34 and 41's pending
+migrations. They were due and had been tested against a copy, and everything
+survived — 5 books, 9 files, 7 thumbnails, all user data. But it was
+unintentional, and the lesson is that **a redirect sourced from a file is
+silently optional**: set the roots inline and assert them before starting. See
+[open-questions.md](open-questions.md).
+
+**The math gate was widened** on the owner's call: `gather*`, `\displaystyle`
+and `\boldsymbol` are now admitted. `\boldsymbol` turned out to be a real bug
+rather than a scope question — it reported `undefined-command`, because
+MathJax's base input lacks it and `autoload` is dropped, so ordinary amsmath
+read as a thing that does not exist. `\begin{math}` was admitted and **not
+delivered**: it is a parser-mode problem, not a table entry, since an
+environment's body is never read in math mode. Still refused by design:
+`\mathsf`, `\mathtt`, `\mathfrak`, `smallmatrix`, `multline`, `alignat`,
+`eqnarray` — D41's accepted cost, each a one-line widening.
+
+**Next:** [brief 45](../briefs/done/45-profile-delete-cancels-compiles.md)
+(profile delete must cancel the compiles it orphans — it can wedge an account's
+slot) and [brief 46](../briefs/done/46-compile-status-write-failure.md) (a
+swallowed status write can wedge until restart). Both promoted from brief 44's
+review, and both re-confirmed unbuilt in the source on 2026-08-29. Then **47**
+(bibliography label width), **48** (orphan-thumbnail reaper) and **49–51**
+(notes: export, folders, ink tools).
+
+**Corpus housekeeping (2026-08-29):** `CLAUDE.md` moved to the **repo root** so
+the D33 checklist auto-loads; `HANDOFF.md` + `test-plans/` retired; and
+**`todos/` was merged into `briefs/todo/`** — one queue now, nine trail files
+deleted, five new briefs (47–51). See [../log.md](../log.md).
 
 ---
 
@@ -61,98 +172,4 @@ addition to a package that has shipped with `pdf-lib` alone. **Not added,
 awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
 there is a real count of how many coverless videos survive brief 42's backfill.
 
----
-
-**2026-08-27 —** ✅ **Brief 38 shipped — LaTeX in Atrium.** You can
-write a multi-file project at `/latex`, compile it with **our own engine** (no
-TeX, no binary), preview the PDF beside the source, and **publish** it into the
-library as a document that accumulates **versions** — press publish ten times
-and you get ten versions on one card, verified on real data. Diagnostics carry
-file and line and clicking one jumps the caret; an unimplemented construct reads
-as *"not supported yet"* and is visibly distinct from a typo. The engine's
-purity means the remaining attack surface is one path-confinement module, which
-rejects traversal, absolutes, escaping symlinks and — the case naive
-implementations write straight through — **dangling** symlinks.
-
-10 chunks, 3 finders, **13 findings (3 Critical)**, all fixed. Every serious one
-crossed chunk boundaries and none tripped a gate: the compile preview
-overwriting the real reader's saved position, a stale cache reverting a saved
-edit, a fire-and-forget `flush()` letting publish immortalise stale bytes, and
-publish racing itself into two cards. Details in
-[briefs/done/38-latex-editor.md](../briefs/done/38-latex-editor.md) and
-[latex.md](latex.md).
-
-**Was known, now fixed:** `compile()` blocking the API process for its duration
-was brief 38's standing limitation. **Brief 44 closed it** — the engine is
-hosted on a `worker_thread` and `compile()`'s synchronous contract is unchanged.
-
-**Earlier (2026-08-26):** ✅ **Brief 37 shipped — the typesetting engine.**
-Atrium compiles LaTeX with **its own TypeScript engine** (D38), not Tectonic and
-not any TeX: `packages/typeset` takes a `.tex` file map and returns PDF bytes as
-a pure function with no filesystem, network or processes. That purity *is* the
-sandbox — `\write18` cannot execute because no shell escape is written, and
-`\input{/etc/passwd}` has no filesystem to reach. 10,708 lines of engine, 5,335
-of tests, **332 tests** — the repo's first test suite. Prose, sections, ToC,
-lists, footnotes, cross-references, `\newcommand` and verbatim all set
-correctly; figures/tables/bibliography are brief 39 and math is brief 40, and
-every construct outside the subset reports a diagnostic with file and line
-rather than failing silently. Details in
-[briefs/done/37-engine-foundation.md](../briefs/done/37-engine-foundation.md)
-and [typeset.md](typeset.md).
-
-**Earlier (2026-08-27):** ✅ **Brief 41 shipped — storage paths are derived, and
-testing is finally sandboxable.** All three storage roots are env overrides, so
-a scratch database and scratch files move together; the `file_path`/`cover_path`
-columns are **dropped** and every location derives from `paths.ts`. `hasCover`
-is now a disk `stat`, which makes DB/disk drift unrepresentable and deleted
-`reconcileMissingCovers` outright. The offline store is at **v5** with the field
-renamed `fraction` → `progress`. The review's best catch was against the brief
-itself: dropping a stored path *unread* destroys the only record of where a
-misplaced file actually is, so the migration now warns and names every drifted
-row first. **Your real database is untouched — it migrates on the next API
-boot**, and note it is still pre-brief-34, so that boot runs two briefs'
-migrations at once (tested together, converges cleanly).
-
-**Earlier (2026-08-27):** 🧭 **Grill session — every open question closed.**
-The three threads in [open-questions.md](open-questions.md), two of them open
-since July, are now **D39** and **D40** and are specified as briefs 41–43. The
-headline: the API stored absolute paths while two of its three storage roots
-could not be redirected, which is why pointing a test at a *copied* database
-still reached the **real** files — the hazard that destroyed a book on
-2026-08-25. Paths become derived and all three roots become overridable, so a
-scratch database and scratch files finally move together. `cover_path` is
-dropped and `hasCover` becomes a disk check, which deletes
-`reconcileMissingCovers` outright. Also settled: the offline store's `fraction`
-→ `progress` rename (IndexedDB v5), and video covers captured **in the browser**
-— no ffmpeg, since what brief 23 declined was the binary, not the feature.
-**Nothing is built yet**; 41 is the next build and gates 38.
-
-**Earlier (2026-08-26):** ✅ **Brief 34 shipped — Convert.** A PDF now offers a
-reflowable EPUB twin and an EPUB offers a PDF, as **linked `books` rows** (D34)
-— one card per book, each format with its own resume position, and reopening
-lands in the format that reader last used. Conversion is an async job: one at a
-time, cancellable, 24h reaper, restart-safe. A quality gate flags a likely scan
-`poor` and warns without ever blocking, because the honest answer to a bad
-conversion is that the source is one tap away. The stateless `POST /convert`,
-its temp-file workspace and `convert-api.ts` are **deleted** — D1's export-only
-rule is revised, its reason having been direction-specific all along.
-
-Three finders caught **7 findings (1 Critical)**, all fixed but two Minor. The
-Critical was reported by two finders independently: deleting a book never
-cancelled its running conversion, wedging conversion app-wide behind a slot held
-for a row that no longer existed. Details in
-[briefs/done/34-convert.md](../briefs/done/34-convert.md).
-
-**Incident:** an agent destroyed a real book during verification (a copied DB
-still points at the real files) — recovered from a duplicate; `config.ts` and
-[open-questions.md](open-questions.md) now record the hazard, and a manual
-backup exists outside the repo.
-
-**Not verified:** this machine's Calibre has an `lxml`/`html5-parser` ABI
-mismatch, so anything with an outline fails to convert. The two-column and
-scanned-PDF readability checks await a working install.
-
-**Everything through brief 35** — the v1 build, the PWA phases, the perf
-briefs, the media library and the first grouped-library work — is in
-[status-history-v1.md](status-history-v1.md). Split off on 2026-08-29 when this
-page passed the 200-line rule, the same way it was split off `status.md`.
+Older entries, from 2026-08-27 back to brief 34, are in [status-history-v2.md](status-history-v2.md); the v1 era is in [status-history-v1.md](status-history-v1.md).

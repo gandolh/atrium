@@ -96,3 +96,36 @@ orient describe the deleted system as current:
 - Every claim on the edited pages about auth, tables or modules can be checked
   against a named file.
 - `bash corpus/lint.sh` passes, including the page-size limit.
+
+## Outcome (2026-10-03)
+
+Done. Each passage was rewritten against the code: `modules/ward/ward.guard.ts`, `20260906000000-ward-cutover.ts`, `profiles/profile-selection.model.ts` and `database/bootstrap.ts`'s `ensureDefaultProfile`.
+
+- **CLAUDE.md one-liner:**
+  - per-person profiles inside Ward accounts, and per-profile notebooks;
+  - the backend's real responsibilities, conversion (D34) and the LaTeX editor included;
+  - "Identity is Ward's (D53)": no login, users or sessions of its own, a guard requiring an `atrium` grant (401/403/503), and profiles keyed on the subject.
+- **architecture.md:**
+  - the D30 diagram is replaced by the Ward guard flow: cookie, local EdDSA verify, introspection cached 30 s, the 401/403/503 outcomes, lazy Default provisioning, `profile_selections`, allowlist `GET /health` + `OPTIONS`;
+  - media `src` rides the cookie, not `?token=`;
+  - the storage line lists today's tables;
+  - `users`/`sessions` are gone; `profiles` is keyed on `subject`, and `profile_selections (subject, sid)` is added;
+  - the backend-stack auth bullet and the stale `POST /convert` bullet are replaced.
+- **api-layering.md:** the module tree has `ward/` (client, guard, types) and the profile-selection model, and no `auth/` or `password.ts`.
+- **glossary.md:**
+  - **Account** is a Ward subject holding an `atrium` grant;
+  - **Session** is Ward's cookie JWT, whose `sid` keys the active profile;
+  - **Seeded account** is retired (2026-09-06, D53) with a pointer;
+  - the Library entry says per-profile.
+- **decisions.md:**
+  - D17 is struck through and marked **REVISED 2026-09-06**, pointing at `infrastructure/` and commit `6dc88fe`. The reason was taken from that commit, not invented: the app runs in production, and the container moved Calibre off the shared VPS.
+  - The summary reads D1–D54.
+- **status.md:**
+  - new entries for this sweep, 2026-09-27 and 2026-09-06 (Ward, the container, the docs site);
+  - rows for 63, 71 and 72–77, in order.
+  - The 2026-08-29/30 narrative moved to the top of `status-history.md`. That page's 2026-08-26/27 entries moved to a new `status-history-v2.md`, keeping every page under 200 lines. Archived text is unchanged apart from its date label.
+- **Index** regenerated (`lint.sh --index`, 19 pages), and `bash corpus/lint.sh` passes.
+
+The acceptance grep returns only lines that describe the removal. Not touched, as scoped: D14 (65), D23 (72), D29 (69), history pages' content, and done briefs.
+
+Found, not fixed, because this brief may not touch code: `ward.guard.ts`'s header still says `app.ts` "carries a log serialiser that redacts `?token=`" (it was removed), and its profile comment says the selection FK is `ON DELETE SET NULL` (it is `CASCADE`). Both are stale comments for the next change in that file.

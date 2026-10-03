@@ -2308,3 +2308,17 @@ Uploads streamed straight to their final name with no cleanup. A dropped client,
 - the sweep's exact match.
 
 Five of its seven tests fail on the old code. On a scratch base, a 20 MB curl upload killed halfway left nothing, and a real boot removed a planted orphan.
+
+## [2026-10-03] done | Brief 59 — root scripts build the workspaces in dependency order
+
+npm runs `--workspaces` scripts in declaration order, and `["apps/*", "packages/*"]` put the apps before the packages they compile against. A clean `npm run build` therefore failed, and `npm run dev` never built `typeset`.
+- Workspaces are now `["packages/shared", "packages/typeset", "apps/*"]`.
+- `dev` builds both packages, then also runs `tsc --watch` on typeset, so engine edits reach the worker without a restart.
+
+Verified in a fresh clone:
+- `npm ci`, build, typecheck and test (647 + 30) all pass;
+- the old order fails with TS2307 there;
+- `npm run dev` on scratch roots started all three processes and the watcher rebuilt on edit;
+- a first LaTeX compile answered `ready`.
+
+`architecture.md` updated.

@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "packages/shared",
+    "packages/typeset",
+    "apps/*"
   ],
   "scripts": {
-    "dev": "npm run build -w @ebook-reader/shared && concurrently -n web,api -c cyan,magenta \"npm run dev -w @ebook-reader/web\" \"npm run dev -w @ebook-reader/api\"",
+    "dev": "npm run build -w @ebook-reader/shared && npm run build -w @ebook-reader/typeset && concurrently -n web,api,typeset -c cyan,magenta,yellow \"npm run dev -w @ebook-reader/web\" \"npm run dev -w @ebook-reader/api\" \"tsc --watch --preserveWatchOutput -p packages/typeset/tsconfig.json\"",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"

@@ -92,3 +92,23 @@ existing `dist/` hides the problem:
   asserted, starts both apps, and the first LaTeX compile runs the current
   engine. Brief 54 must have landed for a compile to work at all. If it has not,
   check that `packages/typeset/dist/` exists and is fresh after startup.
+
+## Outcome (2026-10-03)
+
+Done.
+- **Workspaces:** `["packages/shared", "packages/typeset", "apps/*"]`. `npm pkg get name --workspaces` now lists shared → typeset → api → docs-site → web.
+- **`dev`:** builds `shared`, then `typeset`, chained with `&&`, then runs web, api and `tsc --watch --preserveWatchOutput -p packages/typeset/tsconfig.json` under `concurrently`. Only the engine's own `tsconfig.json` is watched; `tsconfig.node.json` is the font loader.
+- **`package-lock.json`:** only npm's workspace reorder.
+- **Wiki:** `architecture.md` now explains the order and the watcher.
+
+**Fresh-clone checks**, in a `git clone` in the scratchpad with the new `package.json`/lock copied in:
+- `npm ci && npm run build` exits 0. `VITE_API_URL` was set inline, because `apps/web` requires it and a clone has no `.env`.
+- `npm run typecheck` exits 0.
+- `npm run test` passes typeset 647/647, then API 30/30.
+- For contrast, the old `package.json` in the same clone, with every `dist/` removed, fails `npm run build` with `TS2307: Cannot find module '@ebook-reader/shared'` from `apps/api`.
+- `npm run dev`, with all five roots set inline to a scratch base and asserted first:
+  - web, api and the typeset watcher all started, and `packages/typeset/dist/` was built fresh before the apps;
+  - an export added to `packages/typeset/src/index.ts` appeared in `dist/index.js` within seconds, and reverting it removed it.
+- The first LaTeX compile on that clone, through a scripted-Ward server, answered `ready`, 1 page, no diagnostics.
+
+The roots assertion has to run after `shared` is built, because `config.ts` imports it.

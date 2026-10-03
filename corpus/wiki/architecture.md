@@ -1,6 +1,6 @@
 ---
 summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
-updated: 2026-08-30
+updated: 2026-10-03
 ---
 
 # Architecture
@@ -17,9 +17,9 @@ ebook-reader/
     shared/               Zod schemas + inferred TS types
 ```
 
-Root `package.json` declares `workspaces: ["apps/*", "packages/*"]`. Scripts run
-each workspace (e.g. `npm run dev` runs web + api concurrently). Plain npm — no
-pnpm, no Turborepo. TypeScript throughout.
+Root `workspaces` is `["packages/shared", "packages/typeset", "apps/*"]`, dependencies first on purpose: npm runs
+`--workspaces` scripts in declaration order and the apps compile against the packages' built `dist/` (brief 59). `npm run dev`
+builds both packages, then runs web + api + a `tsc --watch` on typeset. Plain npm, no Turborepo. TypeScript throughout.
 
 ## Dependency direction
 ```

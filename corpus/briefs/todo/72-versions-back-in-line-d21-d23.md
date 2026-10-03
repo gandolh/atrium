@@ -89,7 +89,7 @@ D23.
   finds nothing but the internal `"*"` workspace references.
 - `npm ls sharp` shows a single version.
 - `npm ci`, then root `npm run typecheck`, `npm run build` and `npm run test`,
-  succeed on the chosen Node line. [Brief 59](59-root-scripts-dependency-order.md)
+  succeed on the chosen Node line. [Brief 59](../done/59-root-scripts-dependency-order.md)
   makes the build order work on a clean checkout.
 - `npm run docs -w @ebook-reader/docs-site` still builds the docs site.
 - `bash corpus/lint.sh` passes.

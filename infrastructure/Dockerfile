@@ -73,6 +73,10 @@ WORKDIR /app
 COPY --from=proddeps /app/node_modules ./node_modules
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/typeset/dist ./packages/typeset/dist
+# The typesetter loads its fonts from here at run time (the package ships
+# `dist` AND `assets`). Without them every LaTeX compile, and so every
+# publish, fails inside the container.
+COPY packages/typeset/assets ./packages/typeset/assets
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY package.json ./
 COPY --parents apps/*/package.json ./

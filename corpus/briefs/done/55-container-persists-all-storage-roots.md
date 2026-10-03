@@ -120,3 +120,27 @@ Checked without Docker: the compose file parses with five mounts, and `config.ts
 - drop the dead `APP_PASSWORD` secret and `CONVERT_TIMEOUT_MS` (the latter once brief 69 lands).
 
 Until the first two land, the deploy keeps losing drafts and versions on every recreate.
+
+**Docker checks run (2026-10-03, later), with one fix.** With Docker back:
+- **Build context:** a throwaway build with the same context and
+  `.dockerignore` shows `apps/api/latex`, `apps/api/versions` and
+  `testing_files` absent (all three exist on the host; the context is 48 MB).
+  `docker compose -f infrastructure/docker-compose.yml build` succeeds
+  (`atrium-api:1.0`, 1.35 GB).
+- **Startup log:** `API ready` lists all five `storageRoots` at their mount paths.
+- **Recreate test, and the bug it found:** the container ran against the local
+  Ward, on five scratch host directories.
+  - The first publish failed. The prod stage copied `packages/typeset/dist` but
+    not `packages/typeset/assets`, so the typesetter found no fonts and **every
+    LaTeX compile, and so every publish, failed in the container.**
+  - The Dockerfile now copies `assets` too, as the package's `files` already
+    declare.
+  - After rebuilding: create a project, recreate the container, and the draft
+    was still served. Publish one version, recreate again, and the versions list,
+    the library PDF (18,687 bytes, `%PDF-`) and the draft `main.tex` were all
+    served, with the version's `.pdf` and `.zip` on the host mount.
+- The container was run with `docker run` replicating the compose service, not
+  `compose up --force-recreate`. Compose needs `infrastructure/.env`, and Ward's
+  app key was not copied into another file for a test.
+
+The vps-deploy follow-up above is still owed.

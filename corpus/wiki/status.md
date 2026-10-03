@@ -8,8 +8,9 @@ updated: 2026-10-03
 **Latest (2026-10-03):** ✅ **The 2026-09-25 improvements sweep is worked
 through: briefs 53–72 are done.** Every API fix landed with a regression test on
 brief 63's harness (69 tests, from none). Owed, each named in its brief's outcome:
-- **Docker checks** for brief 55 (Docker is unavailable on the dev machine), and
-  the matching vps-deploy change, without which deploys keep losing LaTeX drafts.
+- The **vps-deploy change** for brief 55, without which deploys keep losing
+  LaTeX drafts. (Its Docker checks ran on 2026-10-03 and found the image could
+  not typeset; fixed.)
 - **Owner gate on brief 60** before the next deploy: production's orphan counts,
   and prune (D53) versus re-point.
 - **Upstream `wzd_auth`** change for brief 61's key-fetch classification.
@@ -81,7 +82,7 @@ got here.
 | 52 | `apps/api` modules + Knex (D47) | **done (2026-08-30)** |
 | 53 | Storage roots and `.env` resolve from the API package again | **done (2026-09-27)** |
 | 54 | LaTeX compile slot keyed on the Ward subject (was a dropped column) | **done (2026-10-03)** |
-| 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker checks owed; vps-deploy follow-up in the brief |
+| 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker-checked (found and fixed missing typeset fonts in the image); vps-deploy follow-up in the brief |
 | 56 | Note autosave serialized, dirty until acknowledged, 16 MiB cap with `NOTE_TOO_LARGE` | **done (2026-10-03)** |
 | 57 | Reading position flushed on leave, tab close and twin/version switch | **done (2026-10-03)**; twin switch-back resume is brief 75 |
 | 58 | Aborted or failed uploads/imports leave no file; boot sweep reclaims `*.uploading` | **done (2026-10-03)** |

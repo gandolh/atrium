@@ -115,3 +115,32 @@ written runbook for running atrium against a local Ward:
 - CORS no longer reflects arbitrary origins, in production or in dev.
 - Typecheck and build are clean, and the storage roots are set inline to a scratch
   base for every local run.
+
+## Outcome (2026-10-03)
+
+Done. The two halves landed separately.
+
+**2026-09-27 (`bc9060d`, D54).** The owner chose option A for every Ward app.
+- The web dev server serves `/atrium/` and proxies `/atrium-api` (prefix stripped), plus `/ward` and `/ward-api` to the local Ward container.
+- The README has the runbook, and `.env.example` the local values.
+- That run was verified in a headless browser against the local Ward: sign-in, the no-grant screen, a 503 with Ward stopped, and a production build unchanged. The log entry has the details.
+
+**2026-10-03, CORS.** CORS was still `origin: true`.
+- The registration is removed. Since D54 nothing calls the API cross-origin, so the empty allowlist is the honest one.
+- The comment in `app.ts` says why, including what `credentials: true` plus a reflected origin would have exposed.
+- `@fastify/cors` is uninstalled from `apps/api`.
+- `test/cors.test.ts`:
+  - a signed-in `GET /library` with `Origin: https://evil.example` carries no `Access-Control-*` header;
+  - a PATCH preflight from there is not granted.
+  - Both fail on the old `app.ts`.
+- 61 API tests pass, and typecheck is clean for api and web.
+- Stale comments are corrected:
+  - `api-client.ts`;
+  - `vite.config.ts`'s cover cache, which now notes brief 62's `?v=`;
+  - `architecture.md`'s backend stack and wiring.
+
+The web bundle's runtime code is untouched by this half, so the production build check from 2026-09-27 stands.
+
+**Not done here: the Ward-down screen.** With Ward stopped the page sits on "Loading…" instead of saying sign-in is unavailable. The API half is brief 61, done. The web half lives in `lib/auth.ts` and `AuthGate.tsx`, outside this brief's files, and needs a choice: an outage must not block offline reading. Filed as [brief 77](../todo/77-ward-down-shows-unavailable-not-loading.md).
+
+The local Ward could not be re-run today, because Docker is unavailable on this machine.

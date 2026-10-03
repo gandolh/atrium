@@ -26,8 +26,9 @@
  * cookies on a same-origin request by default. The flag only matters if
  * `VITE_API_URL` ever points at another origin, and there it is not enough on
  * its own. The browser also wants `Access-Control-Allow-Credentials` from the
- * API, which atrium's CORS does not send, so it refuses every response. That is
- * why development proxies the API instead of going cross-origin (D54).
+ * API, and atrium sends no CORS headers at all (brief 65), so it refuses every
+ * response. That is why development proxies the API instead of going
+ * cross-origin (D54).
  */
 
 // Required — `vite.config.ts` throws at startup if VITE_API_URL is unset, so

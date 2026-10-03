@@ -2364,3 +2364,9 @@ adm-zip caps inflation only at an entry's own declared size, so a truthful zip b
 - Every `sharp` decode is limited to 40 MP.
 
 Two 2 MB EPUBs that truly inflate to 2 GiB uploaded fine: `/health` peaked at 42 ms and RSS didn't move. The real `testing_files` books extract identically. Crafted-zip tests are in `test/extract-limits.test.ts`.
+
+## [2026-10-03] done | Brief 65 — atrium runs locally on one origin; CORS grants nothing
+
+D54 (2026-09-27) already landed the dev topology and the runbook. Two items had kept the brief open:
+- **CORS still reflected every origin.** The registration is removed and `@fastify/cors` uninstalled: since D54 the API is same-origin in dev and in the deploy. `test/cors.test.ts` proves a foreign origin gets no `Access-Control-*` header, on a request or a preflight. Stale comments in `api-client.ts`, `vite.config.ts` and `architecture.md` are corrected.
+- **With Ward down the page sits on "Loading…".** That is web-gate work outside this brief's files and needs a choice that keeps offline reading reachable. Filed as brief 77.

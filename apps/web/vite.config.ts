@@ -159,28 +159,22 @@ export default defineConfig(({ mode }) => {
           navigateFallback: `${base}index.html`,
           runtimeCaching: [
             {
-              // Cover thumbnails only (cross-origin API). Stale-while-revalidate
-              // = instant paint from cache, refresh in the background.
+              // Cover thumbnails only. Stale-while-revalidate = instant paint
+              // from cache, refresh in the background.
               //
-              // Covers used to be immutable per book, which made staleness
-              // harmless outright. Brief 42 ended that: `POST /library/:id/cover`
-              // is a last-write-wins setter (D40), so a book's cover CAN change
-              // under a URL that never does — `coverUrl` carries no content
-              // version, only the auth token. SWR is still the right handler
-              // (the stale paint is one view old and the refresh lands right
-              // behind it), and acquiring a FIRST cover is unaffected: the card
-              // was drawing the typographic tile, and the library refetch that
-              // flips `hasCover` requests the image fresh. What is no longer
-              // true is that staleness cannot happen at all. If a "pick a
-              // different frame" affordance ever makes replacement routine, the
-              // cure is a content version in the cover URL, not a handler swap.
+              // A cover can change in place (a re-publish regenerates it; D40's
+              // `POST /library/:id/cover` is last-write-wins), and since brief 62
+              // `coverUrl` carries the cover's version (`?v=<mtime>`), so a
+              // changed cover is a new URL and a new cache entry rather than a
+              // stale paint. The pattern is a prefix, so versioned URLs match.
               urlPattern: coverUrlPattern,
               handler: "StaleWhileRevalidate",
               options: {
                 cacheName: "cover-thumbnails",
                 expiration: { maxEntries: 200 },
-                // `<img>` requests are cross-origin without CORS, so responses
-                // are opaque (status 0); cache those as well as 200s.
+                // Opaque responses (status 0) were the norm while the API was
+                // cross-origin (before D54); kept so a cross-origin build
+                // still caches.
                 cacheableResponse: { statuses: [0, 200] },
               },
             },

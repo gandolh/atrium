@@ -174,7 +174,7 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
 - **react-reader** (epub.js) — EPUB rendering.
 
 ## Backend stack (`apps/api`)
-- **Fastify** + `@fastify/multipart` (upload) + `@fastify/cors`.
+- **Fastify** + `@fastify/multipart` (upload). No CORS since brief 65: nothing calls the API cross-origin.
 - **Knex** over **`better-sqlite3`** (D24 as revised by D47) — same driver,
   still synchronous underneath, but every query is a promise. One connection in
   the pool, which is what keeps transactions exclusive and `foreign_keys` (a
@@ -196,8 +196,8 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
   `ebook-convert` via child process.
 
 ## Client↔server wiring
-Web calls `VITE_API_URL` (`http://localhost:3001`) directly; Fastify enables
-CORS. No Vite proxy.
+One origin in development as in the deploy (D54): the web dev server proxies
+`/atrium-api` (prefix stripped) and `/ward`, `/ward-api`. The API sends no CORS headers.
 
 See [reader.md](reader.md) and [conversion.md](conversion.md) for the two
 subsystems in detail.

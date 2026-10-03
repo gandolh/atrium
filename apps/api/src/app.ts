@@ -1,5 +1,4 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { MAX_UPLOAD_BYTES } from "./common/config.js";
 import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
@@ -36,18 +35,15 @@ export async function buildApp(options: { wardClient?: WardClient } = {}): Promi
    */
   const app = Fastify({ logger: true });
 
-  // Permissive CORS, from when the web client talked to the API cross-origin
-  // (D14). Since D54 it no longer does, in dev or in the deploy: both put the
-  // API on the page's origin, and narrowing this to an allowlist is what brief
-  // 65 still leaves open. Enumerate methods so the library routes' PATCH/DELETE
-  // (with a JSON body → preflighted) aren't blocked; the default allowlist omits
-  // PATCH. PUT joins it for brief 38's file-write route (`PUT /latex/:id/files/*`),
-  // which is likewise preflighted and would otherwise be blocked in the browser
-  // while working perfectly under `app.inject`.
-  await app.register(cors, {
-    origin: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  });
+  // No CORS (brief 65). It was permissive (`origin: true`, every origin
+  // reflected) from when the web client called the API cross-origin (D14).
+  // Since D54 nothing does: the deploy and development both serve the API on
+  // the page's own origin, so a browser needs no CORS header to read it, and
+  // the empty allowlist is the honest one. Registering the plugin with
+  // `credentials: true` as well would have made any site able to read a
+  // signed-in person's library for as long as Ward's cookie stays
+  // `SameSite=Lax`, which atrium does not control. If a cross-origin caller
+  // ever appears, add it here by name; never reflect the request's origin.
 
   // 50MB (from MAX_UPLOAD_MB) upload ceiling (D15). @fastify/multipart truncates
   // past this; the routes inspect `file.truncated` and answer 413.

@@ -2355,3 +2355,12 @@ The newest file's ETag was the book id, but publishing copies each version over 
 `test/cache-validators.test.ts` covers re-publish, delete-newest and cover replace on the real publish flow. In the browser, a page load after re-publish fetched v2 with a 200.
 
 Reopening within the same SPA session still reuses the in-memory file. Filed as brief 76.
+
+## [2026-10-03] done | Brief 64 — EPUB extraction refuses to inflate past its own ceilings
+
+adm-zip caps inflation only at an entry's own declared size, so a truthful zip bomb in `container.xml`, the OPF or the cover would block the event loop and could exhaust memory on any upload or import.
+- Extraction now refuses each entry on its declared size before inflating: 1 MiB container, 8 MiB OPF, 32 MiB cover.
+- The refusal is logged and handled like any extraction failure.
+- Every `sharp` decode is limited to 40 MP.
+
+Two 2 MB EPUBs that truly inflate to 2 GiB uploaded fine: `/health` peaked at 42 ms and RSS didn't move. The real `testing_files` books extract identically. Crafted-zip tests are in `test/extract-limits.test.ts`.

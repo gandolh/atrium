@@ -175,4 +175,5 @@ got here.
 | 60 | Ward cutover orphans pruned by a forward migration | **done (2026-10-03)**, **owner gate before deploy**: production orphan counts + prune/re-point choice |
 | 61 | Ward key-set outage answers 503, never "signed out" | **done (2026-10-03)**; upstream `wzd_auth` change owed |
 | 62 | Re-published file and replaced covers not served stale (mtime validators, `coverVersion`) | **done (2026-10-03)**; same-session reopen is brief 76 |
+| 64 | EPUB extraction refuses entries over declared-size ceilings; cover decodes pixel-limited | **done (2026-10-03)** |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

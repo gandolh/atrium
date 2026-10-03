@@ -96,3 +96,41 @@ inflation; an explicit pixel limit on the cover decode.
 - Typecheck and build are clean.
 - Verify against a scratch base with all five storage roots set inline and
   asserted before start.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Change** (`extract.service.ts` only). `readEntry(entry, limit)` checks `entry.header.size` before `getData()`, and above the limit it logs `[extract] refused EPUB entry "<name>": declares N bytes, limit L` and throws into the existing extraction `catch`. The limits:
+
+| Constant | Limit | Applies to |
+|---|---|---|
+| `MAX_CONTAINER_BYTES` | 1 MiB | `container.xml` |
+| `MAX_OPF_BYTES` | 8 MiB | the OPF |
+| `MAX_COVER_ENTRY_BYTES` | 32 MiB | the cover entry |
+
+- A refused container or OPF falls back to the filename title with no cover, as any extraction failure does.
+- A refused cover keeps the OPF's title and author.
+- Every `sharp` decode in the file (book, PDF, audio and video covers) passes `limitInputPixels: 40_000_000`, the engine's `MAX_IMAGE_PIXELS`.
+- Each constant carries a comment explaining it.
+
+**Tests:**
+- `test/zip-builder.ts` is a small zip writer. A `zeros(n)` entry is deflated as a stream, so it truly inflates to `n` and declares it.
+- `test/extract-limits.test.ts` covers:
+  - an ordinary EPUB, which still yields title, author and cover;
+  - a 64 MiB container, refused with the log line, giving the filename title and no cover;
+  - a 16 MiB OPF, refused;
+  - a 64 MiB cover, refused, with the OPF metadata kept;
+  - a PNG whose header declares 30,000²;
+  - a real, decodable 8,000² (64 MP) PNG, which sharp's own ~268 MP default would accept and the 40 MP limit refuses;
+  - an upload of the container bomb through `POST /library`, giving 201, the filename title and no cover.
+- Four of these fail on the old code. The 30,000² header-only case passes either way, since it is over sharp's default too.
+- 59 API tests pass, and typecheck and build are clean.
+
+**Scratch-base acceptance** (all roots asserted, scripted Ward), with two 2.09 MB EPUBs whose `container.xml` or cover **truly inflates to 2 GiB − 1**:
+- Both uploads answered 201: `Bomb-container` with no author or cover, and `Bomb Title` / `Nobody` with no cover.
+- A concurrent `GET /health` loop (183 requests over 4 s each time) peaked at **42 ms** and **37 ms**.
+- API RSS stayed at about 358 MB (peak +1.1 MB).
+- Both refusals were logged.
+
+**Real books.** `testing_files/`, one PDF and one EPUB, extract identical title, author and cover hash with the old and new code.

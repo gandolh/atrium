@@ -42,6 +42,30 @@ const AUDIO_COVER_SIZE = 400;
 const VIDEO_COVER_BOUND = 640;
 const COVER_QUALITY = 78;
 
+/*
+ * Ceilings on what EPUB extraction will inflate (brief 64). An EPUB is a zip,
+ * and adm-zip caps an entry's inflation only at the size the entry DECLARES,
+ * which the uploader writes. That stops a lying header, not a truthful zip
+ * bomb: an entry that really inflates to gigabytes, says so, and compresses to
+ * a few megabytes. `inflateRawSync` is synchronous, so inflating one blocks the
+ * event loop for every request in the household and can exhaust memory.
+ * Checking the declared size against these BEFORE inflating bounds the real
+ * work, because adm-zip will not inflate past what was declared.
+ */
+
+/** `META-INF/container.xml` names one rootfile; real ones are a few hundred bytes. */
+const MAX_CONTAINER_BYTES = 1024 * 1024;
+/** The OPF: metadata plus a manifest and spine. Large books run to a few hundred KB. */
+const MAX_OPF_BYTES = 8 * 1024 * 1024;
+/** The cover image as stored. Generous for a print-resolution JPEG or PNG. */
+const MAX_COVER_ENTRY_BYTES = 32 * 1024 * 1024;
+/**
+ * Pixels any cover decode will accept, checked by sharp from the image HEADER
+ * before decoding. The same ceiling as the typesetting engine's
+ * `MAX_IMAGE_PIXELS`; sharp's own default is about 268 MP.
+ */
+const MAX_COVER_PIXELS = 40_000_000;
+
 export interface ExtractedMeta {
   title: string;
   author: string | null;
@@ -64,7 +88,7 @@ async function toJpegThumbnail(
   height: number,
 ): Promise<Buffer | null> {
   try {
-    return await sharp(image)
+    return await sharp(image, { limitInputPixels: MAX_COVER_PIXELS })
       .resize(width, height, { fit: "cover", position: "top" })
       .jpeg({ quality: COVER_QUALITY })
       .toBuffer();
@@ -80,7 +104,7 @@ function toThumbnail(image: Buffer): Promise<Buffer | null> {
 
 /** Normalize embedded album art to a centered square JPEG thumbnail. */
 function toSquareThumbnail(image: Buffer): Promise<Buffer | null> {
-  return sharp(image)
+  return sharp(image, { limitInputPixels: MAX_COVER_PIXELS })
     .resize(AUDIO_COVER_SIZE, AUDIO_COVER_SIZE, { fit: "cover", position: "centre" })
     .jpeg({ quality: COVER_QUALITY })
     .toBuffer()
@@ -101,7 +125,7 @@ function toSquareThumbnail(image: Buffer): Promise<Buffer | null> {
  *  data, and a payload that is not an image at all all die here — the last as
  *  the `null` this contract already returns. */
 export function toVideoThumbnail(image: Buffer): Promise<Buffer | null> {
-  return sharp(image)
+  return sharp(image, { limitInputPixels: MAX_COVER_PIXELS })
     .resize(VIDEO_COVER_BOUND, VIDEO_COVER_BOUND, { fit: "inside", withoutEnlargement: true })
     .jpeg({ quality: COVER_QUALITY })
     .toBuffer()
@@ -211,10 +235,28 @@ function parseSeriesIndex(raw: string | null): number | null {
 
 // --- EPUB --------------------------------------------------------------------
 
+type ZipEntry = NonNullable<ReturnType<AdmZip["getEntry"]>>;
+
+/**
+ * Inflate one entry, refusing first if it declares more than `limit` bytes.
+ * Throws, which the caller's extraction `catch` treats like any other failure:
+ * the book is still stored, with whatever metadata was read before the refusal.
+ */
+function readEntry(entry: ZipEntry, limit: number): Buffer {
+  const declared = entry.header.size;
+  if (declared > limit) {
+    console.warn(
+      `[extract] refused EPUB entry ${JSON.stringify(entry.entryName)}: declares ${declared} bytes, limit ${limit}`,
+    );
+    throw new Error(`EPUB entry ${entry.entryName} is over its extraction limit`);
+  }
+  return entry.getData();
+}
+
 function findOpfPath(zip: AdmZip): string | null {
   const container = zip.getEntry("META-INF/container.xml");
   if (!container) return null;
-  const xml = container.getData().toString("utf8");
+  const xml = readEntry(container, MAX_CONTAINER_BYTES).toString("utf8");
   return firstMatch(xml, /<rootfile[^>]*full-path="([^"]+)"/i);
 }
 
@@ -315,7 +357,7 @@ async function extractEpub(fileBytes: Buffer, fallbackTitle: string): Promise<Ex
     const opfPath = findOpfPath(zip);
     if (opfPath) {
       const opfEntry = zip.getEntry(opfPath);
-      const opf = opfEntry ? opfEntry.getData().toString("utf8") : "";
+      const opf = opfEntry ? readEntry(opfEntry, MAX_OPF_BYTES).toString("utf8") : "";
       title = firstMatch(opf, /<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i) ?? fallbackTitle;
       author = firstMatch(opf, /<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
       subjects = normalizeSubjects(
@@ -326,7 +368,7 @@ async function extractEpub(fileBytes: Buffer, fallbackTitle: string): Promise<Ex
       const coverHref = findCoverHref(opf);
       if (coverHref) {
         const entry = zip.getEntry(resolveHref(opfPath, decodeURIComponent(coverHref)));
-        if (entry) cover = await toThumbnail(entry.getData());
+        if (entry) cover = await toThumbnail(readEntry(entry, MAX_COVER_ENTRY_BYTES));
       }
     }
   } catch {

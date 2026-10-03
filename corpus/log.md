@@ -2440,3 +2440,9 @@ The reader took a book's resume position from the library list row. For a conver
 - The touch sends that row's values.
 
 Browser-verified: PDF at page 6 → EPUB → back opens on 6, and a same-tick turn to 8 before the switch reopens on 8.
+
+## [2026-10-03] done | Brief 76 — a versioned document reopened in the same session is fetched again
+
+The reader reused its in-memory file whenever the reopened book was the one already loaded, so a re-published document kept its old bytes all session. A versioned document already in memory is now dropped on mount and hydrated again; unversioned books keep the reuse.
+
+The scratch run also showed the bigger half: even a fresh page load opened the version the saved position was measured in, not the newest, against brief 38's decisions 9 and 10. Filed as brief 78.

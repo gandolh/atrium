@@ -141,6 +141,6 @@ All five tests fail on the old controller and mapper, and 52 API tests pass. Typ
 - The grid's cover requests carry `?v=<mtime>`.
 - There is no visual change, so the design checklist is unaffected: no tokens, type, colour or motion were touched.
 
-**Not covered here: reopening within the same SPA session.** After publishing v3, going home and reopening from the tile sent **no** request. The reader reused its in-memory file, showing v2's bytes under v2's label: consistent, but stale. That is the reader store, not HTTP caching, outside this brief's files: [brief 76](../todo/76-reader-reuses-in-memory-file-after-republish.md).
+**Not covered here: reopening within the same SPA session.** After publishing v3, going home and reopening from the tile sent **no** request. The reader reused its in-memory file, showing v2's bytes under v2's label: consistent, but stale. That is the reader store, not HTTP caching, outside this brief's files: [brief 76](76-reader-reuses-in-memory-file-after-republish.md).
 
 The cover-replace check in the browser was not driven through the video "pick a frame" UI. The API test proves the version moves, and the app's existing `invalidateQueries(["library"])` after an upload carries it into the grid's URL.

@@ -57,3 +57,19 @@ document, publish an edit, open it again.
 - Reopening an unchanged book costs at most one 304, with no full download.
 - Typecheck and build are clean. Verify against a scratch base with all five
   storage roots set inline and asserted before start.
+
+## Outcome (2026-10-03)
+
+Done as scoped. **The brief's diagnosis was only half the story**, and the other half is filed and fixed as [brief 78](../todo/78-publish-releases-positions-on-the-superseded-version.md).
+
+**Change** (`use-hydrate-book.ts`). On mount, a `useLayoutEffect` checks whether the book in memory is the one being opened and a version is tagged (`loadedVersionId !== null`, meaning a published document with two or more versions). If so it calls `clearLoadedBook()`, and the ordinary hydrate runs.
+
+Re-tagging in place is not enough. `VersionPicker`'s default selection only runs while no version is tagged, and it assumes the loaded bytes are the newest, which a reused in-memory file need not be. So the copy is dropped: one download of a small published PDF. Unversioned books are immutable per id and keep the in-memory reuse. ETag revalidation was considered, but `fetchBookFile` does not expose the response, and that file is outside this brief.
+
+**What the scratch run actually showed.** On a **fresh page load**, the reader still opened "Version 2" while v3 existed. `pickDefaultVersion` returns `currentVersionId`, the version the saved position was measured in, whenever it still exists. Reading the newest version records it, so it stayed the default after every later publish. That breaks brief 38's decision 9 ("the latest version, or the version you were last reading if you had explicitly opened an older one") and decision 10 ("…publish v4, you will resume from page 0 of v4"). The brief-62 observation that led to this brief was mostly that, not the in-memory reuse. Brief 78 releases those positions at publish time.
+
+**Browser check** (scratch base, all roots asserted, scripted Ward, the "Versioned" document):
+- Back to the library, then reopen from the tile, in the same session: a `GET /library/:id/file` now goes out, where before none did.
+- With brief 78, the reader was on v3, v4 was published, and the document was reopened from the tile in the same session. It showed "Fourth edition." under **Version 4**.
+
+Typecheck and build are clean.

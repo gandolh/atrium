@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { Format, LibraryBook, MediaKind } from "@ebook-reader/shared";
 
@@ -102,6 +102,23 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
   // Snapshot metadata for a book opened offline, when the live list isn't
   // reachable — lets the opening screen still show a title/cover.
   const [offlineBook, setOfflineBook] = useState<LibraryBook | null>(null);
+
+  // Reopening a published document within the same session (brief 76). The
+  // in-memory file was the newest version WHEN it was fetched, and a publish
+  // since then rewrites what "newest" means; `VersionPicker`'s default
+  // selection only runs while no version is tagged, and assumes the loaded
+  // bytes are the newest. So a versioned document already in memory is
+  // dropped on mount and hydrated again: one download of a small PDF, against
+  // showing an old version for the rest of the session. Unversioned books are
+  // immutable per id and keep the in-memory reuse.
+  useLayoutEffect(() => {
+    const state = useReaderStore.getState();
+    if (!isMedia && bookId && state.loadedBookId === bookId && state.loadedVersionId !== null) {
+      state.clearLoadedBook();
+    }
+    // Mount only: a version tagged while this reader is open is the picker's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Only fetch the library when we actually need to hydrate: a book id in the
   // URL that isn't already the loaded book. Media never lives in `loadedFile`

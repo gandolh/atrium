@@ -144,7 +144,18 @@ function BookReader() {
     // Not frozen yet and the source list hasn't landed — nothing hydrates
     // until we at least know whether `book` even HAS a partner to race
     // against.
-    if (!libraryQuery.data) return undefined;
+    //
+    // Unless the list has failed, or is paused because the browser went
+    // offline: the device is offline, or Ward is down (brief 77). Waiting then
+    // meant waiting forever, and a downloaded book sat on the opening screen.
+    // Open the requested id, which is the id a download is stored under; a
+    // partner read more recently cannot be known without the server, and
+    // freezing keeps a later list from swapping the open file.
+    if (!libraryQuery.data) {
+      if (!libraryQuery.isError && !libraryQuery.isPaused) return undefined;
+      resolvedIdRef.current = { requested: book, resolved: book };
+      return book;
+    }
 
     if (!partnerId) {
       resolvedIdRef.current = { requested: book, resolved: book };
@@ -170,7 +181,7 @@ function BookReader() {
     }
     resolvedIdRef.current = { requested: book, resolved: winner };
     return winner;
-  }, [book, libraryQuery.data, partnerId, partnerRowQuery.data, sourceRow, loadedBookId]);
+  }, [book, libraryQuery.data, libraryQuery.isError, libraryQuery.isPaused, partnerId, partnerRowQuery.data, sourceRow, loadedBookId]);
 
   // Cover-card clicks navigate here immediately (brief 10); this hook is the
   // single download path for both that and refresh / direct visits (D24).

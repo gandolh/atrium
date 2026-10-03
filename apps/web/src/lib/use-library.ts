@@ -336,6 +336,10 @@ function useOfflineBooksQuery() {
     // invalidate this key; no need to refetch on focus.
     staleTime: Infinity,
     gcTime: Infinity,
+    // IndexedDB, not the network. The default mode pauses a query while the
+    // browser reports offline, which is exactly when this one is needed: a tab
+    // that went offline showed an empty library (brief 77).
+    networkMode: "always",
   });
 }
 

@@ -141,6 +141,6 @@ Done. The two halves landed separately.
 
 The web bundle's runtime code is untouched by this half, so the production build check from 2026-09-27 stands.
 
-**Not done here: the Ward-down screen.** With Ward stopped the page sits on "Loading…" instead of saying sign-in is unavailable. The API half is brief 61, done. The web half lives in `lib/auth.ts` and `AuthGate.tsx`, outside this brief's files, and needs a choice: an outage must not block offline reading. Filed as [brief 77](../todo/77-ward-down-shows-unavailable-not-loading.md).
+**Not done here: the Ward-down screen.** With Ward stopped the page sits on "Loading…" instead of saying sign-in is unavailable. The API half is brief 61, done. The web half lives in `lib/auth.ts` and `AuthGate.tsx`, outside this brief's files, and needs a choice: an outage must not block offline reading. Filed as [brief 77](77-ward-down-shows-unavailable-not-loading.md).
 
 The local Ward could not be re-run today, because Docker is unavailable on this machine.

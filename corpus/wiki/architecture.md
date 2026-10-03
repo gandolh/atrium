@@ -73,7 +73,7 @@ every request ──ward_session cookie (Path=/, shared origin)──► verify 
      → ask Ward /introspect: live? grants? (cached 30 s per token)
      → 401 no/dead session      (client navigates to /ward/login?next=/atrium/)
      → 403 NO_ATRIUM_GRANT      (live session, no `atrium` grant; never redirects)
-     → 503 IDENTITY_UNAVAILABLE (Ward unreachable or atrium's app key refused; fails closed)
+     → 503 IDENTITY_UNAVAILABLE (Ward unreachable or app key refused; fails closed; the gate says so and retries)
      → else: first request ever for this subject provisions a Default profile,
        then request.ward + request.authProfile (selected per device via profile_selections)
      (allowlist: GET /health, OPTIONS)

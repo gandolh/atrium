@@ -162,7 +162,22 @@ stampActivity();
  * past, in a loop — only a superuser issuing a grant resolves it, so the app has
  * to say so rather than redirect.
  */
-export type AuthGateStatus = "checking" | "locked" | "forbidden" | "unlocked";
+export type AuthGateStatus = "checking" | "locked" | "forbidden" | "unavailable" | "unlocked";
+
+/**
+ * Whether a failed probe is the API saying Ward cannot vouch for anybody right
+ * now (brief 61's 503). Only that body counts: a 503 from a proxy in front of a
+ * stopped API is the API being down, which is the offline case below.
+ */
+function isIdentityUnavailable(err: unknown): err is ApiError {
+  return (
+    err instanceof ApiError &&
+    err.status === 503 &&
+    typeof err.body === "object" &&
+    err.body !== null &&
+    (err.body as { error?: unknown }).error === "IDENTITY_UNAVAILABLE"
+  );
+}
 
 interface AuthState {
   status: AuthGateStatus;
@@ -199,8 +214,17 @@ interface AuthState {
    * profile on this account. Cleared by `switchProfile`.
    */
   pickerRequired: boolean;
-  /** Call once on app start: asks the API who we are and settles `status`. */
+  /**
+   * Asks the API who we are and settles `status`. Called on app start, and
+   * again by the gate's retries while `status` is `unavailable`.
+   */
   checkStatus: () => Promise<void>;
+  /**
+   * Leave the `unavailable` screen for the app without a session check, so a
+   * device with downloaded books can read them while Ward is down. The library
+   * falls back to those downloads on its own when its fetch fails.
+   */
+  continueWithoutSignIn: () => void;
   /**
    * Make `id` the active profile: activate it server-side, drop every cached
    * row from the previous profile, then flip the store. Throws `ApiError` on
@@ -292,18 +316,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
 
+      if (isIdentityUnavailable(err)) {
+        /*
+         * The API answered, so this device is online; Ward is what is down.
+         * Do NOT send anybody to a login page: it is served by the service
+         * that is not answering, so the redirect would be a loop that looks
+         * like a broken password. Say so instead, and let the gate retry
+         * (brief 77). Rendering the app here left it on "Loading…" or on a
+         * library error that blamed the API.
+         */
+        set({
+          status: "unavailable",
+          error: "Sign-in is unavailable right now. Atrium will try again.",
+        });
+        return;
+      }
+
       /*
-       * The API is unreachable, or Ward is (a 503 from the guard). Do NOT send
-       * anybody to a login page: signing in goes through the same identity
-       * service that is currently not answering, so the redirect would be a
-       * loop that looks like a broken password.
-       *
-       * Render the app instead and let the existing per-request error states
-       * surface it — the same choice this store made before Ward, for the same
-       * reason.
+       * The API is unreachable: this device is offline, or the API is down.
+       * Render the app and let the library fall back to downloaded books
+       * (brief 20) — the same choice this store made before Ward. A login
+       * redirect would fail the same way.
        */
       set({ status: "unlocked", error: null });
     }
+  },
+
+  continueWithoutSignIn() {
+    set({ status: "unlocked", error: null });
   },
 
   async switchProfile(id) {

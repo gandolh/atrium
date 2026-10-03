@@ -2450,3 +2450,7 @@ The scratch run also showed the bigger half: even a fresh page load opened the v
 ## [2026-10-03] done | Brief 78 — publishing releases reading positions on the version it supersedes
 
 The reader opened the version a saved position was measured in. Reading the newest version recorded it, so every later publish left readers on the old one, against brief 38's decisions 9 and 10. Publishing now clears version, locator and fraction on positions measured in the version it supersedes, after the new version is committed. Those readers open the newest at page 1, and explicit pins to older versions stay. Covered by `test/publish-positions.test.ts`, and browser-verified with brief 76.
+
+## [2026-10-03] done | Brief 77 — with Ward down, the app says so instead of "Loading…"
+
+The session gate resolved Ward's 503 `IDENTITY_UNAVAILABLE` as `unlocked`, so the app sat on "Loading…" or blamed the API. It now has an `unavailable` state: the message, Retry, automatic retries (15 s, `online`, tab shown) and a link to downloaded books when there are any. A network error still unlocks. Two older bugs blocked offline reading whenever the library list could not load, and both are fixed here. The reader's twin resolution waited for that list forever. The downloaded-books query paused once the browser went offline. Verified against the local Ward container, stopped and started, and on the production build offline.

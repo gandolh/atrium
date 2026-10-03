@@ -2398,3 +2398,7 @@ Two more members of D47's bug class:
 - **Preferences.** Two PATCHes both merged over one snapshot and lost a key.
 
 Each check-and-write is now one transaction inside its model function, every statement on `trx`: `updateNoteFolder` (the rename joins it) and `updateProfilePreferences(id, merge)`, with the merge rule kept in the service. `test/write-races.test.ts` races the service functions: one move wins and the other gets `CYCLE`, and both preference keys persist. Both fail on the old code.
+
+## [2026-10-03] done | Brief 69 — retired what removed features left behind
+
+Deleted `password.ts`, `scripts/seed.example.ts`, the `seed` script and its ignore entry, all D53 debris. `CONVERT_TIMEOUT_MS`, required but used only in a log line since D34 retired the synchronous convert route, is gone from the schema, `index.ts`, `.env.example` and the test harness. D29's parenthetical is updated. The API boots with the variable present (ignored) and absent.

@@ -48,6 +48,3 @@ apps/api/images/
 # LaTeX drafts and published version artifacts (brief 38) — same rule
 apps/api/latex/
 apps/api/versions/
-
-# Account seed — holds real credentials (copy from seed.example.ts)
-apps/api/scripts/seed.ts

@@ -83,3 +83,27 @@ required.
 - The API boots with a `.env` that omits `CONVERT_TIMEOUT_MS`, and still boots
   with one that includes it. Use scratch storage roots, set inline and asserted.
 - Typecheck and build are clean, and `bash corpus/lint.sh` passes.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Deleted:**
+- `apps/api/src/common/password.ts`;
+- `apps/api/scripts/seed.example.ts` and the now-empty `scripts/` directory;
+- the `seed` script in `apps/api/package.json`;
+- the `.gitignore` seed entry and its comment.
+
+**`CONVERT_TIMEOUT_MS`** is removed from:
+- the env schema and the export in `config.ts`;
+- the import and the `convertTimeoutMs` field of the "API ready" log in `index.ts`;
+- `.env.example`;
+- `test/setup.ts`, the harness from brief 63, which had copied it into the required set.
+
+`CONVERT_JOB_TIMEOUT_MS` keeps its comment, minus the contrast with the removed variable. The schema comment's "`APP_PASSWORD=` counts as unset" example is now `WARD_APP_KEY=`. D29's parenthetical names today's required set.
+
+**Checks:**
+- The acceptance grep over `apps packages .env.example .gitignore` returns nothing. The only hits are `apps/docs/src/content/docs/wiki/`, a gitignored copy of the corpus rendered for the docs site, which quotes history.
+- **With `CONVERT_TIMEOUT_MS` set** (the repo `.env` still has it), the API booted on scratch roots (asserted) and logged "API ready" without the field. The unknown variable is ignored.
+- **Without it:** a fresh `git clone` of this commit, with no `.env`, booted under `env -i` with only the required variables inline (`CONVERT_TIMEOUT_MS` count 0) and the scratch roots asserted. It reached "API ready".
+- 69 API tests pass, typecheck and build are clean, and `bash corpus/lint.sh` passes.

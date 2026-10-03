@@ -60,7 +60,7 @@ if (ENV_FILE_LOADED) {
 
 /**
  * Every API variable is required. Numbers are coerced from their string env
- * form and must be positive; strings must be non-empty (so `APP_PASSWORD=`
+ * form and must be positive; strings must be non-empty (so `WARD_APP_KEY=`
  * counts as unset). Path overrides (LIBRARY_DATA_DIR/BASE_PATH) are NOT part of
  * this contract — they stay optional below.
  */
@@ -68,7 +68,6 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive(),
   HOST: z.string().min(1),
   MAX_UPLOAD_MB: z.coerce.number().positive(),
-  CONVERT_TIMEOUT_MS: z.coerce.number().int().positive(),
   CONVERT_JOB_TIMEOUT_MS: z.coerce.number().int().positive(),
 
   /**
@@ -130,8 +129,6 @@ export const WARD_APP_KEY = env.WARD_APP_KEY;
 export const MAX_UPLOAD_MB = env.MAX_UPLOAD_MB;
 export const MAX_UPLOAD_BYTES = maxUploadBytesFromMb(MAX_UPLOAD_MB);
 
-export const CONVERT_TIMEOUT_MS = env.CONVERT_TIMEOUT_MS;
-
 /**
  * Ceiling on a library conversion job (D34, brief 34 decision 4). Defaults to
  * 24 hours in `.env.example`, which looks absurd until you read it as what it
@@ -140,10 +137,6 @@ export const CONVERT_TIMEOUT_MS = env.CONVERT_TIMEOUT_MS;
  * away. The only job this number has is to stop a wedged `ebook-convert` from
  * pinning a CPU forever; the answer to "this is taking too long" is Cancel
  * (decision 5), which is why the ceiling can afford to be this generous.
- *
- * Distinct from `CONVERT_TIMEOUT_MS`, the old 60s cap on the *synchronous*
- * export route (D15) — that one was a UX guard, because a request was blocked
- * on it.
  */
 export const CONVERT_JOB_TIMEOUT_MS = env.CONVERT_JOB_TIMEOUT_MS;
 

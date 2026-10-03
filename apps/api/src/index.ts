@@ -1,6 +1,5 @@
 import { buildApp } from "./app.js";
 import {
-  CONVERT_TIMEOUT_MS,
   DATA_DIR,
   DOCUMENT_VERSIONS_DIR,
   ENV_FILE,
@@ -73,7 +72,6 @@ async function start(): Promise<void> {
     app.log.info(
       {
         maxUploadMb: MAX_UPLOAD_MB,
-        convertTimeoutMs: CONVERT_TIMEOUT_MS,
         storageRoots: {
           data: DATA_DIR,
           library: LIBRARY_FILES_DIR,

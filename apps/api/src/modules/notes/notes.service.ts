@@ -5,6 +5,7 @@ import {
   getNoteFolder,
   insertNoteFolder,
   listNoteFolders,
+  reassignNotes,
   renameNoteFolder,
   setNoteFolderParent,
   wouldCycleNoteFolder,
@@ -12,6 +13,7 @@ import {
 } from "./note-folders.model.js";
 import { BLANK_PAGE, toNote } from "./notes.mapper.js";
 import {
+  countNotes,
   deleteNote,
   getNote,
   insertNote,
@@ -19,6 +21,7 @@ import {
   setNoteFolder,
   updateNote,
   type NoteRow,
+  type NoteSummaryRow,
 } from "./notes.model.js";
 
 /**
@@ -40,8 +43,22 @@ export type UpdateFolderResult =
 
 // --- Notes -------------------------------------------------------------------
 
-export async function listProfileNotes(profileId: string): Promise<NoteRow[]> {
+export async function listProfileNotes(profileId: string): Promise<NoteSummaryRow[]> {
   return listNotes(profileId);
+}
+
+/** How many notes a profile has. The profiles module's delete checks call this (brief 66). */
+export async function countProfileNotes(profileId: string): Promise<number> {
+  return countNotes(profileId);
+}
+
+/**
+ * Move a profile's notes, folders with them, to another profile before it is
+ * deleted (brief 35 decision 3). Here so the profiles module reaches the notes
+ * module through its service, as api-layering.md requires.
+ */
+export async function reassignProfileNotes(fromProfileId: string, toProfileId: string): Promise<number> {
+  return reassignNotes(fromProfileId, toProfileId);
 }
 
 export async function readNote(profileId: string, id: string): Promise<NoteRow | undefined> {

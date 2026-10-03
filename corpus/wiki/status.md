@@ -177,4 +177,5 @@ got here.
 | 62 | Re-published file and replaced covers not served stale (mtime validators, `coverVersion`) | **done (2026-10-03)**; same-session reopen is brief 76 |
 | 64 | EPUB extraction refuses entries over declared-size ceilings; cover decodes pixel-limited | **done (2026-10-03)** |
 | 65 | Local dev on one origin (D54, 2026-09-27); CORS removed (no origin granted) | **done (2026-10-03)**; Ward-down screen is brief 77 |
+| 66 | Notes list counts pages in SQL, never loads ink; profile checks use a count via the notes service | **done (2026-10-03)** |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

@@ -2370,3 +2370,11 @@ Two 2 MB EPUBs that truly inflate to 2 GiB uploaded fine: `/health` peaked at 42
 D54 (2026-09-27) already landed the dev topology and the runbook. Two items had kept the brief open:
 - **CORS still reflected every origin.** The registration is removed and `@fastify/cors` uninstalled: since D54 the API is same-origin in dev and in the deploy. `test/cors.test.ts` proves a foreign origin gets no `Access-Control-*` header, on a request or a preflight. Stale comments in `api-client.ts`, `vite.config.ts` and `architecture.md` are corrected.
 - **With Ward down the page sits on "Loading…".** That is web-gate work outside this brief's files and needs a choice that keeps offline reading reachable. Filed as brief 77.
+
+## [2026-10-03] done | Brief 66 — the notes list and the profile-delete check never load the ink
+
+`GET /notes` selected every notebook's `data` and JSON-parsed it to count pages, and the profile-delete checks reused that query to count notes, importing the notes model across the layering rule.
+- The list now selects four columns plus a SQL page count that matches `parsePages` exactly: array length, 0 otherwise.
+- The checks call `countProfileNotes` through the notes service, and the reassign step goes through the service too.
+
+`GET /notes` was byte-identical before and after on one scratch database with malformed and object `data`. Covered by `test/notes-list.test.ts`.

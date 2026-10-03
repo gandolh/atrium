@@ -1,6 +1,6 @@
 import type { Note, NoteFolder, NotePage, NoteSummary } from "@ebook-reader/shared";
 import type { NoteFolderRow } from "./note-folders.model.js";
-import type { NoteRow } from "./notes.model.js";
+import type { NoteRow, NoteSummaryRow } from "./notes.model.js";
 
 /**
  * Row → wire for notes and folders. Page contents live as JSON in the row's
@@ -36,12 +36,13 @@ export function toNote(row: NoteRow): Note {
   };
 }
 
-export function toSummary(row: NoteRow): NoteSummary {
+/** Counted in SQL (`listNotes`), so the list path parses no JSON at all. */
+export function toSummary(row: NoteSummaryRow): NoteSummary {
   return {
     id: row.id,
     title: row.title,
     updatedAt: row.updated_at,
-    pageCount: parsePages(row.data).length,
+    pageCount: Number(row.page_count),
     folderId: row.folder_id,
   };
 }

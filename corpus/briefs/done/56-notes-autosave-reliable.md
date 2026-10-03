@@ -72,7 +72,7 @@ lines in conflicting waves.
 editor's save sequencing, dirty tracking, flush and error state.
 
 **Out:**
-- the list query's cost, which is [brief 66](../todo/66-notes-list-without-ink.md);
+- the list query's cost, which is [brief 66](66-notes-list-without-ink.md);
 - undo snapshots cloning the whole notebook (a Watch item);
 - per-page storage, which is a bigger redesign — not this brief;
 - the export path's behaviour, beyond keeping it working.

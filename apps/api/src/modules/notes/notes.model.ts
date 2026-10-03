@@ -28,10 +28,35 @@ export interface NoteRow {
   folder_id: string | null;
 }
 
-export async function listNotes(profileId: string): Promise<NoteRow[]> {
+/** What the notes list needs of a row: never the ink (brief 66). */
+export type NoteSummaryRow = Pick<NoteRow, "id" | "title" | "updated_at" | "folder_id"> & {
+  page_count: number;
+};
+
+/**
+ * The notes list, newest first, **without `data`** (brief 66). `data` is the
+ * whole notebook's ink, and the list used to move every notebook through the
+ * one database connection (D47) and `JSON.parse` it on the event loop only to
+ * count pages. The count is taken in SQL instead, matching `parsePages`
+ * exactly: a JSON array's length, and 0 for anything else, malformed JSON
+ * included. The JSON1 functions are compiled into better-sqlite3's SQLite.
+ */
+export async function listNotes(profileId: string): Promise<NoteSummaryRow[]> {
   return (await knex("notes")
+    .select("id", "title", "updated_at", "folder_id")
+    .select(
+      knex.raw(
+        "CASE WHEN json_valid(data) AND json_type(data) = 'array' THEN json_array_length(data) ELSE 0 END AS page_count",
+      ),
+    )
     .where({ profile_id: profileId })
-    .orderBy("updated_at", "desc")) as NoteRow[];
+    .orderBy("updated_at", "desc")) as NoteSummaryRow[];
+}
+
+/** How many notes a profile has; the profile-delete checks need only this. */
+export async function countNotes(profileId: string): Promise<number> {
+  const [{ n }] = (await knex("notes").where({ profile_id: profileId }).count({ n: "*" })) as { n: number }[];
+  return Number(n);
 }
 
 export async function getNote(profileId: string, id: string): Promise<NoteRow | undefined> {

@@ -11,8 +11,7 @@ import { setSelectedProfile } from "./profile-selection.model.js";
 import { cancelAndSettleLatexCompile } from "../latex/latex-compile.service.js";
 import { listLatexProjects } from "../latex/latex.model.js";
 import { removeProjectTree } from "../latex/project-tree.service.js";
-import { reassignNotes } from "../notes/note-folders.model.js";
-import { listNotes } from "../notes/notes.model.js";
+import { countProfileNotes, reassignProfileNotes } from "../notes/notes.service.js";
 import { storedPreferences } from "./profiles.mapper.js";
 import {
   countProfiles,
@@ -153,17 +152,17 @@ export async function deleteAccountProfile(
   if ((await countProfiles(options.subject)) <= 1) return { ok: false, reason: "LAST_PROFILE" };
   if (profile.is_default === 1) return { ok: false, reason: "DEFAULT_PROFILE" };
 
-  const notes = await listNotes(profile.id);
-  if (notes.length > 0 && !options.reassign) {
+  const noteCount = await countProfileNotes(profile.id);
+  if (noteCount > 0 && !options.reassign) {
     // The count travels with the refusal so the manage screen can say exactly
     // what is at risk instead of a generic "this profile has notes".
-    return { ok: false, reason: "HAS_NOTES", noteCount: notes.length };
+    return { ok: false, reason: "HAS_NOTES", noteCount };
   }
 
   // Guaranteed by the is_default refusal above (the deleted profile is never
   // the default, and every account has one).
   const fallback = (await getDefaultProfile(options.subject))!;
-  if (notes.length > 0) await reassignNotes(profile.id, fallback.id);
+  if (noteCount > 0) await reassignProfileNotes(profile.id, fallback.id);
 
   /*
    * ## Cancel the compiles this delete is about to orphan — BEFORE the cascade
@@ -207,7 +206,7 @@ export async function deleteAccountProfile(
     // and the delete. Surface it rather than working around the constraint — it
     // is the last thing standing between a race and destroyed authored work.
     if (isForeignKeyViolation(err)) {
-      return { ok: false, reason: "HAS_NOTES", noteCount: (await listNotes(profile.id)).length };
+      return { ok: false, reason: "HAS_NOTES", noteCount: await countProfileNotes(profile.id) };
     }
     throw err;
   }

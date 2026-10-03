@@ -80,3 +80,23 @@ ink); pagination; indexes.
 - Typecheck and build are clean.
 - Verify against a scratch base with all five storage roots set inline and
   asserted before start.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Change:**
+- `listNotes` selects `id`, `title`, `updated_at` and `folder_id`, plus `CASE WHEN json_valid(data) AND json_type(data) = 'array' THEN json_array_length(data) ELSE 0 END AS page_count`, and returns a `NoteSummaryRow`.
+- `toSummary` maps `page_count`, so the list path parses no JSON.
+- `countNotes`/`countProfileNotes` is one `count(*)`.
+- The profile-delete checks, the refusal and the RESTRICT-race fallback, call it through the notes **service**.
+- So does the reassign step, through a new `reassignProfileNotes`. `profiles.service.ts` had also imported `reassignNotes` from the folders model, the same layering break. No module outside `notes/` imports a notes model now.
+
+**Tests** (`test/notes-list.test.ts`):
+- The list holds a 3-page and a 1-page note, malformed JSON and a JSON object; the counts are 3, 1, 0, 0.
+- No `notes` query in the request selects `*` or `data`, shown with a knex `query` listener.
+- A non-default profile with two notes refuses deletion with 409 and `noteCount: 2`, and an empty one deletes.
+- On the old code only the SQL assertion fails; the counts and the refusal already held.
+- 63 API tests pass, and typecheck and build are clean.
+
+**Byte-identical.** One scratch database (all roots asserted) with a 1-page note, a 3-page note, malformed JSON and a JSON object was served by the old code, then the new. `GET /notes` was identical: 469 bytes, `cmp` clean.

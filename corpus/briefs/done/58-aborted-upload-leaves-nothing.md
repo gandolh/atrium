@@ -101,3 +101,27 @@ start:
   cover, same response.
 - Typecheck and build are clean.
 - If [brief 63](../done/63-api-test-harness.md)'s harness exists, the abort case is a test.
+
+## Outcome (2026-10-03)
+
+Done.
+- **Upload** (`uploadBook`): the body streams to `filePathFor(id, format) + ".uploading"` and is renamed to the final name once complete and within the cap. One `try`/`catch` covers the first byte through `insertBook`. It removes the in-progress file, the final file and the cover, then rethrows. The `TOO_LARGE` early returns are unchanged.
+- **Catalog import:** still writes the final name directly, since its bytes are in memory, but removes file and cover if anything before the insert, or the insert itself, throws.
+- **Boot sweep:** `sweepInterruptedOutputs` matches `^<uuid>\.<ext>\.uploading$` as well as `.converting.`. `UPLOADING_SUFFIX` is exported from `convert.service.ts`, which `library.service.ts` already imports, so there is no cycle.
+
+**Tests** (`test/upload-cleanup.test.ts`, on brief 63's harness):
+- A real HTTP upload is aborted after 1 MiB. Mid-write only a `*.pdf.uploading` exists, and once the client drops, nothing new is left.
+- A failing insert, forced with a SQLite `BEFORE INSERT` trigger, leaves no file and no cover, for both the upload and the import. Gutendex and the download are stubbed through `fetch`.
+- A normal upload and a normal import still store their files.
+- The sweep removes a planted `<uuid>.pdf.uploading` and keeps `<uuid>.pdf`, `notes.txt.uploading` and `<uuid>.uploading`.
+
+The tests fail on the original services (5 of 7) and all 30 API tests pass with the change.
+
+**Scratch-base checks** (all five roots asserted before start):
+- A 20 MB upload through curl at 4 MB/s, killed at 2.5 s, had 10 MB on disk as `<uuid>.pdf.uploading`. After the kill, nothing new remained.
+- Booting the real `src/index.ts` removed a planted orphan and logged `removed interrupted conversion output` with `removed: 1`. A final-named file with no row, and a non-matching `.uploading` name, were untouched.
+- A normal upload answered 201 with the same row shape, its file at the final name and its cover.
+
+Typecheck and build are clean.
+
+The boot log line in `index.ts` (not this brief's file) still says "conversion output". It now also counts uploads, so a later edit there could name both.

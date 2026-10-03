@@ -170,4 +170,5 @@ got here.
 | 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker checks owed; vps-deploy follow-up in the brief |
 | 56 | Note autosave serialized, dirty until acknowledged, 16 MiB cap with `NOTE_TOO_LARGE` | **done (2026-10-03)** |
 | 57 | Reading position flushed on leave, tab close and twin/version switch | **done (2026-10-03)**; twin switch-back resume is brief 75 |
+| 58 | Aborted or failed uploads/imports leave no file; boot sweep reclaims `*.uploading` | **done (2026-10-03)** |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

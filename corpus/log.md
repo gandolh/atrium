@@ -2294,3 +2294,17 @@ Verified on a scratch base with a 12-page PDF and its EPUB twin:
 - a settled reader sent nothing.
 
 Switching back to the PDF still opened page 1. That happens on the original code too: the reopen reads the cached list row, and the twin "touch" writes it back. Filed as brief 75.
+
+## [2026-10-03] done | Brief 58 — an aborted or failed upload leaves no file behind
+
+Uploads streamed straight to their final name with no cleanup. A dropped client, a full disk or a throwing insert therefore left a file, and maybe a cover, with no row, and nothing ever reclaimed it.
+- Uploads now stream to `<uuid>.<ext>.uploading` and rename once complete.
+- Any failure up to the insert removes the file and the cover, in both the upload and the Gutenberg import.
+- The boot sweep also reclaims `<uuid>.<ext>.uploading`.
+
+`test/upload-cleanup.test.ts` covers:
+- a real aborted HTTP upload;
+- an insert forced to fail by a SQLite trigger, for upload and import;
+- the sweep's exact match.
+
+Five of its seven tests fail on the old code. On a scratch base, a 20 MB curl upload killed halfway left nothing, and a real boot removed a planted orphan.

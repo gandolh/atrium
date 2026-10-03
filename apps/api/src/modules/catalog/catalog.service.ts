@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import type { FastifyBaseLogger } from "fastify";
 import { kindForFormat, type CatalogSearchParams, type CatalogSearchResponse } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../common/config.js";
@@ -93,49 +93,59 @@ export async function importGutenbergBook(
   const format = "epub" as const;
   await mkdir(LIBRARY_FILES_DIR, { recursive: true });
   // Derived location, not stored — same as the upload route (D39).
-  await writeFile(filePathFor(id, format), bytes);
-
-  let meta;
+  // The bytes are already in memory, so the final name is written directly:
+  // there is no stream to abort halfway. A failure between this write and the
+  // insert (a full disk, a throwing insert) still removes the file and the
+  // cover, so no file outlives an import that produced no row (brief 58).
+  const filePath = filePathFor(id, format);
   try {
-    meta = await extractMeta(bytes, format, `${book.title}.epub`);
-    if (meta.cover) {
-      await mkdir(THUMBNAILS_DIR, { recursive: true });
-      await writeFile(coverPathFor(id), meta.cover);
-    }
-  } catch (err) {
-    // A book with no cover is still a book. Fall back to what Gutendex already
-    // told us rather than failing an import over a thumbnail.
-    log.warn({ err }, "cover/metadata extraction failed for import");
-    meta = {
-      title: book.title,
-      author: book.authors[0] ?? null,
-      series: null,
-      seriesIndex: null,
-      subjects: book.subjects,
-      cover: null,
-    };
-  }
+    await writeFile(filePath, bytes);
 
-  const row: NewBookRow = {
-    id,
-    title: meta.title,
-    author: meta.author,
-    format,
-    size_bytes: bytes.length,
-    progress: 0,
-    created_at: new Date().toISOString(),
-    last_opened_at: null,
-    series: meta.series,
-    series_index: meta.seriesIndex,
-    subjects: JSON.stringify(meta.subjects),
-    // Catalog provenance: remember where it came from + its Gutenberg id so the
-    // /discover UI can badge it as "In library".
-    source: "gutenberg",
-    source_id: String(gutenbergId),
-    // Catalog imports are always EPUB books (brief 23); no playback duration.
-    kind: kindForFormat(format),
-    duration_seconds: null,
-  };
-  await insertBook(row);
-  return { ok: true, row };
+    let meta;
+    try {
+      meta = await extractMeta(bytes, format, `${book.title}.epub`);
+      if (meta.cover) {
+        await mkdir(THUMBNAILS_DIR, { recursive: true });
+        await writeFile(coverPathFor(id), meta.cover);
+      }
+    } catch (err) {
+      // A book with no cover is still a book. Fall back to what Gutendex already
+      // told us rather than failing an import over a thumbnail.
+      log.warn({ err }, "cover/metadata extraction failed for import");
+      meta = {
+        title: book.title,
+        author: book.authors[0] ?? null,
+        series: null,
+        seriesIndex: null,
+        subjects: book.subjects,
+        cover: null,
+      };
+    }
+
+    const row: NewBookRow = {
+      id,
+      title: meta.title,
+      author: meta.author,
+      format,
+      size_bytes: bytes.length,
+      progress: 0,
+      created_at: new Date().toISOString(),
+      last_opened_at: null,
+      series: meta.series,
+      series_index: meta.seriesIndex,
+      subjects: JSON.stringify(meta.subjects),
+      // Catalog provenance: remember where it came from + its Gutenberg id so the
+      // /discover UI can badge it as "In library".
+      source: "gutenberg",
+      source_id: String(gutenbergId),
+      // Catalog imports are always EPUB books (brief 23); no playback duration.
+      kind: kindForFormat(format),
+      duration_seconds: null,
+    };
+    await insertBook(row);
+    return { ok: true, row };
+  } catch (err) {
+    await Promise.all([filePath, coverPathFor(id)].map((path) => rm(path, { force: true })));
+    throw err;
+  }
 }

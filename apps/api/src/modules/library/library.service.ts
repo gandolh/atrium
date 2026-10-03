@@ -21,7 +21,7 @@ import {
 } from "../../common/paths.js";
 import { listDocumentVersions } from "../latex/latex.model.js";
 import { getProfileProgress, listProfileProgress } from "../profiles/profiles.model.js";
-import { cancelConvert, isConverting, startConvert } from "./convert.service.js";
+import { UPLOADING_SUFFIX, cancelConvert, isConverting, startConvert } from "./convert.service.js";
 import { extractMeta, toVideoThumbnail } from "./extract.service.js";
 import { toLibraryBook } from "./library.mapper.js";
 import {
@@ -61,6 +61,13 @@ export type SetCoverResult =
  * be held in memory to be inspected first, so the file is written, then sized,
  * then read back for extraction. An over-cap upload is unlinked before it can
  * become a row — a row whose file was deleted would be a card that 404s.
+ *
+ * Nothing is left behind on failure (brief 58). The body streams to
+ * `<final>.uploading` and is renamed only once complete and within the cap, so
+ * a client that drops mid-upload or a full disk leaves just that name, which
+ * the catch below removes (and the boot sweep reclaims if the process died
+ * too). Any failure up to and including `insertBook` removes the file and the
+ * cover, so no file outlives a request that produced no row.
  */
 export async function uploadBook(
   file: Readable & { truncated: boolean },
@@ -70,68 +77,79 @@ export async function uploadBook(
 ): Promise<UploadResult> {
   const id = randomUUID();
   const filePath = filePathFor(id, format);
+  const partPath = filePath + UPLOADING_SUFFIX;
   await mkdir(LIBRARY_FILES_DIR, { recursive: true });
 
-  await pipeline(file, createWriteStream(filePath));
-  if (file.truncated) {
-    await rm(filePath, { force: true });
-    return { ok: false, reason: "TOO_LARGE" };
-  }
-  const { size } = await stat(filePath);
-  if (!isFileSizeValid(size, MAX_UPLOAD_BYTES)) {
-    await rm(filePath, { force: true });
-    return { ok: false, reason: "TOO_LARGE" };
-  }
-
-  // Extract metadata + cover from the file we just wrote (best-effort — a book
-  // with no cover is still a book).
-  let meta;
   try {
-    const bytes = await readFile(filePath);
-    meta = await extractMeta(bytes, format, filename);
-    if (meta.cover) {
-      await mkdir(THUMBNAILS_DIR, { recursive: true });
-      // Written to the derived location and not recorded anywhere: whether a
-      // book has a cover is answered by stat'ing this same path on read.
-      await writeFile(coverPathFor(id), meta.cover);
+    await pipeline(file, createWriteStream(partPath));
+    if (file.truncated) {
+      await rm(partPath, { force: true });
+      return { ok: false, reason: "TOO_LARGE" };
     }
-  } catch (err) {
-    log.warn({ err }, "cover/metadata extraction failed");
-    meta = {
-      title: filename,
-      author: null,
-      series: null,
-      seriesIndex: null,
-      subjects: [],
-      cover: null,
-      durationSeconds: null,
-    };
-  }
+    const { size } = await stat(partPath);
+    if (!isFileSizeValid(size, MAX_UPLOAD_BYTES)) {
+      await rm(partPath, { force: true });
+      return { ok: false, reason: "TOO_LARGE" };
+    }
+    // Same directory, so the rename is atomic.
+    await rename(partPath, filePath);
 
-  const row: NewBookRow = {
-    id,
-    title: meta.title,
-    author: meta.author,
-    format,
-    size_bytes: size,
-    progress: 0,
-    created_at: new Date().toISOString(),
-    last_opened_at: null,
-    series: meta.series,
-    series_index: meta.seriesIndex,
-    // Stored as a JSON array; never null on insert so it isn't mistaken for a
-    // pre-column row by the metadata backfill.
-    subjects: JSON.stringify(meta.subjects),
-    // Uploads are the default provenance (brief 22); imports set 'gutenberg'.
-    source: "upload",
-    source_id: null,
-    // Media kind is derived from the format; duration comes from extraction
-    // (null for books and unknown-duration media) — brief 23.
-    kind: kindForFormat(format),
-    duration_seconds: meta.durationSeconds,
-  };
-  await insertBook(row);
-  return { ok: true, book: toLibraryBook(row) };
+    // Extract metadata + cover from the file we just wrote (best-effort — a book
+    // with no cover is still a book).
+    let meta;
+    try {
+      const bytes = await readFile(filePath);
+      meta = await extractMeta(bytes, format, filename);
+      if (meta.cover) {
+        await mkdir(THUMBNAILS_DIR, { recursive: true });
+        // Written to the derived location and not recorded anywhere: whether a
+        // book has a cover is answered by stat'ing this same path on read.
+        await writeFile(coverPathFor(id), meta.cover);
+      }
+    } catch (err) {
+      log.warn({ err }, "cover/metadata extraction failed");
+      meta = {
+        title: filename,
+        author: null,
+        series: null,
+        seriesIndex: null,
+        subjects: [],
+        cover: null,
+        durationSeconds: null,
+      };
+    }
+
+    const row: NewBookRow = {
+      id,
+      title: meta.title,
+      author: meta.author,
+      format,
+      size_bytes: size,
+      progress: 0,
+      created_at: new Date().toISOString(),
+      last_opened_at: null,
+      series: meta.series,
+      series_index: meta.seriesIndex,
+      // Stored as a JSON array; never null on insert so it isn't mistaken for a
+      // pre-column row by the metadata backfill.
+      subjects: JSON.stringify(meta.subjects),
+      // Uploads are the default provenance (brief 22); imports set 'gutenberg'.
+      source: "upload",
+      source_id: null,
+      // Media kind is derived from the format; duration comes from extraction
+      // (null for books and unknown-duration media) — brief 23.
+      kind: kindForFormat(format),
+      duration_seconds: meta.durationSeconds,
+    };
+    await insertBook(row);
+    return { ok: true, book: toLibraryBook(row) };
+  } catch (err) {
+    // Every failure from the first byte to the insert: the partial or renamed
+    // file and the cover all go. The id is fresh, so nothing here is anyone
+    // else's.
+    await Promise.all([partPath, filePath, coverPathFor(id)].map((path) => rm(path, { force: true })));
+    throw err;
+  }
 }
 
 // --- Reads -------------------------------------------------------------------

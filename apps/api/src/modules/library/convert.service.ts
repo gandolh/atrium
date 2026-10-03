@@ -104,21 +104,36 @@ export function inProgressPath(sourceBookId: string, format: FileType): string {
 }
 
 /**
- * Delete any in-progress conversion output left behind by a process that died
- * mid-job. Call once at boot, alongside the row reap in `db.ts` — that reap
- * flips the row to `failed`, this reclaims the disk the same job was using.
+ * The suffix an upload streams under until it is complete (brief 58):
+ * `<uuid>.<ext>.uploading`, renamed to `filePathFor(id, format)` once the whole
+ * body is on disk. A final-named file therefore always means a finished write,
+ * and a name with this suffix only ever means one that never finished.
+ */
+export const UPLOADING_SUFFIX = ".uploading";
+
+/** The two in-progress names this sweep may delete, and nothing else. */
+const INTERRUPTED = [
+  /\.converting\.[a-z0-9]+$/i,
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+\.uploading$/i,
+];
+
+/**
+ * Delete any in-progress output left behind by a process that died mid-write:
+ * a conversion (`inProgressPath`) or an upload (`UPLOADING_SUFFIX`). Call once
+ * at boot, alongside the row reap in `db.ts` — that reap flips a conversion's
+ * row to `failed`, this reclaims the disk the same job was using.
  *
- * Matches ONLY the `.converting.` infix written by `inProgressPath`. A blanket
- * "delete files with no row" sweep would be far more thorough and far more
- * dangerous: this feature has already destroyed one of the owner's books once,
- * and an over-eager sweep next to real library files is exactly how it would
- * happen again.
+ * Matches ONLY those two in-progress names. A blanket "delete files with no
+ * row" sweep would be far more thorough and far more dangerous: this feature
+ * has already destroyed one of the owner's books once, and an over-eager sweep
+ * next to real library files is exactly how it would happen again. Each suffix
+ * is safe for the same reason: it exists only for a write that never completed.
  */
 export async function sweepInterruptedOutputs(): Promise<number> {
   let removed = 0;
   try {
     for (const name of await readdir(LIBRARY_FILES_DIR)) {
-      if (!/\.converting\.[a-z0-9]+$/i.test(name)) continue;
+      if (!INTERRUPTED.some((pattern) => pattern.test(name))) continue;
       await discard(join(LIBRARY_FILES_DIR, name));
       removed += 1;
     }

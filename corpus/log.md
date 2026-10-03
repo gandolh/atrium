@@ -2378,3 +2378,15 @@ D54 (2026-09-27) already landed the dev topology and the runbook. Two items had 
 - The checks call `countProfileNotes` through the notes service, and the reassign step goes through the service too.
 
 `GET /notes` was byte-identical before and after on one scratch database with malformed and object `data`. Covered by `test/notes-list.test.ts`.
+
+## [2026-10-03] done | Brief 67 — a failed conversion status write cannot wedge conversions
+
+A conversion whose terminal status write threw left its source row `running`, and D47's atomic claim then refused every conversion in the install until a restart. Cancel could not help.
+
+Brief 46's fix, mirrored:
+- terminal writes, including cancel's reset, are parked when they throw and logged with the SQLite code;
+- they are replayed at the next convert, or at a cancel with nothing running.
+
+One difference from 46: an entry whose book is still in `jobs` is kept rather than dropped, because on this side that can be a cancelled job that writes nothing itself.
+
+`test/convert-status-write.test.ts` forces a real `SQLITE_BUSY` with a second connection holding `BEGIN IMMEDIATE`, for both a job's write and a cancel's reset. Another book converts afterwards with no restart.

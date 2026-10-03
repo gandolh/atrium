@@ -93,3 +93,37 @@ compile side, which brief 46 already fixed.
   asserted before start. Calibre may be unavailable on this host (see
   [open-questions.md](../../wiki/open-questions.md)); a job that fails for that
   reason still exercises the terminal write.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Change** (`convert.service.ts` only):
+- Every terminal write on a source row goes through `recordStatusWrite`, which never rejects. That covers `ready`/`poor`, `fail()`'s `failed`, the last-resort `failed`, and cancel's reset to `none`.
+- On a throw it parks the write in `pendingStatusWrites`, keyed by book, and logs `[convert] could not … for book <id> — SQLITE_BUSY: …` with what it means and how it clears.
+- `flushPendingStatusWrites` replays the map:
+  - at the top of `startConvert`, before anything reads the slot;
+  - in `cancelConvert` when there is no in-process job.
+- A recovery logs `[convert] recovered: …`.
+- A cancel whose reset throws now answers 204 with the reset parked, instead of a 500.
+
+**One deliberate difference from brief 46's replay:** an entry whose book is still in `jobs` is **skipped but kept**, not deleted. On the conversion side that book can be a *cancelled* job whose child is still dying, and it writes no status of its own. The first version dropped the entry there, and the test caught the row staying `running` with the reset lost. A new job for the same book replaces or clears the entry through its own terminal write, so a kept entry never goes stale.
+
+**Recovery ruling.** Brief 46's reasons carried over unchanged:
+- not a periodic reap (`reapInterruptedConversions` flips every `running` row, safe only at boot);
+- not an immediate retry (better-sqlite3 already waited 5 s synchronously, and spinning blocks the event loop);
+- deferred to the next convert or cancel, free while the map is empty.
+
+The boot reaper and the 24 h reaper are unchanged, and `claimConvertSlot` is untouched.
+
+**Tests** (`test/convert-status-write.test.ts`). A real `SQLITE_BUSY` is forced by a second better-sqlite3 connection holding `BEGIN IMMEDIATE`, on the harness's scratch roots.
+- **A job's terminal `failed` write is blocked:**
+  - the source file is removed, so Calibre fails fast;
+  - the failure is logged with `SQLITE_BUSY`, and the row is still `running`;
+  - after release, converting **another** book answers 202, not 409, with no restart;
+  - the wedged row reads `failed`, and the real conversion of the other book finishes `ready`/`poor`.
+- **A cancel's reset is blocked:**
+  - the cancel answers 204, and the parked reset is logged;
+  - the next convert of another book is accepted once the dying job lets go, and the cancelled book reads `none`.
+- Both fail on the old runner.
+- 65 API tests pass, and typecheck and build are clean.

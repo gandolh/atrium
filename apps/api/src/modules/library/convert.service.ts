@@ -177,6 +177,97 @@ export async function cancelAllConverts(): Promise<number> {
  *  lookup by book id honest and would survive relaxing that later. */
 const jobs = new Map<string, ConvertJob>();
 
+/** A terminal write on a source row: a status, or cancel's reset to `none`. */
+type StatusWrite = { kind: "status"; status: ConvertStatus; error: string | null } | { kind: "reset" };
+
+/**
+ * Terminal writes that threw, parked for replay (brief 67, brief 46's fix on
+ * the conversion side).
+ *
+ * A job's last act is to move its source row off `running`. If that write
+ * throws (`SQLITE_BUSY` past the driver's own retry, a full disk, an I/O
+ * error), the in-process job is already gone but the row still says `running`,
+ * and `claimConvertSlot` (D47's atomic claim) then refuses **every** conversion
+ * in the install, because the slot is install-wide (D34). Cancel cannot rescue
+ * it either: it finds no in-process job. Before this, only a restart cleared it.
+ *
+ * The recovery ruling is brief 46's, and its reasons carry over unchanged:
+ * - **Not a periodic reap.** `reapInterruptedConversions` flips every
+ *   `running` row to `failed`, which is safe only at boot, before any job can
+ *   be live.
+ * - **Not an immediate retry loop.** better-sqlite3 runs synchronously on this
+ *   thread and has already retried a busy database for 5 s before throwing;
+ *   spinning would block the event loop for every other request and add
+ *   nothing SQLite had not tried.
+ * - **Deferred to the next attempt.** `startConvert` replays this map before it
+ *   claims the slot, and cancel replays it before it decides there is nothing
+ *   to cancel. The person's natural reaction (press Convert, or Cancel, again)
+ *   is what unwedges them. It costs nothing while the map is empty.
+ *
+ * In-process and bounded by book (one entry each, overwritten): a restart is
+ * the one event that makes it unnecessary, because the boot reaper runs then.
+ */
+const pendingStatusWrites = new Map<string, StatusWrite>();
+
+/** better-sqlite3 hangs a `code` (`SQLITE_BUSY`, `SQLITE_FULL`, …) on what it throws. */
+function sqliteErrorCode(cause: unknown): string | null {
+  const code: unknown = cause instanceof Error ? (cause as { code?: unknown }).code : undefined;
+  return typeof code === "string" ? code : null;
+}
+
+async function applyStatusWrite(sourceBookId: string, write: StatusWrite): Promise<void> {
+  if (write.kind === "reset") await resetConvert(sourceBookId);
+  else await setConvertStatus(sourceBookId, write.status, write.error);
+}
+
+/**
+ * Make a terminal write, or park it and say so loudly. Never rejects: it runs
+ * on paths (a job's end, a cancel) that must not be escaped by a database error.
+ */
+async function recordStatusWrite(sourceBookId: string, write: StatusWrite): Promise<void> {
+  try {
+    await applyStatusWrite(sourceBookId, write);
+    pendingStatusWrites.delete(sourceBookId);
+  } catch (cause) {
+    pendingStatusWrites.set(sourceBookId, write);
+    const code = sqliteErrorCode(cause);
+    const what = write.kind === "reset" ? "reset convert_status to 'none'" : `record convert_status='${write.status}'`;
+    console.error(
+      `[convert] could not ${what} for book ${sourceBookId} — ` +
+        `${code ?? "error"}: ${cause instanceof Error ? cause.message : String(cause)}. ` +
+        "The row still says 'running' while nothing is running, so every conversion in the install " +
+        "is refused until it is cleared. Queued for replay: the next convert or cancel attempt on " +
+        "this process clears it, and the boot reaper clears it at the next restart.",
+    );
+  }
+}
+
+/**
+ * Replay every parked terminal write, before anything reads the durable half
+ * of the slot. Best-effort: a write that fails again stays parked, silently
+ * (`recordStatusWrite` already said so once).
+ */
+async function flushPendingStatusWrites(): Promise<void> {
+  for (const [sourceBookId, write] of [...pendingStatusWrites]) {
+    // A job for this book is still in the map: either a new conversion, which
+    // owns its row and must not have it overwritten, or a cancelled one whose
+    // child is still dying, which will write nothing itself. Either way, skip
+    // it but KEEP it parked: dropping it here would lose a cancelled job's
+    // reset for good. A new job's own terminal write replaces or clears the
+    // entry (`recordStatusWrite`), so it never goes stale.
+    if (jobs.has(sourceBookId)) continue;
+    try {
+      await applyStatusWrite(sourceBookId, write);
+      pendingStatusWrites.delete(sourceBookId);
+      console.warn(
+        `[convert] recovered: the parked write for book ${sourceBookId} landed; the conversion slot is free again.`,
+      );
+    } catch {
+      // Still failing. Left parked for the next attempt.
+    }
+  }
+}
+
 /**
  * The decision a `POST /library/:id/convert` needs. The route answers with it
  * immediately; the work continues in the background.
@@ -214,6 +305,10 @@ export type StartConvertResult =
  * (row and file) first — this runner will not insert over one.
  */
 export async function startConvert(source: BookRow): Promise<StartConvertResult> {
+  // Before anything reads the slot: a parked terminal write from an earlier
+  // job may be all that is holding it (brief 67).
+  await flushPendingStatusWrites();
+
   if (source.converted_from !== null) {
     return {
       kind: "derived",
@@ -333,10 +428,17 @@ export async function startConvert(source: BookRow): Promise<StartConvertResult>
  */
 export async function cancelConvert(sourceBookId: string): Promise<boolean> {
   const job = jobs.get(sourceBookId);
-  if (!job) return false;
+  if (!job) {
+    // Nothing runs here, but a row may still say `running` because a job's
+    // terminal write was parked. Clear that before answering (brief 67).
+    await flushPendingStatusWrites();
+    return false;
+  }
   job.cancelled = true;
   job.handle.cancel();
-  await resetConvert(sourceBookId);
+  // A reset that throws is parked rather than answered as a 500: the child is
+  // already told to die, and the cancelled job writes no status of its own.
+  await recordStatusWrite(sourceBookId, { kind: "reset" });
   return true;
 }
 
@@ -458,15 +560,16 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
       return;
     }
 
-    await setConvertStatus(source.id, status);
+    await recordStatusWrite(source.id, { kind: "status", status, error: null });
   } catch {
     // Last resort: something outside every case above went wrong. Say so on
-    // the row rather than leaving it `running` forever.
-    try {
-      await setConvertStatus(source.id, "failed", "The conversion failed unexpectedly.");
-    } catch {
-      // The DB itself is gone; there is nowhere left to record anything.
-    }
+    // the row rather than leaving it `running` forever; if even that write
+    // fails, it is parked for replay rather than lost.
+    await recordStatusWrite(source.id, {
+      kind: "status",
+      status: "failed",
+      error: "The conversion failed unexpectedly.",
+    });
   } finally {
     jobs.delete(source.id);
   }
@@ -475,7 +578,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
 /** Record a failure on the source and remove whatever partial output exists. */
 async function fail(sourceId: string, targetPath: string, message: string): Promise<void> {
   await discard(targetPath);
-  await setConvertStatus(sourceId, "failed", message);
+  await recordStatusWrite(sourceId, { kind: "status", status: "failed", error: message });
 }
 
 /** Remove a partial/abandoned output. Never throws — a leftover file is a

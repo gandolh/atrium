@@ -102,3 +102,35 @@ injected failing key fetch.
 - Typecheck and build are clean, and the upstream change is linked in the outcome.
 - The tests live in [brief 63](../done/63-api-test-harness.md)'s harness if it exists,
   otherwise in a `node --test` file beside `ward.client.ts`.
+
+## Outcome (2026-10-03)
+
+Done in atrium. **The upstream change is not opened.** This brief forbids editing `wzd_auth`, and no PR could be raised from here, so it is owed to the `wzd_auth` owner (details below). prm already led with the identical fix (prm brief 21, commit `022d484`), so atrium is the second integration to diverge from the reference client.
+
+**Change** (`ward.client.ts`):
+- The remote key set gets the injected fetch through jose's `customFetch` symbol, the same seam introspection already had.
+- `jwtVerify` resolves keys through a `resolveKey` wrapper. jose's `JWKSNoMatchingKey` and `JWKSMultipleMatchingKeys` pass through, because they describe the token. Every other resolver failure becomes `WardUnavailableError`: timeout, network `TypeError`, non-200, non-JSON, invalid set.
+- `verify`'s catch rethrows `WardUnavailableError` unchanged and maps everything else to `WardAuthenticationError`, as before.
+- Classification is by class, with no message matching.
+- `ward.guard.ts` is untouched; its 503 branch now receives these.
+
+**Tests** (`test/ward-client.test.ts`, with the real-crypto helper `test/real-ward.ts`). Real EdDSA keys; Ward is served from an injected fetch.
+- **Ward unavailable** when the key set's fetch throws, answers 500, answers HTML, is not a key set, or never answers (20 ms timeout).
+- **Still authentication errors:**
+  - a forged signature under Ward's own kid;
+  - an unknown kid after jose's refetch;
+  - an expired token;
+  - HS256 keyed with the public key's bytes.
+- **A live token** resolves the caller.
+- **Through `buildApp` with the real client:**
+  - a cold cache with an unreachable key set gives **503 `IDENTITY_UNAVAILABLE`**;
+  - once the key set is back, a live granted session gets 200;
+  - a forged token gets 401.
+- Against the old client, 9 of the 15 fail. The "live" cases fail too, because the key set ignored the injected fetch.
+- 47 API tests pass, and typecheck and build are clean.
+
+**Owed upstream**, for the `wzd_auth` owner:
+- In `client/src/verify.ts`, the catch at `:139-140` turns every `jwtVerify` failure into an authentication error. It needs the same resolver wrapper, and `customFetch` passed to `createRemoteJWKSet`.
+- `corpus/wiki/integrating.md`'s "fail closed" item should name the key-fetch path explicitly, beside introspection.
+
+Until that lands, the next estate app to copy the reference client inherits the bug.

@@ -15,7 +15,7 @@ have caught, and that typecheck and "verified by hand" did not:
   shifted every default storage root.
 - **[Brief 54](54-latex-compile-slot-keyed-on-subject.md):** a Knex column
   string named a column that no longer exists.
-- **[Brief 61](../todo/61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
+- **[Brief 61](61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
   where D53 requires 503.
 - **[Brief 60](60-ward-cutover-prunes-what-it-drops.md):** a migration's
   cascade never ran.

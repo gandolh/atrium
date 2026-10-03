@@ -2335,3 +2335,12 @@ The fix is a new migration, `20260925000000-prune-cutover-orphans`:
 Test coverage: `test/cutover-prune.test.ts` walks a seeded pre-cutover database forward. A copy of the 2026-08-25 local database lost its 8 progress rows and 2 notes, kept its 5 books, and ended with 0 violations.
 
 **Not deployed. Production's orphan counts and the owner's prune-or-re-point call come first.**
+
+## [2026-10-03] done | Brief 61 — a Ward outage answers 503, never "signed out"
+
+`verify()` wrapped every `jwtVerify` failure as a 401. That included jose's on-request refetch of Ward's key set, which happens once the 10-minute cache is stale or after a boot. A Ward outage therefore sent signed-in people to Ward's login page, breaking D53's fail-closed rule.
+- Key resolution now goes through a wrapper: only `JWKSNoMatchingKey`/`JWKSMultipleMatchingKeys` stay authentication errors, and every other key-set failure is `WardUnavailableError`, a 503.
+- The key set now uses the injected fetch.
+- Coverage is real-crypto tests (`test/ward-client.test.ts`), including `buildApp` with the real client: an unreachable key set gives 503 `IDENTITY_UNAVAILABLE`, a forged token 401, a live session 200.
+
+The same fix as prm brief 21. The `wzd_auth` reference client's matching change is owed upstream.

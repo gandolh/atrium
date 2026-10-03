@@ -1,4 +1,4 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, customFetch, errors, jwtVerify, type JWTVerifyGetKey } from "jose";
 
 import {
   ACCESS_TOKEN_ALG,
@@ -128,7 +128,39 @@ export function createWardClient(options: WardClientOptions): WardClient {
     // picked up without a restart, just not within 30 seconds of the last
     // fetch.
     cooldownDuration: options.jwksCooldownMs ?? 30_000,
+    // The same seam as introspection. Without it the key set used global
+    // `fetch`, and no test could reach the key-fetch failure path at all.
+    [customFetch]: fetchImpl,
   });
+
+  /**
+   * **A key set Ward cannot serve means Ward is unavailable, never "signed
+   * out"** (D53's fail-closed rule, brief 61).
+   *
+   * `jose` re-fetches the key set on the request path once its cache is older
+   * than `cacheMaxAge`, or is empty after a boot, and a failed refetch throws
+   * with no stale-key fallback. `verify()` used to wrap that as an
+   * authentication error, so ten minutes into a Ward outage (or right after
+   * atrium booted while Ward was down, or when Ward was merely slow) the API
+   * answered 401 and the web client sent a signed-in person to Ward's login
+   * page: the loop D53 says must never be offered.
+   *
+   * Only two resolver errors describe the *token*: no key in the set matches
+   * its `kid` (after jose's own cooldown-limited refetch), or several do.
+   * Everything else (a timeout, a non-200 or non-JSON key set, an invalid set,
+   * a fetch that threw) describes Ward. Classified by jose's error classes, not
+   * messages.
+   */
+  const resolveKey: JWTVerifyGetKey = async (header, token) => {
+    try {
+      return await keyStore(header, token);
+    } catch (cause) {
+      if (cause instanceof errors.JWKSNoMatchingKey || cause instanceof errors.JWKSMultipleMatchingKeys) {
+        throw cause;
+      }
+      throw new WardUnavailableError("jwks unavailable", { cause });
+    }
+  };
 
   /** Keyed per **token**, never per subject — see the header. */
   const cache = new Map<string, CacheEntry>();
@@ -136,7 +168,7 @@ export function createWardClient(options: WardClientOptions): WardClient {
 
   async function verify(token: string): Promise<AccessTokenClaims> {
     try {
-      const { payload } = await jwtVerify(token, keyStore, {
+      const { payload } = await jwtVerify(token, resolveKey, {
         /**
          * **Pinned, as a literal, never read from the token's own header.**
          *
@@ -154,6 +186,7 @@ export function createWardClient(options: WardClientOptions): WardClient {
       });
       return payload as unknown as AccessTokenClaims;
     } catch (cause) {
+      if (cause instanceof WardUnavailableError) throw cause;
       throw new WardAuthenticationError("access token is not valid", { cause });
     }
   }

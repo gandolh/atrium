@@ -173,4 +173,5 @@ got here.
 | 58 | Aborted or failed uploads/imports leave no file; boot sweep reclaims `*.uploading` | **done (2026-10-03)** |
 | 59 | Root scripts build workspaces in dependency order; dev watches typeset | **done (2026-10-03)** |
 | 60 | Ward cutover orphans pruned by a forward migration | **done (2026-10-03)**, **owner gate before deploy**: production orphan counts + prune/re-point choice |
+| 61 | Ward key-set outage answers 503, never "signed out" | **done (2026-10-03)**; upstream `wzd_auth` change owed |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

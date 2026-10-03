@@ -114,11 +114,16 @@ export async function updateProgress(
   locator?: string | null,
   profileId?: string,
   versionId?: string | null,
+  options?: { keepalive?: boolean },
 ): Promise<void> {
   await apiFetch(`/library/${id}/progress`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ progress, locator: locator ?? null, profileId, versionId }),
+    // The page-exit write (brief 57): lets the browser finish the request after
+    // the page is gone. The body is a few dozen bytes, far under keepalive's
+    // 64 KiB budget.
+    keepalive: options?.keepalive,
   });
 }
 

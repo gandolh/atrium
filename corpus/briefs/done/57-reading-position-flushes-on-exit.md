@@ -97,3 +97,32 @@ the debounce interval; the server route.
 - Typecheck and build are clean.
 - Verify against a scratch base with all five storage roots set inline and
   asserted before start.
+
+## Outcome (2026-10-03)
+
+Done. The write side is verified in all four cases. The twin round trip's resume still fails, for a separate reason that predates this brief, filed as brief 75.
+
+**Change** (`use-progress-sync.ts`):
+- The pending position lives in a ref holding bookId, fraction, locator, versionId and signature.
+- `flush(exit)` holds the old timer body and is called from:
+  - the debounce timer;
+  - an effect keyed on `[bookId, versionId]`, whose cleanup runs while the ref still holds the **old** ids, which covers a twin switch, a version switch and unmount;
+  - `pagehide` and `visibilitychange` → hidden, registered once.
+- The per-render effect's cleanup still only cancels the timer. Flushing there would write every page turn.
+- The dedupe signature now includes `bookId`.
+- `updateProgress` takes an optional `{ keepalive }`, set on every non-timer flush. The body is a few dozen bytes.
+
+**Browser check.** Scratch base with all five roots asserted, scripted Ward, a generated 12-page PDF and its calibre EPUB twin.
+- **Library:** four page turns, then "Back to home" in the same tick. The server row and the IndexedDB record both hold `locator "5"`. On reopen, the reader resumed on page 5.
+- **Tab close:** three turns (5→8), then the tab closed at once. The server holds `8`.
+- **Twin switch:** two turns back (10→8), then "Switch to EPUB" confirmed in the same tick. The PDF row got `8` against its own id, and the EPUB record holds its own CFI, not the PDF's locator.
+- **Settled reader:** no PATCH in 8 s, including after synthetic `visibilitychange` and `pagehide` events.
+- Typecheck and build are clean.
+
+**Not met: "go back to the PDF, it resumes where it was left".** Switching back opened page 1 every time, then wrote page 1. The same happens with this brief's change stashed and the position written well before the switch, so it is not the write.
+- The reopen path resolves the row from the cached library list and computes `initialLocation` from it.
+- The twin "touch" PATCH writes that cached row's fraction back.
+
+The evidence and a plan are in [brief 75](../todo/75-twin-switch-back-resumes-from-stale-row.md).
+
+Side effect: leaving for the library within the debounce now sends the position twice. The keepalive PATCH goes out, and the library page's reconnect flush resends the IndexedDB record if it is still marked pending. Both carry the same values.

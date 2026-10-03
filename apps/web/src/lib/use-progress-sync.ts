@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { LibraryBook } from "@ebook-reader/shared";
 
 import { useReaderStore, type ReaderLocation } from "../store/reader-store";
@@ -48,69 +48,129 @@ function serializeLocator(location: ReaderLocation): string | null {
   return typeof location === "number" ? String(location) : location;
 }
 
+/** One position waiting to be written, captured with the ids it belongs to. */
+interface PendingWrite {
+  bookId: string;
+  fraction: number;
+  locator: string | null;
+  versionId: string | null;
+  signature: string;
+}
+
 export function useProgressSync() {
   const bookId = useReaderStore((s) => s.loadedBookId);
   const fraction = useReaderStore((s) => s.progressFraction);
   const location = useReaderStore((s) => s.currentLocation);
   // Brief 38 step 7, decision 10: a `locator` inside a published document only
-  // means something alongside the version it was measured in. Read fresh at
-  // send time via the `timer` closure below (not just a hook dependency) so a
-  // version switch that lands mid-debounce is what actually goes out, not a
-  // stale id captured when the timer was scheduled.
+  // means something alongside the version it was measured in, so the version
+  // travels in the pending write with the locator it was measured against.
   const versionId = useReaderStore((s) => s.loadedVersionId);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSent = useRef<string | null>(null);
+  /**
+   * The position not yet written (brief 57). Held in a ref, not a timer
+   * closure, so every way out can write it: the debounce timer, leaving the
+   * reader, switching to the converted twin or another version, hiding the
+   * tab, and closing it. Before this, only the timer could, and a reader who
+   * stopped within the debounce resumed a page behind.
+   */
+  const pending = useRef<PendingWrite | null>(null);
+
+  /**
+   * Write the pending position, if any. `exit` marks the page-exit paths: the
+   * PATCH then goes out with `keepalive` so the browser finishes it after the
+   * page is gone. A no-op when nothing is pending or it was already sent.
+   * Reads refs only, so it is stable and safe to register once.
+   */
+  const flush = useCallback((exit: boolean) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    const p = pending.current;
+    pending.current = null;
+    if (!p || p.signature === lastSent.current) return;
+    lastSent.current = p.signature;
+    const updatedAt = Date.now();
+    // Read at write time (not as a hook dependency): we want whoever is
+    // active WHEN THE WRITE HAPPENS, after the debounce, not whoever was
+    // active when the position was recorded. `getState()` is the documented
+    // way to read the auth store from non-React code/timing.
+    const profileId = useAuthStore.getState().activeProfileId;
+    // Persist locally FIRST so offline reading position survives even when the
+    // PATCH can't go out; then attempt the server write (best-effort).
+    //
+    // `versionId` goes into the local record too, and must: the flush that
+    // sends this record later has no other way to know which version the
+    // locator was measured in, and the server COALESCEs the two columns
+    // separately — an unpaired locator overwrites the page number while
+    // leaving the previous version id beside it (decision 10's "page 40 of v3
+    // is not page 40 of v4"). Recorded at write time, exactly like
+    // `profileId` above and for the same class of reason.
+    void putLocalProgress(p.bookId, {
+      progress: p.fraction,
+      locator: p.locator,
+      updatedAt,
+      profileId,
+      versionId: p.versionId,
+    });
+    void updateProgress(p.bookId, p.fraction, p.locator, undefined, p.versionId, { keepalive: exit })
+      // Mark the record THIS write created — the progress store is keyed per
+      // (profile, book) since v4, so the profile has to come along or the
+      // lookup misses and the row stays pending forever.
+      .then(() => markLocalProgressSynced(p.bookId, profileId, updatedAt))
+      .catch(() => {
+        // Offline / server down: the local record stays pending and is pushed
+        // once on reconnect (last-write-wins).
+      });
+  }, []);
 
   useEffect(() => {
     if (!bookId || fraction === null) return;
     const locator = serializeLocator(location);
-    // Dedupe: skip when neither the position, the version, nor the (rounded)
-    // fraction moved since the last send, so a settled reader doesn't PATCH on
-    // a loop.
-    const signature = `${locator ?? ""}|${fraction.toFixed(4)}|${versionId ?? ""}`;
-    if (signature === lastSent.current) return;
+    // Dedupe: skip when neither the book, the position, the version, nor the
+    // (rounded) fraction moved since the last send, so a settled reader doesn't
+    // PATCH on a loop. A reader who wandered off and came back to the sent
+    // position has nothing pending any more.
+    const signature = `${bookId}|${locator ?? ""}|${fraction.toFixed(4)}|${versionId ?? ""}`;
+    if (signature === lastSent.current) {
+      pending.current = null;
+      return;
+    }
 
+    pending.current = { bookId, fraction, locator, versionId, signature };
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      lastSent.current = signature;
-      const updatedAt = Date.now();
-      // Read at fire time (not as a hook dependency): we want whoever is
-      // active WHEN THE WRITE HAPPENS, after the debounce, not whoever was
-      // active when the effect was scheduled. `getState()` is the documented
-      // way to read the auth store from non-React code/timing.
-      const profileId = useAuthStore.getState().activeProfileId;
-      // Persist locally FIRST so offline reading position survives even when the
-      // PATCH can't go out; then attempt the server write (best-effort).
-      //
-      // `versionId` goes into the local record too, and must: the flush that
-      // sends this record later has no other way to know which version the
-      // locator was measured in, and the server COALESCEs the two columns
-      // separately — an unpaired locator overwrites the page number while
-      // leaving the previous version id beside it (decision 10's "page 40 of v3
-      // is not page 40 of v4"). Recorded at write time, exactly like
-      // `profileId` above and for the same class of reason.
-      void putLocalProgress(bookId, {
-        progress: fraction,
-        locator,
-        updatedAt,
-        profileId,
-        versionId,
-      });
-      void updateProgress(bookId, fraction, locator, undefined, versionId)
-        // Mark the record THIS write created — the progress store is keyed per
-        // (profile, book) since v4, so the profile has to come along or the
-        // lookup misses and the row stays pending forever.
-        .then(() => markLocalProgressSynced(bookId, profileId, updatedAt))
-        .catch(() => {
-          // Offline / server down: the local record stays pending and is pushed
-          // once on reconnect (last-write-wins).
-        });
-    }, DEBOUNCE_MS);
+    timer.current = setTimeout(() => flush(false), DEBOUNCE_MS);
 
+    // Only the timer is cancelled here. This cleanup runs on every page turn,
+    // so flushing in it would write every page and defeat the debounce.
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [bookId, fraction, location, versionId]);
+  }, [bookId, fraction, location, versionId, flush]);
+
+  // Leaving this book or version: write its pending position before the next
+  // one starts. The cleanup runs while `pending` still holds the OLD ids, so a
+  // twin switch (PDF ⇄ EPUB, one mount, `bookId` changes) writes the previous
+  // book's position against the previous book, never against the new one. Also
+  // covers unmount: back to the library.
+  useEffect(() => {
+    return () => flush(true);
+  }, [bookId, versionId, flush]);
+
+  // The page itself going away. No React cleanup runs when a tab closes, so
+  // listen for it, once. Same `pagehide`/`visibilitychange` pair as
+  // `lib/preferences.ts`: `pagehide` is the reliable one on mobile Safari.
+  useEffect(() => {
+    const onPageHide = () => flush(true);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush(true);
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [flush]);
 }
 
 /**

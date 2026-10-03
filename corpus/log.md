@@ -2278,3 +2278,19 @@ The browser check ran against a scratch base:
 Two findings:
 - a fractional `NOTE_MAX_MB` crashed the boot, fixed by the floor;
 - picking the already-active profile is never remembered, filed as brief 74.
+
+## [2026-10-03] done | Brief 57 — the last reading position is written on the way out
+
+`useProgressSync` wrote only from its 1.2 s debounce timer, and its cleanup just cancelled it. Leaving the reader, closing the tab, or switching to a twin or another version within the debounce therefore dropped the last position.
+- The pending write now lives in a ref.
+- A `[bookId, versionId]` effect flushes it on cleanup, with the old ids.
+- `pagehide` and `visibilitychange` flush it with `keepalive`.
+- The dedupe includes the book.
+
+Verified on a scratch base with a 12-page PDF and its EPUB twin:
+- going home in the same tick as the turns stored page 5, on the server and in IndexedDB;
+- closing the tab stored page 8;
+- a same-tick twin switch wrote the PDF's page against the PDF;
+- a settled reader sent nothing.
+
+Switching back to the PDF still opened page 1. That happens on the original code too: the reopen reads the cached list row, and the twin "touch" writes it back. Filed as brief 75.

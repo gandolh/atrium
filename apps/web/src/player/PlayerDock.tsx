@@ -104,7 +104,7 @@ function DockArtwork({ item }: { item: PlaybackItem }) {
     >
       {showArt ? (
         <img
-          src={coverUrl(item.id)}
+          src={coverUrl(item.id, item.coverVersion)}
           alt=""
           onError={() => setImgFailed(true)}
           className="h-full w-full object-cover"

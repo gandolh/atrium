@@ -107,3 +107,40 @@ start:
   conformance checklist in [design.md](../../wiki/design.md).
 - Note that [brief 54](../done/54-latex-compile-slot-keyed-on-subject.md) must land first
   for publishing to work at all.
+
+## Outcome (2026-10-03)
+
+Done for the HTTP layer. One same-session path remains, filed as brief 76.
+
+**File route:**
+- Without `?version=`, the ETag is now `W/"<size>-<mtimeMs>"`, taken from the `stat` the route already does for `Content-Length`. The 304 check moved after it.
+- `?version=` keeps the version id as a strong validator.
+- `private, no-cache` is unchanged.
+
+**Cover route:**
+- Always `private`, with a weak mtime ETag.
+- With `?v=` it is `max-age=31536000, immutable`. Without it, it is `no-cache` and revalidates to 304. That is option (a), plus a safe answer for callers that send no version.
+
+**Wire:**
+- `toLibraryBook` takes `coverVersion` (mtime, truncated) and `hasCover` from one `statSync`.
+- `LibraryBook.coverVersion` is `number | null`, default null, so a snapshot stored offline before the field existed still parses.
+- `coverUrl(id, coverVersion)` appends `?v=`. All five call sites pass it. `PlaybackItem` gained the field so the dock can.
+
+**Tests** (`test/cache-validators.test.ts`), on the real publish flow:
+- An unchanged book revalidates to 304.
+- After a re-publish with a longer page 1, the old validator gets a 200 with v2's bytes, identical to `?version=v2`, whose ETag is the version id.
+- Deleting v2 serves v1's bytes again.
+- The cover is `private`: immutable when versioned, revalidating otherwise.
+- `POST /library/:id/cover` moves `coverVersion`.
+
+All five tests fail on the old controller and mapper, and 52 API tests pass. Typecheck and both builds are clean.
+
+**Browser check** (scratch base, all roots asserted, scripted Ward):
+- v1 opened showing "First edition.".
+- After publishing v2, a page load revalidated and got a **200** with v2's bytes ("Second edition, revised.").
+- The grid's cover requests carry `?v=<mtime>`.
+- There is no visual change, so the design checklist is unaffected: no tokens, type, colour or motion were touched.
+
+**Not covered here: reopening within the same SPA session.** After publishing v3, going home and reopening from the tile sent **no** request. The reader reused its in-memory file, showing v2's bytes under v2's label: consistent, but stale. That is the reader store, not HTTP caching, outside this brief's files: [brief 76](../todo/76-reader-reuses-in-memory-file-after-republish.md).
+
+The cover-replace check in the browser was not driven through the video "pick a frame" UI. The API test proves the version moves, and the app's existing `invalidateQueries(["library"])` after an upload carries it into the grid's URL.

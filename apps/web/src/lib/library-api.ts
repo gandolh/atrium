@@ -172,8 +172,15 @@ export async function deleteBookVersion(id: string, versionId: string): Promise<
  * **If covers ever stop loading, this is the first thing to check**, and the
  * cause will not be here: it will be the cookie not reaching the API's origin.
  */
-export function coverUrl(id: string): string {
-  return apiUrl(`/library/${id}/cover`).toString();
+export function coverUrl(id: string, coverVersion: number | null): string {
+  const url = apiUrl(`/library/${id}/cover`);
+  // The cover's version (its mtime, from the listing) is the cache key: the
+  // server caches a versioned cover for a year, so a replaced or regenerated
+  // cover must arrive under a new URL (brief 62).
+  // Loose on purpose: a book snapshot stored offline before the field existed
+  // carries `undefined`, which must mean "unversioned", not `?v=undefined`.
+  if (coverVersion != null) url.searchParams.set("v", String(coverVersion));
+  return url.toString();
 }
 
 /**

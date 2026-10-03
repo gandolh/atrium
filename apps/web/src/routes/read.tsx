@@ -516,7 +516,7 @@ function BookCoverTile({
     >
       {book?.hasCover && !imgFailed ? (
         <img
-          src={coverUrl(book.id)}
+          src={coverUrl(book.id, book.coverVersion)}
           alt=""
           onError={() => setImgFailed(true)}
           className="h-full w-full object-cover"

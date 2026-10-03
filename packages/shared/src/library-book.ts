@@ -103,6 +103,14 @@ export const libraryBookSchema = z.object({
   subjects: z.array(z.string()),
   /** Whether a cover thumbnail was extracted (drives fallback tile in the UI). */
   hasCover: z.boolean(),
+  /**
+   * The cover file's mtime (ms), or null when there is no cover (brief 62).
+   * A cover is rewritten in place (a re-publish, D40's last-write-wins
+   * setter), so it is the cache key: `coverUrl(id, coverVersion)` puts it in
+   * the URL, and a changed cover is a new URL rather than a year-long stale
+   * cache entry. Defaults to null so a record cached before it existed parses.
+   */
+  coverVersion: z.number().nullable().default(null),
   /** Original file size in bytes. */
   sizeBytes: z.number().int().nonnegative(),
   /**

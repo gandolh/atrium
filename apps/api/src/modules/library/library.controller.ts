@@ -167,27 +167,6 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       }
     }
 
-    // The stored bytes for an id never change — a re-upload gets a fresh id — so
-    // the id doubles as a strong validator. `no-cache` makes the browser
-    // revalidate on every open, but a matching If-None-Match short-circuits to a
-    // 304 (no multi-MB re-download of the book) while the touch above still
-    // runs. `Accept-Ranges: bytes` is always advertised — media players (and
-    // Safari's `bytes=0-1` probe) require it to enable seek/scrub (brief 23).
-    //
-    // A version's id is the same kind of validator for the same reason, and a
-    // stronger one: a version artifact is IMMUTABLE by construction (publishing
-    // again mints a new id rather than rewriting one). Deriving the ETag from
-    // the version's own identity — the identity its path is derived from — is
-    // what stops v2 being served out of a cache entry filled by v3.
-    const etag = `"${version ? version.id : id}"`;
-    reply
-      .header("Cache-Control", "private, no-cache")
-      .header("ETag", etag)
-      .header("Accept-Ranges", "bytes");
-    if (request.headers["if-none-match"] === etag) {
-      return reply.status(304).send();
-    }
-
     // A version is always a PDF — publishing produces nothing else.
     const contentType = version ? CONTENT_TYPE.pdf : CONTENT_TYPE[row.format];
     const disposition = `inline; filename="${version ? `${version.id}.pdf` : `${id}.${row.format}`}"`;
@@ -197,12 +176,40 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // streams only the requested window. Derived, never read back from the row.
     const filePath = version ? versionPdfPathFor(version.id) : filePathFor(row.id, row.format);
     let size: number;
+    let mtimeMs: number;
     try {
-      ({ size } = await stat(filePath));
+      ({ size, mtimeMs } = await stat(filePath));
     } catch {
       return reply
         .status(404)
         .send({ error: version ? "Version file not found." : "Book file not found." });
+    }
+
+    // `no-cache` makes the browser revalidate on every open, but a matching
+    // If-None-Match short-circuits to a 304 (no multi-MB re-download of the
+    // book) while the touch above still runs. `Accept-Ranges: bytes` is always
+    // advertised — media players (and Safari's `bytes=0-1` probe) require it to
+    // enable seek/scrub (brief 23).
+    //
+    // **The newest file's validator is the file on disk** (brief 62). The id
+    // used to double as the ETag on the premise that an id's bytes never
+    // change, and a published document breaks it: every publish (and deleting
+    // the newest version) copies a version's PDF OVER `library/<id>.pdf`. The
+    // browser revalidated with the old id, got a 304, and the reader showed v1
+    // labelled as v2. A weak size+mtime validator follows every rewrite path,
+    // present and future, with no knowledge of versions.
+    //
+    // A version's id stays a strong validator: a version artifact is IMMUTABLE
+    // by construction (publishing again mints a new id rather than rewriting
+    // one), and deriving the ETag from the identity its path comes from is what
+    // stops v2 being served out of a cache entry filled by v3.
+    const etag = version ? `"${version.id}"` : `W/"${size}-${Math.trunc(mtimeMs)}"`;
+    reply
+      .header("Cache-Control", "private, no-cache")
+      .header("ETag", etag)
+      .header("Accept-Ranges", "bytes");
+    if (request.headers["if-none-match"] === etag) {
+      return reply.status(304).send();
     }
 
     const range = parseRange(request.headers.range, size);
@@ -248,14 +255,27 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // check is the only gate here. Doing it up front makes a missing thumbnail
     // a clean 404 the <img> can fall back from, rather than a mid-stream 500
     // (which a cross-origin <img> surfaces as the noisy ERR_BLOCKED_BY_ORB).
+    let mtimeMs: number;
     try {
-      await stat(coverPath);
+      ({ mtimeMs } = await stat(coverPath));
     } catch {
       return reply.status(404).send({ error: "No cover for this book." });
     }
+    // A cover is NOT immutable (brief 62): a re-publish regenerates it and
+    // D40's setter replaces it in place. So it is cached for a year only under
+    // a URL that names its version (`?v=<coverVersion>` from the listing, the
+    // cover file's mtime), where a new cover is a new URL. A request without
+    // one revalidates against the same mtime. `private` either way: the
+    // response is cookie-gated, and a shared cache must not keep it.
+    const etag = `W/"${Math.trunc(mtimeMs)}"`;
+    const versioned = typeof (request.query as { v?: unknown } | undefined)?.v === "string";
     reply
       .header("Content-Type", "image/jpeg")
-      .header("Cache-Control", "public, max-age=31536000, immutable");
+      .header("ETag", etag)
+      .header("Cache-Control", versioned ? "private, max-age=31536000, immutable" : "private, no-cache");
+    if (!versioned && request.headers["if-none-match"] === etag) {
+      return reply.status(304).send();
+    }
     return reply.send(createReadStream(coverPath));
   });
 

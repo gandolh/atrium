@@ -62,6 +62,8 @@ export interface PlaybackItem {
   /** Needed for the dock's "back to the surface" link (`/read?format=…`). */
   format: FileType;
   hasCover: boolean;
+  /** The cover's cache key for `coverUrl` (brief 62). */
+  coverVersion: number | null;
   /** Server-known length, or null — the dock's total time before metadata lands. */
   durationSeconds: number | null;
   /** The row's stored resume position (a seconds offset as a string), for `useMediaProgress`. */
@@ -215,6 +217,7 @@ export function playbackItemFromBook(book: LibraryBook): PlaybackItem | null {
     kind,
     format: book.format,
     hasCover: book.hasCover,
+    coverVersion: book.coverVersion,
     durationSeconds: book.durationSeconds,
     locator: book.locator,
   };

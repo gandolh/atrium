@@ -2344,3 +2344,14 @@ Test coverage: `test/cutover-prune.test.ts` walks a seeded pre-cutover database 
 - Coverage is real-crypto tests (`test/ward-client.test.ts`), including `buildApp` with the real client: an unreachable key set gives 503 `IDENTITY_UNAVAILABLE`, a forged token 401, a live session 200.
 
 The same fix as prm brief 21. The `wzd_auth` reference client's matching change is owed upstream.
+
+## [2026-10-03] done | Brief 62 — a re-published document and a replaced cover are not served stale
+
+The newest file's ETag was the book id, but publishing copies each version over the same path, so a revalidating browser got a 304 and showed v1 as v2. Covers were `public, immutable` for a year under an unversioned URL, though re-publishing and D40's setter both rewrite them.
+- The file route without `?version=` now uses `W/"size-mtime"` from its own stat.
+- Covers are `private`: immutable only under `?v=<coverVersion>` and revalidated otherwise.
+- `LibraryBook.coverVersion` (the cover's mtime, from the existing stat) drives `coverUrl`.
+
+`test/cache-validators.test.ts` covers re-publish, delete-newest and cover replace on the real publish flow. In the browser, a page load after re-publish fetched v2 with a 200.
+
+Reopening within the same SPA session still reuses the in-memory file. Filed as brief 76.

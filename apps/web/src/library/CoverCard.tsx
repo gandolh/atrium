@@ -253,7 +253,7 @@ export function CoverArt({
     return showImage ? (
       <div className="flex h-full w-full items-center justify-center">
         <img
-          src={coverUrl(book.id)}
+          src={coverUrl(book.id, book.coverVersion)}
           alt=""
           onError={onImgError}
           className="aspect-square max-h-full max-w-full object-cover"
@@ -273,7 +273,7 @@ export function CoverArt({
     return showImage ? (
       <div className="flex h-full w-full items-center justify-center">
         <img
-          src={coverUrl(book.id)}
+          src={coverUrl(book.id, book.coverVersion)}
           alt=""
           onError={onImgError}
           className="max-h-full max-w-full object-contain"
@@ -286,7 +286,7 @@ export function CoverArt({
 
   return showImage ? (
     <img
-      src={coverUrl(book.id)}
+      src={coverUrl(book.id, book.coverVersion)}
       alt=""
       onError={onImgError}
       className="h-full w-full object-cover"

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { statSync } from "node:fs";
 import type { LibraryBook } from "@ebook-reader/shared";
 import { coverOwnerId, coverPathFor } from "../../common/paths.js";
 import type { BookConvertFields, NewBookRow } from "./library.types.js";
@@ -39,6 +39,12 @@ function parseSubjects(raw: string | null): string[] {
   }
 }
 
+/** `hasCover` and `coverVersion` from one stat of the derived cover path. */
+function coverOf(path: string): { hasCover: boolean; coverVersion: number | null } {
+  const stats = statSync(path, { throwIfNoEntry: false });
+  return stats ? { hasCover: true, coverVersion: Math.trunc(stats.mtimeMs) } : { hasCover: false, coverVersion: null };
+}
+
 /**
  * Map a DB row to the wire shape (strips on-disk paths; D25). Progress + the
  * resume locator are per-profile, so they're passed in from the caller's
@@ -63,7 +69,7 @@ export function toLibraryBook(
     // surfaces as the noisy ERR_BLOCKED_BY_ORB; a startup reconcile existed
     // solely to null those paths back out. Asking the disk instead makes the
     // drift impossible rather than correctable, which is why that machinery is
-    // gone. One `existsSync` per book per listing, knowingly paid: it is a stat
+    // gone. One `statSync` per book per listing, knowingly paid: it is a stat
     // on a path we just computed, and correctness here is worth more than a
     // cache that would reintroduce exactly the staleness we removed.
     //
@@ -71,9 +77,10 @@ export function toLibraryBook(
     // upload row has not got one), so it is normalised explicitly rather than
     // by widening `coverOwnerId` — see the note on that function for why the
     // key is required there.
-    hasCover: existsSync(
-      coverPathFor(coverOwnerId({ id: row.id, converted_from: row.converted_from ?? null })),
-    ),
+    //
+    // The same stat gives the cover's version (brief 62): its mtime, which
+    // changes whenever the file is rewritten in place.
+    ...coverOf(coverPathFor(coverOwnerId({ id: row.id, converted_from: row.converted_from ?? null }))),
     sizeBytes: row.size_bytes,
     progress: progress.progress,
     locator: progress.locator,

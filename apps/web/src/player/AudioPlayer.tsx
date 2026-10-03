@@ -69,7 +69,7 @@ function AudioArt({ book }: { book: LibraryBook }) {
     <div className="aspect-square w-full max-w-xs overflow-hidden rounded-cover border border-line-soft bg-tint-music shadow-l1">
       {showArt ? (
         <img
-          src={coverUrl(book.id)}
+          src={coverUrl(book.id, book.coverVersion)}
           alt=""
           onError={() => setImgFailed(true)}
           className="h-full w-full object-cover"

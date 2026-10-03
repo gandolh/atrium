@@ -93,3 +93,27 @@ D23.
   makes the build order work on a clean checkout.
 - `npm run docs -w @ebook-reader/docs-site` still builds the docs site.
 - `bash corpus/lint.sh` passes.
+
+## Outcome (2026-10-03)
+
+Done. **The Node line was decided without the owner:** this was an unattended run, and the brief's recommendation, 24, is what dev and production already run. The other choice means changing the production base image. D23 records it as revisitable.
+
+**Pins** (each to the version `package-lock.json` resolved; nothing newer except sharp):
+- `apps/api`: `jose` 6.2.10, `knex` 3.1.0;
+- `apps/web`: `@playwright/test` 1.61.1;
+- `apps/docs`: `@astrojs/starlight` 0.41.11, `@fontsource/archivo` and `/newsreader` 5.3.0, `astro` 7.3.1, `sharp` 0.35.4, `typedoc` 0.28.20.
+
+The acceptance grep finds no `^`/`~` anywhere.
+
+**sharp.** `apps/api` moved 0.35.3 → 0.35.4. `npm ls sharp` shows one copy, with astro's and the docs site's deduped. The lockfile change is exactly that: two duplicate trees of 28 platform packages removed, the sharp/libvips platform packages bumped, `@types/node` 22.20.0 → 24.19.1 and `undici-types` with it. No other package moved.
+
+**Node:**
+- `.nvmrc` 24.14.1, the installed runtime;
+- root `engines` `>=24`;
+- `@types/node` 24.19.1 in `apps/api` and `packages/typeset`.
+
+**Checks, on Node 24.14.1:**
+- `npm ci`, root `npm run typecheck` (0 errors), `npm run build`, and `npm run test` (typeset 647/647, API 69/69) all pass. The API suite's uploads and EPUB fixtures exercise the sharp thumbnail path on 0.35.4.
+- `npm run docs -w @ebook-reader/docs-site` built 23 pages.
+- `bash corpus/lint.sh` passes.
+- D21 is marked drift-corrected, and D23 is revised with the reason and the rejected alternative.

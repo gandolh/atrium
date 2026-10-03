@@ -2420,3 +2420,7 @@ CLAUDE.md, architecture.md, api-layering.md and the glossary still described D30
 - D17 is marked revised (2026-09-06, the container image, reason from commit `6dc88fe`).
 - status.md gained the 2026-09-06, 09-27 and 10-03 entries and rows 63 and 71–77. Its August narrative moved into the archive chain, with a new `status-history-v2.md` so every page stays under 200 lines.
 - Two stale code comments in `ward.guard.ts` are noted in the outcome.
+
+## [2026-10-03] done | Brief 72 — dependency and Node versions back in line with D21 and D23
+
+Every caret is pinned to its resolved version. `sharp` is one 0.35.4 copy. The Node line moves to 24 (`.nvmrc` 24.14.1, `engines` `>=24`, `@types/node` 24.19.1), matching the dev box and the container. That was taken on the brief's recommendation without the owner, and D23 marks it revisitable. `npm ci`, typecheck, build, test (647 + 69) and the docs build all pass.

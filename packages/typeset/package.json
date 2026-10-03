@@ -37,7 +37,7 @@
     "pdf-lib": "1.17.1"
   },
   "devDependencies": {
-    "@types/node": "22.20.0",
+    "@types/node": "24.19.1",
     "typescript": "5.9.3"
   }
 }

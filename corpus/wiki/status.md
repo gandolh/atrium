@@ -6,7 +6,7 @@ updated: 2026-10-03
 # Status — 2026-10-03
 
 **Latest (2026-10-03):** ✅ **The 2026-09-25 improvements sweep is worked
-through: briefs 53–71 are done.** Every API fix landed with a regression test on
+through: briefs 53–72 are done.** Every API fix landed with a regression test on
 brief 63's harness (69 tests, from none). Owed, each named in its brief's outcome:
 - **Docker checks** for brief 55 (Docker is unavailable on the dev machine), and
   the matching vps-deploy change, without which deploys keep losing LaTeX drafts.
@@ -14,7 +14,8 @@ brief 63's harness (69 tests, from none). Owed, each named in its brief's outcom
   and prune (D53) versus re-point.
 - **Upstream `wzd_auth`** change for brief 61's key-fetch classification.
 
-Filed during the run: briefs 73–77. Brief 72 (versions vs D21/D23) is still open.
+Brief 72 moved the Node line to 24 on the brief's recommendation, without the
+owner, and D23 marks it revisitable. Filed during the run: briefs 73–77.
 
 **2026-09-27:** development runs on one origin like the deploy (D54, revises
 D14), and the storage roots and `.env` resolve from the API package again
@@ -97,7 +98,7 @@ got here.
 | 69 | Dead seed/password files and `CONVERT_TIMEOUT_MS` retired | **done (2026-10-03)** |
 | 70 | Multi-file drop/pick uploads every file sequentially; rejects named | **done (2026-10-03)** |
 | 71 | Corpus and `CLAUDE.md` describe the Ward auth that exists | **done (2026-10-03)** |
-| 72 | Dependency and Node versions back in line with D21 and D23 | todo |
+| 72 | Dependency and Node versions back in line with D21 and D23 (Node 24) | **done (2026-10-03)**; Node line taken on the recommendation, owner may revisit |
 | 73 | A 500 does not send the error's message (SQL) to the client | todo |
 | 74 | Picking the already-active profile is remembered | todo |
 | 75 | Switching back to a converted twin resumes from a stale row | todo |

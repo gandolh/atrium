@@ -179,4 +179,5 @@ got here.
 | 65 | Local dev on one origin (D54, 2026-09-27); CORS removed (no origin granted) | **done (2026-10-03)**; Ward-down screen is brief 77 |
 | 66 | Notes list counts pages in SQL, never loads ink; profile checks use a count via the notes service | **done (2026-10-03)** |
 | 67 | Conversion terminal writes parked and replayed; a failed write no longer wedges the install-wide slot | **done (2026-10-03)** |
+| 68 | Folder move and preference merge are each one transaction (no cycle, no lost key) | **done (2026-10-03)** |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

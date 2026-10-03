@@ -1,3 +1,4 @@
+import type { Knex } from "knex";
 import { knex } from "../../database/knex.js";
 
 /**
@@ -46,6 +47,17 @@ export async function insertNoteFolder(row: NoteFolderRow): Promise<void> {
   await knex("note_folders").insert(row);
 }
 
+/** One folder, read on `db`: the global connection, or a transaction's. */
+async function folderOn(
+  db: Knex | Knex.Transaction,
+  profileId: string,
+  id: string,
+): Promise<NoteFolderRow | undefined> {
+  return (await db("note_folders").where({ id, profile_id: profileId }).first()) as
+    | NoteFolderRow
+    | undefined;
+}
+
 /**
  * Would re-parenting `folderId` under `parentId` make a cycle? Walks up from
  * the proposed parent looking for the folder being moved: finding it means the
@@ -56,7 +68,8 @@ export async function insertNoteFolder(row: NoteFolderRow): Promise<void> {
  * `MAX_FOLDER_DEPTH` with a parent still to visit) — refusing a move we cannot
  * prove safe is the correct failure here.
  */
-export async function wouldCycleNoteFolder(
+async function wouldCycle(
+  trx: Knex.Transaction,
   profileId: string,
   folderId: string,
   parentId: string | null,
@@ -64,29 +77,55 @@ export async function wouldCycleNoteFolder(
   let cursor = parentId;
   for (let depth = 0; cursor !== null && depth < MAX_FOLDER_DEPTH; depth += 1) {
     if (cursor === folderId) return true;
-    cursor = (await getNoteFolder(profileId, cursor))?.parent_id ?? null;
+    cursor = (await folderOn(trx, profileId, cursor))?.parent_id ?? null;
   }
   return cursor !== null;
 }
 
-export async function renameNoteFolder(
-  profileId: string,
-  id: string,
-  name: string,
-): Promise<boolean> {
-  const changed = await knex("note_folders").where({ id, profile_id: profileId }).update({ name });
-  return changed > 0;
-}
+export type UpdateNoteFolderResult =
+  | { ok: true; folder: NoteFolderRow }
+  | { ok: false; reason: "NOT_FOUND" }
+  | { ok: false; reason: "CYCLE" };
 
-export async function setNoteFolderParent(
+/**
+ * Rename and/or re-parent a folder, the cycle check and the write as **one
+ * transaction** (brief 68).
+ *
+ * The check used to be a separate await before the write. Two opposite moves (A
+ * under B from one device, B under A from another) both passed the ancestry
+ * walk and both wrote, leaving a two-folder cycle: detached from the root, so
+ * both folders, everything under them and every note filed there vanished from
+ * the Notes screen with no way back. In a transaction the second move's walk
+ * runs after the first move's write, sees it, and is refused as `CYCLE`. The
+ * pool has one connection (D47), so transactions are serialised outright.
+ *
+ * A rename in the same PATCH joins the transaction, so a refused move renames
+ * nothing either, as before. Every statement inside uses `trx`: a query on the
+ * global `knex` here would wait for the one connection this transaction holds,
+ * until the 120 s acquire timeout.
+ */
+export async function updateNoteFolder(
   profileId: string,
   id: string,
-  parentId: string | null,
-): Promise<boolean> {
-  const changed = await knex("note_folders")
-    .where({ id, profile_id: profileId })
-    .update({ parent_id: parentId });
-  return changed > 0;
+  fields: { name?: string; parentId?: string | null },
+): Promise<UpdateNoteFolderResult> {
+  return knex.transaction(async (trx): Promise<UpdateNoteFolderResult> => {
+    if (!(await folderOn(trx, profileId, id))) return { ok: false, reason: "NOT_FOUND" };
+
+    const { name, parentId } = fields;
+    if (parentId !== undefined && parentId !== null) {
+      if (!(await folderOn(trx, profileId, parentId))) return { ok: false, reason: "NOT_FOUND" };
+      if (await wouldCycle(trx, profileId, id, parentId)) return { ok: false, reason: "CYCLE" };
+    }
+
+    const changes: Partial<Pick<NoteFolderRow, "name" | "parent_id">> = {};
+    if (name !== undefined) changes.name = name;
+    if (parentId !== undefined) changes.parent_id = parentId;
+    if (Object.keys(changes).length > 0) {
+      await trx("note_folders").where({ id, profile_id: profileId }).update(changes);
+    }
+    return { ok: true, folder: (await folderOn(trx, profileId, id))! };
+  });
 }
 
 /**

@@ -170,9 +170,31 @@ export async function getProfilePreferences(id: string): Promise<string | null |
   return row === undefined ? undefined : row.preferences;
 }
 
-export async function setProfilePreferences(id: string, json: string | null): Promise<boolean> {
-  const changed = await knex("profiles").where({ id }).update({ preferences: json });
-  return changed > 0;
+/**
+ * Read the **current** preferences blob and write `merge(stored)`, as one
+ * transaction (brief 68). Returns what was written, or `undefined` when no such
+ * profile exists.
+ *
+ * Merging over a snapshot the request read earlier lost keys: two PATCHes for
+ * one profile (a laptop and a phone, or a first-run adoption racing a debounced
+ * write) both merged over the same snapshot, and the second write dropped the
+ * first's key. Inside the transaction the second merge reads the first's
+ * result. The merge RULE stays the caller's; this only makes it atomic. Every
+ * statement uses `trx` (see `updateNoteFolder` for why).
+ */
+export async function updateProfilePreferences(
+  id: string,
+  merge: (stored: string | null) => string,
+): Promise<string | undefined> {
+  return knex.transaction(async (trx) => {
+    const row = (await trx("profiles").select("preferences").where({ id }).first()) as
+      | { preferences: string | null }
+      | undefined;
+    if (row === undefined) return undefined;
+    const next = merge(row.preferences);
+    await trx("profiles").where({ id }).update({ preferences: next });
+    return next;
+  });
 }
 
 // --- Per-profile reading progress -------------------------------------------

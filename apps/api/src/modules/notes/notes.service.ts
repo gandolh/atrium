@@ -6,9 +6,8 @@ import {
   insertNoteFolder,
   listNoteFolders,
   reassignNotes,
-  renameNoteFolder,
-  setNoteFolderParent,
-  wouldCycleNoteFolder,
+  updateNoteFolder,
+  type UpdateNoteFolderResult,
   type NoteFolderRow,
 } from "./note-folders.model.js";
 import { BLANK_PAGE, toNote } from "./notes.mapper.js";
@@ -36,10 +35,7 @@ import {
 
 export type MoveNoteResult = { ok: true; note: NoteRow } | { ok: false; reason: "NOT_FOUND" };
 
-export type UpdateFolderResult =
-  | { ok: true; folder: NoteFolderRow }
-  | { ok: false; reason: "NOT_FOUND" }
-  | { ok: false; reason: "CYCLE" };
+export type UpdateFolderResult = UpdateNoteFolderResult;
 
 // --- Notes -------------------------------------------------------------------
 
@@ -177,19 +173,9 @@ export async function updateFolder(
   id: string,
   fields: { name?: string; parentId?: string | null },
 ): Promise<UpdateFolderResult> {
-  if (!(await getNoteFolder(profileId, id))) return { ok: false, reason: "NOT_FOUND" };
-
-  const { name, parentId } = fields;
-  if (parentId !== undefined && parentId !== null) {
-    if (!(await getNoteFolder(profileId, parentId))) return { ok: false, reason: "NOT_FOUND" };
-    if (await wouldCycleNoteFolder(profileId, id, parentId)) {
-      return { ok: false, reason: "CYCLE" };
-    }
-  }
-
-  if (name !== undefined) await renameNoteFolder(profileId, id, name);
-  if (parentId !== undefined) await setNoteFolderParent(profileId, id, parentId);
-  return { ok: true, folder: (await getNoteFolder(profileId, id))! };
+  // The check and the write are one transaction in the model: done as two
+  // awaits here, two opposite moves could both pass the check (brief 68).
+  return updateNoteFolder(profileId, id, fields);
 }
 
 /**

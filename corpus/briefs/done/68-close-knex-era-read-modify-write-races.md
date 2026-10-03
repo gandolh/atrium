@@ -93,3 +93,33 @@ otherwise, on a scratch database:
 - Existing behaviour is unchanged: rename, move to root, move into a descendant
   refused, preference reads.
 - Typecheck and build are clean.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Folder move:**
+- `note-folders.model.ts` gains `updateNoteFolder(profileId, id, { name?, parentId? })`. One `knex.transaction` re-reads the folder and the target parent (profile-scoped), runs the ancestry walk and writes, all on `trx`.
+- It returns `NOT_FOUND` / `CYCLE` / `{ ok, folder }`, as before.
+- **The rename joins the transaction**, so a refused move renames nothing. That was already true: the old code checked the cycle before renaming, and the new test pins it.
+- The service's `updateFolder` delegates to the model, and `UpdateFolderResult` aliases the model's type.
+- The racy `wouldCycleNoteFolder`, `renameNoteFolder` and `setNoteFolderParent` are gone. The walk is a private `wouldCycle(trx, …)`.
+
+**Preferences:**
+- `profiles.model.ts` gains `updateProfilePreferences(id, merge)`. It reads the current blob and writes `merge(stored)` in one transaction on `trx`.
+- `writePreferences` keeps the one-level, unknown-keys-survive rule and passes it in, with no `json_patch`.
+- The now-unused `setProfilePreferences` is removed.
+
+**Tests** (`test/write-races.test.ts`):
+- Through `app.inject` the guard's own queries staggered two requests enough to hide the race, and the inject version passed on the old code. So the races call the **service functions** with `Promise.all`, as the sweep reproduced them, and the preference calls share one pre-read profile snapshot, exactly what two requests that read before either writes would hold.
+- Opposite moves give one `ok` and one `CYCLE`, and no cycle in the tree.
+- Two writes with different keys keep both.
+- Each completes in milliseconds; the assert is under 5 s, nowhere near the 120 s acquire timeout.
+- Behaviour pins, through HTTP:
+  - rename;
+  - a move into a descendant gets 400 `FOLDER_CYCLE` and changes nothing, rename included;
+  - move to root;
+  - an unknown parent gets 404;
+  - preferences still merge one level deep and keep an unknown `futureKey`.
+- Both race tests fail on the old code: two `ok`s, and a lost `theme`.
+- 69 API tests pass, and typecheck and build are clean.

@@ -19,7 +19,7 @@ import {
   deleteProfile,
   getDefaultProfile,
   listProfiles,
-  setProfilePreferences,
+  updateProfilePreferences,
   updateProfile,
   type ProfileRow,
 } from "./profiles.model.js";
@@ -270,7 +270,14 @@ export async function writePreferences(
   profile: ProfileRow,
   patch: Preferences,
 ): Promise<Preferences> {
-  const merged: Preferences = { ...storedPreferences(profile.preferences), ...patch };
-  await setProfilePreferences(profile.id, JSON.stringify(merged));
+  // Merged over the row as it is NOW, inside the model's transaction, not over
+  // `profile.preferences`, a snapshot read before this request's awaits: two
+  // concurrent PATCHes used to merge over the same snapshot and lose a key
+  // (brief 68).
+  let merged: Preferences = { ...storedPreferences(profile.preferences), ...patch };
+  await updateProfilePreferences(profile.id, (stored) => {
+    merged = { ...storedPreferences(stored), ...patch };
+    return JSON.stringify(merged);
+  });
   return merged;
 }

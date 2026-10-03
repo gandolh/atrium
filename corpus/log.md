@@ -2390,3 +2390,11 @@ Brief 46's fix, mirrored:
 One difference from 46: an entry whose book is still in `jobs` is kept rather than dropped, because on this side that can be a cancelled job that writes nothing itself.
 
 `test/convert-status-write.test.ts` forces a real `SQLITE_BUSY` with a second connection holding `BEGIN IMMEDIATE`, for both a job's write and a cancel's reset. Another book converts afterwards with no restart.
+
+## [2026-10-03] done | Brief 68 — two Knex-era read-then-write races closed
+
+Two more members of D47's bug class:
+- **Folder moves.** Two opposite moves both passed the cycle check and wrote a two-folder cycle, hiding both subtrees and their notes.
+- **Preferences.** Two PATCHes both merged over one snapshot and lost a key.
+
+Each check-and-write is now one transaction inside its model function, every statement on `trx`: `updateNoteFolder` (the rename joins it) and `updateProfilePreferences(id, merge)`, with the merge rule kept in the service. `test/write-races.test.ts` races the service functions: one move wins and the other gets `CYCLE`, and both preference keys persist. Both fail on the old code.

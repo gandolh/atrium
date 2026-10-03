@@ -64,3 +64,22 @@ Evidence points at the client's cached library row, not the server:
 - The touch never writes a fraction older than the server's.
 - Typecheck and build are clean. Verify against a scratch base with all five
   storage roots set inline and asserted before start.
+
+## Outcome (2026-10-03)
+
+Done. **The root cause was the list's twin merge, not only cache staleness.**
+
+`listLibraryForProfile` gives each card the position of whichever twin was read more recently. That is right for the grid and the Continue strip (brief 34 step 7). The reader, though, took the opened book's resume position from that list row. After reading the EPUB, the PDF's list row held the EPUB's CFI, which `resumeLocation(…, "pdf")` cannot parse as a page, so the PDF opened on page 1. Instrumenting the reader store showed `initialLocation` arriving as `null`. The twin "touch" then re-PATCHed the merged values onto the PDF's own row. That explains both observations in the context above: the `{"progress":0,"locator":null}` write, and the run that opened on page 1 although the cached row looked right.
+
+**Change:**
+- **`use-hydrate-book.ts`:** before computing `initialLocation`, the network path fetches the book's own row with `GET /library/:id` (`getBookForProfile`, no merge, never cached). If that fetch fails, it falls back to the list row. The file fetch is unchanged.
+- **`read.tsx`:** the touch keeps its trigger (once per opened row of a pair) but sends values from a fresh `GET /library/:id` of that row, never the list row. It can no longer write a twin's position or a stale fraction.
+- `currentLocation` from the other format does not leak: the store log shows `PdfReader`'s mount effect replacing it with the seeded page straight away. `reader-store.ts` is unchanged.
+
+**Browser check** (scratch base, all roots asserted, scripted Ward, the 12-page PDF and its EPUB twin):
+- PDF at page 6, then to EPUB and back: it reopened on **6**, and the server still holds 6. Before the fix it reopened on 1 and wrote 1.
+- Two page turns (6→8) and "Switch to EPUB" in the same tick, then back: it reopened on **8**. Brief 57's flush wrote it, and the touch re-sent the PDF's own fresh values.
+
+Typecheck and build are clean.
+
+Note for testing: the scripted Ward gives every request the same `sid`, so a profile picked in the browser is also the profile a `curl` with that cookie writes to. One run here looked like a failure until that was noticed.

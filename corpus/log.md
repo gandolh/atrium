@@ -2432,3 +2432,11 @@ atrium had no error handler, so Fastify's default answered a 500 with the error'
 ## [2026-10-03] done | Brief 74 — picking the already-active profile is remembered
 
 `switchProfile` returned early for the active profile without storing the choice, so a one-profile account met the picker on every load. The early return now writes the stored id. Browser-verified: a one-profile reload skips the picker, the 24 h idle window still brings it back, and a two-profile switch is remembered.
+
+## [2026-10-03] done | Brief 75 — switching back to a converted twin resumes where it was left
+
+The reader took a book's resume position from the library list row. For a converted pair that row is the card, and it carries whichever twin was read more recently, so after the EPUB the PDF "resumed" from a CFI (page 1). The twin touch also wrote that merged position onto the PDF.
+- The hydrate now resumes from the book's own row, fetched fresh with `GET /library/:id`.
+- The touch sends that row's values.
+
+Browser-verified: PDF at page 6 → EPUB → back opens on 6, and a same-tick turn to 8 before the switch reopens on 8.

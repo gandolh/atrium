@@ -101,6 +101,6 @@ got here.
 | 72 | Dependency and Node versions back in line with D21 and D23 (Node 24) | **done (2026-10-03)**; Node line taken on the recommendation, owner may revisit |
 | 73 | A 500 does not send the error's message (SQL) to the client | **done (2026-10-03)** |
 | 74 | Picking the already-active profile is remembered | **done (2026-10-03)** |
-| 75 | Switching back to a converted twin resumes from a stale row | todo |
+| 75 | Switching back to a converted twin resumes from its own position (list row is a merged card) | **done (2026-10-03)** |
 | 76 | Reopening a book in the same session refetches it when it changed | todo |
 | 77 | With Ward down, the app says so instead of "Loading…" | todo |

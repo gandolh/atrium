@@ -272,9 +272,24 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
       }
 
       setProgress(found.sizeBytes > 0 ? 0 : null);
+      // Resume from THIS book's own position, read fresh (brief 75). `found` is
+      // the library list's row, which is the CARD: for a converted pair it
+      // carries whichever twin was read more recently, so after reading the
+      // EPUB the PDF's row held the EPUB's CFI, which is no page number, and
+      // switching back opened page 1. It can also simply be stale: the list is
+      // served from cache while it revalidates. `GET /library/:id` answers with
+      // this book's own position and no merge. If it fails (a flaky network),
+      // the list row is still the best guess there is.
+      let own: LibraryBook = found;
+      try {
+        own = await fetchBookById(found.id);
+      } catch {
+        // Fall back to the list row.
+      }
+      if (cancelled) return;
       // The saved resume position is an opaque locator on the wire: a page number
       // (string) for PDF, a CFI for EPUB. Type it for the reader's ReaderLocation.
-      const initialLocation = resumeLocation(found.locator, found.format);
+      const initialLocation = resumeLocation(own.locator, found.format);
       try {
         const file = await fetchBookFile(found, (fraction) => {
           if (!cancelled) setProgress(fraction);

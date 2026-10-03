@@ -123,6 +123,6 @@ Done. The write side is verified in all four cases. The twin round trip's resume
 - The reopen path resolves the row from the cached library list and computes `initialLocation` from it.
 - The twin "touch" PATCH writes that cached row's fraction back.
 
-The evidence and a plan are in [brief 75](../todo/75-twin-switch-back-resumes-from-stale-row.md).
+The evidence and a plan are in [brief 75](75-twin-switch-back-resumes-from-stale-row.md).
 
 Side effect: leaving for the library within the debounce now sends the position twice. The keepalive PATCH goes out, and the library page's reconnect flush resends the IndexedDB record if it is still marked pending. Both carry the same values.

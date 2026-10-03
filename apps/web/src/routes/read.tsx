@@ -190,13 +190,25 @@ function BookReader() {
   // `touchedRowRef` so this fires once per distinct row actually opened, not
   // on every render, and it never fires for a book with no convert pair at
   // all (nothing to keep "sticky" there).
+  //
+  // **The values come from the row's own record, fetched fresh** (brief 75),
+  // never from `hydrate.book`. That is the library LIST's row, and the list
+  // merges a converted pair into one card carrying whichever twin was read
+  // more recently: after reading the EPUB, the PDF's list row holds the EPUB's
+  // CFI and fraction. Re-PATCHing those onto the PDF wrote the twin's position
+  // over the PDF's own, so switching back opened page 1. `GET /library/:id`
+  // returns this book's own position, with no merge.
   const touchedRowRef = useRef<string | null>(null);
   useEffect(() => {
     const row = hydrate.book;
     if (!row || (row.convertedFrom === null && row.convertedTo === null)) return;
     if (touchedRowRef.current === row.id) return;
     touchedRowRef.current = row.id;
-    void updateProgress(row.id, row.progress, row.locator);
+    void fetchBookById(row.id)
+      .then((own) => updateProgress(own.id, own.progress, own.locator))
+      .catch(() => {
+        // Offline or gone: nothing to keep sticky, and nothing worth retrying.
+      });
   }, [hydrate.book]);
 
   // Persist coarse reading progress back to the library when the book came

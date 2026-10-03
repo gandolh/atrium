@@ -23,7 +23,7 @@ import {
 import { toLibraryBook } from "../library/library.mapper.js";
 import { deleteBook, getBook, insertBook } from "../library/library.model.js";
 import { deleteBookWithArtifacts } from "../library/library.service.js";
-import { getProfileProgress } from "../profiles/profiles.model.js";
+import { getProfileProgress, resetProgressOnVersion } from "../profiles/profiles.model.js";
 import {
   cancelAndSettleLatexCompile,
   draftPdfPathFor,
@@ -891,6 +891,10 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     // entry with no readable version" the catch below exists to prevent, and it
     // would be unreachable from the version-delete cleanup because it has no
     // versions to delete.
+    // The version this publish supersedes as the newest (none on a first
+    // publish). Positions measured in it are released below (brief 78).
+    const superseded = createdBook ? undefined : await getLatestDocumentVersion(bookId);
+
     let version: DocumentVersionRow | undefined;
     try {
       version = await appendDocumentVersion(bookId, now);
@@ -918,6 +922,12 @@ export function registerLatexRoutes(app: FastifyInstance): void {
       }
       throw err;
     }
+
+    // The new version is in place, so positions measured in the one it
+    // superseded no longer pin it open: their readers get the newest at page 0
+    // (brief 38 decisions 9 and 10; brief 78). After the commit, never before:
+    // a failed publish must not cost anybody their place.
+    if (superseded) await resetProgressOnVersion(bookId, superseded.id);
 
     return reply.status(createdBook ? 201 : 200).send({
       book: toLibraryBook(

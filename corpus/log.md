@@ -2446,3 +2446,7 @@ Browser-verified: PDF at page 6 → EPUB → back opens on 6, and a same-tick tu
 The reader reused its in-memory file whenever the reopened book was the one already loaded, so a re-published document kept its old bytes all session. A versioned document already in memory is now dropped on mount and hydrated again; unversioned books keep the reuse.
 
 The scratch run also showed the bigger half: even a fresh page load opened the version the saved position was measured in, not the newest, against brief 38's decisions 9 and 10. Filed as brief 78.
+
+## [2026-10-03] done | Brief 78 — publishing releases reading positions on the version it supersedes
+
+The reader opened the version a saved position was measured in. Reading the newest version recorded it, so every later publish left readers on the old one, against brief 38's decisions 9 and 10. Publishing now clears version, locator and fraction on positions measured in the version it supersedes, after the new version is committed. Those readers open the newest at page 1, and explicit pins to older versions stay. Covered by `test/publish-positions.test.ts`, and browser-verified with brief 76.

@@ -216,6 +216,26 @@ export async function getProfileProgress(
 }
 
 /**
+ * Forget every reading position measured in `versionId` of `bookId`: version,
+ * locator and fraction (brief 78). Called when a newer version is published.
+ * Returns how many rows were reset.
+ *
+ * Brief 38's decision 9 opens a published card on the **latest** version
+ * unless the reader explicitly opened an older one, and decision 10 says *"when
+ * you are on page 40 on v3 and publish v4, you will resume from page 0 of
+ * v4."* The client picks the version a position was measured in whenever it
+ * still exists, so a position on the previous newest kept that version open
+ * after every publish. Clearing those rows makes them read as "never opened in
+ * any version": the newest, at page 0. A position on an OLDER version was an
+ * explicit choice (only the picker loads one) and stays pinned.
+ */
+export async function resetProgressOnVersion(bookId: string, versionId: string): Promise<number> {
+  return knex("reading_progress")
+    .where({ book_id: bookId, version_id: versionId })
+    .update({ version_id: null, locator: null, progress: 0 });
+}
+
+/**
  * Write this profile's position in a book.
  *
  * COALESCE keeps a previously-saved locator when a progress-only update sends

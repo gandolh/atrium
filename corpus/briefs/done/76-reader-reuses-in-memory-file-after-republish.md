@@ -60,7 +60,7 @@ document, publish an edit, open it again.
 
 ## Outcome (2026-10-03)
 
-Done as scoped. **The brief's diagnosis was only half the story**, and the other half is filed and fixed as [brief 78](../todo/78-publish-releases-positions-on-the-superseded-version.md).
+Done as scoped. **The brief's diagnosis was only half the story**, and the other half is filed and fixed as [brief 78](78-publish-releases-positions-on-the-superseded-version.md).
 
 **Change** (`use-hydrate-book.ts`). On mount, a `useLayoutEffect` checks whether the book in memory is the one being opened and a version is tagged (`loadedVersionId !== null`, meaning a published document with two or more versions). If so it calls `clearLoadedBook()`, and the ordinary hydrate runs.
 

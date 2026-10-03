@@ -52,3 +52,24 @@ picker loads one.
   still names v1.
 - A failed publish clears nothing.
 - `npm run test`, typecheck and build are clean.
+
+## Outcome (2026-10-03)
+
+Done.
+
+**Change:**
+- `profiles.model.ts` gains `resetProgressOnVersion(bookId, versionId)`: one `UPDATE reading_progress SET version_id = NULL, locator = NULL, progress = 0` for that book and version.
+- The publish route reads the current newest version (`superseded`) before appending; a first publish has none. It calls the reset **after** the guarded append-and-write block. That block rethrows on any failure, so a failed publish never reaches the reset and clears nothing.
+- The client needed no change. With no `currentVersionId` it opens the newest, and `keepLocation` is false, so page 1.
+
+**Tests** (`test/publish-positions.test.ts`):
+- A position on v2 (the newest), then publishing v3: `currentVersionId` and `locator` are null.
+- A position on v1 (older, explicit), then publishing v4: the position still names v1.
+- The first fails on the old code; the second holds either way.
+- 75 API tests pass, and typecheck and build are clean.
+
+**Browser check** (scratch base, all roots asserted, with brief 76): the reader on v3 ("Third edition."), v4 published, the document reopened from the library tile in the same session: "Fourth edition." under **Version 4**.
+
+**Known edges, accepted:**
+- A reader who has the document open while it is published and turns a page afterwards writes the old version id back, pinning it again. Leaving without turning a page writes nothing, because the dedupe skips an unchanged position.
+- Rows pinned by the old behaviour before this fix cannot be told from explicit pins, and stay pinned until the next publish supersedes their version.

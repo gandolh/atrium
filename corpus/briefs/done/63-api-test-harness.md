@@ -17,7 +17,7 @@ have caught, and that typecheck and "verified by hand" did not:
   string named a column that no longer exists.
 - **[Brief 61](../todo/61-ward-outage-is-503-not-signed-out.md):** the guard answers 401
   where D53 requires 503.
-- **[Brief 60](../todo/60-ward-cutover-prunes-what-it-drops.md):** a migration's
+- **[Brief 60](60-ward-cutover-prunes-what-it-drops.md):** a migration's
   cascade never ran.
 
 Most of the harness's seams already exist:

@@ -2322,3 +2322,16 @@ Verified in a fresh clone:
 - a first LaTeX compile answered `ready`.
 
 `architecture.md` updated.
+
+## [2026-10-03] done | Brief 60 — the Ward cutover's orphans are pruned (owner gate before deploy)
+
+The cutover dropped `profiles` with foreign keys off, so no `ON DELETE` fired, and `notes`/`note_folders` are `RESTRICT` anyway. Every pre-cutover progress row, note, folder and LaTeX project survived as an orphan. That is data D53 chose to destroy, kept unreachable, and a trap for the next migration that checks `foreign_key_check`.
+
+The fix is a new migration, `20260925000000-prune-cutover-orphans`:
+- it deletes those rows, logs the orphaned LaTeX project ids for manual `latex/<id>/` removal, and nulls a surviving note's link to a pruned folder;
+- it proves `foreign_key_check` empty inside its transaction;
+- the cutover's comments are corrected, comment-only.
+
+Test coverage: `test/cutover-prune.test.ts` walks a seeded pre-cutover database forward. A copy of the 2026-08-25 local database lost its 8 progress rows and 2 notes, kept its 5 books, and ended with 0 violations.
+
+**Not deployed. Production's orphan counts and the owner's prune-or-re-point call come first.**

@@ -115,3 +115,42 @@ asserted before start:
 - **An API that boots against a database the cutover already ran on:** the prune
   runs cleanly.
 - Typecheck and build are clean.
+
+## Outcome (2026-10-03)
+
+Done in code and tests. **The owner gate still stands.** Nothing has been pushed or deployed. The next deploy runs this migration on production, so the owner has to see the orphan counts on the production database first, and choose between pruning (D53) and re-pointing to `Default`, with a copy taken either way.
+
+**The migration** (`20260925000000-prune-cutover-orphans.ts`, registered by static import):
+- Foreign keys go off outside the transaction.
+- Inside it:
+  - count orphans per table;
+  - `console.warn` the orphaned LaTeX project ids, so the operator can remove `latex/<id>/` by hand;
+  - set `folder_id` to NULL on a *surviving* note filed in an orphaned folder, which is what its `ON DELETE SET NULL` would have done;
+  - delete orphans from `reading_progress`, `notes`, `note_folders` and `latex_projects`;
+  - log the counts;
+  - require `PRAGMA foreign_key_check` to be empty, or throw and roll back.
+- Foreign keys go back on in `finally`.
+- `down` is a no-op.
+- It has no history branch: with no orphans every statement matches nothing.
+
+**The cutover's comments** now say what it does: the children survive the drop, because foreign keys are off and two of the FKs are `RESTRICT`. They point at the new migration. The diff is comment-only.
+
+**Tests** (`test/cutover-prune.test.ts`). The database starts at the baseline alone and is seeded with a household: user, profile, progress, a folder holding a note, and a LaTeX project whose published book has a version.
+- The cutover by itself leaves all four child rows and 4 FK violations.
+- The prune empties them, logs the project id, and leaves `foreign_key_check` empty.
+- The published book and its version survive, and `GET /library/b2/file` serves it to a new subject.
+- A re-run is a silent no-op.
+
+The prune test fails with the migration unregistered. The fresh-database case is `migrations.test.ts`, which is still green. 34 API tests pass, and typecheck and build are clean.
+
+**A real pre-cutover database.** A copy of the local `apps/api/data/library.db` (2026-08-25, pre-Knex, 3 users, 3 profiles, 8 progress rows, 2 notes, 5 books) went to a scratch base with all five roots asserted.
+- `runMigrations` ran baseline → cutover → prune.
+- It logged `pruned orphaned rows: {"reading_progress":8,"notes":2,"note_folders":0,"latex_projects":0}`.
+- Every scoped table ended empty, all 5 books stayed, and there were 0 FK violations.
+- The original file's hash was unchanged.
+
+**For the owner.** That local database is a development copy, not production. It shows what this does to a database that has not yet booted past the cutover: the two notes and eight reading positions are deleted. Production's own counts must be taken there before deploy, with the same queries:
+
+```sql
+SELECT COUNT(*) FROM <table> WHERE profile_id NOT IN (SELECT id FROM profiles)
+```

@@ -17,20 +17,21 @@ import type { Knex } from "knex";
  * bring a password hash back, and the `down` below says so rather than
  * pretending otherwise.
  *
- * ## Profiles survive; everything under them survives with them
- *
- * This is the whole point of the re-key. `reading_progress`, `notes` and the
- * LaTeX projects are all keyed on `profile_id`, not on the account — so
- * changing what a profile *belongs to* leaves every one of those rows untouched
- * and still correctly attached. Only the one column at the top of the chain
- * moves.
+ * ## Profiles are deleted; what was under them is NOT, here
  *
  * The profiles themselves are **deleted, not re-pointed**, because there is
  * nothing to re-point them to: their `user_id` names a row in a table this
  * migration drops, and no subject exists yet for the account that owned them.
- * Their children go with them by cascade. That is the cost of the full prune
- * and it was accepted with the cascade shown — atrium's notes and LaTeX
- * projects are named in the decision.
+ * D53 decided their children (`reading_progress`, `notes`, `note_folders` and
+ * the LaTeX projects, all keyed on `profile_id`) go with them, and this
+ * migration was written expecting a cascade to do that.
+ *
+ * **It does not.** Foreign keys are off for the rebuild below, and with them
+ * off SQLite's `DROP TABLE` fires no `ON DELETE` action; `notes` and
+ * `note_folders` are `RESTRICT` besides. Every child row survives, pointing at
+ * a profile id that no longer exists. The prune D53 decided on is carried out
+ * by `20260925000000-prune-cutover-orphans` (brief 60). This file's behaviour
+ * is left as it was, because it may already have run somewhere.
  *
  * ## SQLite cannot ALTER a foreign key, so `profiles` is rebuilt
  *
@@ -39,7 +40,7 @@ import type { Knex } from "knex";
  * Ward owns accounts, and a `users` table here would be a second, stale answer
  * to "who exists". Referential integrity for the subject is Ward's;
  * atrium's guarantee is narrower and still worth having — a profile row always
- * carries the subject that owns it, and every child cascades from the profile.
+ * carries the subject that owns it, and every child is keyed on the profile.
  */
 export async function up(knex: Knex): Promise<void> {
   // Off for the rebuild, and OUTSIDE any transaction: SQLite silently ignores
@@ -57,9 +58,9 @@ export async function up(knex: Knex): Promise<void> {
      */
     await knex.schema.dropTableIfExists("sessions");
 
-    // Everything profile-scoped goes with the profiles, by cascade. Named here
-    // rather than left implicit because "this deletes your notes" should be
-    // legible in the migration, not only in the schema it depends on.
+    // D53 meant everything profile-scoped to go with the profiles. With
+    // foreign keys off it does not: the children survive as orphans, and
+    // `20260925000000-prune-cutover-orphans` deletes them (brief 60).
     await knex.schema.dropTableIfExists("profiles");
     await knex.schema.dropTableIfExists("users");
 

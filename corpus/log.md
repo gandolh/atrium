@@ -2428,3 +2428,7 @@ Every caret is pinned to its resolved version. `sharp` is one 0.35.4 copy. The N
 ## [2026-10-03] done | Brief 73 — a 500 does not send the error's message to the client
 
 atrium had no error handler, so Fastify's default answered a 500 with the error's message: for a Knex error, the full SQL with bound values. One `setErrorHandler` in `app.ts`, set before everything, now answers any 5xx `{ error: "INTERNAL" }` and logs the real error. A Fastify 4xx keeps its message. `test/errors.test.ts` covers a thrown SQL-message error and a real SQLite failure behind the notes route's own handler.
+
+## [2026-10-03] done | Brief 74 — picking the already-active profile is remembered
+
+`switchProfile` returned early for the active profile without storing the choice, so a one-profile account met the picker on every load. The early return now writes the stored id. Browser-verified: a one-profile reload skips the picker, the 24 h idle window still brings it back, and a two-profile switch is remembered.

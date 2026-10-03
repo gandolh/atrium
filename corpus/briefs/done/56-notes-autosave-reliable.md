@@ -185,4 +185,4 @@ Done. All three defects are fixed, and the acceptance was checked in a browser a
 - If a save is already in flight when the tab closes, the queued save waits behind it and may not start before teardown.
 - `use-latex.ts` has a comment that still names `useSaveNote`. That file is not this brief's.
 
-Filed while verifying: [brief 74](../todo/74-picking-the-active-profile-is-remembered.md). Picking the profile that is already active is never remembered, so a one-profile account sees the picker on every load.
+Filed while verifying: [brief 74](74-picking-the-active-profile-is-remembered.md). Picking the profile that is already active is never remembered, so a one-profile account sees the picker on every load.

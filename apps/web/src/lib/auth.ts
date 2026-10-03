@@ -310,7 +310,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (id === get().activeProfileId) {
       // Picking whoever is already active: no session change, and clearing the
       // cache here would refetch the whole library to arrive at what's on
-      // screen. Just close the gate.
+      // screen. Just close the gate, but record the choice: on a first visit the
+      // active profile is the server's default, and tapping it IS the person's
+      // choice. Without this a one-profile account met the picker on every load
+      // (brief 74).
+      writeStoredProfileId(id);
       stampActivity();
       set({ pickerRequired: false });
       return;

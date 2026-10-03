@@ -52,3 +52,14 @@ switch.
 - Two profiles: switching still clears the cache and remembers the new one.
 - Typecheck and build are clean. Verify against a scratch base with all five
   storage roots set inline and asserted before start.
+
+## Outcome (2026-10-03)
+
+Done. In `switchProfile`'s early-return branch, which runs when the picked profile is already active, `writeStoredProfileId(id)` now runs before the gate closes. A comment says why. `FRESH_CHOICE_AT_BOOT` reads only the stored id and the activity stamp, and the branch already stamped activity, so nothing else was needed. The early return still skips the cache clear.
+
+**Browser check** (scratch base, all roots asserted, scripted Ward):
+- **One profile:** with storage cleared the picker shows. After tapping Default and reloading, there is no picker.
+- **Idle window:** with the activity stamp set 25 h back, a reload shows the picker again.
+- **Two profiles:** picking Second activated it (`POST /profiles/<id>/activate`) and stored its id. A reload opened without the picker.
+
+Typecheck and build are clean.

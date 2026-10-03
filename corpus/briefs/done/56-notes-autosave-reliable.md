@@ -72,7 +72,7 @@ lines in conflicting waves.
 editor's save sequencing, dirty tracking, flush and error state.
 
 **Out:**
-- the list query's cost, which is [brief 66](66-notes-list-without-ink.md);
+- the list query's cost, which is [brief 66](../todo/66-notes-list-without-ink.md);
 - undo snapshots cloning the whole notebook (a Watch item);
 - per-page storage, which is a bigger redesign — not this brief;
 - the export path's behaviour, beyond keeping it working.
@@ -135,3 +135,54 @@ editor's save sequencing, dirty tracking, flush and error state.
 - Typecheck and build are clean, and the design checklist passes.
 - Verify against a scratch base with all five storage roots set inline and
   asserted before start.
+
+## Outcome (2026-10-03)
+
+Done. All three defects are fixed, and the acceptance was checked in a browser against a scratch base.
+
+**Server.**
+- `POST /notes` and `PATCH /notes/:id` take `bodyLimit: NOTE_MAX_BYTES`: 16 MiB by default, `NOTE_MAX_MB` to override.
+- Over the cap they answer `413 { error: "NOTE_TOO_LARGE" }` through a route-level `errorHandler`.
+- The byte count is floored, as `MAX_PROJECT_BYTES` is. A fractional `NOTE_MAX_MB` (e.g. `0.004`) otherwise crashed the boot, because Fastify refuses a non-integer route `bodyLimit` at registration. Verification hit this before the floor was added.
+- `test/notes-size.test.ts`:
+  - a 30,000-point note (over 1 MiB) PATCHes 200 and reads back whole;
+  - one byte over the cap gets 413 `NOTE_TOO_LARGE` on both routes.
+- 24 API tests pass.
+
+**Client.**
+- `useSaveNote` is replaced by `useNoteAutosave` in `use-notes.ts`:
+  - one promise chain, with at most one save queued behind the one in flight;
+  - the queued save reads the latest draft from a ref when it starts;
+  - an edit version clears the dirty state only when the save carrying it answers;
+  - status is `saved | failing | too-large`, and `failing` retries every 10 s;
+  - a too-large note is not retried on the interval, because the same bytes would be refused again.
+- `NoteEditor.tsx` changes:
+  - It debounces 900 ms, with a 5 s maximum wait, so an unbroken run of strokes still saves.
+  - Opening a note no longer saves it.
+  - The hide/unmount flush is registered once and reads refs.
+  - `exportPdf` goes through the same queue.
+  - New x/y are rounded to 4 decimals and pressure to 3; stored notes are untouched.
+  - The header shows a quiet "Not saved — retrying" (`text-ink-variant`, an always-mounted `role="status"`).
+  - A persistent `role="alert"` line names the too-large case and what to do about it.
+
+**Browser check.** The API ran on all five roots in a scratchpad base, asserted before start, with the scripted Ward from the test harness.
+- **Ten quick strokes:** one PATCH, stored as `[0.0833, 0.0729, 0.512]`.
+- **API down:**
+  - "Not saved — retrying" appeared, and strokes kept accumulating;
+  - after a restart, one interval retry carried all 15 strokes and the message cleared.
+- **Closing the tab** right after a stroke, within the 900 ms debounce: the stroke was stored.
+- **Cap of 0.004 MB:**
+  - the next stroke got 413 and the too-large message;
+  - undo brought the note back under the cap, the save answered 200 and the message cleared.
+- **Design checklist:**
+  - tokens only and `font-ui`;
+  - no accent;
+  - no new motion;
+  - the message is legible in light, sepia and dark.
+
+**Limits.**
+- The exit flush is a plain fetch, not `keepalive`, which caps bodies at 64 KiB, smaller than a real notebook. It reached the server in the close-tab test.
+- If a save is already in flight when the tab closes, the queued save waits behind it and may not start before teardown.
+- `use-latex.ts` has a comment that still names `useSaveNote`. That file is not this brief's.
+
+Filed while verifying: [brief 74](../todo/74-picking-the-active-profile-is-remembered.md). Picking the profile that is already active is never remembered, so a one-profile account sees the picker on every load.

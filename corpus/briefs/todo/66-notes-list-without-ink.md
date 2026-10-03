@@ -29,7 +29,7 @@ model** directly (`:15`) rather than a notes function
 ([api-layering.md](../../wiki/api-layering.md)).
 
 This is small today, with two notes totalling 10 KB. It grows linearly with ink,
-and [brief 56](56-notes-autosave-reliable.md) is about to let a single notebook
+and [brief 56](../done/56-notes-autosave-reliable.md) is about to let a single notebook
 grow past 1 MiB. Land this with or after it.
 
 ## Scope

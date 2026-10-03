@@ -1,6 +1,8 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { NotePage, NoteSummary } from "@ebook-reader/shared";
 
+import { ApiError } from "../lib/api-client";
 import { useActiveProfileId } from "../lib/auth";
 import {
   createNote,
@@ -18,7 +20,7 @@ import {
 /**
  * React Query hooks for notes (brief 26). Mirrors the library hooks' shape:
  * one list query + mutations that invalidate it. The editor uses `useNote`
- * (single) + `useSaveNote` (debounced autosave PATCH).
+ * (single) + `useNoteAutosave` (the serialized autosave pipeline).
  */
 
 /**
@@ -71,18 +73,121 @@ export function useDeleteNote() {
   });
 }
 
+/* -------------------------------------------------------------------------
+ * Autosave (brief 56)
+ *
+ * Every save carries the whole notebook, so the pipeline has three rules:
+ *
+ * 1. **One save at a time.** Saves run through one promise chain, the way
+ *    `LatexEditor`'s `writeQueueRef` chains its writes. While one is in flight
+ *    at most one more waits behind it, and the waiting one reads the LATEST
+ *    state when it starts, never the state at the moment it was asked for.
+ *    Two unsequenced PATCHes could land out of order and an older, smaller
+ *    notebook would overwrite a newer one.
+ * 2. **Dirty until acknowledged.** Each edit bumps a version; the note is clean
+ *    only once the save carrying the current version has answered. A failed
+ *    save leaves it dirty, so the next edit, the retry interval or leaving the
+ *    page sends it again.
+ * 3. **Failures are said out loud** (PRODUCT.md principle 6). `status` is what
+ *    the editor chrome shows. `NOTE_TOO_LARGE` is its own state because no
+ *    retry fixes it; only an edit that shrinks the note can.
+ *
+ * The editor is the source of truth for the open note, so a save does NOT
+ * invalidate the single-note query (a refetch would clobber edits made while
+ * it was in flight). It refreshes the LIST so titles and timestamps stay
+ * current.
+ * ---------------------------------------------------------------------- */
+
+export type NoteSaveStatus = "saved" | "failing" | "too-large";
+
+export interface NoteDraft {
+  title: string;
+  pages: NotePage[];
+}
+
+/** How often a failing save is retried with no edit to prompt it. */
+const RETRY_MS = 10_000;
+
+function isTooLarge(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.status === 413 &&
+    (error.body as { error?: unknown } | undefined)?.error === "NOTE_TOO_LARGE"
+  );
+}
+
 /**
- * Save a note's title/pages. Does NOT invalidate the single-note query (the
- * editor is the source of truth for the open note — refetching would clobber
- * in-flight edits); it refreshes the LIST so titles/timestamps stay current.
+ * The open note's save pipeline. The editor calls `track` on every render with
+ * its current draft (a ref write, so a save that starts later reads the latest
+ * state), `markDirty` on every edit, and `save` to ask for a save. Every
+ * returned function is stable for the editor's lifetime, so an effect can
+ * register them once.
  */
-export function useSaveNote(id: string) {
+export function useNoteAutosave(id: string) {
   const qc = useQueryClient();
   const profileId = useActiveProfileId();
-  return useMutation({
-    mutationFn: (fields: { title?: string; pages?: NotePage[] }) => updateNote(id, fields),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: notesKey(profileId) }),
-  });
+  const [status, setStatus] = useState<NoteSaveStatus>("saved");
+
+  const draftRef = useRef<NoteDraft | null>(null);
+  const versionRef = useRef(0);
+  const ackedRef = useRef(0);
+  /** The chain's tail, with failures swallowed so one failure never jams it. */
+  const tailRef = useRef<Promise<void>>(Promise.resolve());
+  /** The save waiting behind the one in flight, if any. Joined, not duplicated. */
+  const queuedRef = useRef<Promise<void> | null>(null);
+  // Everything a save needs from React, read through one ref so `save` never
+  // changes identity.
+  const ctxRef = useRef({ id, qc, profileId });
+  ctxRef.current = { id, qc, profileId };
+
+  const track = useCallback((draft: NoteDraft) => {
+    draftRef.current = draft;
+  }, []);
+
+  const markDirty = useCallback(() => {
+    versionRef.current += 1;
+  }, []);
+
+  const isDirty = useCallback(() => versionRef.current !== ackedRef.current, []);
+
+  /**
+   * Ask for a save. Resolves once the state current at the time of the call is
+   * stored (or was already), and rejects if the save carrying it fails.
+   */
+  const save = useCallback((): Promise<void> => {
+    if (queuedRef.current) return queuedRef.current;
+    const run = tailRef.current.then(async () => {
+      queuedRef.current = null;
+      const draft = draftRef.current;
+      const version = versionRef.current;
+      if (!draft || version === ackedRef.current) return;
+      const { id: noteId, qc: client, profileId: pid } = ctxRef.current;
+      try {
+        await updateNote(noteId, { title: draft.title.trim() || "Untitled note", pages: draft.pages });
+      } catch (error) {
+        setStatus(isTooLarge(error) ? "too-large" : "failing");
+        throw error;
+      }
+      ackedRef.current = version;
+      setStatus("saved");
+      void client.invalidateQueries({ queryKey: notesKey(pid) });
+    });
+    queuedRef.current = run;
+    tailRef.current = run.catch(() => undefined);
+    return run;
+  }, []);
+
+  // Retry a failing save on a gentle interval as well as on the next edit. A
+  // too-large note is not retried here: the same bytes will be refused again.
+  useEffect(() => {
+    if (status !== "failing") return;
+    const timer = setInterval(() => {
+      if (versionRef.current !== ackedRef.current) save().catch(() => undefined);
+    }, RETRY_MS);
+    return () => clearInterval(timer);
+  }, [status, save]);
+
+  return { status, track, markDirty, isDirty, save };
 }
 
 /* -------------------------------------------------------------------------

@@ -2252,3 +2252,29 @@ The image declared and compose mounted only `data`, `library` and `images`. LaTe
 
 Docker is unavailable here, so the build, startup-log and recreate checks are **owed**. What was checked: compose parses with five mounts, and `config.ts` under the image's `ENV` resolves every root to its mount path. **The deploy still loses drafts until vps-deploy's `stacks/atrium.ts` passes the two new host dirs and excludes them from its rsync `--delete`**; the full hand-off is in the brief's outcome.
 
+
+## [2026-10-03] done | Brief 56 — note autosave: one save at a time, failures said out loud, no 1 MiB wall
+
+Notes saved through Fastify's 1 MiB default with every page's strokes in each PATCH. The dirty flag cleared before the request answered, and nothing showed a failure. The hide-flush effect, keyed on the draft, sent a save on every edit, unsequenced.
+
+Server:
+- the note routes take a 16 MiB `bodyLimit` (`NOTE_MAX_MB`, floored to whole bytes);
+- over the cap they answer 413 `NOTE_TOO_LARGE`;
+- `test/notes-size.test.ts` covers both.
+
+Client:
+- `useNoteAutosave` chains saves, with at most one queued, and the queued save reads the latest draft;
+- the note stays dirty until the save carrying its version answers, and a failure retries every 10 s;
+- the hide/unmount flush is registered once;
+- export goes through the queue;
+- new points are rounded to 4 decimals (pressure 3).
+
+The browser check ran against a scratch base:
+- ten strokes made one PATCH;
+- with the API down, "Not saved — retrying" showed, and the restart retry carried every stroke;
+- a tab closed inside the debounce still saved;
+- a 0.004 MB cap showed the too-large message, and undo cleared it.
+
+Two findings:
+- a fractional `NOTE_MAX_MB` crashed the boot, fixed by the floor;
+- picking the already-active profile is never remembered, filed as brief 74.

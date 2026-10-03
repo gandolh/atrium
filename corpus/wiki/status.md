@@ -168,4 +168,5 @@ got here.
 | 53 | Storage roots and `.env` resolve from the API package again | **done (2026-09-27)** |
 | 54 | LaTeX compile slot keyed on the Ward subject (was a dropped column) | **done (2026-10-03)** |
 | 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker checks owed; vps-deploy follow-up in the brief |
+| 56 | Note autosave serialized, dirty until acknowledged, 16 MiB cap with `NOTE_TOO_LARGE` | **done (2026-10-03)** |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

@@ -274,6 +274,18 @@ export const LATEX_MAX_PROJECT_MB = numericOverride("LATEX_MAX_PROJECT_MB", 50);
 export const LATEX_MAX_PROJECT_BYTES = maxUploadBytesFromMb(LATEX_MAX_PROJECT_MB);
 
 /**
+ * Ceiling on one note's save body, in MB (brief 56). Every autosave carries the
+ * whole notebook, every page's strokes, so Fastify's 1 MiB default was a wall a
+ * well-used notebook would hit at around 870 strokes, after which every save
+ * failed. 16 MiB is roughly fifteen times that once points are rounded at
+ * capture.
+ */
+export const NOTE_MAX_MB = numericOverride("NOTE_MAX_MB", 16);
+/** Floored: Fastify refuses a fractional route `bodyLimit` at registration,
+ *  which would be a crash on boot for `NOTE_MAX_MB=0.5` (as `MAX_PROJECT_BYTES`). */
+export const NOTE_MAX_BYTES = Math.floor(maxUploadBytesFromMb(NOTE_MAX_MB));
+
+/**
  * Base URL of the Gutendex instance the catalog proxy talks to (brief 22).
  * Env-overridable (`GUTENDEX_BASE_URL`) for a self-hosted mirror or tests;
  * defaults to the public community instance. Not part of the required .env

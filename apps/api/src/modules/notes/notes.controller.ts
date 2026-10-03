@@ -10,6 +10,7 @@ import {
   updateNoteFolderSchema,
   updateNoteSchema,
 } from "@ebook-reader/shared";
+import { NOTE_MAX_BYTES } from "../../common/config.js";
 import { pdfFilename, renderNotePdf } from "./note-pdf.service.js";
 import { toFolder, toNote, toSummary } from "./notes.mapper.js";
 import {
@@ -36,12 +37,29 @@ export function registerNotesRoutes(app: FastifyInstance): void {
   // The guard guarantees an authProfile on every route here.
   const pid = (request: FastifyRequest): string => request.authProfile!.id;
 
+  /**
+   * The note body routes' size ceiling (brief 56). An autosave carries the whole
+   * notebook, so Fastify's 1 MiB default was a wall a real notebook would hit.
+   * Over the cap the answer is a stable code the editor can name, not
+   * Fastify's generic 413, because "this note is too large to save" is the one
+   * failure retrying will never fix.
+   */
+  const noteBody = {
+    bodyLimit: NOTE_MAX_BYTES,
+    errorHandler: (error: Error & { code?: string }, _request: FastifyRequest, reply: FastifyReply) => {
+      if (error.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+        return reply.status(413).send({ error: "NOTE_TOO_LARGE" });
+      }
+      return reply.send(error);
+    },
+  };
+
   app.get("/notes", async (request: FastifyRequest, reply: FastifyReply) => {
     const rows = await listProfileNotes(pid(request));
     return reply.send(noteListSchema.parse(rows.map(toSummary)));
   });
 
-  app.post("/notes", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.post("/notes", noteBody, async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = createNoteSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
     const row = await createNote(pid(request), parsed.data.title);
@@ -82,7 +100,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
       .send(Buffer.from(bytes));
   });
 
-  app.patch("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.patch("/notes/:id", noteBody, async (request: FastifyRequest, reply: FastifyReply) => {
     const parsed = updateNoteSchema.safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
     const { id } = request.params as { id: string };

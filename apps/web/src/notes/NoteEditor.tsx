@@ -34,14 +34,14 @@ import {
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { cssToken } from "../lib/tokens";
 import { fetchNotePdf } from "./notes-api";
-import { useNote, useSaveNote } from "./use-notes";
+import { useNote, useNoteAutosave } from "./use-notes";
 
 /**
  * The note editor (brief 26) — a paged notebook page with vector ink
  * (perfect-freehand) + movable typed text boxes. Coordinates are normalized to
  * the page box (width 1, height PAGE_ASPECT) so a note drawn on a phone renders
- * identically on a monitor. Autosaves (debounced PATCH) like the reader's
- * progress flush.
+ * identically on a monitor. Autosaves through `useNoteAutosave`: debounced, one
+ * save at a time, and a failure is shown rather than swallowed (brief 56).
  *
  * The page sheet is deliberately a light "paper" surface in every theme (a
  * sheet of paper looks the same; the desk around it changes) so dark ink stays
@@ -339,7 +339,8 @@ export function NoteEditor({ id }: { id: string }) {
   useApplyTheme();
   const navigate = useNavigate();
   const query = useNote(id);
-  const save = useSaveNote(id);
+  // Each function is stable for the editor's lifetime; `saveStatus` is state.
+  const { status: saveStatus, track, markDirty, isDirty, save } = useNoteAutosave(id);
 
   const [title, setTitle] = useState("");
   const [pages, setPages] = useState<NotePage[]>([]);
@@ -362,12 +363,21 @@ export function NoteEditor({ id }: { id: string }) {
   const redoRef = useRef<NotePage[][]>([]);
   const [histTick, setHistTick] = useState(0);
 
+  // The state as it arrived from the server. The autosave effect compares
+  // against it so opening a note is not itself an edit that saves.
+  const seededRef = useRef<{ title: string; pages: NotePage[] } | null>(null);
+
   // Seed local editing state once the note arrives (never re-seed — the editor
   // owns the open note; a refetch must not clobber in-flight edits).
   useEffect(() => {
     if (query.data && !loaded) {
-      setTitle(query.data.title);
-      setPages(query.data.pages.length ? query.data.pages : [BLANK_PAGE]);
+      const seeded = {
+        title: query.data.title,
+        pages: query.data.pages.length ? query.data.pages : [BLANK_PAGE],
+      };
+      seededRef.current = seeded;
+      setTitle(seeded.title);
+      setPages(seeded.pages);
       setLoaded(true);
     }
   }, [query.data, loaded]);
@@ -415,49 +425,65 @@ export function NoteEditor({ id }: { id: string }) {
     setHistTick((t) => t + 1);
   }
 
-  // --- Autosave (debounced) + flush on unmount/hide -------------------------
-  const dirtyRef = useRef(false);
+  // --- Autosave (brief 56) --------------------------------------------------
+  // Every render hands the pipeline the current draft (a ref write), so a save
+  // that starts later, queued behind one in flight or fired on the way out,
+  // always carries the latest state.
+  track({ title, pages });
+
+  // An edit marks the note dirty and asks for a save after a 900 ms pause. A
+  // long unbroken run of strokes still saves every few seconds (`maxWaitRef`),
+  // so a pause is not the only thing standing between the ink and the server.
+  // A failed save is retried by the next edit through this same path.
+  const maxWaitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!loaded) return;
-    dirtyRef.current = true;
-    const t = setTimeout(() => {
-      if (dirtyRef.current) {
-        save.mutate({ title: title.trim() || "Untitled note", pages });
-        dirtyRef.current = false;
-      }
-    }, 900);
+    const seeded = seededRef.current;
+    if (seeded && seeded.title === title && seeded.pages === pages) return;
+    markDirty();
+    const fire = () => {
+      if (maxWaitRef.current) clearTimeout(maxWaitRef.current);
+      maxWaitRef.current = null;
+      save().catch(() => undefined); // shown through `saveStatus`
+    };
+    maxWaitRef.current ??= setTimeout(fire, 5000);
+    const t = setTimeout(fire, 900);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, pages, loaded]);
+  }, [title, pages, loaded, markDirty, save]);
 
-  const saveRef = useRef(save);
-  saveRef.current = save;
+  // Flush on the way out: hiding the tab, leaving the page, or leaving the
+  // editor. Registered ONCE: these functions are stable and reads the draft from a
+  // ref, so no edit re-runs this effect. (Keyed on the draft, its cleanup used
+  // to fire a save on every single edit.) Same `pagehide`/`visibilitychange`
+  // pair as `lib/preferences.ts`.
   useEffect(() => {
     const flush = () => {
-      if (dirtyRef.current) {
-        saveRef.current.mutate({ title: title.trim() || "Untitled note", pages });
-        dirtyRef.current = false;
-      }
+      if (isDirty()) save().catch(() => undefined);
     };
-    document.addEventListener("visibilitychange", flush);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
     return () => {
-      document.removeEventListener("visibilitychange", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      if (maxWaitRef.current) clearTimeout(maxWaitRef.current);
       flush();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, pages]);
+  }, [isDirty, save]);
 
   // --- Export (brief 49) ----------------------------------------------------
   // The PDF is rendered by the server from the STORED note, so a pending
   // autosave has to land first — otherwise the download is silently a few
-  // seconds stale. The PNG reads the in-memory page and needs no such flush.
+  // seconds stale. It goes through the same queue as every other save, so it
+  // can never race one. The PNG reads the in-memory page and needs no flush.
   async function exportPdf() {
     setExportError(null);
     setExporting("pdf");
     try {
       const name = title.trim() || "Untitled note";
-      await save.mutateAsync({ title: name, pages });
-      dirtyRef.current = false;
+      await save();
       downloadBlob(await fetchNotePdf(id), exportFilename(name, ".pdf"));
     } catch {
       setExportError("Couldn't export this note.");
@@ -525,6 +551,12 @@ export function NoteEditor({ id }: { id: string }) {
             className="min-w-0 flex-1 rounded bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
             placeholder="Untitled note"
           />
+          {/* Save state (brief 56). Quiet while retrying: it is a transient
+              condition the editor is already handling. Always mounted so a
+              screen reader announces the change. */}
+          <span role="status" className="shrink-0 font-ui text-xs text-ink-variant">
+            {saveStatus === "failing" ? "Not saved — retrying" : ""}
+          </span>
           <div className="flex items-center gap-1">
             <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>↶</IconBtn>
             <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>↷</IconBtn>
@@ -543,6 +575,16 @@ export function NoteEditor({ id }: { id: string }) {
         {exportError && (
           <p role="status" className="px-4 pb-2 font-ui text-xs text-danger">
             {exportError}
+          </p>
+        )}
+
+        {/* The one save failure no retry fixes, so it stays until an edit
+            brings the note back under the cap and a save succeeds. */}
+        {saveStatus === "too-large" && (
+          <p role="alert" className="px-4 pb-2 font-ui text-xs text-danger">
+            This note is too large to save. Your latest changes are only on this
+            screen. Remove some ink, or move pages into a new note, and it will
+            save again.
           </p>
         )}
 
@@ -582,6 +624,23 @@ export function NoteEditor({ id }: { id: string }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Capture precision (brief 56). Every autosave carries every point of every
+ * page, and a full double costs about 18 bytes of JSON. Four decimals of the
+ * sheet width is about 0.1 px on a 1000 px sheet, which no one can see, and
+ * roughly halves the payload. Stored notes are untouched; only new points are
+ * rounded.
+ */
+function roundTo(n: number, places: number): number {
+  const f = 10 ** places;
+  return Math.round(n * f) / f;
+}
+
+/** A pointer's pressure at three decimals; 0.5 (no real pressure) when absent. */
+function capturePressure(pressure: number): number {
+  return pressure ? Math.max(0.001, roundTo(pressure, 3)) : 0.5;
 }
 
 /**
@@ -702,7 +761,10 @@ function NoteSheet({
   const toNorm = useCallback((clientX: number, clientY: number): [number, number] => {
     const rect = ref.current!.getBoundingClientRect();
     // Divide both axes by width so the aspect ratio is preserved (y ∈ 0..ASPECT).
-    return [(clientX - rect.left) / rect.width, (clientY - rect.top) / rect.width];
+    return [
+      roundTo((clientX - rect.left) / rect.width, 4),
+      roundTo((clientY - rect.top) / rect.width, 4),
+    ];
   }, []);
 
   const eraseAt = useCallback(
@@ -749,7 +811,7 @@ function NoteSheet({
       eraseAt(nx, ny);
       return;
     }
-    const first: StrokePoint = [nx, ny, e.pressure || 0.5];
+    const first: StrokePoint = [nx, ny, capturePressure(e.pressure)];
     pointsRef.current = [first];
     setLive([first]);
   }
@@ -770,7 +832,7 @@ function NoteSheet({
     }
     for (const ev of events) {
       const [nx, ny] = toNorm(ev.clientX, ev.clientY);
-      pointsRef.current.push([nx, ny, ev.pressure || 0.5]);
+      pointsRef.current.push([nx, ny, capturePressure(ev.pressure)]);
     }
     setLive([...pointsRef.current]);
   }

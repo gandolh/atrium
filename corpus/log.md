@@ -2462,3 +2462,7 @@ Running brief 55's owed Docker checks once Docker was available: the context exc
 ## [2026-10-04] decide | Owner answers: brief 60 prunes, Node 24 stands, brief 55's deploy change made
 
 Asked directly: the rows the Ward cutover orphaned are **pruned as D53 says**, after a copy of the production database (re-pointing them to `Default` was declined). Brief 72's Node 24 is **confirmed** (D23). With the owner's go-ahead, brief 55's vps-deploy follow-up was made there (`7dc0ccd`): the latex and versions folders survive deploys, and atrium's dead secrets are gone. Nothing deployed.
+
+## [2026-10-04] change | Brief 61's upstream half landed in Ward
+
+wzd_auth `496b9e6` gives `@ward/client`'s `verifyAccessToken` the same classification atrium has: a key set Ward cannot serve is `WardUnavailableError`, and only a missing or ambiguous key counts against the token. Its integration guide's fail-closed rule now names the key fetch.

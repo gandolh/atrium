@@ -15,7 +15,7 @@ brief 63's harness (69 tests, from none). Owed, each named in its brief's outcom
 - **Brief 60's gate is answered (owner, 2026-10-04): prune, as D53 says.**
   What remains is mechanical: take a copy of the production database, then
   deploy.
-- **Upstream `wzd_auth`** change for brief 61's key-fetch classification.
+- ~~Upstream `wzd_auth` change for brief 61~~ **made 2026-10-04** (wzd_auth `496b9e6`): the reference client now classifies a failed key-set fetch as Ward unavailable.
 
 Brief 72 moved the Node line to 24 on the brief's recommendation; the owner
 confirmed it on 2026-10-04 (D23). Filed during the run: briefs 73–77.

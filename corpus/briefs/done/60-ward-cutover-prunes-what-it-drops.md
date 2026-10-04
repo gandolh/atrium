@@ -154,8 +154,3 @@ The prune test fails with the migration unregistered. The fresh-database case is
 ```sql
 SELECT COUNT(*) FROM <table> WHERE profile_id NOT IN (SELECT id FROM profiles)
 ```
-
-**Addendum (2026-10-04): the owner chose prune.** Asked directly, the owner
-chose D53 as written over re-pointing the orphans to `Default` (recorded on
-D53's row). The gate's remaining step is mechanical: copy the production
-database before the deploy that runs this migration.

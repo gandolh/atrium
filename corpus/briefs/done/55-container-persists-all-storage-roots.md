@@ -144,3 +144,9 @@ Until the first two land, the deploy keeps losing drafts and versions on every r
   app key was not copied into another file for a test.
 
 The vps-deploy follow-up above is still owed.
+
+**Addendum (2026-10-04): the vps-deploy follow-up is made.** With the owner's
+go-ahead, vps-deploy `7dc0ccd` excludes `/apps/api/latex` and
+`/apps/api/versions` from the rsync, passes `ATRIUM_LATEX_DIR` and
+`ATRIUM_VERSIONS_DIR`, and drops `APP_PASSWORD` and `CONVERT_TIMEOUT_MS`
+(its secrets example now asks for `WARD_APP_KEY`). Not deployed.

@@ -1,22 +1,24 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-03
+updated: 2026-10-04
 ---
 
-# Status — 2026-10-03
+# Status — 2026-10-04
 
 **Latest (2026-10-03):** ✅ **The 2026-09-25 improvements sweep is worked
 through: briefs 53–72 are done.** Every API fix landed with a regression test on
 brief 63's harness (69 tests, from none). Owed, each named in its brief's outcome:
-- The **vps-deploy change** for brief 55, without which deploys keep losing
-  LaTeX drafts. (Its Docker checks ran on 2026-10-03 and found the image could
-  not typeset; fixed.)
-- **Owner gate on brief 60** before the next deploy: production's orphan counts,
-  and prune (D53) versus re-point.
+- ~~The vps-deploy change for brief 55~~ **made 2026-10-04** (vps-deploy
+  `7dc0ccd`): the latex and versions folders are excluded from the rsync and
+  passed to the container, and the dead `APP_PASSWORD` and `CONVERT_TIMEOUT_MS`
+  are gone. Not deployed yet.
+- **Brief 60's gate is answered (owner, 2026-10-04): prune, as D53 says.**
+  What remains is mechanical: take a copy of the production database, then
+  deploy.
 - **Upstream `wzd_auth`** change for brief 61's key-fetch classification.
 
-Brief 72 moved the Node line to 24 on the brief's recommendation, without the
-owner, and D23 marks it revisitable. Filed during the run: briefs 73–77.
+Brief 72 moved the Node line to 24 on the brief's recommendation; the owner
+confirmed it on 2026-10-04 (D23). Filed during the run: briefs 73–77.
 
 **2026-09-27:** development runs on one origin like the deploy (D54, revises
 D14), and the storage roots and `.env` resolve from the API package again
@@ -82,12 +84,12 @@ got here.
 | 52 | `apps/api` modules + Knex (D47) | **done (2026-08-30)** |
 | 53 | Storage roots and `.env` resolve from the API package again | **done (2026-09-27)** |
 | 54 | LaTeX compile slot keyed on the Ward subject (was a dropped column) | **done (2026-10-03)** |
-| 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker-checked (found and fixed missing typeset fonts in the image); vps-deploy follow-up in the brief |
+| 55 | Container persists and names all five storage roots | **done (2026-10-03)**, Docker-checked (found and fixed missing typeset fonts in the image); vps-deploy follow-up made 2026-10-04 |
 | 56 | Note autosave serialized, dirty until acknowledged, 16 MiB cap with `NOTE_TOO_LARGE` | **done (2026-10-03)** |
 | 57 | Reading position flushed on leave, tab close and twin/version switch | **done (2026-10-03)**; twin switch-back resume is brief 75 |
 | 58 | Aborted or failed uploads/imports leave no file; boot sweep reclaims `*.uploading` | **done (2026-10-03)** |
 | 59 | Root scripts build workspaces in dependency order; dev watches typeset | **done (2026-10-03)** |
-| 60 | Ward cutover orphans pruned by a forward migration | **done (2026-10-03)**, **owner gate before deploy**: production orphan counts + prune/re-point choice |
+| 60 | Ward cutover orphans pruned by a forward migration | **done (2026-10-03)**; owner chose prune (2026-10-04); copy the production DB before the deploy that runs it |
 | 61 | Ward key-set outage answers 503, never "signed out" | **done (2026-10-03)**; upstream `wzd_auth` change owed |
 | 62 | Re-published file and replaced covers not served stale (mtime validators, `coverVersion`) | **done (2026-10-03)**; same-session reopen is brief 76 |
 | 63 | `apps/api` test harness that cannot touch the real library | **done (2026-10-03)** |

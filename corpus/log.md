@@ -2458,3 +2458,7 @@ The session gate resolved Ward's 503 `IDENTITY_UNAVAILABLE` as `unlocked`, so th
 ## [2026-10-03] fix | The container could not typeset: brief 55's Docker checks found it
 
 Running brief 55's owed Docker checks once Docker was available: the context excludes the three paths, and the startup log names all five roots. The recreate test failed at its first publish. The prod image shipped `packages/typeset/dist` without `assets/`, so the typesetter had no fonts and **every LaTeX compile in a container failed**. The Dockerfile now copies the assets. After that, a draft and a published version (its PDF, zip and library copy) survived two container recreates on scratch mounts. The vps-deploy change from brief 55 is still owed.
+
+## [2026-10-04] decide | Owner answers: brief 60 prunes, Node 24 stands, brief 55's deploy change made
+
+Asked directly: the rows the Ward cutover orphaned are **pruned as D53 says**, after a copy of the production database (re-pointing them to `Default` was declined). Brief 72's Node 24 is **confirmed** (D23). With the owner's go-ahead, brief 55's vps-deploy follow-up was made there (`7dc0ccd`): the latex and versions folders survive deploys, and atrium's dead secrets are gone. Nothing deployed.

@@ -1,24 +1,17 @@
 ---
 summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
-updated: 2026-08-27
+updated: 2026-10-06
 ---
 
 # Open Questions
 
 Only genuinely unresolved threads. Delete each the moment it's answered.
 
-## Calibre on this machine cannot convert anything with an outline (2026-08-25)
-
-This host's Calibre has an `lxml` / `html5-parser` ABI mismatch, so
-`ebook-convert` fails on any book carrying an outline. Brief 34 shipped and its
-job machinery is verified, but **two quality checks are still unrun**: the
-two-column PDF→EPUB readability case and the scanned-PDF quality gate, both of
-which need a working local install to judge by eye.
-
-An environment problem, not a code one — but it is the reason brief 34's
-conversion quality is asserted from Calibre's own documentation rather than from
-our own output. Related: the API must spawn Calibre with `PYTHONNOUSERSITE=1` on
-hosts where a pip `lxml` shadows the distro one (it does now).
+_Nothing is open right now._ The Calibre question closed on 2026-10-06: local
+conversions with an outline work under `PYTHONNOUSERSITE=1` (the pip `lxml` in
+`~/.local` was the whole cause, and the API already spawns Calibre that way), and
+the owner dropped the two unrun quality checks. Calibre's own warning about PDF
+input, recorded in D34, stands in for them.
 
 ---
 

@@ -2466,3 +2466,7 @@ Asked directly: the rows the Ward cutover orphaned are **pruned as D53 says**, a
 ## [2026-10-04] change | Brief 61's upstream half landed in Ward
 
 wzd_auth `496b9e6` gives `@ward/client`'s `verifyAccessToken` the same classification atrium has: a key set Ward cannot serve is `WardUnavailableError`, and only a missing or ambiguous key counts against the token. Its integration guide's fail-closed rule now names the key fetch.
+
+## [2026-10-06] decide | The Calibre question is closed; the two quality checks are dropped
+
+The open question said this machine's Calibre could not convert any book with an outline. That was the pip `lxml` in `~/.local` shadowing the distro one (libxml2 2.14.6 against html5-parser's 2.9.13). Under `PYTHONNOUSERSITE=1`, which `calibre.service.ts` already sets, an EPUB with a four-entry outline converted to PDF and back. The owner chose to drop brief 34's two unrun checks (two-column PDF→EPUB, scanned PDF) rather than run them. D34's caveat, quoting Calibre's manual on PDF input, covers what they would have measured.

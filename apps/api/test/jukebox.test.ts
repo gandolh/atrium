@@ -356,17 +356,45 @@ describe("the Jukebox API", () => {
     assert.equal((queued.body as Player).queue.length, 1);
   });
 
-  it("no voice channel while playing is a bot restart: idle, Queue kept", async () => {
+  it("a bot restart (a fresh cursor) leaves the Player idle with its Queue", async () => {
     const g = GUILD.offline;
     await report(g);
     await control(g, { action: "playTrack", bookId: "t1" });
-    const res = await report(g, { voiceChannel: null, playId: 0 });
+    const res = await send(bot, "GET", "/jukebox/bot/commands");
     assert.equal(res.status, 200);
     const p = await player(g);
     assert.equal(p.state, "idle");
     assert.equal(p.track, null);
     assert.equal(p.voiceChannel, null);
     assert.equal(p.queue.length, 1);
+  });
+
+  it("no voice channel on the current play is lost voice: idle", async () => {
+    const g = GUILD.offline;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "t1" });
+    await report(g, { voiceChannel: null, playId: playing.playId, state: "playing" });
+    const p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
+  });
+
+  it("a report about an older play changes nothing but voice and liveness", async () => {
+    const g = GUILD.offline;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "t2" });
+    // The bot has not reached the join and play yet: no voice, the old playId.
+    await report(g, { voiceChannel: null, playId: playing.playId - 1, state: "idle" });
+    let p = await player(g);
+    assert.equal(p.state, "playing");
+    assert.equal(p.track?.id, "t2");
+
+    // A report sent before the bot saw a stop cannot start the play again.
+    await control(g, { action: "stop" });
+    await report(g, { playId: playing.playId, state: "playing", positionMs: 5000 });
+    p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
   });
 
   it("deleting a queued, current library Track removes the entry and clears it", async () => {

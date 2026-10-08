@@ -537,10 +537,19 @@ export async function clearQueue(guildId: string): Promise<Player> {
 // --- The bot only -----------------------------------------------------------
 
 /**
- * The bot's report on one guild, and how Players come to exist. A report for a
- * play that is no longer current carries only the voice fields and liveness.
- * A report of no voice channel while atrium thinks the Player is playing or
- * paused is a bot restart: the Player goes idle and keeps its Queue.
+ * The bot's report on one guild, and how Players come to exist.
+ *
+ * Only a report about the current play (`playId` matches) carries the bot's
+ * state and position, and only while atrium has not already stopped that play:
+ * Stop, Leave and the end of the Playlist set idle without a new `playId`, so a
+ * report sent before the bot saw the `stop` must not start it again. Any other
+ * report carries just the voice fields and liveness.
+ *
+ * No voice channel on the current play means the bot lost its voice
+ * connection, so the Player goes idle and keeps its Queue. A report for an
+ * older play says nothing about the current one: the bot may not have reached
+ * the `join` and `play` that atrium just queued. A bot restart is caught
+ * earlier and more surely by its cursor poll (`pollCommands`).
  */
 export async function reportStatus(request: BotStatusRequest): Promise<{ upcoming: Track[] }> {
   return withPlayer(
@@ -554,15 +563,16 @@ export async function reportStatus(request: BotStatusRequest): Promise<{ upcomin
         last_seen_at: op.now.toISOString(),
       };
       const believed = op.row.state;
-      if (request.playId === op.row.play_id) {
+      const aboutCurrentPlay = request.playId === op.row.play_id && believed !== "idle";
+      if (aboutCurrentPlay) {
         changes.state = request.state;
         changes.position_ms = request.positionMs;
         changes.position_at = op.now.toISOString();
       }
       await patch(op, changes);
-      // The restart rule, and idle never keeping a current Track.
-      const restarted = request.voiceChannel === null && believed !== "idle";
-      if (restarted || (op.row.state === "idle" && op.row.current_book_id !== null)) await goIdle(op);
+      // Lost voice, or the bot stopped the current play on its own: idle never keeps a Track.
+      const lostVoice = aboutCurrentPlay && request.voiceChannel === null;
+      if (lostVoice || (op.row.state === "idle" && op.row.current_book_id !== null)) await goIdle(op);
       return { upcoming: await computeUpcoming(op) };
     },
     {
@@ -606,8 +616,27 @@ function toCommand(row: CommandRow): BotCommand {
 }
 
 /**
+ * A bot that takes a fresh cursor has just started (just-a-bot brief 26 does it
+ * once, at ready), and a started bot plays nothing and sits in no voice
+ * channel. Every Player it left playing or paused goes idle and keeps its
+ * Queue, before any status report arrives.
+ */
+async function idleAfterRestart(): Promise<void> {
+  const now = new Date();
+  await knex.transaction(async (trx) => {
+    const rows = (await listPlayerRows(trx)).filter((row) => row.state !== "idle" || row.current_book_id !== null);
+    if (rows.length === 0) return;
+    const playlist = await loadPlaylist(trx);
+    for (const row of rows) {
+      await goIdle({ trx, row, playlist, now, commands: [] }, { voice_channel_id: null, voice_channel_name: null });
+    }
+  });
+}
+
+/**
  * The bot's long-poll. Without `after` it answers at once with the current
- * cursor, so commands written while the bot was away are dropped. With
+ * cursor, so commands written while the bot was away are dropped, and it
+ * marks the restart (`idleAfterRestart`). With
  * `after`, it answers as soon as a newer command exists, or with none once
  * `waitSeconds` runs out. No database handle is held while it waits: the pool
  * has one connection.
@@ -620,10 +649,15 @@ export async function pollCommands(
   await touchAllPlayers(knex, new Date().toISOString());
   const sequence = await commandSequence(knex);
   // A cursor from the future (a fresh database) restarts at the present.
-  if (after === undefined || after > sequence) return { cursor: sequence, commands: [] };
+  if (after === undefined) {
+    await idleAfterRestart();
+    return { cursor: sequence, commands: [] };
+  }
+  if (after > sequence) return { cursor: sequence, commands: [] };
 
   let rows = await listCommandRowsAfter(knex, after);
   if (rows.length === 0 && waitSeconds > 0) {
+    let gone = false;
     await new Promise<void>((resolve) => {
       const done = () => {
         clearTimeout(timer);
@@ -632,8 +666,14 @@ export async function pollCommands(
       };
       const timer = setTimeout(done, waitSeconds * 1000);
       commandEvents.on("command", done);
-      onClose(done);
+      onClose(() => {
+        gone = true;
+        done();
+      });
     });
+    // A bot that hung up is not seen: stamping now would keep it online for
+    // another 30 seconds after it stopped.
+    if (gone) return { cursor: after, commands: [] };
     rows = await listCommandRowsAfter(knex, after);
   }
   await touchAllPlayers(knex, new Date().toISOString());

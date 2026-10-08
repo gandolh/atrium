@@ -589,13 +589,17 @@ export async function reportStatus(request: BotStatusRequest): Promise<{ upcomin
 /**
  * The bot finished a Track (`ended`) or could not play it (`error`). A stale
  * `playId` means something else already moved the Player on, so nothing
- * changes: this is how a skip racing a natural end avoids advancing twice. The
- * play is returned, not written as a command.
+ * changes: this is how a skip racing a natural end avoids advancing twice. A
+ * Player already idle was stopped meanwhile, so it stays stopped. The play is
+ * returned, not written as a command.
  */
 export async function advance(guildId: string, request: BotAdvanceRequest): Promise<BotAdvanceResponse> {
   return withPlayer(guildId, async (op) => {
     if (request.playId !== op.row.play_id) return { play: null, stale: true };
     await patch(op, { last_seen_at: op.now.toISOString() });
+    // Stopped (Stop, Leave, a restart) while the Track was ending: there is
+    // nothing to advance, and starting the next Track would undo the stop.
+    if (op.row.state === "idle") return { play: null };
     // `repeat: one` replays only a Track that ended on its own; an error moves on.
     const replayed = request.reason === "ended" && op.row.repeat === "one" && (await replayCurrent(op));
     if (!replayed) {

@@ -25,6 +25,7 @@ const GUILD = {
   poll: "100000000000000005",
   deleted: "100000000000000006",
   previous: "100000000000000007",
+  stopped: "100000000000000008",
 };
 
 async function seedTrack(id: string, title: string, author: string, series: string, index: number): Promise<void> {
@@ -240,6 +241,18 @@ describe("the Jukebox API", () => {
     const afterwards = await player(GUILD.poll);
     assert.equal(afterwards.playId, before.playId);
     assert.equal(afterwards.track?.id, before.track?.id);
+  });
+
+  it("advance on a stopped Player starts nothing", async () => {
+    const g = GUILD.stopped;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "t2" });
+    await control(g, { action: "stop" });
+    const res = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: playing.playId, reason: "ended" });
+    assert.deepEqual(res.body, { play: null });
+    const p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
   });
 
   it("Next takes the Queue first, then the Playlist after the cursor, and honours repeat", async () => {

@@ -38,7 +38,8 @@ file route.
 
 - **`playId`** goes up every time a Track starts, a repeat included. `advance`
   with an old `playId` changes nothing, which is how a skip racing a natural
-  end advances once.
+  end advances once. `advance` on a Player already idle (a Stop that crossed
+  the Track's end) answers `{play: null}` and starts nothing.
 - **A restart is the fresh cursor.** A poll without `after` (just-a-bot takes
   one at ready) sends every playing or paused Player to idle, keeping its
   Queue.

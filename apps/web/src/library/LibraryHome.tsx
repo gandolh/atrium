@@ -20,7 +20,8 @@ import { LibrarySearchField } from "./LibrarySearchField";
 import { matchesQuery } from "./search";
 import { UploadZone, type UploadZoneHandle } from "./UploadZone";
 import { ContinueReading, pickResumeBooks } from "./ContinueReading";
-import { CoverCard } from "./CoverCard";
+import { CoverCard, type CoverDiscordProps } from "./CoverCard";
+import { useAddToQueue, useJukeboxPlayers } from "../jukebox/use-jukebox";
 import { OfflineBanner } from "./OfflineBanner";
 
 /**
@@ -137,6 +138,21 @@ export function LibraryHome() {
       ? `Adding ${uploads.progress.current} of ${uploads.progress.total}…`
       : "Uploading…";
   const remove = useDeleteBook();
+  // "Add to Discord queue" on music tiles (brief 82). One fetch, no polling:
+  // the guilds the bot is in rarely change while the home is open.
+  const jukeboxPlayers = useJukeboxPlayers({ poll: false });
+  const queueOnDiscord = useAddToQueue();
+  const discord = useMemo<CoverDiscordProps | undefined>(() => {
+    const players = jukeboxPlayers.data ?? [];
+    if (players.length === 0) return undefined;
+    return {
+      players,
+      onAdd: async (book, guildId) => {
+        await queueOnDiscord.mutateAsync({ guildId, args: { bookId: book.id, at: "end" } });
+      },
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jukeboxPlayers.data]);
   const uploadHandle = useRef<UploadZoneHandle | null>(null);
   const reduced = usePrefersReducedMotion();
 
@@ -194,6 +210,7 @@ export function LibraryHome() {
         onOpen={openBook}
         onDelete={(b) => remove.mutate(b)}
         deleteDisabled={isOffline}
+        discord={discord}
         offline={
           offlineDownload.isSupported
             ? {
@@ -208,7 +225,7 @@ export function LibraryHome() {
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOffline, offlineDownload, remove, openBook],
+    [isOffline, offlineDownload, remove, openBook, discord],
   );
 
   const browse = () => uploadHandle.current?.browse();

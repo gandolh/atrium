@@ -16,7 +16,7 @@ import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
  * no per-kind navigation at all. What remains is app-level only, in **two
  * clusters on one row**:
  *
- *   wordmark · [search slot] ‖ Notes · LaTeX · {actions} · profile · theme
+ *   wordmark · [search slot] ‖ Notes · LaTeX · Jukebox · {actions} · profile · theme
  *
  * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
  * is a link here rather than a chip in the grid. **Brief 38 (D36) adds LaTeX as
@@ -66,6 +66,7 @@ export function AppHeader({
       <div className="ml-auto flex flex-wrap items-center gap-3">
         <NotesLink />
         <LatexLink />
+        <JukeboxLink />
         {actions}
         <ProfileSwitcher />
         <ThemeToggle />
@@ -108,6 +109,22 @@ function LatexLink() {
       activeProps={{ className: "text-accent font-semibold" }}
     >
       LaTeX
+    </Link>
+  );
+}
+
+/**
+ * **Jukebox** (brief 82): the remote for the Discord bot's music. A peer place
+ * like Notes and LaTeX, not a kind, so it gets the same link treatment.
+ */
+function JukeboxLink() {
+  return (
+    <Link
+      to="/jukebox"
+      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      activeProps={{ className: "text-accent font-semibold" }}
+    >
+      Jukebox
     </Link>
   );
 }

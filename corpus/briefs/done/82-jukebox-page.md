@@ -120,3 +120,71 @@ Where things are, checked 2026-10-08:
 - The Dock still plays locally and is unaffected by the Jukebox.
 - Browser-verified with agent-browser. Screenshots stay out of git.
 - Typecheck, build and tests are clean.
+
+## Outcome (2026-10-09)
+
+Done. [jukebox.md](../../wiki/jukebox.md) now describes the whole feature.
+
+**Change:**
+- `apps/web/src/jukebox/`: `JukeboxPage`, `NowPlaying` (now playing, progress,
+  transport, shuffle, repeat, voice), `QueuePanel`, `PlaylistPanel`, shared
+  `controls` and line `icons`, `use-jukebox` and `jukebox-api`.
+- `router.tsx`: `/jukebox`. `AppHeader`: a Jukebox link after LaTeX.
+- `CoverCard`: "Add to Discord queue" for `audio` items. One Player gives one
+  item; several are listed by guild name under a caption. The answer shows
+  inline under the title for 4 s ("Added to Test Server's queue").
+  `LibraryHome` fetches the Players once, without polling, and passes them in.
+- `UploadZone`: an optional `audioOnly` prop narrows `accept`, the filter and
+  the copy to MP3. The default is unchanged.
+
+**Outside the owned files.** Driving the page with a stand-in bot found two
+faults in brief 81's status rules, fixed in `jukebox.service.ts` with tests (20
+Jukebox tests now). Committed separately as "Tell a bot restart from a stale
+status report in the Jukebox".
+- A report with no voice channel idled the Player, and the next report for the
+  same `playId` set it playing again with no Track. The page flickered.
+- The same rule idled a Player whose bot had not reached the `join` yet when
+  someone pressed Join and then Play.
+
+Now a restart is the bot's fresh-cursor poll, and a report carries state only
+for the current `playId` while atrium has not stopped that play. No voice
+channel on the current play still means lost voice. A poll whose client hung up
+no longer stamps the bot as seen. The wire contract is unchanged. just-a-bot
+brief 26 already takes the cursor at ready; it gets a note on the rules.
+
+**Verified (2026-10-09)** in agent-browser against the dev servers on scratch
+storage, signed in as a local `atrium-tester` account (`atrium:user`, made for
+this on the local Ward container; its password is in
+`~/.config/ward/atrium-tester.env`). The bot was a script signed in as
+`discord-bot-dev` that long-polls, reports status every 2 s and advances at a
+song's end.
+- Join, play, pause, resume, next, previous, stop, shuffle on and off, repeat
+  one, all and off, and leave each showed on the page in 17 to 155 ms.
+- The bar went 0:03 → 0:05 while playing, and held at 0:05 for 2 s while
+  paused.
+- With the bot stopped, the page showed it offline about 30 s after its last
+  request. Every transport and voice control was disabled. Add, play next,
+  move and remove in the Queue still worked, attributed to "Default".
+- An MP3 uploaded on the page joined the Playlist in order and the home grid. A
+  PDF was refused ("Only MP3 songs can be added here.").
+- Delete took two clicks ("Delete from atrium for everyone?") and the song left
+  the Playlist and the library.
+- "Add to Discord queue" on a home tile queued the song under "Default". Book
+  and video tiles offer only Remove.
+- The Dock kept playing a song locally while the page showed another one on
+  Discord.
+- Design checklist: no raw hex; Newsreader for the page and section heads and
+  the song title, Archivo for the rest; times and counts tabular; accent only
+  on progress, the current row, pressed toggles and focus; 4px and 2px radii,
+  with `full` only on the progress rail, like `ScrubTrack`'s. Light, sepia and
+  dark were checked with real cover art. The skeleton is `motion-safe` and the
+  transport buttons drop their transition under reduced motion. At 360 px the
+  page has no horizontal scroll (the first pass did; the grid track now has
+  `minmax(0,1fr)`).
+- Typecheck and build are clean, and the API suite passes (113).
+
+**Left as it is:**
+- Reordering is up and down buttons, with no drag and drop.
+- The picked Player is not remembered across reloads. There is one guild today.
+- The home grid's own Remove still deletes with no confirmation, as the brief
+  noted.

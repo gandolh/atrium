@@ -66,19 +66,25 @@ const ACCEPT = [
   ...WEBM_MIME_TYPES,
 ].join(",");
 
+/** `audioOnly` (the Jukebox, brief 82): MP3 and nothing else. */
+const ACCEPT_AUDIO = [...MP3_EXTENSIONS, ...MP3_MIME_TYPES].join(",");
+
 const INVALID_TYPE_MESSAGE =
   "Unsupported file type. Please upload a book (PDF/EPUB), music (MP3), or video (MP4/WebM) file.";
+const INVALID_AUDIO_MESSAGE = "Unsupported file type. Only MP3 songs can be added here.";
 
 /**
  * The rejection message. One file alone keeps the original wording, so a
  * single-file drop reads exactly as it always did; with several, the rejected
  * ones are named, since the rest are being added.
  */
-function rejectionMessage(rejected: File[], total: number): string {
-  if (total === 1) return INVALID_TYPE_MESSAGE;
+function rejectionMessage(rejected: File[], total: number, audioOnly: boolean): string {
+  if (total === 1) return audioOnly ? INVALID_AUDIO_MESSAGE : INVALID_TYPE_MESSAGE;
   const names = rejected.map((f) => f.name).join(", ");
   const count = rejected.length === 1 ? "1 file wasn't added" : `${rejected.length} files weren't added`;
-  return `${count}: ${names} (unsupported type). Books (PDF/EPUB), music (MP3) and video (MP4/WebM) only.`;
+  return audioOnly
+    ? `${count}: ${names} (not MP3). Songs (MP3) only.`
+    : `${count}: ${names} (unsupported type). Books (PDF/EPUB), music (MP3) and video (MP4/WebM) only.`;
 }
 
 /** Imperative surface for the header's "Add to library" button. */
@@ -94,6 +100,7 @@ export function UploadZone({
   disabled = false,
   variant = "hero",
   browseRef,
+  audioOnly = false,
 }: {
   /** Every valid file of one drop or pick, in order. Never called empty. */
   onFiles: (files: File[]) => void;
@@ -104,6 +111,8 @@ export function UploadZone({
   variant?: "hero" | "ambient";
   /** Filled with `{ browse }` so a sibling (the header button) can open the picker. */
   browseRef?: RefObject<UploadZoneHandle | null>;
+  /** Take MP3 only, and say so (the Jukebox page). Off by default: every library format. */
+  audioOnly?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -115,12 +124,15 @@ export function UploadZone({
       const files = Array.from(list ?? []);
       if (files.length === 0) return;
       setError(null);
-      const valid = files.filter((file) => detectFileType(file.name, file.type) !== null);
+      const valid = files.filter((file) => {
+        const type = detectFileType(file.name, file.type);
+        return audioOnly ? type === "mp3" : type !== null;
+      });
       const rejected = files.filter((file) => !valid.includes(file));
-      if (rejected.length > 0) setError(rejectionMessage(rejected, files.length));
+      if (rejected.length > 0) setError(rejectionMessage(rejected, files.length, audioOnly));
       if (valid.length > 0) onFiles(valid);
     },
-    [onFiles],
+    [onFiles, audioOnly],
   );
 
   useEffect(() => {
@@ -180,7 +192,7 @@ export function UploadZone({
       ref={inputRef}
       type="file"
       multiple
-      accept={ACCEPT}
+      accept={audioOnly ? ACCEPT_AUDIO : ACCEPT}
       disabled={disabled}
       onChange={(e) => {
         // Copied before the reset below, which empties the live FileList.
@@ -205,7 +217,7 @@ export function UploadZone({
             <UploadGlyph className="h-6 w-6 text-accent" />
           </span>
           <p className="font-display text-2xl font-semibold text-ink">
-            Drop to add to your library
+            {audioOnly ? "Drop to add songs" : "Drop to add to your library"}
           </p>
         </div>
       </div>
@@ -257,11 +269,15 @@ export function UploadZone({
         </span>
 
         <div className="flex flex-col gap-1">
-          <h2 className="font-display text-3xl font-medium text-ink">Add to Library</h2>
+          <h2 className="font-display text-3xl font-medium text-ink">
+            {audioOnly ? "Add songs" : "Add to Library"}
+          </h2>
           <p className="text-ink-variant">
             {disabled
               ? "Uploading requires a connection."
-              : "Drag & drop a book, MP3, or video (MP4/WebM), or click to browse"}
+              : audioOnly
+                ? "Drag & drop MP3 files, or click to browse"
+                : "Drag & drop a book, MP3, or video (MP4/WebM), or click to browse"}
           </p>
         </div>
 

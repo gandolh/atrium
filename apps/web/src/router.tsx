@@ -8,6 +8,7 @@ import { Read } from "./routes/read";
 import { Discover } from "./routes/discover";
 import { Notes } from "./routes/notes";
 import { LatexRoute } from "./routes/latex";
+import { JukeboxPage } from "./jukebox/JukeboxPage";
 import { ManageProfiles } from "./profiles/ManageProfiles";
 
 /**
@@ -88,6 +89,15 @@ const latexRoute = createRoute({
   component: LatexRoute,
 });
 
+// `/jukebox` (brief 82) — the remote for the Discord bot's music (D56, D57).
+// No search params: the Player picker is page state, and there is one Player
+// per guild, usually one guild.
+const jukeboxRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/jukebox",
+  component: JukeboxPage,
+});
+
 // `format` is optional + type-safe (validated against the shared Zod enum) so
 // `/read` can be deep-linked. Widened from the pdf/epub `formatSchema` to the
 // full `fileTypeSchema` (pdf/epub/mp3/mp4/webm) in brief 23 so media formats
@@ -145,6 +155,7 @@ const routeTree = rootRoute.addChildren([
   videosRoute,
   notesRoute,
   latexRoute,
+  jukeboxRoute,
   readRoute,
   discoverRoute,
   profilesRoute,

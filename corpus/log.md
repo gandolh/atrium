@@ -2518,3 +2518,12 @@ long-polls for. The next-Track rules are as specified, and the outcome lists the
 calls the brief left open (history on Stop, idle never keeping a Track, the
 collator). 18 new tests. A `wait=20` poll held 20 s and answered a command in
 under 20 ms, both through Vite and through the container.
+
+## [2026-10-09] done | Brief 82 — the Jukebox page
+
+`/jukebox` shows each Player's song, progress, transport, voice channel, Queue
+and the whole Playlist, with MP3 upload and a two-step delete. Music tiles get
+"Add to Discord queue". Checked in the browser against a stand-in bot, which
+found two faults in brief 81's status rules. A bot restart is now its
+fresh-cursor poll, and a report carries state only for the current play while
+atrium has not stopped it. New page [jukebox.md](wiki/jukebox.md).

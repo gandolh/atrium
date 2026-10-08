@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import type { LibraryBook, MediaKind } from "@ebook-reader/shared";
 
@@ -18,6 +18,15 @@ export interface CoverOfflineProps {
   canDownload: boolean;
   onDownload: () => void;
   onRemove: () => void;
+}
+
+/**
+ * "Add to Discord queue" (brief 82): the Jukebox's Players a music tile can
+ * queue on, and the write. Shown for `audio` only, and hidden with no Players.
+ */
+export interface CoverDiscordProps {
+  players: readonly { guildId: string; guildName: string }[];
+  onAdd: (book: LibraryBook, guildId: string) => Promise<void>;
 }
 
 /**
@@ -68,14 +77,23 @@ export function CoverCard({
   onDelete,
   deleteDisabled = false,
   offline,
+  discord,
 }: {
   book: LibraryBook;
   onOpen: (book: LibraryBook) => void;
   onDelete: (book: LibraryBook) => void;
   deleteDisabled?: boolean;
   offline?: CoverOfflineProps;
+  discord?: CoverDiscordProps;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // The inline answer to "Add to Discord queue", cleared after a few seconds.
+  const [queued, setQueued] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    if (!queued) return;
+    const id = window.setTimeout(() => setQueued(null), 4_000);
+    return () => window.clearTimeout(id);
+  }, [queued]);
   const [imgFailed, setImgFailed] = useState(false);
   const kind = book.kind ?? "book";
   const progressPct = Math.round(book.progress * 100);
@@ -98,6 +116,15 @@ export function CoverCard({
   const mediaAspect = kind === "video" ? "aspect-[4/3]" : "aspect-[2/3]";
   const tintClass = TINT_CLASS[kind];
   const formatLabel = book.format.toUpperCase();
+  const discordPlayers = kind === "audio" ? (discord?.players ?? []) : [];
+
+  function addToDiscord(guildId: string, guildName: string) {
+    setMenuOpen(false);
+    discord
+      ?.onAdd(book, guildId)
+      .then(() => setQueued({ ok: true, text: `Added to ${guildName}'s queue` }))
+      .catch(() => setQueued({ ok: false, text: `Couldn't add to ${guildName}'s queue` }));
+  }
 
   return (
     <div
@@ -175,6 +202,11 @@ export function CoverCard({
           <p className="truncate text-sm text-ink-variant">
             {book.author ? `${book.author} · ${formatLabel}` : formatLabel}
           </p>
+          {queued && (
+            <p role="status" className={`text-xs ${queued.ok ? "text-ink-variant" : "text-danger"}`}>
+              {queued.text}
+            </p>
+          )}
         </div>
 
         {/* Per-card overflow → delete (design.md: quiet, appears on hover/focus). */}
@@ -190,7 +222,35 @@ export function CoverCard({
             <DotsGlyph className="h-4 w-4" />
           </button>
           {menuOpen && (
-            <div className="absolute top-8 right-0 z-10 w-40 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift">
+            <div className="absolute top-8 right-0 z-10 w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift">
+              {/* Brief 82: queue a song on the Discord bot. One Player is one
+                  item; several are listed by guild name under a caption. */}
+              {discordPlayers.length === 1 && (
+                <button
+                  type="button"
+                  onMouseDown={() => addToDiscord(discordPlayers[0].guildId, discordPlayers[0].guildName)}
+                  className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper-low"
+                >
+                  Add to Discord queue
+                </button>
+              )}
+              {discordPlayers.length > 1 && (
+                <div className="border-b border-line-soft py-1">
+                  <p className="px-3 pt-1 pb-0.5 font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
+                    Add to Discord queue
+                  </p>
+                  {discordPlayers.map((player) => (
+                    <button
+                      key={player.guildId}
+                      type="button"
+                      onMouseDown={() => addToDiscord(player.guildId, player.guildName)}
+                      className="block w-full truncate px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-low"
+                    >
+                      {player.guildName}
+                    </button>
+                  ))}
+                </div>
+              )}
               <button
                 type="button"
                 disabled={deleteDisabled}

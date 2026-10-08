@@ -2509,3 +2509,12 @@ the file and cover of `audio` items. Everything else is 403
 `JUKEBOX_ROLE_FORBIDDEN`, matched on the route pattern. `jukebox` beside any
 other role is still full access. 18 new tests. The two Ward accounts are the
 owner's to create.
+
+## [2026-10-08] done | Brief 81 — the Jukebox API
+
+Four tables, the `jukebox` module and the shared contract. Atrium now keeps
+every Player: Queue, history, shuffle picks, and the commands the bot
+long-polls for. The next-Track rules are as specified, and the outcome lists the
+calls the brief left open (history on Stop, idle never keeping a Track, the
+collator). 18 new tests. A `wait=20` poll held 20 s and answered a command in
+under 20 ms, both through Vite and through the container.

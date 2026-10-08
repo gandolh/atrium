@@ -242,3 +242,64 @@ Live check, with the time measured using `time curl`:
   just-a-bot brief 26.
 
 `npm test -w apps/api`, typecheck and build are clean.
+
+## Outcome (2026-10-08)
+
+Done. The contract is as written above, byte for byte. Nothing in it changed,
+so briefs 82 and just-a-bot 25 to 27 need no note.
+
+**Change:**
+- `20261008000000-jukebox.ts`: the four tables, with the foreign keys as
+  specified. Three columns past the brief's list, all internal to atrium:
+  `jukebox_players.shuffle_picks` (JSON book ids, the stored shuffle picks),
+  `jukebox_players.current_from_playlist` and `jukebox_history.from_playlist`.
+  Previous moves the cursor only for a Track played from the Playlist, and
+  every Track is in the Playlist (D56), so that fact has to be recorded when
+  the Track starts.
+- `modules/jukebox/`: controller, service, model, mapper, types. Every Player
+  change is one transaction on the one connection. Long-polls are woken by an
+  in-process `EventEmitter` after the commit, and hold no database handle
+  while they wait.
+- `packages/shared/src/jukebox.ts`: every schema in the contract, plus
+  `comparePlaylistOrder`.
+
+**Calls the brief left open:**
+- **History.** A Track goes onto history whenever it stops being current
+  through Next, an `ended` or `error` advance, Play Track, Stop, Leave or the
+  restart rule, not only when another Track starts. So Previous after Stop
+  brings back the Track that was stopped. Previous itself pushes nothing,
+  because two presses would otherwise swap the same two Tracks back and forth.
+  A `repeat: one` replay pushes nothing either.
+- **Idle never keeps a current Track.** That includes Leave, and a bot status
+  that reports `idle` for the current `playId`.
+- **Playlist order** compares with `Intl.Collator("en", {sensitivity: "base",
+  numeric: true})`, so "Track 2" sorts before "Track 10". The book id breaks a
+  full tie, so the order is total and the cursor always has a next Track.
+- **Long-poll.** Each poll stamps `last_seen_at` on every Player, because the
+  bot is one process serving every guild. An `after` larger than the newest
+  command id (a fresh database) is answered at once with the current cursor.
+  `wait` defaults to 0, and a value over 20 is clamped to 20.
+- **Pause** stores the extrapolated position (`position_ms` plus the time since
+  `position_at`), so the page's progress bar stops where the music did.
+- **Join** stores the channel at once, named from the bot's last
+  `voiceChannels` (or `""`). The bot's next status report corrects it.
+- **Errors not named in the contract:** a malformed `guildId` or body is 400
+  `INVALID_REQUEST`, and so is a bot Queue add without `addedBy`.
+
+**Verified:** `test/jukebox.test.ts` (18 tests) covers every acceptance line.
+The full API suite (111) passes, and typecheck and build are clean for every
+workspace.
+
+**Live check (2026-10-08).** Signed in as a local `discord-bot-dev` account
+holding only `atrium:jukebox` (brief 80's owner step 2, now done on the local
+Ward container; its password is in `~/.config/ward/discord-bot-dev.env`, in no
+repo). The API ran on scratch storage roots.
+- Through the Vite dev proxy (`:5173/atrium-api`): an idle `wait=20` poll held
+  for 20.02 s and returned 200. A `join` posted 3 s into a wait came back in
+  17 ms.
+- Through the built container (`docker compose up`, the image rebuilt from this
+  tree, joined to Ward's local network with Ward relayed at `localhost:8792`
+  inside it): 20.01 s and 200, and a posted command came back in 15 ms.
+- Nothing cut a poll short, so the maximum `wait` stays at 20. Production's
+  Caddy was not in the path; `reverse_proxy` has no response timeout by
+  default.

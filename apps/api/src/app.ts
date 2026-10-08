@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import multipart from "@fastify/multipart";
 import { MAX_UPLOAD_BYTES } from "./common/config.js";
 import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
+import { registerJukeboxRoutes } from "./modules/jukebox/jukebox.controller.js";
 import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
 import { registerLibraryRoutes } from "./modules/library/library.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
@@ -85,6 +86,7 @@ export async function buildApp(options: { wardClient?: WardClient } = {}): Promi
   registerNotesRoutes(app);
   registerProfileRoutes(app);
   registerLatexRoutes(app);
+  registerJukeboxRoutes(app);
 
   return app;
 }

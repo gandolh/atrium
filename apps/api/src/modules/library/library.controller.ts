@@ -146,6 +146,11 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     const { id } = request.params as { id: string };
     const row = await getBook(id);
     if (!row) return reply.status(404).send({ error: "Book not found." });
+    // The bot's account streams music and nothing else (D55). Checked before
+    // the touch, so a refused request records no open.
+    if (request.jukeboxOnly && row.kind !== "audio") {
+      return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
+    }
 
     // Record the open (drives "recently opened" ordering) even on a cache hit.
     await touchOpened(id, nowIso());
@@ -244,6 +249,9 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     const row = await getBook(id);
     if (!row) {
       return reply.status(404).send({ error: "No cover for this book." });
+    }
+    if (request.jukeboxOnly && row.kind !== "audio") {
+      return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
     }
     // The thumbnail belongs to the cover OWNER — for a converted book that is
     // its source, which is the row the file was extracted from and named after

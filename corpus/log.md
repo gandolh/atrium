@@ -2501,3 +2501,11 @@ the API and the contract the bot builds against. 82 is the page, and adds "Add
 to Discord queue" to music tiles. The bot side is just-a-bot briefs 25 to 27.
 Nothing built.
 
+
+## [2026-10-08] done | Brief 80 — the `jukebox` role is an allowlist
+
+A caller whose atrium roles are all `jukebox` now reaches only `/jukebox/*` and
+the file and cover of `audio` items. Everything else is 403
+`JUKEBOX_ROLE_FORBIDDEN`, matched on the route pattern. `jukebox` beside any
+other role is still full access. 18 new tests. The two Ward accounts are the
+owner's to create.

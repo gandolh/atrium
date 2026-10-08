@@ -1,6 +1,6 @@
 ---
 summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
-updated: 2026-10-03
+updated: 2026-10-08
 ---
 
 # Architecture
@@ -78,6 +78,7 @@ every request ──ward_session cookie (Path=/, shared origin)──► verify 
        then request.ward + request.authProfile (selected per device via profile_selections)
      (allowlist: GET /health, OPTIONS)
 ```
+**The `jukebox` role (D55)** is the only atrium role the guard reads. A caller whose atrium roles are all `jukebox` (the Discord bot's own Ward account) is `request.jukeboxOnly` and reaches only `/jukebox/*` and `GET /library/:id/file` / `/cover`, matched on the route pattern. The file and cover handlers then refuse anything that isn't `audio`. Everything else is 403 `JUKEBOX_ROLE_FORBIDDEN`. `jukebox` beside any other role is full access.
 
 **Reading (100% client-side once the file is fetched):**
 ```

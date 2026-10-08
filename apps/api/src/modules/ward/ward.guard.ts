@@ -70,7 +70,46 @@ declare module "fastify" {
      * holds the other.
      */
     authProfile?: ProfileRow;
+    /**
+     * Whether every atrium role this caller holds is `jukebox` (D55). Such a
+     * caller only reaches the Jukebox and `audio` files and covers. False on
+     * allowlisted requests, which have no caller at all.
+     */
+    jukeboxOnly: boolean;
   }
+}
+
+/** The one atrium role atrium reads (D55): the Discord bot's account holds it. */
+export const JUKEBOX_ROLE = "jukebox";
+
+/**
+ * Jukebox-only means the roles are not empty and every one is `jukebox`. An
+ * account holding `jukebox` beside any other role keeps full access, so
+ * granting the role to the owner's own account can never lock them out.
+ */
+function isJukeboxOnly(roles: readonly string[]): boolean {
+  return roles.length > 0 && roles.every((role) => role === JUKEBOX_ROLE);
+}
+
+/** The library routes a jukebox-only caller may `GET`, by route pattern. */
+const JUKEBOX_LIBRARY_ROUTES = new Set(["/library/:id/file", "/library/:id/cover"]);
+
+/**
+ * The jukebox-only allowlist (D55, brief 80): `/jukebox/*` and an item's file
+ * and cover. The handlers of those two then refuse anything that isn't `audio`.
+ *
+ * It matches the **route pattern** Fastify resolved, never the raw URL, so a
+ * query string or a percent-encoding cannot reach a handler
+ * the pattern would not. The single raw-URL test is for a request that matched
+ * no route: no handler runs for it either way, and letting a `/jukebox/` path
+ * through means the bot reads an unbuilt endpoint as a 404 rather than as a
+ * permissions fault. Every other unmatched path is a 403.
+ */
+function jukeboxMayReach(request: FastifyRequest): boolean {
+  const pattern = request.routeOptions.url;
+  if (pattern === undefined) return request.url.startsWith("/jukebox/");
+  if (pattern.startsWith("/jukebox/")) return true;
+  return request.method === "GET" && JUKEBOX_LIBRARY_ROUTES.has(pattern);
 }
 
 /**
@@ -113,6 +152,8 @@ export function resetWardClientForTests(): void {
 export function registerWardGuard(app: FastifyInstance, options: WardGuardOptions = {}): void {
   const ward = options.client ?? defaultClient();
 
+  app.decorateRequest("jukeboxOnly", false);
+
   app.addHook("onRequest", async (request: FastifyRequest, reply: FastifyReply) => {
     if (isAllowlisted(request)) return;
 
@@ -136,17 +177,26 @@ export function registerWardGuard(app: FastifyInstance, options: WardGuardOption
     /**
      * The grant check, and the reason this is not just authentication.
      *
-     * Any role at all is enough to open atrium; atrium does not currently
-     * distinguish between them, and inventing a role hierarchy it does not use
-     * would be a second, unenforced, definition of authority. What matters is
-     * that a Ward account with **no** atrium grant is refused, which is exactly
-     * what lets prm keep public self-registration without opening this app to
-     * the people who use it.
+     * Any role at all is enough to open atrium, with one exception below.
+     * Inventing a role hierarchy atrium does not use would be a second,
+     * unenforced, definition of authority. What matters is that a Ward account
+     * with **no** atrium grant is refused, which is exactly what lets prm keep
+     * public self-registration without opening this app to the people who use
+     * it.
+     *
+     * The exception is `jukebox` (D55), the Discord bot's role. The library has
+     * no owners and `DELETE /library/:id` checks nothing, so a leaked bot
+     * password must not carry full access. A jukebox-only caller is refused
+     * here, on every route outside its allowlist, before a profile is touched.
      */
     const roles = session.grants[ATRIUM_APP_SLUG] ?? [];
     if (roles.length === 0) {
       request.log.warn({ subject: session.subject }, "live ward session with no atrium grant");
       return reply.status(403).send({ error: "NO_ATRIUM_GRANT" });
+    }
+    const jukeboxOnly = isJukeboxOnly(roles);
+    if (jukeboxOnly && !jukeboxMayReach(request)) {
+      return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
     }
 
     /**
@@ -185,6 +235,7 @@ export function registerWardGuard(app: FastifyInstance, options: WardGuardOption
 
     request.ward = session;
     request.authProfile = profile;
+    request.jukeboxOnly = jukeboxOnly;
   });
 }
 

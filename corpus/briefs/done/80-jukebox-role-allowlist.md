@@ -100,3 +100,33 @@ Tests in `apps/api/test/jukebox-role.test.ts`, signed in with
 - `GET /health` without a session is still 200.
 - The existing suite still passes. `npm test -w apps/api`, typecheck and build
   are clean.
+
+## Outcome (2026-10-08)
+
+Done. The owner steps above are still owed: the two Ward accounts, and the
+deploy once brief 81 lands.
+
+**Change:**
+- `ward.guard.ts`: `isJukeboxOnly()` (roles not empty, every one `jukebox`) and
+  `jukeboxMayReach()`, checked right after `NO_ATRIUM_GRANT`. A refused request
+  is 403 `JUKEBOX_ROLE_FORBIDDEN` before any profile is touched. The allowlist
+  matches `request.routeOptions.url`: any pattern under `/jukebox/`, and `GET`
+  on `/library/:id/file` and `/library/:id/cover`.
+- `request.jukeboxOnly` is a real boolean on every request
+  (`app.decorateRequest("jukeboxOnly", false)`), not an optional field, so a
+  handler can test it without a guard for `undefined`.
+- File and cover handlers: 403 for a jukebox-only caller when `row.kind` is not
+  `audio`. The file check runs before `touchOpened`, so a refused request
+  records no open.
+- `architecture.md`: one paragraph under the guard diagram.
+
+**One reading of the brief to note.** "An unmatched route is also a 403" and
+"`GET /jukebox/anything` is 404 until brief 81" meet on a request that matches
+no route, where `routeOptions.url` is undefined. For that case only, the guard
+looks at the raw path: under `/jukebox/` it passes on to Fastify's 404, and
+anything else is 403. No handler runs for an unmatched request either way, so
+the raw path cannot open anything.
+
+**Verified:** `test/jukebox-role.test.ts` (18 tests) covers every acceptance
+line, plus a query-string attempt and an unmatched path. The full API suite (93)
+passes, and typecheck and build are clean.

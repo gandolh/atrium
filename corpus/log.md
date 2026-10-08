@@ -2470,3 +2470,34 @@ wzd_auth `496b9e6` gives `@ward/client`'s `verifyAccessToken` the same classific
 ## [2026-10-06] decide | The Calibre question is closed; the two quality checks are dropped
 
 The open question said this machine's Calibre could not convert any book with an outline. That was the pip `lxml` in `~/.local` shadowing the distro one (libxml2 2.14.6 against html5-parser's 2.9.13). Under `PYTHONNOUSERSITE=1`, which `calibre.service.ts` already sets, an EPUB with a four-entry outline converted to PDF and back. The owner chose to drop brief 34's two unrun checks (two-column PDF→EPUB, scanned PDF) rather than run them. D34's caveat, quoting Calibre's manual on PDF input, covers what they would have measured.
+
+## [2026-10-07] capture | Brief 79 — study Jellyfin and compare it with Atrium's media half
+
+The owner asked what Atrium could do better than Jellyfin and how the two implementations differ. Filed as brief 79, a gated research run: run Jellyfin at a pinned tag next to Atrium on the same sample media, compare along fixed axes (ingest, metadata, playback, music, video, books, people, resume, offline, ops), and end with a ranked shortlist and three revisit questions for the owner (ffmpeg, folder ingest, online metadata). The brief carries a code-checked inventory of Atrium's side and a sourced Jellyfin baseline. Nothing built.
+
+## [2026-10-08] decide | The Jukebox: the Discord bot plays atrium's music (D55 to D57)
+
+Grilled with the owner across two rounds. just-a-bot will play atrium's music
+in Discord voice channels, and any signed-in profile gets a Winamp-style page to
+steer it.
+- **D55:** the bot is its own Ward account, and atrium treats an account whose
+  only `atrium` role is `jukebox` as an allowlist. It is the first role atrium
+  reads, and it exists because the library has no owners.
+- **D56:** the Playlist is the music library, so delete on the Jukebox page is a
+  real library delete. It sits behind a confirmation the page adds, since the
+  home grid's Remove has none.
+- **D57:** atrium owns every Player in SQLite, and the bot long-polls for
+  commands and fetches audio on its own requests.
+
+New glossary page [glossary-jukebox.md](wiki/glossary-jukebox.md): Jukebox,
+Player, Track, Playlist, Queue, Queue entry, Bot account. The glossary's media
+kind now reads `audio`, matching the code, and the Dock is defined as local
+playback only.
+
+## [2026-10-08] capture | Briefs 80-82: the Jukebox
+
+80 enforces the `jukebox` role and lists the owner's Ward console steps. 81 is
+the API and the contract the bot builds against. 82 is the page, and adds "Add
+to Discord queue" to music tiles. The bot side is just-a-bot briefs 25 to 27.
+Nothing built.
+

@@ -1,9 +1,16 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-04
+updated: 2026-10-08
 ---
 
-# Status — 2026-10-04
+# Status — 2026-10-08
+
+**2026-10-08: the Jukebox is designed, not built.** just-a-bot will play the
+music library in Discord, signed in as its own Ward account with a `jukebox`
+role (D55). Atrium owns every Player and its Queue, the Playlist is the whole
+music library (D56), and the bot long-polls atrium (D57). Briefs 80 → 81 → 82
+here, and just-a-bot briefs 25 to 27. Terms are in
+[glossary-jukebox.md](glossary-jukebox.md).
 
 **Latest (2026-10-03):** ✅ **The 2026-09-25 improvements sweep is worked
 through: briefs 53–72 are done.** Every API fix landed with a regression test on
@@ -108,3 +115,7 @@ got here.
 | 76 | A versioned document reopened in-session is hydrated again (not reused from memory) | **done (2026-10-03)**; the default-version half is brief 78 |
 | 77 | Ward down: the gate says so and retries; downloaded books open when the library list fails or the tab is offline | **done (2026-10-03)**, checked against the local Ward container |
 | 78 | Publishing releases positions on the version it supersedes (D38 decisions 9/10) | **done (2026-10-03)** |
+| 79 | Study Jellyfin: differences and what to take (gated research, ends in options) | **todo (filed 2026-10-07)** |
+| 80 | The bot account's `jukebox` role is an allowlist (D55) | **todo (filed 2026-10-08)**; owner steps in Ward's console |
+| 81 | The Jukebox API: Players, Queue, next-Track rules, bot long-poll (D56, D57) | **todo (filed 2026-10-08)**; needs 80 |
+| 82 | The Jukebox page, plus "Add to Discord queue" on music tiles | **todo (filed 2026-10-08)**; needs 81 |

@@ -1,6 +1,6 @@
 ---
 summary: The project's vocabulary — one canonical name per concept Atrium uses in a specific way, with the synonyms it displaces; the page that stops the same thing being called three names.
-updated: 2026-10-03
+updated: 2026-10-08
 ---
 
 # Glossary
@@ -37,7 +37,7 @@ always this narrow one.
 _Avoid_: ebook, document, title, publication
 
 **Media kind**:
-One of `book` | `music` | `video`, derived from the format at upload (brief 23).
+One of `book` | `audio` | `video`, derived from the format at upload (brief 23).
 The axis the areas and card shapes are cut along.
 _Avoid_: media type, content type, category
 
@@ -66,8 +66,8 @@ _Avoid_: colour coding, category colour, highlight, label
 
 **Dock**:
 The persistent player strip at the foot of the app that survives navigation
-(D33). The one place playback state lives.
-_Avoid_: player bar, mini player, footer, now-playing bar
+(D33). The one place *local* playback state lives. Discord playback is a Player's.
+_Avoid_: player bar, mini player, footer, now-playing bar, Player (a Jukebox term)
 
 **Discover**:
 The `/discover` page for browsing Project Gutenberg through the API's Gutendex
@@ -198,7 +198,7 @@ nothing recording that. **Every later migration is an ordinary forward migration
 and must NOT be idempotent.**
 _Avoid_: initial migration, schema migration, the setup migration
 
-> **Authored content** — Note, Note page, Stroke, Text box, LaTeX project,
-> Draft, Published document, Version — lives in
-> [glossary-authoring.md](glossary-authoring.md). Same authority, split for size
-> along D36's own line: things you collect here, things you author there.
+> **Authored content** (Note, Note page, Stroke, Text box, LaTeX project, Draft,
+> Published document, Version) lives in [glossary-authoring.md](glossary-authoring.md),
+> split along D36's line. **Jukebox** terms (Jukebox, Player, Track, Bot account)
+> live in [glossary-jukebox.md](glossary-jukebox.md). Same authority, split for size.

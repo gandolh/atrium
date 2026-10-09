@@ -103,3 +103,8 @@ every badge — the grid must still read by kind).
 Reading Room replaced **Quiet Paper / Quiet Gallery** on 2026-08-24; the old
 `design/stitch_extracted/screen.png` reference is superseded by the comps linked
 from `corpus/wiki/design.md`.
+
+## brief-board
+
+Brief progress goes on brief-board. Run `brief-board guide` before you
+start or resume a brief, and follow it.

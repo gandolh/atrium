@@ -2539,3 +2539,16 @@ has no gapless playback. New page [jellyfin-comparison.md](wiki/jellyfin-compari
 with a ten-item shortlist; four questions in
 [open-questions.md](wiki/open-questions.md), including the 50 MB upload ceiling,
 which refused a 64 MB film.
+
+## [2026-10-09] todo | Briefs 83–86 filed (four reader and editor bugs); overview "Runs" refreshed
+
+Seen while capturing README screenshots with Project Gutenberg EPUBs. Not
+fixed, and none reproduced a second time here; each brief carries code leads,
+marked as leads. [83](briefs/todo/83-reader-theme-change-keeps-the-page.md):
+a theme change moved page 40 to 41. [84](briefs/todo/84-reader-font-size-keeps-your-place.md):
+A+ and A- lose the place. [85](briefs/todo/85-expired-ward-session-keeps-unsaved-latex.md):
+the 401 redirect drops unsaved LaTeX source.
+[86](briefs/todo/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
+the text at 390 px. Also fixed [overview.md](wiki/overview.md) "Runs", which
+still said local dev only with Calibre on the host: it now says deployed
+behind Ward, Calibre in the container image.

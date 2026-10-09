@@ -1,6 +1,6 @@
 ---
 summary: What Atrium is in a paragraph — a personal cloud space: a household media library (books, music, video) plus authored Notes and LaTeX documents; the orientation page.
-updated: 2026-08-27
+updated: 2026-10-09
 ---
 
 # Overview
@@ -70,5 +70,14 @@ EPUB→PDF conversion *discards* reflow (EPUB's best trait), so it is strictly a
 reading stays the star. See [decisions.md](decisions.md).
 
 ## Runs
-Local dev only. `npm run dev` runs web + api. Calibre must be installed on the
-host (the backend warns loudly on startup if `ebook-convert` is missing).
+**Deployed** at https://gandolh.ro/atrium/ behind Ward, the estate's sign-in
+(D53): the web app is a static build served by Caddy, and the API runs as a
+container (`infrastructure/Dockerfile`, `infrastructure/docker-compose.yml`)
+that vps-deploy builds on the VPS. **Calibre lives in that image**, not on the
+host. The same image carries the native build tools for `better-sqlite3` and
+`sharp`.
+
+**Locally**, `npm run dev` runs web + api on one origin (D54) and needs a local
+Ward to sign in through. Calibre is optional on the dev machine: the API warns
+at startup when `ebook-convert` is missing, and only Convert fails (D5). Steps
+are in [../../docs/getting-started.md](../../docs/getting-started.md).

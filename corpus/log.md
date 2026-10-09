@@ -2527,3 +2527,15 @@ and the whole Playlist, with MP3 upload and a two-step delete. Music tiles get
 found two faults in brief 81's status rules. A bot restart is now its
 fresh-cursor poll, and a report carries state only for the current play while
 atrium has not stopped it. New page [jukebox.md](wiki/jukebox.md).
+
+## [2026-10-09] done | Brief 79 — Jellyfin studied, options waiting on the owner
+
+Ran Jellyfin 12.2.0 locally and loaded the same films, album, books and comic
+into both apps. Atrium is ahead on adding from any browser, household profiles,
+books (real PDF covers and titles where Jellyfin showed an icon and a filename),
+and files with no online match. Jellyfin is ahead on playback (speed,
+subtitles, transcoding), albums and queues, and online metadata; its web client
+has no gapless playback. New page [jellyfin-comparison.md](wiki/jellyfin-comparison.md)
+with a ten-item shortlist; four questions in
+[open-questions.md](wiki/open-questions.md), including the 50 MB upload ceiling,
+which refused a 64 MB film.

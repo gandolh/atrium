@@ -245,3 +245,31 @@ never assumed.
 - No app code changed. `bash corpus/lint.sh` passes.
 - The Jellyfin container is stopped and removed at the end unless the owner
   asks to keep it.
+
+## Outcome (2026-10-09)
+
+Done. [jellyfin-comparison.md](../../wiki/jellyfin-comparison.md) covers every
+axis against Jellyfin **12.2.0** (`jellyfin/jellyfin:12.2`), run locally with
+the same samples in both apps, and the four revisit questions are in
+[open-questions.md](../../wiki/open-questions.md). The shortlist and the
+questions go to the owner; nothing is built.
+
+- **Settled on the instance or in source:** the web client has no gapless or
+  crossfade code (`jellyfin-web` at `v12.2`); SyncPlay and Cast buttons sit on
+  every page; a backup holds metadata, trickplay, subtitles and the database,
+  not media (`BackupOptionsDto`); an MKV with H.264 and AAC direct-played in
+  Chrome, and a 420 kbps cap switched the session to a transcode.
+- **Not verified:** what SyncPlay and Chromecast can do beyond their buttons,
+  and offline downloads in the iOS app.
+- **Corrections to the "Atrium today" table:** the Jukebox's Queue and Playlist
+  (D56, D57), the Discord bot as a client, the Bot account (D55), and the
+  50 MB upload ceiling, which refused the 64 MB *Big Buck Bunny* with 413.
+- "No brief 80+ is written before they pick" could not hold literally: briefs
+  80 to 82 came from the Jukebox grilling on 2026-10-08. A shortlist item the
+  owner picks becomes 83 or later.
+- Samples: Blender's *Big Buck Bunny* and *Sintel* trailer, four tracks of Nine
+  Inch Nails' *Ghosts I–IV* (CC BY-NC-SA, Internet Archive; the archive's MP3s
+  carried only a title, so artist, album, track and cover were written in),
+  Gutenberg's *Frankenstein*, and a CBZ and SRTs made here. All in scratch,
+  removed afterwards.
+- The container was stopped and removed. No app code changed.

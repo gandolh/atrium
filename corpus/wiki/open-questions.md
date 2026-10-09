@@ -1,17 +1,53 @@
 ---
-summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md).
-updated: 2026-10-06
+summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md). Open now: four questions from the Jellyfin study (ffmpeg for video, a watched folder, online metadata, the upload ceiling).
+updated: 2026-10-09
 ---
 
 # Open Questions
 
 Only genuinely unresolved threads. Delete each the moment it's answered.
 
-_Nothing is open right now._ The Calibre question closed on 2026-10-06: local
-conversions with an outline work under `PYTHONNOUSERSITE=1` (the pip `lxml` in
-`~/.local` was the whole cause, and the API already spawns Calibre that way), and
-the owner dropped the two unrun quality checks. Calibre's own warning about PDF
-input, recorded in D34, stands in for them.
+## From the Jellyfin study (brief 79, 2026-10-09)
+
+Each one waits for the owner. The evidence is in
+[jellyfin-comparison.md](jellyfin-comparison.md).
+
+1. **Should ffmpeg come back for video?** Jellyfin shows what it buys: any
+   container or codec plays (it remuxes or transcodes), a weak connection gets a
+   lower bitrate (420 kbps switched the session to a transcode), and the server
+   makes thumbnails and scrub previews. The cost is the binary in the image and
+   the CPU while it runs. Declined in brief 23 because the owner did not want
+   the dependency, and formats were kept to what the browser plays; D40 then
+   found a browser-only route to video covers. Note that an MKV holding H.264
+   and AAC played directly in Chrome, so the container alone is not what
+   ffmpeg would fix; codecs are.
+2. **Should Atrium also take files from a watched folder, next to upload?**
+   Jellyfin has only folders: libraries on disk, a scan, an optional real-time
+   monitor, and no upload at all. A folder would let a large film or a whole
+   music collection in without the browser. Atrium has been upload-only since
+   it began, and no decision records why; the reason in practice is that items
+   arrive from any device through the browser. D39 derives every stored file's
+   path from its id, so a watched folder means copying files in, or revisiting
+   D39.
+3. **Should metadata come from online sources, or stay file-only?** Jellyfin
+   matched both films on TMDb and IMDb, the album on MusicBrainz and the artist
+   on AudioDB, with overviews and a biography, and it got nothing for a PDF.
+   Atrium reads the file only, which gave the PDF its real title. No decision
+   records file-only; online means network calls, a TMDb key, and sending titles
+   to third parties. The shortlist's item 6 is the small version: a lookup the
+   owner asks for, never automatic.
+4. **Should the upload ceiling rise for video?** `MAX_UPLOAD_MB` is 50 (D15's
+   cap), and the 64 MB *Big Buck Bunny* was refused with 413. A household's
+   films and long recordings are larger. Raising it means chunked, resumable
+   uploads and more disk on the VPS.
+
+---
+
+The Calibre question closed on 2026-10-06: local conversions with an outline
+work under `PYTHONNOUSERSITE=1` (the pip `lxml` in `~/.local` was the whole
+cause, and the API already spawns Calibre that way), and the owner dropped the
+two unrun quality checks. Calibre's own warning about PDF input, recorded in
+D34, stands in for them.
 
 ---
 

@@ -115,7 +115,7 @@ got here.
 | 76 | A versioned document reopened in-session is hydrated again (not reused from memory) | **done (2026-10-03)**; the default-version half is brief 78 |
 | 77 | Ward down: the gate says so and retries; downloaded books open when the library list fails or the tab is offline | **done (2026-10-03)**, checked against the local Ward container |
 | 78 | Publishing releases positions on the version it supersedes (D38 decisions 9/10) | **done (2026-10-03)** |
-| 79 | Study Jellyfin: differences and what to take (gated research, ends in options) | **todo (filed 2026-10-07)** |
+| 79 | Study Jellyfin: differences and what to take (gated research, ends in options) | **done (2026-10-09)**; [jellyfin-comparison.md](jellyfin-comparison.md), four questions in open-questions.md, waiting on the owner's picks |
 | 80 | The bot account's `jukebox` role is an allowlist (D55) | **done (2026-10-08)**; local `discord-bot-dev` made; the production account is the owner's |
 | 81 | The Jukebox API: Players, Queue, next-Track rules, bot long-poll (D56, D57) | **done (2026-10-08)**; long-poll timed live through Vite and the container |
 | 82 | The Jukebox page, plus "Add to Discord queue" on music tiles | **done (2026-10-09)**; browser-checked with a stand-in bot; status rules fixed on the way |

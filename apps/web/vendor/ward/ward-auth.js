@@ -1,7 +1,8 @@
-// ward-auth 0.2.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { randomBytes as randomBytes$1, createHash, scrypt as scrypt$1, timingSafeEqual, webcrypto, randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
+import { isIP } from 'node:net';
 
 /**
  * Usernames, user ids and session tokens: the three identifiers the library
@@ -860,59 +861,228 @@ function attribute(entry, account) {
     entry.byAccount.set(account, 1);
 }
 /**
- * Epoch milliseconds of the last "no client address" warning. Process-wide,
- * because the misconfiguration it reports is too.
+ * Epoch milliseconds of the last "no client address" and "ignored
+ * X-Forwarded-For" warnings. Process-wide, because the misconfigurations they
+ * report are too.
  */
 let lastAmbiguousWarnAt = 0;
+let lastIgnoredForwardedWarnAt = 0;
 /**
  * The lockout key for an HTTP request, given the socket peer and whatever
  * `X-Forwarded-For` arrived.
  *
  * ## Why this is not just `request.ip`
  *
- * Every app binds loopback behind Caddy, so **every** request's socket peer is
- * `127.0.0.1`. Fastify's `request.ip` is the socket peer unless `trustProxy`
+ * Every app sits behind Caddy, so **every** request's socket peer is the proxy,
+ * not the client. Fastify's `request.ip` is the socket peer unless `trustProxy`
  * is configured — so keying on it gives the entire internet one shared
  * counter, and the sixth failed login anywhere locks out everybody. That is a
  * self-inflicted outage dressed as a security control.
  *
  * ## Why trusting the header here is safe, and only here
  *
- * The header is honoured **only when the peer is loopback**, which on the VPS
- * means the request came through Caddy, and Caddy *appends* the peer it saw.
- * So the **last** element is the address Caddy observed, and a client that
- * sends `X-Forwarded-For: 1.2.3.4` only prepends a value nobody reads. Taking
- * the first element — the usual convention — would be the spoofable choice.
- * If the peer is *not* loopback the app is reachable directly and the header
- * is ignored in favour of the real socket address.
+ * The header is honoured **only when the peer is loopback or inside a trusted
+ * range**, which means the request came through the app's own proxy, and Caddy
+ * *appends* the peer it saw. So the **last** element is the address Caddy
+ * observed, and a client that sends `X-Forwarded-For: 1.2.3.4` only prepends a
+ * value nobody reads. Taking the first element — the usual convention — would
+ * be the spoofable choice. It does not walk leftwards past trusted elements
+ * either: a trusted range is a Docker bridge network, and anything on it could
+ * then pick its bucket by prepending. If the peer is neither, the app is
+ * reachable directly and the header is ignored in favour of the socket address.
  *
- * ## The loopback-with-no-header case is loud, not silent
+ * ## Why loopback alone stopped being enough
  *
- * It still **fails closed** into one shared bucket (a per-request bucket would
- * disable the lockout outright), and says so through `options.warn`.
+ * In a container that publishes `127.0.0.1:<port>`, host Caddy reaches the app
+ * through Docker's proxy and the peer is a bridge address, never loopback.
+ * Loopback-only trust (0.1.0 and 0.2.0) then ignored the header for every
+ * request and the whole internet shared one counter — Ward's brief 28.
+ * `trustedProxies` names the bridge ranges; loopback is trusted without being
+ * listed.
+ *
+ * ## Both misconfigurations are loud, not silent
+ *
+ * A trusted peer with no forwarded address still **fails closed** into one
+ * shared bucket (a per-request bucket would disable the lockout outright), and
+ * says so through `options.warn`. So does a header from an untrusted peer, which
+ * is what a proxy missing from `trustedProxies` looks like.
  */
 function lockoutKeyFor(socketAddress, forwardedFor, options = {}) {
     const peer = normaliseAddress(socketAddress);
-    if (peer !== undefined && !isLoopback$1(peer))
-        return peer;
     const forwarded = lastForwardedAddress(forwardedFor);
-    if (forwarded !== undefined)
+    if (peer !== undefined && !isTrustedPeer(peer, options.trustedProxies ?? [])) {
+        if (forwarded !== undefined)
+            warnIgnoredForwarded(options.warn, peer);
+        return peer;
+    }
+    if (forwarded !== undefined) {
         return forwarded;
+    }
+    // No usable address at all — a trusted caller with no forwarding header, a
+    // Unix socket, or a peer the runtime did not report. One shared bucket is the
+    // safe fallback: it throttles rather than letting the attempt through
+    // uncounted. Say so, once per interval.
     const bucket = peer ?? "unknown";
     warnAmbiguousAddress(options.warn, peer, bucket);
     return bucket;
 }
+/**
+ * Parse a trusted-proxy list: addresses or CIDR ranges, IPv4 or IPv6, given as
+ * an array or as one comma-separated string (`AUTH_TRUSTED_PROXIES`). Blank
+ * entries are skipped, so an empty string is an empty list.
+ *
+ * **Throws** a `TypeError` naming the entry on anything it cannot read exactly.
+ * Each refusal is a typo that would otherwise widen or narrow trust silently:
+ *
+ * - not an address, a prefix out of range, or a zone id;
+ * - host bits set past the prefix (`172.19.0.3/16`) — most tools mask that
+ *   quietly, but it is as likely a mistyped prefix as a mistyped address;
+ * - a `/0`, which trusts every peer and so lets any client that reaches the
+ *   service directly pick its own lockout bucket.
+ */
+function parseTrustedProxies(entries) {
+    const list = typeof entries === "string" ? entries.split(",") : entries;
+    const ranges = [];
+    for (const raw of list) {
+        const source = raw.trim();
+        if (source.length === 0)
+            continue;
+        ranges.push(parseRange(source));
+    }
+    return ranges;
+}
+function parseRange(source) {
+    const refuse = (why) => {
+        throw new TypeError(`trusted proxy ${JSON.stringify(source)} ${why}`);
+    };
+    const parts = source.toLowerCase().split("/");
+    if (parts.length > 2)
+        refuse("has more than one '/'");
+    const [address = "", prefixText] = parts;
+    if (address.includes("%"))
+        refuse("carries a zone id, which is not part of an address range");
+    let bytes = addressBytes(address) ?? refuse("is not an IPv4 or IPv6 address or CIDR range");
+    const width = bytes.length * 8;
+    let prefix = width;
+    if (prefixText !== undefined) {
+        if (!/^\d{1,3}$/.test(prefixText) || Number(prefixText) > width) {
+            refuse(`has a prefix outside /0–/${width}`);
+        }
+        prefix = Number(prefixText);
+    }
+    // Stored the way peers are compared: an IPv4-mapped entry is an IPv4 range.
+    const mapped = mappedIpv4(bytes);
+    if (mapped !== undefined) {
+        if (prefix < 96)
+            refuse("is an IPv4-mapped range shorter than /96");
+        bytes = mapped;
+        prefix -= 96;
+    }
+    if (prefix === 0) {
+        refuse("trusts every address, which would let any client choose its own lockout bucket");
+    }
+    const network = maskBytes(bytes, prefix);
+    if (network.some((byte, index) => byte !== bytes[index])) {
+        refuse(`has bits set past /${prefix}; the network is ${formatBytes(network)}/${prefix}`);
+    }
+    return { source, bytes, prefix };
+}
+/** Always trusted, listed or not: a loopback peer on the VPS is the proxy. */
+const LOOPBACK = parseTrustedProxies(["127.0.0.0/8", "::1"]);
+function isTrustedPeer(peer, trusted) {
+    const parsed = addressBytes(peer);
+    // A peer that is not an address at all (a runtime oddity) is trusted by
+    // nobody; it becomes its own bucket, which is the pre-brief-28 behaviour.
+    if (parsed === undefined)
+        return false;
+    // `normaliseAddress` already unwraps the dotted mapped form Node reports;
+    // this catches the hex spelling (`::ffff:ac13:3`) of the same address.
+    const bytes = mappedIpv4(parsed) ?? parsed;
+    return (LOOPBACK.some((range) => inRange(bytes, range)) ||
+        trusted.some((range) => inRange(bytes, range)));
+}
+function inRange(bytes, range) {
+    if (bytes.length !== range.bytes.length)
+        return false;
+    const masked = maskBytes(bytes, range.prefix);
+    return masked.every((byte, index) => byte === range.bytes[index]);
+}
+function maskBytes(bytes, prefix) {
+    return bytes.map((byte, index) => {
+        const bits = Math.min(8, Math.max(0, prefix - index * 8));
+        return byte & ((0xff << (8 - bits)) & 0xff);
+    });
+}
+/**
+ * 4 bytes for an IPv4 address, 16 for IPv6, `undefined` for anything else.
+ * `isIP` decides what is an address, so leading zeros, short forms like `1.2.3`
+ * and stray characters are refused by the same rules Node's sockets use.
+ */
+function addressBytes(address) {
+    const family = isIP(address);
+    if (family === 4)
+        return address.split(".").map(Number);
+    if (family !== 6 || address.includes("%"))
+        return undefined;
+    // A dotted IPv4 tail (`::ffff:10.1.2.3`) becomes two hex groups first.
+    let text = address;
+    const tail = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text);
+    if (tail !== null) {
+        const [a, b, c, d] = tail.slice(1).map(Number);
+        text = `${text.slice(0, tail.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+    }
+    const [head = "", rest] = text.split("::");
+    const headGroups = head === "" ? [] : head.split(":");
+    const restGroups = rest === undefined || rest === "" ? [] : rest.split(":");
+    const zeros = rest === undefined ? 0 : 8 - headGroups.length - restGroups.length;
+    const groups = [...headGroups, ...Array(zeros).fill("0"), ...restGroups];
+    return groups.flatMap((group) => {
+        const value = parseInt(group, 16);
+        return [value >> 8, value & 0xff];
+    });
+}
+/** The IPv4 address inside an IPv4-mapped IPv6 one (`::ffff:a.b.c.d`). */
+function mappedIpv4(bytes) {
+    if (bytes.length !== 16)
+        return undefined;
+    const isMapped = bytes.slice(0, 10).every((byte) => byte === 0) && bytes[10] === 0xff && bytes[11] === 0xff;
+    return isMapped ? bytes.slice(12) : undefined;
+}
+function formatBytes(bytes) {
+    if (bytes.length === 4)
+        return bytes.join(".");
+    const groups = [];
+    for (let index = 0; index < bytes.length; index += 2) {
+        groups.push((((bytes[index] ?? 0) << 8) | (bytes[index + 1] ?? 0)).toString(16));
+    }
+    return groups.join(":");
+}
 function warnAmbiguousAddress(warn, peer, bucket) {
     if (warn === undefined)
         return;
-    const at = Date.now();
-    if (at - lastAmbiguousWarnAt < LOCKOUT_AMBIGUOUS_ADDRESS_WARN_INTERVAL_SECONDS * 1000)
+    const now = Date.now();
+    if (now - lastAmbiguousWarnAt < LOCKOUT_AMBIGUOUS_ADDRESS_WARN_INTERVAL_SECONDS * 1000) {
         return;
-    lastAmbiguousWarnAt = at;
-    warn({ peer: peer ?? null, bucket }, "no client address available for the login lockout: the peer is loopback (or unreported) " +
-        "and no X-Forwarded-For arrived, so every caller now shares one failure counter and five " +
-        "failures anywhere will answer 429 to everybody. Check that the reverse proxy sets " +
-        "X-Forwarded-For and that nothing proxies in front of it.");
+    }
+    lastAmbiguousWarnAt = now;
+    warn({ peer: peer ?? null, bucket }, "no client address available for the login lockout: the peer is loopback or a trusted " +
+        "proxy (or unreported) and no X-Forwarded-For arrived, so every caller now shares one " +
+        "failure counter and five failures anywhere will answer 429 to everybody. Check that " +
+        "the reverse proxy sets X-Forwarded-For and that nothing proxies in front of it.");
+}
+function warnIgnoredForwarded(warn, peer) {
+    if (warn === undefined)
+        return;
+    const now = Date.now();
+    if (now - lastIgnoredForwardedWarnAt < LOCKOUT_AMBIGUOUS_ADDRESS_WARN_INTERVAL_SECONDS * 1000) {
+        return;
+    }
+    lastIgnoredForwardedWarnAt = now;
+    warn({ peer }, "X-Forwarded-For ignored for the login lockout: the peer is not loopback and not in " +
+        "AUTH_TRUSTED_PROXIES (wardAuth's trustedProxies), so the lockout keys on the peer " +
+        "itself. If the peer is the reverse proxy, every caller now shares one failure counter " +
+        "and five failures anywhere will answer 429 to everybody; add the proxy's network to " +
+        "AUTH_TRUSTED_PROXIES.");
 }
 function lastForwardedAddress(forwardedFor) {
     if (forwardedFor === undefined)
@@ -928,7 +1098,10 @@ function lastForwardedAddress(forwardedFor) {
 }
 /**
  * Trim, strip an IPv6 zone or an IPv4-mapped prefix, lowercase.
- * `::ffff:127.0.0.1` and `127.0.0.1` must not be two counters.
+ *
+ * `::ffff:127.0.0.1` and `127.0.0.1` are the same address and must not be two
+ * counters — otherwise an attacker gets 2× the attempts by picking a stack. The
+ * same normalisation is why an IPv4-mapped peer matches an IPv4 trusted range.
  */
 function normaliseAddress(address) {
     if (address === undefined || address === null)
@@ -940,16 +1113,15 @@ function normaliseAddress(address) {
     const bracketed = /^\[([^\]]+)\](?::\d+)?$/.exec(value);
     if (bracketed?.[1] !== undefined)
         value = bracketed[1];
-    if (value.startsWith("::ffff:"))
+    // Only the dotted spelling is unwrapped here; slicing the prefix off the hex
+    // one (`::ffff:ac13:3`) would leave something that is not an address at all.
+    if (/^::ffff:\d+\.\d+\.\d+\.\d+$/.test(value))
         value = value.slice("::ffff:".length);
     // An IPv6 scope id (`fe80::1%eth0`) is not part of the address identity.
     const percent = value.indexOf("%");
     if (percent !== -1)
         value = value.slice(0, percent);
     return value.length > 0 ? value : undefined;
-}
-function isLoopback$1(address) {
-    return address === "::1" || address === "127.0.0.1" || address.startsWith("127.");
 }
 
 /**
@@ -4537,6 +4709,7 @@ const wardAuthPlugin = async (app, options) => {
     const now = options.now ?? (() => Date.now());
     const routePrefix = normaliseRoutePrefix(options.routePrefix ?? "/auth");
     const lockout = options.lockout ?? createLockout({ now });
+    const trustedProxies = resolveTrustedProxies(options.trustedProxies);
     const appValidators = options.validateSession === undefined
         ? []
         : Array.isArray(options.validateSession)
@@ -4601,6 +4774,7 @@ const wardAuthPlugin = async (app, options) => {
     }
     function lockoutKey(request) {
         return lockoutKeyFor(request.socket.remoteAddress, request.headers["x-forwarded-for"], {
+            trustedProxies,
             warn: (detail, message) => request.log.warn(detail, message),
         });
     }
@@ -4867,6 +5041,22 @@ function parseOrigin(value) {
     }
     return url.origin;
 }
+/**
+ * The option if it was given, else `AUTH_TRUSTED_PROXIES`, parsed once. A bad
+ * entry throws here, at registration, naming where it came from — so a typo
+ * stops the boot instead of quietly trusting the wrong peers.
+ */
+function resolveTrustedProxies(option) {
+    const [entries, source] = option === undefined
+        ? [process.env["AUTH_TRUSTED_PROXIES"] ?? "", "AUTH_TRUSTED_PROXIES"]
+        : [option, "trustedProxies"];
+    try {
+        return parseTrustedProxies(entries);
+    }
+    catch (error) {
+        throw new TypeError(`wardAuth: ${source}: ${error.message}`, { cause: error });
+    }
+}
 function normaliseRoutePrefix(prefix) {
     const trimmed = prefix.replace(/\/+$/, "");
     if (trimmed.length > 0 && !trimmed.startsWith("/")) {
@@ -4883,4 +5073,4 @@ function normalisePublicRoute(entry) {
     return `${match[1] ?? "*"} ${match[2]}`;
 }
 
-export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, verifyPassword, wardAuth, wardClientOptionsFromEnv };
+export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, parseTrustedProxies, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, verifyPassword, wardAuth, wardClientOptionsFromEnv };

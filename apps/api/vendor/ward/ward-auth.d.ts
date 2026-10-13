@@ -1,4 +1,4 @@
-// ward-auth 0.2.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { FastifyRequest, preHandlerAsyncHookHandler, FastifyPluginAsync } from 'fastify';
 
@@ -521,15 +521,52 @@ interface LockoutOptions {
     now?: () => number;
 }
 declare function createLockout(options?: LockoutOptions): Lockout;
+/**
+ * One trusted-proxy entry, parsed: an address range a socket peer can fall in.
+ *
+ * Built only by `parseTrustedProxies`, which is what guarantees the invariants
+ * the matcher relies on — `bytes` is 4 or 16 long, `prefix` is in range, and no
+ * bit past `prefix` is set.
+ */
+interface TrustedProxyRange {
+    /** The entry as configured, trimmed. For messages; never matched against. */
+    readonly source: string;
+    /**
+     * The network address: 4 bytes for IPv4, 16 for IPv6. An IPv4-mapped IPv6
+     * entry (`::ffff:10.0.0.0/104`) is stored as the IPv4 range it means, because
+     * peers are compared in the same normalised form.
+     */
+    readonly bytes: readonly number[];
+    /** How many leading bits of a peer must equal `bytes`. */
+    readonly prefix: number;
+}
+/**
+ * The parsed trusted-proxy list `lockoutKeyFor` takes. Parse it **once** — the
+ * plugin does it at registration, from its `trustedProxies` option or
+ * `AUTH_TRUSTED_PROXIES` — never per request, so a malformed entry is a
+ * refusal to start rather than a `500` on every login.
+ */
+type TrustedProxies = readonly TrustedProxyRange[];
 /** How `lockoutKeyFor` reports a misconfiguration it cannot fix. */
 interface LockoutKeyOptions {
     /**
      * Called — at most once per `LOCKOUT_AMBIGUOUS_ADDRESS_WARN_INTERVAL_SECONDS`
-     * per process — when no client address could be derived and every caller
-     * therefore shares one bucket. Shaped `(detail, message)` so a pino logger
-     * can be passed straight through.
+     * per process for each of two conditions — when the derived key is probably
+     * not the client:
+     *
+     * - no client address could be derived, so every caller shares one bucket;
+     * - an `X-Forwarded-For` arrived from a peer that is not trusted and was
+     *   ignored, which is what a proxy missing from `trustedProxies` looks like.
+     *
+     * Shaped `(detail, message)` so a pino logger can be passed straight through.
      */
     warn?: (detail: Record<string, unknown>, message: string) => void;
+    /**
+     * Peers, beyond loopback, whose `X-Forwarded-For` is believed. From
+     * `parseTrustedProxies`. Absent or empty means loopback only, which is the
+     * pre-container behaviour: nothing loosens unless it is configured.
+     */
+    trustedProxies?: TrustedProxies;
 }
 /**
  * The lockout key for an HTTP request, given the socket peer and whatever
@@ -537,28 +574,56 @@ interface LockoutKeyOptions {
  *
  * ## Why this is not just `request.ip`
  *
- * Every app binds loopback behind Caddy, so **every** request's socket peer is
- * `127.0.0.1`. Fastify's `request.ip` is the socket peer unless `trustProxy`
+ * Every app sits behind Caddy, so **every** request's socket peer is the proxy,
+ * not the client. Fastify's `request.ip` is the socket peer unless `trustProxy`
  * is configured — so keying on it gives the entire internet one shared
  * counter, and the sixth failed login anywhere locks out everybody. That is a
  * self-inflicted outage dressed as a security control.
  *
  * ## Why trusting the header here is safe, and only here
  *
- * The header is honoured **only when the peer is loopback**, which on the VPS
- * means the request came through Caddy, and Caddy *appends* the peer it saw.
- * So the **last** element is the address Caddy observed, and a client that
- * sends `X-Forwarded-For: 1.2.3.4` only prepends a value nobody reads. Taking
- * the first element — the usual convention — would be the spoofable choice.
- * If the peer is *not* loopback the app is reachable directly and the header
- * is ignored in favour of the real socket address.
+ * The header is honoured **only when the peer is loopback or inside a trusted
+ * range**, which means the request came through the app's own proxy, and Caddy
+ * *appends* the peer it saw. So the **last** element is the address Caddy
+ * observed, and a client that sends `X-Forwarded-For: 1.2.3.4` only prepends a
+ * value nobody reads. Taking the first element — the usual convention — would
+ * be the spoofable choice. It does not walk leftwards past trusted elements
+ * either: a trusted range is a Docker bridge network, and anything on it could
+ * then pick its bucket by prepending. If the peer is neither, the app is
+ * reachable directly and the header is ignored in favour of the socket address.
  *
- * ## The loopback-with-no-header case is loud, not silent
+ * ## Why loopback alone stopped being enough
  *
- * It still **fails closed** into one shared bucket (a per-request bucket would
- * disable the lockout outright), and says so through `options.warn`.
+ * In a container that publishes `127.0.0.1:<port>`, host Caddy reaches the app
+ * through Docker's proxy and the peer is a bridge address, never loopback.
+ * Loopback-only trust (0.1.0 and 0.2.0) then ignored the header for every
+ * request and the whole internet shared one counter — Ward's brief 28.
+ * `trustedProxies` names the bridge ranges; loopback is trusted without being
+ * listed.
+ *
+ * ## Both misconfigurations are loud, not silent
+ *
+ * A trusted peer with no forwarded address still **fails closed** into one
+ * shared bucket (a per-request bucket would disable the lockout outright), and
+ * says so through `options.warn`. So does a header from an untrusted peer, which
+ * is what a proxy missing from `trustedProxies` looks like.
  */
 declare function lockoutKeyFor(socketAddress: string | undefined | null, forwardedFor: string | string[] | undefined, options?: LockoutKeyOptions): string;
+/**
+ * Parse a trusted-proxy list: addresses or CIDR ranges, IPv4 or IPv6, given as
+ * an array or as one comma-separated string (`AUTH_TRUSTED_PROXIES`). Blank
+ * entries are skipped, so an empty string is an empty list.
+ *
+ * **Throws** a `TypeError` naming the entry on anything it cannot read exactly.
+ * Each refusal is a typo that would otherwise widen or narrow trust silently:
+ *
+ * - not an address, a prefix out of range, or a zone id;
+ * - host bits set past the prefix (`172.19.0.3/16`) — most tools mask that
+ *   quietly, but it is as likely a mistyped prefix as a mistyped address;
+ * - a `/0`, which trusts every peer and so lets any client that reaches the
+ *   service directly pick its own lockout bucket.
+ */
+declare function parseTrustedProxies(entries: string | readonly string[]): TrustedProxies;
 
 /**
  * The shortest password the library will hash.
@@ -1151,6 +1216,7 @@ declare const FRESH_SIGN_IN_SECONDS: number;
  *   publicOrigin: "https://example.com",
  *   routePrefix: "/auth",             // Fastify-side; routes are /auth/login …
  *   publicRoutes: ["GET /health"],
+ *   // trustedProxies: omitted, so AUTH_TRUSTED_PROXIES from the environment
  *   ward: {                           // optional: "Sign in with Ward"
  *     client: wardClient,             // await createWardClient(...)
  *     loginPath: "/atrium/login",
@@ -1292,6 +1358,21 @@ interface WardAuthOptions {
     ward?: WardSignInOptions;
     /** Shared counter, if the app wants one across plugins. A fresh one otherwise. */
     lockout?: Lockout;
+    /**
+     * Socket peers, beyond loopback, whose `X-Forwarded-For` the lockout
+     * believes: addresses or CIDR ranges, IPv4 or IPv6, e.g. `["172.16.0.0/12"]`.
+     *
+     * **Absent, the plugin reads `AUTH_TRUSTED_PROXIES`** (comma-separated) from
+     * the environment, so a deploy can fix a containerised app without a code
+     * change. Present — even `[]` — it is used as given and the environment is
+     * not read. Neither set means loopback only.
+     *
+     * An app in a container needs it: host Caddy reaches the container through
+     * Docker's proxy, the peer is a bridge address, and without it every request
+     * keys on that one address. A malformed entry, or a `/0`, throws at
+     * registration. See `lockoutKeyFor`.
+     */
+    trustedProxies?: readonly string[];
     /** Epoch milliseconds, for cookie `Max-Age`. Must match the one `accounts` uses. */
     now?: () => number;
 }
@@ -1306,5 +1387,5 @@ declare const wardAuth: FastifyPluginAsync<WardAuthOptions>;
  */
 declare function requireRole(...roles: string[]): preHandlerAsyncHookHandler;
 
-export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, verifyPassword, wardAuth, wardClientOptionsFromEnv };
-export type { Accounts, AccountsOptions, AuthContext, AuthStore, AuthUser, Awaitable, CookieOptions, Lockout, LockoutDecision, LockoutKeyOptions, LockoutOptions, LockoutSurface, LockoutTarget, Migration, NewLinkedUserInput, NewUserInput, NewUserRecord, ResolvedSession, SeedResult, SeedUser, SessionOrigin, SessionRecord, SessionValidator, SessionVerdict, SqlValue, SqliteAuthStore, SqliteHandle, SqliteStatement, SqliteStoreOptions, StartSessionOptions, SyncStore, UserRecord, WardAuthOptions, WardAuthStore, WardClient, WardClientOptions, WardFlowSecrets, WardIdentities, WardIdentitiesOptions, WardIdentity, WardLinkRecord, WardNotification, WardSessionStatus, WardSignInOptions };
+export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, parseTrustedProxies, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, verifyPassword, wardAuth, wardClientOptionsFromEnv };
+export type { Accounts, AccountsOptions, AuthContext, AuthStore, AuthUser, Awaitable, CookieOptions, Lockout, LockoutDecision, LockoutKeyOptions, LockoutOptions, LockoutSurface, LockoutTarget, Migration, NewLinkedUserInput, NewUserInput, NewUserRecord, ResolvedSession, SeedResult, SeedUser, SessionOrigin, SessionRecord, SessionValidator, SessionVerdict, SqlValue, SqliteAuthStore, SqliteHandle, SqliteStatement, SqliteStoreOptions, StartSessionOptions, SyncStore, TrustedProxies, TrustedProxyRange, UserRecord, WardAuthOptions, WardAuthStore, WardClient, WardClientOptions, WardFlowSecrets, WardIdentities, WardIdentitiesOptions, WardIdentity, WardLinkRecord, WardNotification, WardSessionStatus, WardSignInOptions };

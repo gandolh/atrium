@@ -70,7 +70,7 @@ EPUB→PDF conversion *discards* reflow (EPUB's best trait), so it is strictly a
 reading stays the star. See [decisions.md](decisions.md).
 
 ## Runs
-**Deployed** at https://gandolh.ro/atrium/ behind Ward, the estate's sign-in
+**Deployed** on the production site at `/atrium/`, behind Ward, the estate's sign-in
 (D53): the web app is a static build served by Caddy, and the API runs as a
 container (`infrastructure/Dockerfile`, `infrastructure/docker-compose.yml`)
 that vps-deploy builds on the VPS. **Calibre lives in that image**, not on the

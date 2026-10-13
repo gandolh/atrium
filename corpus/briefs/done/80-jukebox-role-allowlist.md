@@ -70,7 +70,7 @@ is `{atrium: ["user"]}` (`test/fake-ward.ts:19`).
 ## Owner steps
 
 These are manual. Nothing in the repo holds a credential.
-1. **Production Ward**: in the console at `https://gandolh.ro/ward/`, signed in
+1. **Production Ward**: in the console at `/ward/` on the production site, signed in
    as superuser, create the account `discord-bot` with a long generated
    password. Grant it `atrium` with role `jukebox`, and nothing else. Put the
    username and password only in just-a-bot's `bots/discord/.env`, which

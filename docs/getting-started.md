@@ -90,7 +90,7 @@ The API tests run on a harness that cannot reach the real library ([corpus/wiki/
 
 ## The docs site
 
-The site at https://gandolh.ro/atrium/docs/ is the workspace in `apps/docs` (Starlight). It renders the `corpus/` wiki, adds a route table and the database schema, and generates a TypeScript reference with TypeDoc. Its scripts are in `apps/docs/package.json`.
+The site at `/atrium/docs/` is the workspace in `apps/docs` (Starlight). It renders the `corpus/` wiki, adds a route table and the database schema, and generates a TypeScript reference with TypeDoc. Its scripts are in `apps/docs/package.json`.
 
 ## Common problems
 

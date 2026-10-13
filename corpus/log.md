@@ -2203,7 +2203,7 @@ Verified in a headless browser against the local Ward on scratch storage roots:
 signing in came back to the profile picker and then the library; with the atrium
 grant revoked the page said the account has no access, with no loop; with Ward
 stopped the API answered 503 `IDENTITY_UNAVAILABLE` once the 30-second cache ran
-out. A production-env build still carries `https://gandolh.ro/atrium-api` and the
+out. A production-env build still carries the absolute production URL for `/atrium-api` and the
 relative `/ward/login?next=`, with no `localhost` anywhere in `dist`.
 
 **Brief 65 stays in `todo/`** for two things: CORS still reflects any origin

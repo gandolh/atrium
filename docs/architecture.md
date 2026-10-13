@@ -41,4 +41,4 @@ In the deploy, Caddy serves the built client at `/atrium/` and forwards `/atrium
 - [corpus/wiki/api-layering.md](../corpus/wiki/api-layering.md): the API's modules and layer rules
 - [corpus/wiki/reader.md](../corpus/wiki/reader.md), [conversion.md](../corpus/wiki/conversion.md), [pwa.md](../corpus/wiki/pwa.md), [latex.md](../corpus/wiki/latex.md), [typeset.md](../corpus/wiki/typeset.md), [jukebox.md](../corpus/wiki/jukebox.md): one subsystem each
 - [corpus/wiki/decisions.md](../corpus/wiki/decisions.md): why things are the way they are
-- The docs site's [route table](https://gandolh.ro/atrium/docs/api/) and [database schema](https://gandolh.ro/atrium/docs/data/)
+- The docs site's [route table](../apps/docs/src/content/docs/api.mdx) and [database schema](../apps/docs/src/content/docs/data.mdx)

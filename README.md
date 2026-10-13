@@ -6,7 +6,7 @@ A private library and reading room for one household: your own books, music and 
   <img src="docs/images/hero.webp" width="100%" alt="Atrium's library page: a Continue card for Pride and Prejudice with the time left, filter chips for Books, Music and Video, and a grid of public-domain book covers">
 </p>
 
-**Status:** Personal project, built and used by its owner. Deployed at https://gandolh.ro/atrium/ behind the estate's sign-in, with no public sign-up. The newest part, the Jukebox (a remote for a Discord music bot), is built but waits on a deploy.
+**Status:** Personal project, built and used by its owner. Deployed on the production site at `/atrium/`, behind the estate's sign-in, with no public sign-up. The newest part, the Jukebox (a remote for a Discord music bot), is built but waits on a deploy.
 
 ## What it does
 
@@ -66,7 +66,7 @@ Then open http://localhost:5173/atrium/ and sign in through Ward. Starting Ward,
 ## Docs
 
 - [docs/](docs/README.md): setup, architecture and the images used here
-- Docs site: https://gandolh.ro/atrium/docs/ (source in `apps/docs`)
+- Docs site: served at `/atrium/docs/` (source in `apps/docs`)
 - Project wiki: [corpus/](corpus/index.md), with the decisions, glossary, status and briefs
 
 ## License

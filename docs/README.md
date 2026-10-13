@@ -10,5 +10,5 @@ Start with the [main README](../README.md). This folder holds what it links to.
 
 Going deeper:
 
-- Docs site: https://gandolh.ro/atrium/docs/ (built from `apps/docs`), with the wiki, the HTTP route table, the database schema and a TypeScript reference
+- Docs site: served at `/atrium/docs/` (built from `apps/docs`), with the wiki, the HTTP route table, the database schema and a TypeScript reference
 - Project wiki: [corpus/](../corpus/index.md), with the decisions, glossary, status and briefs

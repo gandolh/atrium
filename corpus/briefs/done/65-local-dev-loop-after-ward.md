@@ -20,7 +20,7 @@ even with every other brief applied, fails like this:
    `:3001` to `:5173`.
 2. **There is no session to send anyway.** `ward_session` is set by Ward on the
    shared origin. Nothing in this repository runs Ward, and `.env.example`
-   carries production values only (`WARD_PUBLIC_ORIGIN=https://gandolh.ro`).
+   carries production values only (`WARD_PUBLIC_ORIGIN=https://example.com`).
 3. **The login redirect goes nowhere.** `wardLoginUrl()` returns the relative
    `/ward/login?next=/atrium/`
    ([`ward.ts:150-163`](../../../apps/web/src/lib/ward.ts)). In dev that is the

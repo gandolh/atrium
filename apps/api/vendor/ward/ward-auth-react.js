@@ -1,4 +1,4 @@
-// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { useState, useCallback, useSyncExternalStore, useEffect } from 'react';
 
@@ -396,7 +396,7 @@ function useWardResult(options) {
  * When Ward sends the person back with a failure, the page loads with
  * `?ward_error=<code>` and `error` starts as that: `access_denied` (no grant,
  * a disabled account, or they pressed "Back to the app"), `invalid_callback`,
- * `ward_unavailable`. `reset()` dismisses it. Show the button only when
+ * `ward_unavailable`, `sign_in_failed`. `reset()` dismisses it. Show the button only when
  * `useSession().ward.enabled`.
  */
 function useWardSignIn(options) {
@@ -415,8 +415,8 @@ function useWardSignIn(options) {
  * Settings: "Link Ward". `link()` sends the browser to Ward; the settings
  * page then loads with `linked` true, or with `error` set to
  * `already_linked`, `ward_account_in_use`, `access_denied`,
- * `invalid_callback` or `unauthorized` (the session that started the link
- * had ended). Show it when `useSession().ward.enabled && !ward.linked`.
+ * `invalid_callback`, `sign_in_failed` or `unauthorized` (the session that
+ * started the link had ended). Show it when `useSession().ward.enabled && !ward.linked`.
  */
 function useWardLink(options) {
     const client = useClient(options);
@@ -459,10 +459,14 @@ function useWardUnlink(options) {
  * Settings: "Set a local password", so a user created from Ward can still
  * get in while Ward is down. For a user who has a password,
  * `setPassword(next, current)` (a password change). For one who has none,
- * `setPassword(next)` works within ten minutes of a Ward sign-in; after that
- * it fails with `reauthentication_required` — call `reauthenticate()`, which
- * sends the person through Ward (asking for their Ward password) and back to
- * settings with `reauthenticated` true. Other errors: `invalid_credentials`,
+ * `setPassword(next)` works only within ten minutes of `reauthenticate()`,
+ * which sends the person through Ward (asking for their Ward password) and
+ * back to settings with `reauthenticated` true. A Ward sign-in does not
+ * count, however recent, so offer `reauthenticate()` first, or on
+ * `reauthentication_required`. A failed reauthentication lands on settings
+ * with `?ward_error=` (`invalid_callback`, `ward_account_mismatch`,
+ * `access_denied`, `sign_in_failed`), which `useWardResult` reads; this
+ * hook's `error` does not. Other errors: `invalid_credentials`,
  * `password_too_short`, `password_too_long`, `too_many_attempts`.
  */
 function useSetLocalPassword(options) {

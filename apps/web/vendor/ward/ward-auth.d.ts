@@ -1,4 +1,4 @@
-// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { FastifyRequest, preHandlerAsyncHookHandler, FastifyPluginAsync } from 'fastify';
 
@@ -145,6 +145,13 @@ interface WardAuthStore extends AuthStore {
     deleteUserWardSessions(userId: string): Awaitable<number>;
     setSessionWardIdToken(idHash: string, idToken: string): Awaitable<void>;
     findSessionWardIdToken(idHash: string): Awaitable<string | undefined>;
+    /**
+     * Record that this session just came back from a verified Ward
+     * reauthentication (epoch ms). What setting a first local password checks.
+     */
+    setSessionReauthenticatedAt(idHash: string, at: number): Awaitable<void>;
+    /** `undefined` for a session that never reauthenticated, or no such session. */
+    findSessionReauthenticatedAt(idHash: string): Awaitable<number | undefined>;
 }
 /** Whether a store has the Ward methods (a custom `AuthStore` may not). */
 declare function isWardAuthStore(store: AuthStore): store is WardAuthStore;
@@ -707,7 +714,7 @@ declare function spendDummyHash(password: string): Promise<false>;
  * Add an entry at the **end** with the next `version`. Never edit or reorder
  * one that has shipped: a vendored copy in some app has already applied it,
  * and the runner records versions, not contents. Version 2 (0.2.0) added the
- * Ward link table this way.
+ * Ward link table this way, and version 3 (0.3.1) a session column.
  *
  * ## The SQL is the intersection of two drivers
  *
@@ -945,6 +952,14 @@ interface WardIdentity {
     wardSid: string;
     /** The raw ID token, kept as the `id_token_hint` for "sign out of Ward too". */
     idToken: string;
+    /**
+     * `auth_time`, epoch seconds: when the person last typed their Ward
+     * password. Ward sends it only when the request asked (`prompt=login` or
+     * `max_age`), so a plain sign-in usually has none.
+     */
+    authTime?: number;
+    /** `iat`, epoch seconds: when Ward issued the ID token, on Ward's clock. */
+    issuedAt?: number;
 }
 /** The secrets one authorization round trip carries in the flow cookie. */
 interface WardFlowSecrets {
@@ -973,7 +988,8 @@ interface WardClient {
     /**
      * The authorization URL to send the browser to, and the secrets to keep
      * for the callback. `prompt: "login"` makes Ward ask for the password even
-     * with a live Ward session (a fresh sign-in). Throws `WardUnavailableError`.
+     * with a live Ward session, and makes the ID token carry `auth_time`.
+     * Throws `WardUnavailableError`.
      */
     startAuthorization(options?: {
         prompt?: "login";
@@ -1140,7 +1156,7 @@ declare class InvalidClientKeyError extends Error {
  * | `POST /ward/start` | public | sign-in: answers `{ url }` to send the browser to |
  * | `GET /ward/callback` | public | the redirect URI; ends in a `303` to an app page |
  * | `POST /ward/link` | session | link Ward from settings: `{ url }` |
- * | `POST /ward/reauthenticate` | session | a fresh Ward sign-in (`prompt=login`): `{ url }` |
+ * | `POST /ward/reauthenticate` | session | Ward asks for the password again (`prompt=login`): `{ url }` |
  * | `POST /ward/unlink` | session | `{ signedOut }`; `409 no_local_password` / `not_linked` |
  * | `POST /ward/set-password` | session | `204`; `403 reauthentication_required` |
  * | `POST /ward/logout` | session | ends the session here: `{ url }` of Ward's end-session, or `null` |
@@ -1174,8 +1190,28 @@ declare class InvalidClientKeyError extends Error {
  * - link: `settingsPath?ward=linked`, or `settingsPath?ward_error=<code>`;
  * - reauthenticate: `settingsPath?ward=reauthenticated`, or the error.
  *
+ * Anything unexpected after the code exchange (the store failing, an app's
+ * `roleFor` throwing) is logged and lands on the same error page with
+ * `ward_error=sign_in_failed`, never a raw `500` on a top-level navigation.
+ *
  * The codes are stable and the React hooks expose them; the app writes the
  * words.
+ *
+ * ## Setting a first local password
+ *
+ * A user created from Ward has no local password. Setting one needs a
+ * **reauthentication** in the last ten minutes, recorded on the session, and
+ * nothing else counts: not a Ward sign-in, however recent. `POST /ward/start`
+ * is public, and with a live Ward session Ward answers it without asking for
+ * anything, so "signed in with Ward a minute ago" proves nothing about who is
+ * at the keyboard.
+ *
+ * A reauthentication is the `reauthenticate` round trip, which asks Ward for
+ * `prompt=login`. Ward then makes the person type their password even with a
+ * live Ward session. The callback does not take that on trust: the ID token
+ * must carry `auth_time` no more than two minutes before its own `iat` (both
+ * Ward's clock), or the round trip fails as `invalid_callback`. Only then is
+ * the session stamped.
  */
 /** The `ward` option of `wardAuth`. */
 interface WardSignInOptions {
@@ -1202,7 +1238,11 @@ interface WardSignInOptions {
     /** Defaults to `createWardIdentities({ accounts })`. */
     identities?: WardIdentities;
 }
-/** A user may set a first local password this long after a Ward sign-in. */
+/**
+ * A user with no local password may set one this long after a verified Ward
+ * reauthentication (`POST /ward/reauthenticate`). A plain Ward sign-in does
+ * not count.
+ */
 declare const FRESH_SIGN_IN_SECONDS: number;
 
 /**

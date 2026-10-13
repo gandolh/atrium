@@ -1,4 +1,4 @@
-// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 /**
  * The browser half, without React: a small client for the plugin's routes and
@@ -48,16 +48,21 @@ interface WardStatus {
  * - `ward_session_ended` — a session `reason`: the Ward session it began with
  *   was signed out or revoked.
  * - `invalid_callback` — the round trip could not be completed (it expired,
- *   was started in another tab, or was tampered with). Try again.
+ *   was started in another tab, or was tampered with; for a reauthentication,
+ *   also when Ward's answer does not show a password typed for it). Try again.
+ * - `sign_in_failed` — Ward's answer was fine but the app failed finishing
+ *   the sign-in, link or reauthentication (logged on the server). Try again;
+ *   if it persists, it is an operator problem.
  * - `already_linked`, `ward_account_in_use` — linking: this user already has
  *   a Ward account, or that Ward account belongs to another user here.
  * - `ward_account_mismatch` — reauthentication came back as another Ward
  *   account.
  * - `not_linked`, `no_local_password` — unlinking.
  * - `reauthentication_required` — setting a first local password needs a
- *   Ward sign-in from the last ten minutes.
+ *   reauthentication (`reauthenticate()`) from the last ten minutes. A plain
+ *   Ward sign-in does not count, however recent.
  */
-type AuthErrorCode = "invalid_request" | "invalid_credentials" | "invalid_username" | "password_too_short" | "password_too_long" | "username_taken" | "too_many_attempts" | "unauthorized" | "forbidden" | "cross_site" | "network" | "unknown" | "access_denied" | "ward_unavailable" | "ward_misconfigured" | "ward_session_ended" | "invalid_callback" | "already_linked" | "ward_account_in_use" | "ward_account_mismatch" | "not_linked" | "no_local_password" | "reauthentication_required" | (string & {});
+type AuthErrorCode = "invalid_request" | "invalid_credentials" | "invalid_username" | "password_too_short" | "password_too_long" | "username_taken" | "too_many_attempts" | "unauthorized" | "forbidden" | "cross_site" | "network" | "unknown" | "access_denied" | "ward_unavailable" | "ward_misconfigured" | "ward_session_ended" | "invalid_callback" | "sign_in_failed" | "already_linked" | "ward_account_in_use" | "ward_account_mismatch" | "not_linked" | "no_local_password" | "reauthentication_required" | (string & {});
 interface AuthError {
     code: AuthErrorCode;
     /** The HTTP status, when there was a response. */
@@ -91,7 +96,7 @@ type SessionState = {
  * the address bar so a reload does not show it again.
  */
 interface WardResult {
-    /** `linked` after a link, `reauthenticated` after a fresh Ward sign-in. */
+    /** `linked` after a link, `reauthenticated` after a verified reauthentication. */
     result?: "linked" | "reauthenticated";
     error?: AuthError;
 }
@@ -146,13 +151,14 @@ interface AuthClient {
     }): Promise<ActionResult>;
     /** "Link Ward", from settings while signed in. Navigates to Ward. */
     startWardLink(): Promise<ActionResult>;
-    /** A fresh Ward sign-in (Ward asks for the password again). Navigates to Ward. */
+    /** Reauthenticate with Ward (Ward asks for the password again). Navigates to Ward. */
     startWardReauthentication(): Promise<ActionResult>;
     /** Unlink Ward. The state becomes signed out if this session began with Ward. */
     unlinkWard(): Promise<ActionResult>;
     /**
      * Set a local password: give the current one if there is one; a user with
-     * none needs a fresh Ward sign-in (`reauthentication_required` otherwise).
+     * none needs `startWardReauthentication()` in the last ten minutes
+     * (`reauthentication_required` otherwise; a Ward sign-in does not count).
      */
     setLocalPassword(newPassword: string, currentPassword?: string): Promise<ActionResult>;
     /** Sign out here and at Ward. Navigates to Ward's end-session page when there is one. */
@@ -245,7 +251,7 @@ declare function useWardResult(options?: HookOptions): WardResult & {
  * When Ward sends the person back with a failure, the page loads with
  * `?ward_error=<code>` and `error` starts as that: `access_denied` (no grant,
  * a disabled account, or they pressed "Back to the app"), `invalid_callback`,
- * `ward_unavailable`. `reset()` dismisses it. Show the button only when
+ * `ward_unavailable`, `sign_in_failed`. `reset()` dismisses it. Show the button only when
  * `useSession().ward.enabled`.
  */
 declare function useWardSignIn(options?: HookOptions): ActionState & {
@@ -257,8 +263,8 @@ declare function useWardSignIn(options?: HookOptions): ActionState & {
  * Settings: "Link Ward". `link()` sends the browser to Ward; the settings
  * page then loads with `linked` true, or with `error` set to
  * `already_linked`, `ward_account_in_use`, `access_denied`,
- * `invalid_callback` or `unauthorized` (the session that started the link
- * had ended). Show it when `useSession().ward.enabled && !ward.linked`.
+ * `invalid_callback`, `sign_in_failed` or `unauthorized` (the session that
+ * started the link had ended). Show it when `useSession().ward.enabled && !ward.linked`.
  */
 declare function useWardLink(options?: HookOptions): ActionState & {
     link: () => Promise<boolean>;
@@ -278,10 +284,14 @@ declare function useWardUnlink(options?: HookOptions): ActionState & {
  * Settings: "Set a local password", so a user created from Ward can still
  * get in while Ward is down. For a user who has a password,
  * `setPassword(next, current)` (a password change). For one who has none,
- * `setPassword(next)` works within ten minutes of a Ward sign-in; after that
- * it fails with `reauthentication_required` — call `reauthenticate()`, which
- * sends the person through Ward (asking for their Ward password) and back to
- * settings with `reauthenticated` true. Other errors: `invalid_credentials`,
+ * `setPassword(next)` works only within ten minutes of `reauthenticate()`,
+ * which sends the person through Ward (asking for their Ward password) and
+ * back to settings with `reauthenticated` true. A Ward sign-in does not
+ * count, however recent, so offer `reauthenticate()` first, or on
+ * `reauthentication_required`. A failed reauthentication lands on settings
+ * with `?ward_error=` (`invalid_callback`, `ward_account_mismatch`,
+ * `access_denied`, `sign_in_failed`), which `useWardResult` reads; this
+ * hook's `error` does not. Other errors: `invalid_credentials`,
  * `password_too_short`, `password_too_long`, `too_many_attempts`.
  */
 declare function useSetLocalPassword(options?: HookOptions): ActionState & {

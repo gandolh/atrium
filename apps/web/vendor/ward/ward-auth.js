@@ -1,4 +1,4 @@
-// ward-auth 0.3.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { randomBytes as randomBytes$1, createHash, scrypt as scrypt$1, timingSafeEqual, webcrypto, randomUUID } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -1137,7 +1137,7 @@ function normaliseAddress(address) {
  * Add an entry at the **end** with the next `version`. Never edit or reorder
  * one that has shipped: a vendored copy in some app has already applied it,
  * and the runner records versions, not contents. Version 2 (0.2.0) added the
- * Ward link table this way.
+ * Ward link table this way, and version 3 (0.3.1) a session column.
  *
  * ## The SQL is the intersection of two drivers
  *
@@ -1205,6 +1205,18 @@ const SQLITE_MIGRATIONS = [
       ALTER TABLE auth_sessions ADD COLUMN ward_id_token TEXT;
     `,
     },
+    {
+        version: 3,
+        name: "session_reauthenticated_at",
+        sql: `
+      -- When this session last came back from a Ward round trip that made
+      -- the person type their Ward password (prompt=login, auth_time checked).
+      -- Epoch milliseconds on the app's clock. Setting a first local password
+      -- requires it to be recent; a plain or silent Ward sign-in never sets
+      -- it. NULL until then.
+      ALTER TABLE auth_sessions ADD COLUMN reauthenticated_at INTEGER;
+    `,
+    },
 ];
 
 /**
@@ -1266,7 +1278,9 @@ function isWardAuthStore(store) {
         typeof candidate.deleteWardLink === "function" &&
         typeof candidate.deleteUserWardSessions === "function" &&
         typeof candidate.setSessionWardIdToken === "function" &&
-        typeof candidate.findSessionWardIdToken === "function");
+        typeof candidate.findSessionWardIdToken === "function" &&
+        typeof candidate.setSessionReauthenticatedAt === "function" &&
+        typeof candidate.findSessionReauthenticatedAt === "function");
 }
 
 /** Raised when the database holds a newer schema than this copy knows. */
@@ -1391,6 +1405,8 @@ function createSqliteStore(db, options = {}) {
         deleteUserWardSessions: db.prepare("DELETE FROM auth_sessions WHERE user_id = ? AND origin = 'ward'"),
         setSessionIdToken: db.prepare("UPDATE auth_sessions SET ward_id_token = ? WHERE id_hash = ?"),
         sessionIdToken: db.prepare("SELECT ward_id_token FROM auth_sessions WHERE id_hash = ?"),
+        setReauthenticatedAt: db.prepare("UPDATE auth_sessions SET reauthenticated_at = ? WHERE id_hash = ?"),
+        reauthenticatedAt: db.prepare("SELECT reauthenticated_at FROM auth_sessions WHERE id_hash = ?"),
     };
     function insertUser(user) {
         // Checked inside the caller's savepoint rather than by catching the
@@ -1481,6 +1497,14 @@ function createSqliteStore(db, options = {}) {
         findSessionWardIdToken(idHash) {
             const row = s.sessionIdToken.get(idHash);
             return row?.ward_id_token ?? undefined;
+        },
+        setSessionReauthenticatedAt(idHash, at) {
+            s.setReauthenticatedAt.run(at, idHash);
+        },
+        findSessionReauthenticatedAt(idHash) {
+            const row = s.reauthenticatedAt.get(idHash);
+            const at = row?.reauthenticated_at;
+            return at === undefined || at === null ? undefined : Number(at);
         },
     };
 }
@@ -3899,6 +3923,8 @@ async function createWardClient(options) {
             const wardSid = claims?.["ward_sid"];
             const role = claims?.["ward_role"];
             const username = claims?.["preferred_username"];
+            const authTime = claims?.auth_time;
+            const issuedAt = claims?.iat;
             if (idToken === undefined ||
                 typeof subject !== "string" ||
                 subject.length === 0 ||
@@ -3914,6 +3940,8 @@ async function createWardClient(options) {
                 role,
                 username: typeof username === "string" ? username : "",
                 idToken,
+                ...(typeof authTime === "number" && Number.isFinite(authTime) ? { authTime } : {}),
+                ...(typeof issuedAt === "number" && Number.isFinite(issuedAt) ? { issuedAt } : {}),
             };
         },
         checkSession,
@@ -4045,13 +4073,15 @@ function parseHttpUrl(value, name) {
     }
     return url;
 }
+/**
+ * `localhost`, `::1`, or an IPv4 literal in 127.0.0.0/8. Never a prefix match
+ * on the name: `127.evil.example` is a public host.
+ */
 function isLoopback(hostname) {
     const host = hostname.toLowerCase();
-    return (host === "localhost" ||
-        host === "[::1]" ||
-        host === "::1" ||
-        host === "127.0.0.1" ||
-        host.startsWith("127."));
+    if (host === "localhost" || host === "[::1]" || host === "::1")
+        return true;
+    return isIP(host) === 4 && host.split(".")[0] === "127";
 }
 
 /**
@@ -4188,30 +4218,64 @@ function createWardIdentities(options) {
         },
     };
 }
+/** The name a Ward user gets when `preferred_username` cannot be used. */
+const FALLBACK_USERNAME = "ward-user";
 /**
  * Names to try for a new Ward user: `preferred_username` as Ward has it, then
- * `name-2`, `name-3`, …, then a random suffix. A name that fails the local
- * policy (Ward's rules are not this library's) falls back to `ward-user`.
+ * `name-2`, `name-3`, …, then a random suffix, then `ward-user-<random>`. A
+ * name that fails the local policy (Ward's rules are not this library's)
+ * falls back to `ward-user`. Every name yielded passes the policy, so a
+ * strange `preferred_username` can cost a person their preferred name, never
+ * their sign-in.
  */
 function* candidateUsernames(preferred) {
-    let base;
-    try {
-        base = normaliseUsername(preferred);
+    const seen = new Set();
+    for (const name of rawCandidates(preferred)) {
+        const valid = validUsername(name);
+        if (valid === undefined || seen.has(valid))
+            continue;
+        seen.add(valid);
+        yield valid;
     }
-    catch (error) {
-        if (!(error instanceof UsernamePolicyError))
-            throw error;
-        base = "ward-user";
-    }
+}
+function* rawCandidates(preferred) {
+    const base = validUsername(preferred) ?? FALLBACK_USERNAME;
     yield base;
     for (let n = 2; n <= MAX_NAME_SUFFIX; n += 1)
         yield withSuffix(base, `-${n}`);
     for (let attempt = 0; attempt < 5; attempt += 1) {
         yield withSuffix(base, `-${generateUserId().slice(0, 8)}`);
     }
+    // Whatever the base was, these always fit the policy.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        yield `${FALLBACK_USERNAME}-${generateUserId().slice(0, 8)}`;
+    }
 }
+function validUsername(name) {
+    try {
+        return normaliseUsername(name);
+    }
+    catch (error) {
+        if (error instanceof UsernamePolicyError)
+            return undefined;
+        throw error;
+    }
+}
+/**
+ * `base` cut to leave room for `suffix` within `MAX_USERNAME_LENGTH` UTF-16
+ * units, then the suffix. Cut by code point, never through a surrogate pair,
+ * and with any trailing space dropped (a cut can land just after one, and
+ * `name -2` is not the name with a suffix).
+ */
 function withSuffix(base, suffix) {
-    return `${base.slice(0, MAX_USERNAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
+    const room = MAX_USERNAME_LENGTH - suffix.length;
+    let kept = "";
+    for (const codePoint of base) {
+        if (kept.length + codePoint.length > room)
+            break;
+        kept += codePoint;
+    }
+    return `${kept.trimEnd()}${suffix}`;
 }
 
 /**
@@ -4290,8 +4354,30 @@ function tooManyAttempts(reply, retryAfterSeconds) {
         .send({ error: "too_many_attempts", retryAfterSeconds });
 }
 
-/** A user may set a first local password this long after a Ward sign-in. */
+/**
+ * A user with no local password may set one this long after a verified Ward
+ * reauthentication (`POST /ward/reauthenticate`). A plain Ward sign-in does
+ * not count.
+ */
 const FRESH_SIGN_IN_SECONDS = 10 * 60;
+/**
+ * A reauthentication counts when Ward says the password was typed at most
+ * this long before it issued the ID token.
+ */
+const REAUTHENTICATION_MAX_AGE_SECONDS = 120;
+/**
+ * Whether the ID token proves a password typed for this round trip: an
+ * `auth_time`, and an `iat`, no more than two minutes apart. A token without
+ * `auth_time` (Ward sends it only for `prompt=login` or `max_age`) never
+ * counts.
+ */
+function isFreshReauthentication(identity) {
+    const { authTime, issuedAt } = identity;
+    if (authTime === undefined || issuedAt === undefined)
+        return false;
+    const age = issuedAt - authTime;
+    return age >= -5 && age <= REAUTHENTICATION_MAX_AGE_SECONDS;
+}
 /** The flow cookie's life: one Ward interaction's span. */
 const FLOW_MAX_AGE_SECONDS = 10 * 60;
 /** Check the `ward` option at boot. Every path is a browser path on the app's origin. */
@@ -4453,10 +4539,12 @@ function registerWardRoutes(routes, context) {
             .header("referrer-policy", "no-referrer")
             .send());
     }
+    /** Start a Ward-originated session and set its cookie. Returns its id hash. */
     async function startSession(reply, userId, wardSid, idToken) {
         const { token, session } = await accounts.startSession(userId, { origin: "ward", wardSid });
         await store.setSessionWardIdToken(session.idHash, idToken);
         reply.header("set-cookie", context.sessionCookie(token, session.expiresAt));
+        return session.idHash;
     }
     /** The live session the request's cookie names, without running the checks. */
     async function currentSession(request) {
@@ -4528,6 +4616,18 @@ function registerWardRoutes(routes, context) {
             }
             return land(reply, errorPage, { ward_error: failure.code });
         }
+        try {
+            return await finishCallback(request, reply, flow, identity);
+        }
+        catch (error) {
+            // A top-level navigation: a raw 500 JSON page helps nobody. Log it and
+            // send the person back where they can try again.
+            request.log.error({ err: error }, "Ward callback failed after the code exchange");
+            return land(reply, errorPage, { ward_error: "sign_in_failed" });
+        }
+    });
+    /** The callback after a verified code exchange: act on the flow's mode. */
+    async function finishCallback(request, reply, flow, identity) {
         if (flow.mode === "sign_in") {
             const { user } = await identities.userForSignIn(identity, ward.roleFor);
             // Signing in on top of an old session replaces it, as a password sign-in does.
@@ -4555,16 +4655,22 @@ function registerWardRoutes(routes, context) {
             }
             return land(reply, ward.settingsPath, { ward: "linked" });
         }
-        // Reauthenticate: the same Ward account must come back, and the session
-        // is replaced by a fresh Ward-originated one, which is what "set a local
+        // Reauthenticate: the same Ward account must come back, having typed its
+        // password for this round trip. The session is replaced by a fresh
+        // Ward-originated one, stamped as reauthenticated: what "set a local
         // password" checks for.
         if ((await identities.subjectOf(current.user.id)) !== identity.subject) {
             return land(reply, ward.settingsPath, { ward_error: "ward_account_mismatch" });
         }
+        if (!isFreshReauthentication(identity)) {
+            request.log.warn({ authTime: identity.authTime ?? null, issuedAt: identity.issuedAt ?? null }, "Ward reauthentication refused: the ID token does not show a password typed for it");
+            return land(reply, ward.settingsPath, { ward_error: "invalid_callback" });
+        }
         await accounts.endSession(current.token);
-        await startSession(reply, current.user.id, identity.wardSid, identity.idToken);
+        const idHash = await startSession(reply, current.user.id, identity.wardSid, identity.idToken);
+        await store.setSessionReauthenticatedAt(idHash, now());
         return land(reply, ward.settingsPath, { ward: "reauthenticated" });
-    });
+    }
     /**
      * Unlink Ward. Refused while the user has no local password, which would
      * lock them out. Ends every Ward-originated session the user holds — this
@@ -4593,10 +4699,11 @@ function registerWardRoutes(routes, context) {
     });
     /**
      * Set a local password. A user who has one must give it (this is then a
-     * password change). A user created from Ward has none, and must have signed
-     * in with Ward within the last ten minutes — `POST /ward/reauthenticate`
-     * gets them there — so a session left open on a shared machine cannot be
-     * turned into a permanent password. Ends the user's other sessions.
+     * password change). A user created from Ward has none, and this session
+     * must have come back from `POST /ward/reauthenticate` within the last ten
+     * minutes, so a session left open on a shared machine cannot be turned
+     * into a permanent password — not even by a silent Ward sign-in on top of
+     * it. Ends the user's other sessions.
      */
     routes.post("/ward/set-password", async (request, reply) => {
         if (!sameOrigin(request, publicOrigin))
@@ -4629,8 +4736,9 @@ function registerWardRoutes(routes, context) {
                 context.lockout.clearFailures(target);
                 return reply.code(204).send();
             }
-            const fresh = auth.session.origin === "ward" &&
-                now() - auth.session.createdAt <= FRESH_SIGN_IN_SECONDS * 1000;
+            const reauthenticatedAt = await store.findSessionReauthenticatedAt(auth.session.idHash);
+            const age = reauthenticatedAt === undefined ? undefined : now() - reauthenticatedAt;
+            const fresh = age !== undefined && age >= 0 && age <= FRESH_SIGN_IN_SECONDS * 1000;
             if (!fresh)
                 return reply.code(403).send({ error: "reauthentication_required" });
             await accounts.setPassword(auth.user.id, body.newPassword, auth.session.idHash);

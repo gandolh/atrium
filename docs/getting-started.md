@@ -5,7 +5,7 @@ Everything needed to run Atrium on your own machine, with your own library or a 
 ## Prerequisites
 
 - Node 24 or later (`.nvmrc` pins 24.14.1) and npm.
-- A local Ward, the estate's sign-in service. Atrium has no accounts, passwords or login page of its own, and the API refuses to start without Ward's three settings. Ward runs in Docker from the sibling repo, `wzd_auth/infrastructure/local`, and answers on http://localhost:8792.
+- Optional: a local Ward, the estate's sign-in service, for the "Sign in with Ward" button. Atrium has its own accounts and runs without it. Ward runs in Docker from the sibling repo, `wzd_auth/infrastructure/local`, and answers on http://localhost:8792.
 - Calibre, optional. Convert shells out to its `ebook-convert`. Without it the API logs a warning at startup and each conversion fails with that reason; everything else works.
 
 ## 1. Install
@@ -16,16 +16,22 @@ npm install
 
 The workspaces are `packages/shared`, `packages/typeset` and `apps/*`. Their npm names keep the old scope, `@ebook-reader/*`.
 
-## 2. Start Ward and seed it
+## 2. Create an account, and optionally start Ward
 
-Follow the README in `wzd_auth/infrastructure/local`. In short, from that folder:
+Atrium signs people in with a local username and password. There is no Register page; make an account with the seed script, which reads `SEED_USERNAME` and `SEED_PASSWORD` from the environment or prompts for them:
+
+```bash
+SEED_USERNAME=you SEED_PASSWORD=... SEED_ROLE=member npm run seed:user -w @ebook-reader/api
+```
+
+For "Sign in with Ward" as well, follow the README in `wzd_auth/infrastructure/local`. In short, from that folder:
 
 ```bash
 docker compose up -d --build
 node seed.mjs
 ```
 
-`seed.mjs` registers atrium, gives your Ward account access to it, and writes `WARD_PUBLIC_ORIGIN`, `WARD_API_BASE_PATH` and a fresh `WARD_APP_KEY` into this repo's `.env`. It is safe to re-run.
+`seed.mjs` registers atrium as an OpenID Connect client and writes `WARD_OIDC_ISSUER`, `WARD_OIDC_CLIENT_ID`, `WARD_OIDC_CLIENT_KEY`, `WARD_OIDC_REDIRECT_URI` and `WARD_OIDC_POST_LOGOUT_REDIRECT_URI` into this repo's `.env`. It is safe to re-run. Skip this step and leave `WARD_OIDC_ISSUER` unset, and the login page has no Ward button.
 
 ## 3. Configure
 
@@ -35,16 +41,20 @@ There is one `.env`, at the repo root, read by both the web app and the API.
 cp .env.example .env
 ```
 
-Then run the seed (step 2) so the Ward values are real. Every variable below is required unless marked optional; the API stops at startup with a list of what is missing.
+To use "Sign in with Ward", run the Ward seed (step 2) so the `WARD_OIDC_*` values are real. Every variable below is required unless marked optional; the API stops at startup with a list of what is missing.
 
 | Variable | Purpose | Value locally |
 |---|---|---|
 | `VITE_API_URL` | Where the browser calls the API | `http://localhost:5173/atrium-api` (the web dev server proxies it) |
 | `BASE_PATH` | Sub-path the web app is served under | `/atrium/` |
 | `PORT`, `HOST` | Where the API listens | `3001`, `0.0.0.0` |
-| `WARD_PUBLIC_ORIGIN` | Ward's origin, also the expected token issuer | `http://localhost:8792` |
-| `WARD_API_BASE_PATH` | Ward's API prefix | `/ward-api` |
-| `WARD_APP_KEY` | Atrium's Ward service key. A secret: server-side only, never logged | written by `seed.mjs` |
+| `PUBLIC_ORIGIN` | Atrium's origin as the browser sees it, no path | `http://localhost:5173` |
+| `WARD_OIDC_ISSUER` | Optional. Ward's issuer, ending in `/oidc`. Unset, atrium runs on local accounts only | `http://localhost:8792/ward-api/oidc` |
+| `WARD_OIDC_CLIENT_ID` | Atrium's client id at Ward, required with the issuer | `atrium` |
+| `WARD_OIDC_CLIENT_KEY` | Atrium's private key at Ward. A secret: server-side only, never logged | written by `seed.mjs` |
+| `WARD_OIDC_REDIRECT_URI` | The callback as the browser reaches it, registered at Ward | `http://localhost:5173/atrium-api/auth/ward/callback` |
+| `WARD_OIDC_POST_LOGOUT_REDIRECT_URI` | Optional. Where Ward returns after "Sign out of Ward too" | `http://localhost:5173/atrium/` |
+| `AUTH_TRUSTED_PROXIES` | Optional. Proxies whose `X-Forwarded-For` the sign-in lockout believes; set it in a container | unset locally |
 | `MAX_UPLOAD_MB` | Largest file one upload may be | `50` |
 | `CONVERT_JOB_TIMEOUT_MS` | Last-resort ceiling on one Convert job | `86400000` (24 hours) |
 | `GUTENDEX_BASE_URL` | Optional. Gutenberg catalog the Discover page queries | public instance when unset |
@@ -61,7 +71,7 @@ npm run dev
 
 This builds `packages/shared` and `packages/typeset`, then runs three processes together: the web app on Vite (port 5173), the API under `tsx watch` (port `PORT`), and a `tsc --watch` on the typesetting engine. Open http://localhost:5173/atrium/.
 
-The web dev server serves everything on one origin, the way Caddy does in the deploy: `/atrium-api` goes to the API (prefix stripped), and `/ward` and `/ward-api` go to Ward. So signing in goes through Ward's page and comes back to the app, and the API never needs CORS. `GET /atrium-api/health` answers without signing in.
+The web dev server serves everything on one origin, the way Caddy does in the deploy: `/atrium-api` goes to the API (prefix stripped), so the API never needs CORS. There is no `/ward` proxy: "Sign in with Ward" sends the browser to Ward's own origin (http://localhost:8792) and back to the callback under `/atrium-api`. `GET /atrium-api/health` answers without signing in.
 
 The API's `API ready` log line lists the five storage roots it is using. Check it whenever you point Atrium at other data.
 
@@ -94,6 +104,7 @@ The site at `/atrium/docs/` is the workspace in `apps/docs` (Starlight). It rend
 
 ## Common problems
 
-- **The page never gets past loading, or says sign-in is unavailable.** The API cannot reach Ward, or Ward refused its app key; either way it answers 503. Check that http://localhost:8792 answers and that `WARD_PUBLIC_ORIGIN` points at it. If it does, re-run `seed.mjs` so `WARD_APP_KEY` is one Ward knows.
-- **You land on Ward's sign-in page in the middle of a session.** The Ward session ran out. Sign in again; it returns you to Atrium.
+- **The API will not start and names a `WARD_OIDC_*` variable.** With `WARD_OIDC_ISSUER` set, the client id, key and redirect URI are required too. Re-run Ward's `seed.mjs`, or unset the issuer to run on local accounts only.
+- **"Sign in with Ward" fails or returns an error.** Check that http://localhost:8792 answers and that `WARD_OIDC_ISSUER` points at it. The redirect URI in `.env` must match the one registered at Ward exactly; re-run `seed.mjs` if it does not. Password sign-in works while Ward is down.
+- **Sign-in POSTs are refused.** `PUBLIC_ORIGIN` must be the origin in the browser's address bar, here `http://localhost:5173`.
 - **Convert fails on every book.** `ebook-convert` is not on `PATH`; install Calibre.

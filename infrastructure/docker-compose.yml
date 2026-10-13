@@ -1,8 +1,10 @@
 # Atrium's API. Build context is the repo root (..).
 #
-# `.env` here is written by the deploy (0600). It carries Ward's three variables
-# (WARD_PUBLIC_ORIGIN, WARD_API_BASE_PATH, WARD_APP_KEY) and the tuning knobs;
-# identity is Ward's (D53), so there is no password of atrium's own.
+# `.env` here is written by the deploy (0600). It carries PUBLIC_ORIGIN, the
+# optional "Sign in with Ward" client settings (WARD_OIDC_ISSUER,
+# WARD_OIDC_CLIENT_ID, WARD_OIDC_CLIENT_KEY, WARD_OIDC_REDIRECT_URI and
+# WARD_OIDC_POST_LOGOUT_REDIRECT_URI), AUTH_TRUSTED_PROXIES and the tuning
+# knobs. Accounts are atrium's own (D58); Ward is a second way in.
 services:
   atrium-api:
     build:

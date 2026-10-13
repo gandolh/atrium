@@ -17,7 +17,7 @@ A private library and reading room for one household: your own books, music and 
 - Converts a book between EPUB and PDF with Calibre and keeps both copies linked.
 - Holds paged notebooks (pen strokes and text boxes) and LaTeX projects. LaTeX compiles with Atrium's own TypeScript engine, so no TeX install is needed, and a compiled document can be published into the library.
 
-It is deliberately smaller than a media server such as Jellyfin. It takes files by upload rather than watching a folder, reads metadata only from the files, plays only the formats a browser plays without transcoding, and has no accounts of its own. Sign-in belongs to Ward, the estate's identity service.
+It is deliberately smaller than a media server such as Jellyfin. It takes files by upload rather than watching a folder, reads metadata only from the files, plays only the formats a browser plays without transcoding, and keeps its own accounts, with "Sign in with Ward" as an optional second way in.
 
 ## Screenshots
 
@@ -37,19 +37,19 @@ In the clip, Pride and Prejudice opens from the Continue card, three pages turn,
 
 ## How it works
 
-`apps/web` is a React and Vite app, and the browser renders the books itself (epub.js for EPUB, PDF.js for PDF). `apps/api` is a Fastify server that stores files and covers on disk, keeps rows and per-profile progress in SQLite, runs Calibre conversions, and compiles LaTeX with `packages/typeset` on a worker thread. `packages/shared` holds the Zod contracts both apps import. Every API request carries Ward's session cookie, and a guard checks it on every route except `/health`. More in [docs/architecture.md](docs/architecture.md).
+`apps/web` is a React and Vite app, and the browser renders the books itself (epub.js for EPUB, PDF.js for PDF). `apps/api` is a Fastify server that stores files and covers on disk, keeps rows and per-profile progress in SQLite, runs Calibre conversions, and compiles LaTeX with `packages/typeset` on a worker thread. `packages/shared` holds the Zod contracts both apps import. Every API request carries atrium's own session cookie, and a guard checks it on every route except `/health`. Accounts are atrium's own, and "Sign in with Ward" is a second way in. More in [docs/architecture.md](docs/architecture.md).
 
 ## Run it locally
 
-Requires Node 24 or later and a local Ward, the container in the sibling repo's `wzd_auth/infrastructure/local`. Its `seed.mjs` writes atrium's Ward settings into `.env`. Calibre is optional; without it only Convert fails.
+Requires Node 24 or later. Calibre is optional; without it only Convert fails. Atrium runs on its own accounts with no other service. "Sign in with Ward" is optional: it needs a local Ward, the container in the sibling repo's `wzd_auth/infrastructure/local`, whose `seed.mjs` writes atrium's `WARD_OIDC_*` settings into `.env`.
 
 ```bash
 npm install
-cp .env.example .env     # then run Ward's seed.mjs to fill in WARD_APP_KEY
+cp .env.example .env     # set PUBLIC_ORIGIN; optionally run Ward's seed.mjs for the WARD_OIDC_* values
 npm run dev              # web on :5173, API on :3001
 ```
 
-Then open http://localhost:5173/atrium/ and sign in through Ward. Starting Ward, using a scratch library, env vars and tests: [docs/getting-started.md](docs/getting-started.md).
+Then open http://localhost:5173/atrium/ and sign in with a local account (`npm run seed:user -w @ebook-reader/api` makes one) or with "Sign in with Ward". Starting Ward, using a scratch library, env vars and tests: [docs/getting-started.md](docs/getting-started.md).
 
 ## Project layout
 

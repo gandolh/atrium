@@ -38,7 +38,7 @@ describe("note body size", () => {
 
   before(async () => {
     t = await buildTestApp();
-    owner = t.ward.signIn("owner", "subject-owner");
+    owner = await t.signIn("subject-owner");
     const res = await t.app.inject({
       method: "POST",
       url: "/notes",

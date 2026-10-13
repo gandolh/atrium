@@ -1,6 +1,6 @@
 ---
 summary: The project's vocabulary — one canonical name per concept Atrium uses in a specific way, with the synonyms it displaces; the page that stops the same thing being called three names.
-updated: 2026-10-08
+updated: 2026-10-13
 ---
 
 # Glossary
@@ -100,8 +100,8 @@ profile is an **identity** boundary and never a security one (D35).
 _Avoid_: user, account, persona, member
 
 **Account**:
-A Ward subject holding an `atrium` grant (D53): the household, and the security boundary. Ward owns it;
-atrium stores only its subject (`profiles.subject`). Holds up to five profiles and one shared library.
+A local user in atrium's own database (D58): the household, and the security boundary; `profiles.subject`
+holds its id (a D53-era account's id is its Ward subject). Holds up to five profiles and one shared library.
 People who need real separation need separate accounts, not separate profiles.
 _Avoid_: profile, user, tenant, household (use *account* in code and copy)
 
@@ -139,14 +139,14 @@ _Avoid_: scrubber, slider, seek bar, progress bar (that is the cover's)
 
 ## Access
 
-**Seeded account** _(retired 2026-09-06, D53)_:
-An account created by atrium's seed script (D30). Atrium creates none now: a superuser grants a Ward account access. Use **Account**.
+**Seeded account**:
+An account made by `npm run seed:user` (D58); the only other way is a first Ward sign-in. No Register page.
 _Avoid_: signup, registration, member
 
 **Session**:
-Ward's sign-in as atrium sees it (D53): the `ward_session` cookie (`Path=/`, shared origin), an EdDSA JWT
-the guard verifies locally, then confirms live with Ward (cached 30 s). Its `sid` names the device, which
-keys the active profile. Atrium issues none of its own; the D30 token and `?token=` were removed.
+One sign-in on one device (D58): the `atrium_session` cookie (`Path=/atrium-api`), an opaque token the
+library stores hashed. Its hash keys the active profile. A session that began with Ward is re-checked
+with Ward every 30 s; a password session never is. No `?token=`: the cookie rides every API URL.
 _Avoid_: login token, auth token, API key
 
 ## Offline

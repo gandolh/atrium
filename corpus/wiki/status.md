@@ -1,9 +1,19 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-09
+updated: 2026-10-13
 ---
 
-# Status — 2026-10-08
+# Status — 2026-10-13
+
+**2026-10-13: accounts are atrium's own again (D58).** A login page in the
+Reading Room design signs in with a local password, and "Sign in with Ward" is
+a second way in, both on Ward's vendored library (`vendor/ward/`, Ward's brief
+22). Every existing Ward subject became a local account with that id, so no
+profile moved. Settings (`/settings`) links and unlinks Ward and sets a
+password. Not deployed. Owed: the deploy (Ward's brief 27: the new env, and the
+Dockerfile must copy `apps/api/vendor`), a seeded owner account, and
+just-a-bot signing in to atrium with a local `jukebox` account (D55 as
+amended).
 
 **2026-10-09: atrium's half of the Jukebox is built** (briefs 80, 81, 82). The
 bot's account is limited to the Jukebox (D55), atrium owns every Player and

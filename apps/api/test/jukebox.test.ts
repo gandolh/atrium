@@ -51,8 +51,8 @@ describe("the Jukebox API", () => {
 
   before(async () => {
     t = await buildTestApp();
-    bot = t.ward.signIn("bot", "subject-bot", { atrium: ["jukebox"] });
-    person = t.ward.signIn("person", "subject-person");
+    bot = await t.signIn("subject-bot", "jukebox");
+    person = await t.signIn("subject-person");
   });
   after(async () => {
     await t.close();
@@ -92,7 +92,13 @@ describe("the Jukebox API", () => {
     (await knex("jukebox_players").where("guild_id", guildId).first()).playlist_cursor_book_id;
 
   it("the migration runs down and up again", async () => {
-    await knex.migrate.down({ migrationSource, tableName: "knex_migrations", disableTransactions: true });
+    // By name: it is no longer the newest migration (D58's came after it).
+    await knex.migrate.down({
+      migrationSource,
+      tableName: "knex_migrations",
+      disableTransactions: true,
+      name: "20261008000000-jukebox",
+    });
     for (const table of ["jukebox_players", "jukebox_queue_entries", "jukebox_history", "jukebox_commands"]) {
       assert.equal(await knex.schema.hasTable(table), false, table);
     }

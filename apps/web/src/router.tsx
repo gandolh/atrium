@@ -10,6 +10,7 @@ import { Notes } from "./routes/notes";
 import { LatexRoute } from "./routes/latex";
 import { JukeboxPage } from "./jukebox/JukeboxPage";
 import { ManageProfiles } from "./profiles/ManageProfiles";
+import { AccountSettings } from "./auth/AccountSettings";
 
 /**
  * Code-based route tree (no file-based plugin — keeps the shell dependency-
@@ -148,6 +149,28 @@ const profilesRoute = createRoute({
   component: ManageProfiles,
 });
 
+// `/login` (D58) — where a refused "Sign in with Ward" lands
+// (`?ward_error=<code>`, which `auth/client.ts` has already read and removed
+// by the time this runs). The login page itself is not a route: `AuthGate`
+// renders it in place on any page while signed out, so this only ever moves
+// on to the library, and the gate shows the login page there if it must.
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
+});
+
+// `/settings` (D58) — the account: password, Ward link, sign out. Reached from
+// the profile switcher's menu; Ward's link round trip returns here
+// (`?ward=linked`), which is the library's `settingsPath`.
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: AccountSettings,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   booksRoute,
@@ -159,6 +182,8 @@ const routeTree = rootRoute.addChildren([
   readRoute,
   discoverRoute,
   profilesRoute,
+  loginRoute,
+  settingsRoute,
 ]);
 
 // `basepath` matches Vite's `base` (import.meta.env.BASE_URL) so client-side

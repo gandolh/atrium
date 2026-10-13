@@ -44,9 +44,8 @@ Object.assign(process.env, {
   HOST: "127.0.0.1",
   MAX_UPLOAD_MB: "50",
   CONVERT_JOB_TIMEOUT_MS: "60000",
-  WARD_PUBLIC_ORIGIN: "http://ward.test",
-  WARD_API_BASE_PATH: "/ward-api",
-  WARD_APP_KEY: "test-app-key",
+  // Plain HTTP on loopback: the session cookie is not `Secure`, as in dev.
+  PUBLIC_ORIGIN: "http://localhost:5173",
 });
 
 const config = await import("../src/common/config.js");

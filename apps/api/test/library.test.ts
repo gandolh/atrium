@@ -38,7 +38,7 @@ describe("library round trip", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("reader", "subject-reader");
+    cookie = await t.signIn("subject-reader");
     pdf = await fixturePdf();
   });
   after(async () => {

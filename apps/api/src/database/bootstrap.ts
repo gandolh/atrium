@@ -12,6 +12,9 @@ import {
 import { knex } from "./knex.js";
 import { migrationSource } from "./migrations/index.js";
 import { isUniqueViolation } from "./errors.js";
+import { openAccounts } from "./auth-store.js";
+import { linkWardSubjects } from "./ward-subjects.js";
+import type { Accounts } from "../../vendor/ward/ward-auth.js";
 
 /**
  * Everything the database needs before the API serves its first request:
@@ -56,19 +59,17 @@ export async function runMigrations(): Promise<void> {
 /**
  * Give one account its `Default` profile if it has none (brief 35 decision 2).
  *
- * ## Why this is per-subject now, and no longer a boot sweep
+ * ## Why this is lazy, and not a boot sweep
  *
- * It used to run over every row of `users` at startup. Atrium has no `users`
- * table any more — Ward owns accounts — and **atrium cannot enumerate them**:
- * Ward exposes who *this request* is, never a list of who exists. So the sweep
- * has become a lazy provision, called by the guard the first time a subject
- * arrives.
+ * It used to run over every row of `users` at startup. Under D53 atrium could
+ * not enumerate Ward's accounts, so it became a provision the guard runs the
+ * first time an account arrives. Under D58 the accounts are local again, but
+ * they are still created where atrium does not look: by the seed script, or
+ * by a first "Sign in with Ward", inside the library. The first request after
+ * either is the one moment atrium is sure to see, so it stays here.
  *
- * That is a better fit for the model than the sweep was, because the moment a
- * person becomes able to use atrium is not a deploy or a restart — it is a
- * superuser issuing an `atrium` grant in Ward's console, which atrium is never
- * told about. The first request after that grant is the only event atrium can
- * actually observe, and it is exactly when this runs.
+ * `subject` is the local user's id. The column kept its D53 name: for an
+ * account that existed then, the id **is** the Ward subject (D58).
  *
  * Idempotent and safe to call on every request: it is one indexed count, and it
  * inserts only when that count is zero. The unique index on
@@ -135,19 +136,32 @@ export async function reapInterruptedLatexCompiles(): Promise<number> {
 }
 
 /**
- * The full boot sequence: schema first, then the two job reapers.
- *
- * The profile safety net used to run here as a third step. It does not any
- * more, and its absence is the change rather than an oversight — atrium cannot
- * enumerate Ward's accounts, so "every account has a profile" cannot be swept
- * for at boot. `ensureDefaultProfile` is now called per subject by the guard;
- * see its comment.
+ * The schema, then the accounts on it: what the seed script needs, and the
+ * first half of the boot. Without the job reapers, so the seed can run beside
+ * a live API without failing its in-flight conversions and compiles.
  */
-export async function initDatabase(): Promise<void> {
+export async function openMigratedAccounts(): Promise<Accounts> {
   refuseFreshDatabaseBesideFiles();
   await runMigrations();
+  return openAccounts();
+}
+
+/**
+ * The full boot sequence: schema first, then the accounts (D58), then the two
+ * job reapers. Answers the accounts, which the app's guard is built from.
+ *
+ * The accounts open on this same database (`auth-store.ts`) only after the
+ * fresh-database check, because opening them opens the connection, and the
+ * connection creates the file the check looks for. Every Ward subject's local
+ * user is made after the migrations, because it reads `profiles`, and on every
+ * boot, because it skips what exists.
+ */
+export async function initDatabase(): Promise<Accounts> {
+  const accounts = await openMigratedAccounts();
+  await linkWardSubjects(accounts);
   await reapInterruptedConversions();
   await reapInterruptedLatexCompiles();
+  return accounts;
 }
 
 /**

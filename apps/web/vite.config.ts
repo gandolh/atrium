@@ -11,39 +11,23 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
  * Local dev on one origin, the way Caddy serves the deploy (D54, revising D14):
- * `/atrium-api` is the API with the prefix stripped, and `/ward` + `/ward-api`
- * are the Ward the API trusts (WARD_PUBLIC_ORIGIN; locally the container in
- * wzd_auth/infrastructure/local). With VITE_API_URL pointed at this server's
- * own /atrium-api, the cookie, Ward's redirect back to /atrium/ and signing out
+ * `/atrium-api` is the API with the prefix stripped. With VITE_API_URL pointed
+ * at this server's own /atrium-api, the session cookie (`Path=/atrium-api`,
+ * D58) and "Sign in with Ward"'s callback, which lives under the same prefix,
  * behave as they do in the deploy, and CORS never comes into it.
  *
- * Ward refuses /refresh and /logout unless the request's Origin is its own. A
- * request from a page on this dev server would be same-origin in the deploy, so
- * its Origin is rewritten to say so. Anything else keeps its Origin and its
- * Sec-Fetch-Site, and Ward still refuses it.
+ * There is no `/ward` proxy any more (D58). "Sign in with Ward" sends the
+ * browser to Ward's own origin (locally the container on localhost:8792), and
+ * the API talks to Ward through `WARD_OIDC_ISSUER`. Nothing on this origin
+ * needs to reach Ward.
  */
 function devProxy(env: Record<string, string>): Record<string, ProxyOptions> {
-  const proxy: Record<string, ProxyOptions> = {
+  return {
     "/atrium-api": {
       target: `http://localhost:${env.PORT}`,
       rewrite: (url) => url.replace(/^\/atrium-api/, ""),
     },
   };
-  if (!env.WARD_PUBLIC_ORIGIN) return proxy;
-
-  const ward = new URL(env.WARD_PUBLIC_ORIGIN).origin;
-  proxy["^/ward(-api)?(/|$)"] = {
-    target: ward,
-    configure: (server) => {
-      server.on("proxyReq", (proxyReq, req) => {
-        const origin = req.headers.origin;
-        if (origin && URL.canParse(origin) && new URL(origin).host === req.headers.host) {
-          proxyReq.setHeader("origin", ward);
-        }
-      });
-    },
-  };
-  return proxy;
 }
 
 // https://vite.dev/config/
@@ -69,12 +53,12 @@ export default defineConfig(({ mode }) => {
 
   // Runtime-cache match for cover thumbnails ONLY (brief 19). Covers are the
   // one API surface we cache: immutable-per-book images fetched by
-  // `<img src="<api-base>/library/:id/cover?token=…">`. `coverUrl` builds those
+  // `<img src="<api-base>/library/:id/cover?v=…">`. `coverUrl` builds those
   // via `apiUrl()`, which PRESERVES any path prefix on VITE_API_URL (e.g. a
   // reverse-proxy prefix like /atrium-api) — so derive the pattern from the
   // full base, not just the origin (and nothing else — no general API caching;
   // auth + freshness stay server-driven). Regex-escaped; unanchored tail lets
-  // the `?token=…` query ride along.
+  // the `?v=…` version query ride along.
   const apiUrl = new URL(env.VITE_API_URL);
   const apiBase = (apiUrl.origin + apiUrl.pathname.replace(/\/+$/, "")).replace(
     /[.*+?^${}()|[\]\\]/g,

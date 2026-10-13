@@ -24,8 +24,8 @@ describe("LaTeX compile on the post-cutover schema", () => {
 
   before(async () => {
     t = await buildTestApp();
-    owner = t.ward.signIn("owner", "subject-owner");
-    otherSubject = t.ward.signIn("other", "subject-other");
+    owner = await t.signIn("subject-owner");
+    otherSubject = await t.signIn("subject-other");
   });
   after(async () => {
     await t.close();

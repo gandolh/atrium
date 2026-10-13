@@ -105,7 +105,7 @@ describe("a refused EPUB is still a book", () => {
   });
 
   it("uploads with the filename title and no cover", async () => {
-    const cookie = t.ward.signIn("reader", "subject-reader");
+    const cookie = await t.signIn("subject-reader");
     const bomb = await epub({ container: { zeros: 64 * MB } });
     const boundary = "----bombboundary";
     const res = await t.app.inject({

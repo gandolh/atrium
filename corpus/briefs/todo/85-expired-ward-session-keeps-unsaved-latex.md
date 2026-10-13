@@ -29,8 +29,11 @@ first; if the text survives, find out which step differs from the report.
   every 401 calls the global handler before the caller sees the error.
 - [`auth.ts`](../../../apps/web/src/lib/auth.ts) lines 423-449: the handler
   clears the profile state and the query cache, then calls `goToWardLogin()`
-  ([`ward.ts`](../../../apps/web/src/lib/ward.ts) line 39), a full navigation
-  that drops React state. Nothing stashes unsaved work first.
+  (`ward.ts` line 39, a file D58 deleted), a full navigation
+  that drops React state. Nothing stashes unsaved work first. **Since D58
+  (2026-10-13)** the 401 handler no longer navigates: it resets the store and
+  `AuthGate` renders the login page in place, which still unmounts the editor
+  and its unsaved `draft`, so the gap stands.
 - [`LatexEditor.tsx`](../../../apps/web/src/latex/LatexEditor.tsx): the buffer
   lives only in `draft` state and `draftRef` (lines 125-128); `flush` (line
   188) keeps `dirty` set on a failed write, but the failure is just `false`.

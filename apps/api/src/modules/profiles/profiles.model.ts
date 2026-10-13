@@ -22,9 +22,10 @@ import { knex } from "../../database/knex.js";
 export interface ProfileRow {
   id: string;
   /**
-   * The owning account, as **Ward's subject** — opaque, stable, never
-   * recycled. Was `user_id`, a local `users.id`, until atrium moved to Ward;
-   * there is no local accounts table any more and there must not be one.
+   * The owning account: the local user's id (`auth_users.id`, D58). The name
+   * is D53's, kept because for every account that existed under D53 the id
+   * **is** the Ward subject, so no row was rewritten when accounts came back.
+   * Opaque, stable, never recycled.
    */
   subject: string;
   /** 1–24 chars; unique per account via the `profiles_user_name` index. */
@@ -99,7 +100,7 @@ export async function listProfiles(subject: string): Promise<ProfileRow[]> {
 /**
  * One profile by id, or undefined. The id is client-supplied at every route
  * that takes one, so callers MUST compare `row.subject` against the caller's
- * Ward subject before acting on it — profiles are not a security boundary, but
+ * user id before acting on it — profiles are not a security boundary, but
  * accounts are.
  */
 export async function getProfile(id: string): Promise<ProfileRow | undefined> {

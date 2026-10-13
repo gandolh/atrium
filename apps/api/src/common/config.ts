@@ -11,8 +11,12 @@ import { maxUploadBytesFromMb } from "@ebook-reader/shared";
  * startup with a clear message instead of silently falling back. See
  * .env.example for the full contract.
  *
- * User accounts are **not here and not in this database** — Ward owns them.
- * What is here is how to reach Ward and how to prove atrium is atrium.
+ * Accounts are atrium's own again (D58): the users table and sessions live in
+ * this database, managed by Ward's vendored library (`vendor/ward/`). What is
+ * here is where the browser reaches atrium, which the session cookie and the
+ * library's same-origin check need. "Sign in with Ward" reads its own five
+ * `WARD_OIDC_*` variables in `index.ts`, never here, so a test run cannot pick
+ * up the repo-root `.env`'s real issuer by importing this file.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src/common (or dist/common)
@@ -60,7 +64,7 @@ if (ENV_FILE_LOADED) {
 
 /**
  * Every API variable is required. Numbers are coerced from their string env
- * form and must be positive; strings must be non-empty (so `WARD_APP_KEY=`
+ * form and must be positive; strings must be non-empty (so `PUBLIC_ORIGIN=`
  * counts as unset). Path overrides (LIBRARY_DATA_DIR/BASE_PATH) are NOT part of
  * this contract — they stay optional below.
  */
@@ -71,27 +75,13 @@ const envSchema = z.object({
   CONVERT_JOB_TIMEOUT_MS: z.coerce.number().int().positive(),
 
   /**
-   * Ward, the estate's identity service. All three are **required**, and each
-   * is required for a different reason worth stating.
-   *
-   * `WARD_PUBLIC_ORIGIN` is also the expected `iss` on every token, compared as
-   * an exact string — a bare origin, no trailing slash.
-   *
-   * `WARD_API_BASE_PATH` is `/ward-api` in this estate and has no default on
-   * purpose. Defaulting it to `""` resolves the JWKS to
-   * `<origin>/.well-known/jwks.json`, a path nothing serves; that shipped once
-   * in the reference client and would have made every app in the estate reject
-   * every token on the deploy that carried it.
-   *
-   * `WARD_APP_KEY` is atrium's own service key, issued from Ward's console.
-   * Without it `POST /ward-api/introspect` refuses every call, which is a total
-   * outage for this app rather than a degraded mode — hence required rather
-   * than optional, so a missing one stops the boot instead of surfacing as a
-   * 503 on somebody's first page load.
+   * Atrium's public origin as the browser sees it, no path: `https://example.com`
+   * in the deploy, the web dev server's `http://localhost:5173` locally.
+   * Required, because two security checks hang off it: the session cookie is
+   * `Secure` unless this is plain HTTP on loopback, and a browser `POST` to the
+   * auth routes whose `Origin` is anything else is refused (`cross_site`).
    */
-  WARD_PUBLIC_ORIGIN: z.string().url(),
-  WARD_API_BASE_PATH: z.string().min(1),
-  WARD_APP_KEY: z.string().min(1),
+  PUBLIC_ORIGIN: z.string().url(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -116,15 +106,25 @@ const env = parsed.data;
 export const PORT = env.PORT;
 export const HOST = env.HOST;
 
-/** Ward's public origin, and the `iss` every access token must carry. */
-export const WARD_PUBLIC_ORIGIN = env.WARD_PUBLIC_ORIGIN.replace(/\/+$/, "");
-/** Ward's prefix behind Caddy — `/ward-api`. See the schema note. */
-export const WARD_API_BASE_PATH = env.WARD_API_BASE_PATH;
+/** Atrium's public origin, no trailing slash. See the schema note. */
+export const PUBLIC_ORIGIN = env.PUBLIC_ORIGIN.replace(/\/+$/, "");
+
 /**
- * Atrium's Ward service key. **A secret.** Server-side only — it must never be
- * exposed to the web client, put in a Vite variable, or logged.
+ * The API's prefix **as the browser sees it**, and so the session cookie's
+ * `Path`. Caddy and the web dev server both strip it before Fastify sees the
+ * request, so no route here carries it, but every request that needs the
+ * session must live under it, cover `<img>` and media sources included (they
+ * do: `apiUrl()` builds them on `VITE_API_URL`). The same in the deploy and in
+ * development (D54), so it is a constant rather than a variable.
  */
-export const WARD_APP_KEY = env.WARD_APP_KEY;
+export const API_PREFIX = "/atrium-api";
+
+/**
+ * Where the web app lives on the shared origin. The library's Ward routes
+ * send the browser back here: to the login page after a refused sign-in, to
+ * account settings after a link. Matches `BASE_PATH` in the web build.
+ */
+export const APP_PREFIX = "/atrium";
 
 export const MAX_UPLOAD_MB = env.MAX_UPLOAD_MB;
 export const MAX_UPLOAD_BYTES = maxUploadBytesFromMb(MAX_UPLOAD_MB);

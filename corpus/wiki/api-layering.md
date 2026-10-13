@@ -1,6 +1,6 @@
 ---
 summary: How apps/api is organised since D47 — the six domain modules, what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, how Knex migrations are registered, and how the API test harness keeps tests off the real library.
-updated: 2026-10-03
+updated: 2026-10-13
 ---
 
 # API layering (`apps/api/src`)
@@ -18,8 +18,10 @@ src/
   app.ts          build the Fastify instance: plugins, guard, module routes
   common/         config.ts · paths.ts
   database/       knex.ts · bootstrap.ts · errors.ts · migrations/
+                  auth-store.ts · ward-subjects.ts   (D58: accounts on Knex's connection)
+  scripts/        seed-user.ts   (npm run seed:user)
   modules/
-    ward/         client · guard · types   (D53: the guard; no auth module, no password.ts)
+    auth/         guard: Ward's vendored library + atrium's jukebox and profile hook (D58)
     profiles/     controller · service · model · mapper · profile-selection model
     library/      controller · service · model · types · mapper
                   + extract · calibre · convert · maintenance services
@@ -66,7 +68,7 @@ after it is an ordinary forward migration and must not be.**
 `npm run test -w @ebook-reader/api` runs `node --import tsx --import ./test/setup.ts --test 'test/**/*.test.ts'`. Each file is its own process and so owns its own database.
 
 - **`test/setup.ts` refuses to be unsafe.** It points all five storage roots at a fresh `mkdtemp` directory, sets the env `config.ts` requires, imports `config.ts`, and **throws unless every resolved root is inside that directory**, before anything opens `knex.ts`. Drop one root and the run stops, naming it. The scratch directory is removed on exit.
-- **`test/fake-ward.ts`** implements `WardClient` from a script (cookie token → caller, or a thrown Ward error). The real guard maps it, so 401/403/503 are tested as shipped. `buildApp({ wardClient })` is the one production seam.
-- **`test/harness.ts`'s `buildTestApp()`** migrates, builds the app with the fake Ward, silences its logger, and returns `close()`. Close it: the knex pool otherwise keeps the process alive and the run hangs.
+- **`test/harness.ts`'s `buildTestApp()`** migrates, opens the accounts, builds the app (with no Ward unless a test passes a client), silences its logger, and returns `signIn(id, role)`, which creates a local account and a session and answers its cookie, and `close()`. Close it: the knex pool otherwise keeps the process alive and the run hangs.
+- **"Sign in with Ward"** is tested with a real `createWardClient` over a fake `fetch` (`test/ward-routes.test.ts`); `buildApp({ accounts, wardClient })` is the seam. The library's own suite drives the whole flow against a real Ward.
 - A fix in `apps/api` should land with a test here. Typecheck covers `test/` (`tsconfig.test.json`); nothing under `test/` is emitted.
 

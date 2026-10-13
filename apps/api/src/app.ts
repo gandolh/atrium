@@ -7,11 +7,11 @@ import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
 import { registerLibraryRoutes } from "./modules/library/library.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
 import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
-import { registerWardGuard } from "./modules/ward/ward.guard.js";
-import type { WardClient } from "./modules/ward/ward.client.js";
+import { registerAuthGuard } from "./modules/auth/auth.guard.js";
+import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
 
 /**
- * Build the Fastify instance: plugins, the Ward guard, then every module's
+ * Build the Fastify instance: the auth guard, plugins, then every module's
  * routes.
  *
  * Separate from `index.ts` so that constructing the app and *running* it are
@@ -20,19 +20,21 @@ import type { WardClient } from "./modules/ward/ward.client.js";
  * makes the app reachable from `app.inject` without a process listening on a
  * port.
  *
- * `wardClient` is the test seam (brief 63): a test injects a scripted client,
- * and production omits it so the guard builds one from the environment.
+ * Both options are the seam (brief 63). `index.ts` opens the accounts on the
+ * real database and builds the Ward client from the environment; a test passes
+ * accounts on its scratch database and, when it needs one, a Ward client over
+ * a fake `fetch`. Without `wardClient` atrium has local accounts only.
  */
-export async function buildApp(options: { wardClient?: WardClient } = {}): Promise<FastifyInstance> {
+export async function buildApp(options: {
+  accounts: Accounts;
+  wardClient?: WardClient;
+}): Promise<FastifyInstance> {
   /*
-   * The `?token=` log redaction is gone with the fallback it protected.
-   *
-   * Cover-image `<img>` tags used to carry the session token in the query
-   * string, because an `<img>` cannot send an `Authorization` header — so every
-   * request URL was a potential credential and the serialiser scrubbed it.
-   * Ward's cookie is `Path=/` on the shared origin and the browser attaches it
-   * to an image request without being asked, so no token reaches a URL any
-   * more and there is nothing left to redact.
+   * No `?token=` log redaction: no credential ever reaches a URL. Cover
+   * `<img>` tags used to carry the session token in the query string, because
+   * an `<img>` cannot send an `Authorization` header. The session is a cookie
+   * scoped to the API prefix (D58), and every cover and media URL is built
+   * under that prefix, so the browser attaches it on its own.
    */
   const app = Fastify({ logger: true });
 
@@ -56,26 +58,27 @@ export async function buildApp(options: { wardClient?: WardClient } = {}): Promi
     return reply.status(500).send({ error: "INTERNAL" });
   });
 
+  // The session guard (D58), first: the library's plugin, then atrium's
+  // jukebox allowlist and active profile. Registered before every other plugin
+  // and route, because Fastify copies hooks into a child context when the
+  // child is created and anything registered earlier would not be guarded.
+  // Atrium's rule that no route does its own auth survives the move.
+  await registerAuthGuard(app, { accounts: options.accounts, wardClient: options.wardClient });
+
   // No CORS (brief 65). It was permissive (`origin: true`, every origin
   // reflected) from when the web client called the API cross-origin (D14).
   // Since D54 nothing does: the deploy and development both serve the API on
   // the page's own origin, so a browser needs no CORS header to read it, and
   // the empty allowlist is the honest one. Registering the plugin with
   // `credentials: true` as well would have made any site able to read a
-  // signed-in person's library for as long as Ward's cookie stays
-  // `SameSite=Lax`, which atrium does not control. If a cross-origin caller
-  // ever appears, add it here by name; never reflect the request's origin.
+  // signed-in person's library. If a cross-origin caller ever appears, add it
+  // here by name; never reflect the request's origin.
 
   // 50MB (from MAX_UPLOAD_MB) upload ceiling (D15). @fastify/multipart truncates
   // past this; the routes inspect `file.truncated` and answer 413.
   await app.register(multipart, {
     limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
   });
-
-  // The Ward session guard. Registered app-wide BEFORE the routes so every
-  // non-allowlisted request has an authenticated caller holding an atrium
-  // grant. Atrium's rule that no route does its own auth survives the move.
-  registerWardGuard(app, { client: options.wardClient });
 
   app.get("/health", async () => {
     return { status: "ok" };

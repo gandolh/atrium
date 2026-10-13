@@ -20,6 +20,7 @@ import {
   sweepOrphanThumbnails,
 } from "./modules/library/library-maintenance.service.js";
 import { cancelAllLatexCompiles } from "./modules/latex/latex-compile.service.js";
+import { createWardClient, wardClientOptionsFromEnv } from "../vendor/ward/ward-auth.js";
 
 /**
  * Process entry point: bring the database up, build the app, listen, and shut
@@ -35,7 +36,32 @@ import { cancelAllLatexCompiles } from "./modules/latex/latex-compile.service.js
  * the server from coming up at all, rather than being discovered by the first
  * request that reads a column which does not exist.
  */
-const app = await buildApp();
+
+/**
+ * The database first, then "Sign in with Ward" (D58), then the app, because
+ * the guard is made of the accounts and the Ward client.
+ *
+ * `initDatabase()` runs the migrations and the boot-time data repairs before
+ * anything is built, deliberately: nothing may serve a request against a
+ * database whose shape is unknown, and it answers the accounts, opened on the
+ * same connection Knex uses (`auth-store.ts`). A failure here stops the
+ * process before it listens.
+ *
+ * Ward is optional. With no `WARD_OIDC_ISSUER` the app runs on local accounts
+ * only, and the login page shows no Ward button; with the issuer set and
+ * another `WARD_OIDC_*` missing, this throws and names it, which is always a
+ * deploy mistake. `createWardClient` imports the key now, so a bad key stops
+ * the boot, but it does not contact Ward: atrium starts while Ward is down.
+ * Read here and nowhere else, so a test never picks up the real issuer from
+ * the repo-root `.env`.
+ */
+const accounts = await initDatabase().catch((err: unknown) => {
+  console.error("database bootstrap failed:", err);
+  process.exit(1);
+});
+const wardOptions = wardClientOptionsFromEnv();
+const wardClient = wardOptions === undefined ? undefined : await createWardClient(wardOptions);
+const app = await buildApp({ accounts, wardClient });
 
 /**
  * Startup probe for `ebook-convert`. Missing Calibre is NOT fatal — the server
@@ -61,9 +87,6 @@ async function checkCalibre(): Promise<void> {
 
 async function start(): Promise<void> {
   try {
-    // Migrations and the boot-time data repairs. Before `listen`, deliberately:
-    // nothing may serve a request against a database whose shape is unknown.
-    await initDatabase();
     await checkCalibre();
     await app.listen({ port: PORT, host: HOST });
     // Every storage root, in the first line an operator reads. Two incidents and
@@ -80,6 +103,7 @@ async function start(): Promise<void> {
           versions: DOCUMENT_VERSIONS_DIR,
         },
         envFile: { path: ENV_FILE, loaded: ENV_FILE_LOADED },
+        signInWithWard: wardClient === undefined ? "off" : wardClient.issuer,
       },
       "API ready",
     );

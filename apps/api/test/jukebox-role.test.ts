@@ -43,7 +43,7 @@ describe("the jukebox role", () => {
 
   before(async () => {
     t = await buildTestApp();
-    bot = t.ward.signIn("bot", "subject-bot", { atrium: ["jukebox"] });
+    bot = await t.signIn("subject-bot", "jukebox");
     await seed("song", "mp3", "audio", true);
     await seed("bare-song", "mp3", "audio", false);
     await seed("book", "pdf", "book", true);
@@ -139,16 +139,17 @@ describe("the jukebox role", () => {
     });
   });
 
-  // A full account that also holds `jukebox` must never be limited by it, so
-  // granting the role to the owner by mistake cannot lock them out.
-  for (const roles of [["user"], ["user", "jukebox"]]) {
-    describe(`signed in as ${roles.join(" + ")}`, () => {
+  // A role is one string in atrium's own row now (D58), and every role but
+  // `jukebox` is full access: `member`, and anything Ward's grant named for an
+  // account that existed before `roleFor` mapped it, such as `admin`.
+  for (const role of ["member", "admin"]) {
+    describe(`signed in as ${role}`, () => {
       let cookie: string;
-      const subject = `subject-${roles.join("-")}`;
-      const doomed = `doomed-${roles.join("-")}`;
+      const subject = `subject-${role}`;
+      const doomed = `doomed-${role}`;
 
       before(async () => {
-        cookie = t.ward.signIn(`full-${roles.join("-")}`, subject, { atrium: roles });
+        cookie = await t.signIn(subject, role);
         await seed(doomed, "pdf", "book", false);
       });
 

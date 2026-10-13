@@ -20,9 +20,10 @@ import { usePlaybackStore } from "../store/playback-store";
  * **Playback lives here (brief 31).** `PlaybackHost` mounts the app's one
  * `<audio>` element and the dock: at shell level, so navigating between routes
  * can't unmount either and a track never stops. It sits INSIDE the auth gate —
- * media is authenticated (the file URL carries the token), and the lock screen
- * should show no dock; a session that locks therefore also stops playback,
- * flushing the position on the way out.
+ * media is authenticated (the session cookie rides the file URL, which lives
+ * under the API prefix), and the login page should show no dock; a session
+ * that ends therefore also stops playback, flushing the position on the way
+ * out.
  *
  * The shell also makes room for its own dock rather than asking pages to pad
  * themselves: `--dock-height` (0px when nothing is loaded) is published here and

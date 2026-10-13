@@ -12,8 +12,8 @@ describe("profile scoping", () => {
 
   before(async () => {
     t = await buildTestApp();
-    owner = t.ward.signIn("owner", "subject-owner");
-    stranger = t.ward.signIn("stranger", "subject-stranger");
+    owner = await t.signIn("subject-owner");
+    stranger = await t.signIn("subject-stranger");
 
     const post = async (url: string, payload: object) => {
       const res = await t.app.inject({ method: "POST", url, headers: { cookie: owner }, payload });

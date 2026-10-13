@@ -33,7 +33,7 @@ describe("publishing releases positions on the version it supersedes", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("author", "subject-author");
+    cookie = await t.signIn("subject-author");
     project = (await inject("POST", "/latex", { payload: { title: "Paper" } })).json().id;
   });
   after(async () => {

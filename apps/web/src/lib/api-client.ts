@@ -8,13 +8,14 @@
  * `useMutation`) lands in brief 05. `apiFetch` is the shared low-level
  * wrapper future calls build on.
  *
- * ## Auth is Ward's, and this module carries no token
+ * ## This module carries no token
  *
- * There is no bearer token here any more. Atrium's session is Ward's
- * `ward_session` cookie — `Path=/` on the shared origin — so the browser
- * attaches it to every request without this module doing anything, including to
- * `<img>` tags for cover art. That is what let `?token=` and `getAuthToken()`
- * be deleted outright rather than replaced.
+ * Atrium's session is the `atrium_session` cookie (D58), `HttpOnly` and scoped
+ * to the API prefix (`Path=/atrium-api`). Every URL built by `apiUrl()` below
+ * lives under that prefix, so the browser attaches the cookie to every API
+ * request without this module doing anything, `<img>` tags for cover art and
+ * `<audio>`/`<video>` sources included. A URL built any other way might
+ * fall outside the prefix and arrive without the cookie.
  *
  * What survives is the single "unauthorized" callback, for the same
  * circular-import reason as before: `auth.ts` imports `apiFetch` from here, so
@@ -68,7 +69,7 @@ export class ApiError extends Error {
 let onUnauthorized: (() => void) | null = null;
 let onForbidden: (() => void) | null = null;
 
-/** Registers the callback fired when a call gets a 401 — Ward sends us to sign in. */
+/** Registers the callback fired when a call gets a 401: the login page goes up. */
 export function setOnUnauthorized(handler: () => void): void {
   onUnauthorized = handler;
 }
@@ -77,10 +78,9 @@ export function setOnUnauthorized(handler: () => void): void {
  * Registers the callback fired on a **403**.
  *
  * Kept separate from the 401 handler, and that separation is the point: a 403
- * from atrium means a live, valid Ward session held by somebody with no atrium
- * grant. Sending them to the login page would be a loop — they are already
- * signed in, signing in again changes nothing, and only a superuser issuing a
- * grant can resolve it. They need to be told that, not redirected.
+ * from atrium means a live session whose role may not do this (the Discord
+ * bot's `jukebox` account, D55). Signing in again changes nothing, so they need
+ * to be told that, not shown the login page.
  */
 export function setOnForbidden(handler: () => void): void {
   onForbidden = handler;
@@ -88,13 +88,12 @@ export function setOnForbidden(handler: () => void): void {
 
 /**
  * Thin fetch wrapper against `API_BASE_URL`. Joins `path` onto the base, sends
- * Ward's cookie, and throws `ApiError` on non-2xx responses.
+ * the session cookie, and throws `ApiError` on non-2xx responses.
  *
- * `skipAuthRedirect` opts a call out of the global 401 handler. Nothing uses it
- * any more — it existed for `POST /auth/login`, where a 401 meant "wrong
- * password" rather than "stale session" — but it is kept because the
- * distinction it encodes is real and the next caller that needs it should not
- * have to reinvent the plumbing.
+ * `skipAuthRedirect` opts a call out of the global 401 handler. Nothing uses it:
+ * the sign-in routes go through the library's own client (`auth/client.ts`),
+ * where a 401 means "wrong password" rather than "stale session". It is kept
+ * because the distinction it encodes is real.
  */
 export async function apiFetch(
   path: string,

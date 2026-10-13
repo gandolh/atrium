@@ -1,6 +1,6 @@
 ---
 summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
-updated: 2026-10-08
+updated: 2026-10-13
 ---
 
 # Architecture
@@ -63,22 +63,20 @@ works on music unchanged — with embedded art as a square 400×400 cover.
 `GET /library/:id/file` honors **HTTP Range** (206/`Content-Range`, 416,
 `Accept-Ranges: bytes` always) for seek/scrub; `/read` branches on `kind` to
 lazy `AudioPlayer`/`VideoPlayer` (native controls, a plain `src` the
-`ward_session` cookie rides on, per-profile resume via the same
+`atrium_session` cookie rides on, per-profile resume via the same
 `reading_progress` PATCH). Offline downloads remain
 books-only; no transcoding/ffmpeg.
 
-**Identity is Ward's (D53)**: an `onRequest` guard in front of everything (`modules/ward/ward.guard.ts`). The D30 `users`/`sessions` tables, `/auth/*`, scrypt and `?token=` were removed at the cutover (`migrations/20260906000000-ward-cutover.ts`).
+**Accounts are atrium's own (D58)**, on Ward's vendored library (`apps/api/vendor/ward`): an `onRequest` guard in front of everything, the library's plugin first and then atrium's hook (`modules/auth/auth.guard.ts`). Its tables are `auth_users`, `auth_sessions`, `auth_ward_links`; the boot task `database/ward-subjects.ts` made every D53-era subject a local user with that id.
 ```
-every request ──ward_session cookie (Path=/, shared origin)──► verify locally (EdDSA, Ward's JWKS)
-     → ask Ward /introspect: live? grants? (cached 30 s per token)
-     → 401 no/dead session      (client navigates to /ward/login?next=/atrium/)
-     → 403 NO_ATRIUM_GRANT      (live session, no `atrium` grant; never redirects)
-     → 503 IDENTITY_UNAVAILABLE (Ward unreachable or app key refused; fails closed; the gate says so and retries)
-     → else: first request ever for this subject provisions a Default profile,
-       then request.ward + request.authProfile (selected per device via profile_selections)
-     (allowlist: GET /health, OPTIONS)
+every request ──atrium_session cookie (Path=/atrium-api)──► session row (opaque token, stored hashed)
+     → 401 unauthorized   (no/expired session; the web gate shows atrium's login page in place)
+     → Ward-originated session, checked with Ward (30 s cache): ended → 401 ward_session_ended · down → 401 ward_unavailable
+     → role jukebox off its allowlist → 403 JUKEBOX_ROLE_FORBIDDEN
+     → else: Default profile on first contact, then request.auth + request.authProfile (per session, profile_selections)
 ```
-**The `jukebox` role (D55)** is the only atrium role the guard reads. A caller whose atrium roles are all `jukebox` (the Discord bot's own Ward account) is `request.jukeboxOnly` and reaches only `/jukebox/*` and `GET /library/:id/file` / `/cover`, matched on the route pattern. The file and cover handlers then refuse anything that isn't `audio`. Everything else is 403 `JUKEBOX_ROLE_FORBIDDEN`. `jukebox` beside any other role is full access.
+Public: `GET /health`, `OPTIONS`, and the library's sign-in routes. The library's routes sit under `/auth` (the browser's `/atrium-api/auth/...`): password sign-in, sign-out, password change, and "Sign in with Ward" (an OpenID Connect flow with its callback at `/atrium-api/auth/ward/callback`), link, unlink and set-password. Ward is optional: with no `WARD_OIDC_ISSUER` the app has local accounts only.
+**The `jukebox` role (D55)** is the only atrium role the guard reads. An account whose role is `jukebox` (the Discord bot's) is `request.jukeboxOnly` and reaches only `/jukebox/*` and `GET /library/:id/file` / `/cover`, matched on the route pattern. The file and cover handlers then refuse anything that isn't `audio`. Its own `/auth/*` routes stay open to it. Everything else is 403 `JUKEBOX_ROLE_FORBIDDEN`. Any other role is full access.
 
 **Reading (100% client-side once the file is fetched):**
 ```
@@ -151,13 +149,14 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
   book — and what search, chips, grouping and counts all inherit, since they run
   client-side over that list.
 - `profiles`: `id, subject, name, color, is_default, preferences, created_at`,
-  unique on `(subject, name)`, where `subject` is the Ward account (no FK: Ward
-  owns accounts) — the people inside one account (D35, re-keyed by D53). `preferences` is a JSON blob (theme,
+  unique on `(subject, name)`, where `subject` is the account's id (D58; the
+  Ward subject under D53, and still equal to it for those accounts; no FK) —
+  the people inside one account (D35). `preferences` is a JSON blob (theme,
   font settings, page mode, TOC sidebar), which is why D9 no longer holds for
   those four.
 - `profile_selections`: `(subject, sid) PK → profile_id → profiles ON DELETE
   CASCADE, updated_at` — which profile a device last activated, keyed on the
-  Ward token's `sid` so switching on one device does not switch the others
+  session's id hash so switching on one device does not switch the others
   (`profiles/profile-selection.model.ts`).
 - `reading_progress`: `(profile_id, book_id) PK` → `progress, locator,
   updated_at`, both FKs `ON DELETE CASCADE` — progress + resume position, keyed
@@ -191,14 +190,15 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
   `GET /library/:id/file`, `GET /library/:id/cover`,
   `PATCH /library/:id/progress`, `DELETE /library/:id`, and the convert pair
   `POST /library/:id/convert` / `DELETE /library/:id/convert` (D34).
-- **Ward guard** (D53, `modules/ward/`): see the diagram above; a stale selected profile falls back to the default, never a 401.
+- **Auth guard** (D58, `modules/auth/`, library in `vendor/ward/`): see the diagram above; a stale selected profile falls back to the default, never a 401.
 - **Cover extraction** (D26): EPUB OPF manifest cover; PDF page-1 render → JPEG.
 - **Conversion** (D34): `POST`/`DELETE /library/:id/convert`, an async job
   shelling out to Calibre `ebook-convert`; the stateless `POST /convert` is gone.
 
 ## Client↔server wiring
 One origin in development as in the deploy (D54): the web dev server proxies
-`/atrium-api` (prefix stripped) and `/ward`, `/ward-api`. The API sends no CORS headers.
+`/atrium-api` (prefix stripped), which also carries Ward's callback; there is no
+`/ward` proxy since D58. The API sends no CORS headers.
 
 See [reader.md](reader.md) and [conversion.md](conversion.md) for the two
 subsystems in detail.

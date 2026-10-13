@@ -1,36 +1,33 @@
 import { create } from "zustand";
 import { profileListSchema, type Profile } from "@ebook-reader/shared";
 
+import { authClient } from "../auth/client";
 import { ApiError, setOnForbidden, setOnUnauthorized } from "./api-client";
 import { activateProfile, fetchProfiles } from "./profiles-api";
 import { queryClient } from "./query-client";
-import { goToWardLogin } from "./ward";
 
 /**
- * Web-side session state. **Atrium no longer authenticates anybody.**
+ * Web-side session state: whether the app is open, and the **profile** half.
  *
- * Identity is Ward's: the browser holds a `ward_session` cookie at `Path=/` on
- * the shared origin, atrium's API validates it on every request, and this store
- * never sees a token, a password or a username/password form. What it does is
- * decide which of three things the app is looking at — signed in, not signed
- * in, or signed in without permission — and hold the **profile** half, which is
- * still entirely atrium's (D35: Ward does not know profiles exist).
+ * Signing in is atrium's own again (D58). The session is an `atrium_session`
+ * cookie scoped to the API prefix, set and read by the API; this store never
+ * sees it. The sign-in itself, its errors and "Sign in with Ward" belong to
+ * the library's hooks (`auth/client.ts`), which the login and settings pages
+ * use directly. What this store decides is which of three things the app is
+ * looking at (open, signed out, or signed in as the Discord bot) and it holds
+ * the active profile, which is entirely atrium's (D35).
  *
- * There is no `login` here and there must not be one. Signing in is a
- * navigation to `/ward/login?next=…`, not a request atrium makes.
- *
- * There is also no stored token. The one piece of localStorage left is the
- * remembered *profile choice*, which is a preference and not a credential —
- * losing it costs somebody one tap on the picker.
+ * The one piece of localStorage is the remembered *profile choice*, which is
+ * a preference and not a credential: losing it costs somebody one tap on the
+ * picker.
  *
  * Brief 35 put the **active profile** in this same store rather than a sibling
- * one, and that still holds: the 401 handler below has to drop the session
- * state and the profile in one atomic reset, because a device that signed in as
- * a different account while keeping the previous account's profile id would
- * read the wrong person's shelf. An account is the household and the security
- * boundary; a profile is a person in it and an identity boundary only (D35), so
- * nothing here is a permission check — the permission check is the `atrium`
- * grant, and it happens in the API.
+ * one, and that still holds: signing out has to drop the session state and the
+ * profile in one atomic reset, because a device that signed in as a different
+ * account while keeping the previous account's profile id would read the wrong
+ * person's shelf. An account is the household and the security boundary; a
+ * profile is a person in it and an identity boundary only (D35), so nothing
+ * here is a permission check. Those happen in the API.
  */
 
 /** The device's remembered profile choice — an id, and only ever a hint. */
@@ -156,28 +153,16 @@ stampActivity();
 /**
  * What the app is looking at.
  *
- * `forbidden` is the state that did not exist before Ward and is the one worth
- * naming: a valid, live session held by somebody with **no atrium grant**.
- * Collapsing it into `locked` would send them to a login page they are already
- * past, in a loop — only a superuser issuing a grant resolves it, so the app has
- * to say so rather than redirect.
+ * - `locked`: no session. The gate shows atrium's login page in place.
+ * - `forbidden`: a live session whose role is `jukebox` (D55), the Discord
+ *   bot's account, which may not open the library. Signing in again would not
+ *   change that, so the gate says so and offers only signing out.
  */
-export type AuthGateStatus = "checking" | "locked" | "forbidden" | "unavailable" | "unlocked";
+export type AuthGateStatus = "checking" | "locked" | "forbidden" | "unlocked";
 
-/**
- * Whether a failed probe is the API saying Ward cannot vouch for anybody right
- * now (brief 61's 503). Only that body counts: a 503 from a proxy in front of a
- * stopped API is the API being down, which is the offline case below.
- */
-function isIdentityUnavailable(err: unknown): err is ApiError {
-  return (
-    err instanceof ApiError &&
-    err.status === 503 &&
-    typeof err.body === "object" &&
-    err.body !== null &&
-    (err.body as { error?: unknown }).error === "IDENTITY_UNAVAILABLE"
-  );
-}
+/** What `forbidden` tells the person. */
+const JUKEBOX_ONLY_MESSAGE =
+  "This account belongs to the Jukebox's Discord bot and can't open the library. Sign out and sign in as yourself.";
 
 interface AuthState {
   status: AuthGateStatus;
@@ -186,7 +171,7 @@ interface AuthState {
    * has no login form to learn it from and does not persist it.
    */
   username: string | null;
-  /** A message for the gate screen. Not a login error; there is no login here. */
+  /** A message for the gate's `forbidden` screen. Sign-in errors are the login page's. */
   error: string | null;
   /**
    * The full active-profile row, once the server has told us (login, boot
@@ -216,15 +201,20 @@ interface AuthState {
   pickerRequired: boolean;
   /**
    * Asks the API who we are and settles `status`. Called on app start, and
-   * again by the gate's retries while `status` is `unavailable`.
+   * again by the login page once a password sign-in succeeds.
    */
   checkStatus: () => Promise<void>;
   /**
-   * Leave the `unavailable` screen for the app without a session check, so a
-   * device with downloaded books can read them while Ward is down. The library
-   * falls back to those downloads on its own when its fetch fails.
+   * Leave the login page for the app without a session, so a device with
+   * downloaded books can read them while it cannot sign in (brief 77). The
+   * library falls back to those downloads on its own when its fetch fails.
    */
   continueWithoutSignIn: () => void;
+  /**
+   * The session has ended (a sign-out here, or the API answering 401): drop
+   * every trace of the account and show the login page.
+   */
+  signedOut: () => void;
   /**
    * Make `id` the active profile: activate it server-side, drop every cached
    * row from the previous profile, then flip the store. Throws `ApiError` on
@@ -300,43 +290,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (remembered) void activateProfile(remembered.id).catch(() => undefined);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        // Not signed in. The api-client's 401 handler has already started the
-        // navigation to Ward; setting `locked` is what the app paints in the
-        // moment before the browser leaves.
+        // Not signed in. The api-client's 401 handler has already reset the
+        // store; this is the same state, set for the probe's own caller.
         set({ status: "locked", error: null });
         return;
       }
       if (err instanceof ApiError && err.status === 403) {
-        set({
-          status: "forbidden",
-          error:
-            "You are signed in, but this account has no access to atrium. " +
-            "Ask the administrator to grant it.",
-        });
-        return;
-      }
-
-      if (isIdentityUnavailable(err)) {
-        /*
-         * The API answered, so this device is online; Ward is what is down.
-         * Do NOT send anybody to a login page: it is served by the service
-         * that is not answering, so the redirect would be a loop that looks
-         * like a broken password. Say so instead, and let the gate retry
-         * (brief 77). Rendering the app here left it on "Loading…" or on a
-         * library error that blamed the API.
-         */
-        set({
-          status: "unavailable",
-          error: "Sign-in is unavailable right now. Atrium will try again.",
-        });
+        set({ status: "forbidden", error: JUKEBOX_ONLY_MESSAGE });
         return;
       }
 
       /*
        * The API is unreachable: this device is offline, or the API is down.
        * Render the app and let the library fall back to downloaded books
-       * (brief 20) — the same choice this store made before Ward. A login
-       * redirect would fail the same way.
+       * (brief 20). The login page would fail the same way.
        */
       set({ status: "unlocked", error: null });
     }
@@ -344,6 +311,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   continueWithoutSignIn() {
     set({ status: "unlocked", error: null });
+  },
+
+  signedOut() {
+    /*
+     * The remembered profile id goes too. Left behind, signing in as a
+     * different account on this device would inherit the previous account's
+     * profile id, and because the remembered timestamp is *device* activity
+     * rather than account state, that id would look fresh enough to skip the
+     * picker: one household member's reading silently attributed to another.
+     */
+    writeStoredProfileId(null);
+    writeStoredProfiles([]);
+    // Whoever signs in next is not necessarily who just got signed out.
+    queryClient.clear();
+    set({
+      status: "locked",
+      username: null,
+      error: null,
+      activeProfile: null,
+      activeProfileId: null,
+      profiles: [],
+      pickerRequired: true,
+    });
   },
 
   async switchProfile(id) {
@@ -413,48 +403,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 /**
- * Any 401 means Ward's session is gone — expired, revoked, or signed out from
- * another app. Hand over to Ward's login page.
+ * Any 401 means the session is gone: expired, signed out elsewhere, or a Ward
+ * session that Ward ended or cannot vouch for. Reset, which puts the login page
+ * up in place, and re-read the session so that page can say *why* (the
+ * `reason`: `ward_session_ended`, `ward_unavailable`).
  *
- * The local state is cleared **before** the navigation, not instead of it. The
- * redirect is not instantaneous, and whatever renders in the meantime must not
- * be the previous person's shelf.
+ * The local state is cleared first: whatever renders next must not be the
+ * previous person's shelf.
  */
 setOnUnauthorized(() => {
-  /*
-   * The remembered profile id goes too. Left behind, signing in as a different
-   * account on this device would inherit the previous account's profile id —
-   * and because the remembered timestamp is *device* activity rather than
-   * account state, that id would look fresh enough to skip the picker. The
-   * result is one household member's reading silently attributed to another.
-   */
-  writeStoredProfileId(null);
-  writeStoredProfiles([]);
-  // Whoever signs in next is not necessarily who just got signed out.
-  queryClient.clear();
-  useAuthStore.setState({
-    status: "locked",
-    username: null,
-    error: null,
-    activeProfile: null,
-    activeProfileId: null,
-    profiles: [],
-    pickerRequired: true,
-  });
-
-  goToWardLogin();
+  useAuthStore.getState().signedOut();
+  void authClient.refresh();
 });
 
 /**
- * A 403 is a live session with no atrium grant, and it must **not** redirect.
- *
- * Sending somebody to a login page they are already past is a loop: they sign
- * in successfully, come back, and are refused again for a reason signing in
- * cannot address. Only a superuser issuing an `atrium` grant resolves it, so
- * the app stops and says that.
- *
- * The caches are cleared for the same reason as above — whatever is on screen
- * belongs to a session that has just been refused.
+ * A 403 from the app's routes is the Discord bot's account (D55) reaching past
+ * its allowlist. Not a sign-in problem, so no login page: the gate says so.
+ * The caches are cleared because whatever is on screen was just refused.
  */
 setOnForbidden(() => {
   queryClient.clear();
@@ -463,9 +428,7 @@ setOnForbidden(() => {
     activeProfile: null,
     activeProfileId: null,
     profiles: [],
-    error:
-      "You are signed in, but this account has no access to atrium. " +
-      "Ask the administrator to grant it.",
+    error: JUKEBOX_ONLY_MESSAGE,
   });
 });
 

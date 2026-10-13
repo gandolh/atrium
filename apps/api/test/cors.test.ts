@@ -11,7 +11,7 @@ describe("CORS grants no origin", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("reader", "subject-reader");
+    cookie = await t.signIn("subject-reader");
   });
   after(async () => {
     await t.close();

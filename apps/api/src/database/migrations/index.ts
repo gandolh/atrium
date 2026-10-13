@@ -3,6 +3,7 @@ import * as baseline from "./20260830000000-baseline.js";
 import * as wardCutover from "./20260906000000-ward-cutover.js";
 import * as pruneCutoverOrphans from "./20260925000000-prune-cutover-orphans.js";
 import * as jukebox from "./20261008000000-jukebox.js";
+import * as localAccounts from "./20261013000000-local-accounts.js";
 
 /**
  * The migration list, as **static imports** rather than a directory Knex scans.
@@ -35,6 +36,7 @@ const MIGRATIONS: Migration[] = [
   { name: "20260906000000-ward-cutover", up: wardCutover.up, down: wardCutover.down },
   { name: "20260925000000-prune-cutover-orphans", up: pruneCutoverOrphans.up, down: pruneCutoverOrphans.down },
   { name: "20261008000000-jukebox", up: jukebox.up, down: jukebox.down },
+  { name: "20261013000000-local-accounts", up: localAccounts.up, down: localAccounts.down },
 ];
 
 /**

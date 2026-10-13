@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 
+// First: creating the auth client reads a Ward round trip's `?ward_error=` /
+// `?ward=` and removes it from the address bar, before the router reads it.
+import "./auth/client";
 import { queryClient } from "./lib/query-client";
 import { router } from "./router";
 

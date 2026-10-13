@@ -15,7 +15,7 @@ import { profileTintClass } from "../lib/profile-colors";
  * Follows `CoverCard`'s per-card overflow menu exactly: `onBlur` on the
  * trigger closes the panel, and every menu item fires on `onMouseDown` (not
  * `onClick`) so the ACTION runs before that blur closes it. "Manage profiles"
- * navigates imperatively (`useNavigate`) in its own `onMouseDown`, rather than
+ * (and "Account", the D58 settings page with sign-out) navigates imperatively (`useNavigate`) in its own `onMouseDown`, rather than
  * a `Link`'s default click-to-navigate, for the same reason: the trigger's
  * `onBlur` fires on mousedown too, so a `Link` relying on the click that
  * follows would already be unmounted (the panel closed) by the time it fires.
@@ -111,6 +111,16 @@ export function ProfileSwitcher() {
             className="block w-full border-t border-line-soft/60 px-3 py-2 text-left font-ui text-sm text-ink-variant transition hover:bg-paper-low hover:text-ink"
           >
             Manage profiles
+          </button>
+          <button
+            type="button"
+            onMouseDown={() => {
+              setOpen(false);
+              void navigate({ to: "/settings" });
+            }}
+            className="block w-full px-3 py-2 text-left font-ui text-sm text-ink-variant transition hover:bg-paper-low hover:text-ink"
+          >
+            Account
           </button>
         </div>
       )}

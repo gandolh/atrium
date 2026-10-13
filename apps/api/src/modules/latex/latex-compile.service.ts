@@ -622,7 +622,7 @@ export type StartLatexCompileResult =
  * The work itself starts on a later turn of the event loop (see
  * `scheduleCompile`).
  *
- * `subject` is the Ward account, not the profile: `getRunningLatexCompile`
+ * `subject` is the account (the local user's id, D58), not the profile: `getRunningLatexCompile`
  * joins through `profiles.subject` for the same reason (D35, D53).
  */
 export async function startLatexCompile(

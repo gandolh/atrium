@@ -29,11 +29,11 @@ import {
  * confirms the id exists on somebody else's account.
  */
 export function registerProfileRoutes(app: FastifyInstance): void {
-  // The app-wide guard (ward/ward.guard.ts) attaches both, or answers 401/403,
-  // so these are safe on every route in this file.
-  const accountId = (request: FastifyRequest): string => request.ward!.subject;
-  /** The device this request came from — the Ward token's refresh family. */
-  const deviceId = (request: FastifyRequest): string => request.ward!.sid;
+  // The app-wide guard (auth/auth.guard.ts) attaches the session, or answers
+  // 401/403, so these are safe on every route in this file.
+  const accountId = (request: FastifyRequest): string => request.auth!.user.id;
+  /** The device this request came from — the session it signed in with. */
+  const deviceId = (request: FastifyRequest): string => request.auth!.session.idHash;
 
   /**
    * Resolve `:id` to a profile **on the caller's own account**, or answer 404
@@ -111,10 +111,10 @@ export function registerProfileRoutes(app: FastifyInstance): void {
   app.post("/profiles/:id/activate", async (request: FastifyRequest, reply: FastifyReply) => {
     const profile = await ownedProfile(request, reply);
     if (!profile) return reply;
-    // The guard sets `ward` on every non-allowlisted request, and this route is
-    // not allowlisted. Activation is now recorded against the **device**
-    // (`subject` + `sid`) rather than against an atrium session row, which
-    // keeps D35's per-device behaviour with no sessions table to hold it.
+    // The guard sets `auth` on every non-allowlisted request, and this route is
+    // not allowlisted. Activation is recorded against the **device**
+    // (`subject` + `sid`, the account and its session), which keeps D35's
+    // per-device behaviour.
     await activateProfile(accountId(request), deviceId(request), profile);
     return reply.send(profileSchema.parse(toProfile(profile)));
   });

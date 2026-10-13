@@ -68,7 +68,7 @@ describe("a failed conversion status write cannot wedge conversions", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("converter", "subject-converter");
+    cookie = await t.signIn("subject-converter");
     console.error = (...args: unknown[]) => void errors.push(args.join(" "));
   });
   after(async () => {

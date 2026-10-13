@@ -47,7 +47,7 @@ describe("a re-published document and a replaced cover are never served stale", 
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("author", "subject-author");
+    cookie = await t.signIn("subject-author");
     const created = await inject("POST", "/latex", { payload: { title: "Paper" } });
     assert.equal(created.statusCode, 201, created.body);
     project = created.json().id;

@@ -20,7 +20,7 @@ describe("the notes list never loads the ink", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("writer", "subject-writer");
+    cookie = await t.signIn("subject-writer");
     const profiles = await t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } });
     profileId = profiles.json()[0].id;
 

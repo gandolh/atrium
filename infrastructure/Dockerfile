@@ -78,6 +78,7 @@ COPY --from=builder /app/packages/typeset/dist ./packages/typeset/dist
 # publish, fails inside the container.
 COPY packages/typeset/assets ./packages/typeset/assets
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY apps/api/vendor ./apps/api/vendor
 COPY package.json ./
 COPY --parents apps/*/package.json ./
 COPY --parents packages/*/package.json ./

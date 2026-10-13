@@ -139,9 +139,8 @@ export async function deleteAccountProfile(
     subject: string;
     reassign: boolean;
     /**
-     * The caller's own device — the Ward token's `sid` — so its selection can
-     * be re-pointed. Was the atrium session token, back when a session row held
-     * the active profile.
+     * The caller's own device — the session's id hash (D58) — so its selection
+     * can be re-pointed.
      */
     sid?: string;
     /** True when the caller is currently *acting as* the profile being deleted. */
@@ -238,11 +237,11 @@ export async function deleteAccountProfile(
  * The switch. Free by design (D35, decision 5) — no password, no PIN — and
  * still one write server-side.
  *
- * Ward is not involved and must not be: switching profiles issues no token,
- * touches no session, and is invisible to the identity service. Other tabs on
+ * No session changes: switching profiles issues no token and is invisible to
+ * Ward. Other tabs on
  * the same device follow, because they share the `sid`; other devices do not,
- * because they do not. That is exactly the old behaviour, with the atrium
- * session row replaced by `(subject, sid)`.
+ * because they do not. That is exactly the D35 behaviour, kept in
+ * `(subject, sid)`.
  */
 export async function activateProfile(
   subject: string,

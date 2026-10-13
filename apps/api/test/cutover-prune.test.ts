@@ -91,7 +91,7 @@ describe("the cutover's orphans are pruned", () => {
     assert.equal(await count("document_versions"), 1);
 
     t = await buildTestApp();
-    const cookie = t.ward.signIn("after", "subject-after");
+    const cookie = await t.signIn("subject-after");
     const res = await t.app.inject({ method: "GET", url: "/library/b2/file", headers: { cookie } });
     assert.equal(res.statusCode, 200, res.body);
     assert.equal(res.body, "%PDF");

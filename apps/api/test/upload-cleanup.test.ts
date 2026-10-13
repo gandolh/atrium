@@ -59,7 +59,7 @@ describe("an upload that does not finish leaves nothing behind", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("uploader", "subject-uploader");
+    cookie = await t.signIn("subject-uploader");
     pdf = await fixturePdf();
   });
   after(async () => {

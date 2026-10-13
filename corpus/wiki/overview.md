@@ -1,6 +1,6 @@
 ---
 summary: What Atrium is in a paragraph — a personal cloud space: a household media library (books, music, video) plus authored Notes and LaTeX documents; the orientation page.
-updated: 2026-10-09
+updated: 2026-10-13
 ---
 
 # Overview
@@ -71,13 +71,15 @@ reading stays the star. See [decisions.md](decisions.md).
 
 ## Runs
 **Deployed** on the production site at `/atrium/`, behind Ward, the estate's sign-in
-(D53): the web app is a static build served by Caddy, and the API runs as a
+(D53; D58, not deployed yet, gives atrium its own accounts back with Ward as a
+second way in): the web app is a static build served by Caddy, and the API runs as a
 container (`infrastructure/Dockerfile`, `infrastructure/docker-compose.yml`)
 that vps-deploy builds on the VPS. **Calibre lives in that image**, not on the
 host. The same image carries the native build tools for `better-sqlite3` and
 `sharp`.
 
-**Locally**, `npm run dev` runs web + api on one origin (D54) and needs a local
-Ward to sign in through. Calibre is optional on the dev machine: the API warns
+**Locally**, `npm run dev` runs web + api on one origin (D54). Sign in with an
+account from `npm run seed:user`; "Sign in with Ward" needs the local Ward
+container. Calibre is optional on the dev machine: the API warns
 at startup when `ebook-convert` is missing, and only Convert fails (D5). Steps
 are in [../../docs/getting-started.md](../../docs/getting-started.md).

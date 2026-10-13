@@ -6,14 +6,17 @@ import { knex } from "../../database/knex.js";
  * ## Why this table exists now and did not before
  *
  * The active profile used to be a column on atrium's own `sessions` table —
- * `sessions.active_profile_id`. Ward owns sessions now, and Ward deliberately
- * knows nothing about profiles (D35: they are atrium's, and Ward's model has no
- * place to put them). So the selection needs a home of atrium's own.
+ * `sessions.active_profile_id`. D53 handed sessions to Ward, which knows
+ * nothing about profiles (D35), so the selection got a home of atrium's own.
+ * D58 brought sessions back, but they are the library's table, and the
+ * selection stayed here.
  *
  * ## Keyed on `(subject, sid)`, and that pair is the whole design
  *
- * `sid` is the Ward access token's refresh-family claim — one browser, one
- * sign-in. Keying on it reproduces the old per-device behaviour exactly:
+ * `sid` is the session's id (`auth_sessions.id_hash`, D58) — one browser, one
+ * sign-in. Under D53 it was the Ward token's refresh family, and the D58
+ * migration dropped those rows. Keying on it reproduces the old per-device
+ * behaviour exactly:
  * switching to "Kids" on the laptop does not switch the phone, which is the
  * property D35 wanted and which a per-account column would silently lose.
  *
@@ -30,16 +33,14 @@ import { knex } from "../../database/knex.js";
  * failure: every read falls back, and the guard treats a missing or stale
  * selection as never being an auth failure.
  *
- * There is deliberately **no cleanup job** for sessions that have ended. Ward
- * does not tell atrium when a refresh family dies, a row is a subject and a
- * profile id and nothing sensitive, and one row per device per account is a
- * table that stays small on its own. Pruning it would mean atrium subscribing
- * to Ward's session lifecycle for no benefit.
+ * There is deliberately **no cleanup job** for sessions that have ended. A row
+ * is an account, a session hash and a profile id and nothing sensitive, and
+ * one row per sign-in per account is a table that stays small on its own.
  */
 
 export interface ProfileSelectionRow {
   subject: string;
-  /** The Ward access token's `sid` claim — the refresh family, i.e. the device. */
+  /** The session's id hash: one sign-in on one device. */
   sid: string;
   profile_id: string;
   updated_at: string;

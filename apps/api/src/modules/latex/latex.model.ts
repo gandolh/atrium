@@ -174,8 +174,9 @@ export async function deleteLatexProject(profileId: string, id: string): Promise
  * durable half of the single-flight guard (brief 38 step 3, mirroring D34
  * decision 6): one compile at a time, a refusal rather than a queue.
  *
- * Joined through `profiles.subject` (the Ward account, D53; it was `user_id`
- * before the cutover, and this query kept the dropped name until brief 54)
+ * Joined through `profiles.subject` (the account: the local user's id since
+ * D58, the Ward subject under D53; it was `user_id` before the cutover, and
+ * this query kept the dropped name until brief 54)
  * because the slot is per account, not per profile —
  * a household sharing one machine shares the CPU the engine runs on. Oldest
  * first so a refusal names the compile that has been running longest.

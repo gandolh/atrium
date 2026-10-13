@@ -15,7 +15,7 @@ describe("first contact", () => {
   });
 
   it("a first request provisions exactly one Default profile", async () => {
-    const cookie = t.ward.signIn("first", "subject-first");
+    const cookie = await t.signIn("subject-first");
     const res = await t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } });
     assert.equal(res.statusCode, 200);
     const rows = await knex("profiles").where({ subject: "subject-first" });
@@ -24,7 +24,7 @@ describe("first contact", () => {
   });
 
   it("five concurrent first requests still produce one profile, and no 500", async () => {
-    const cookie = t.ward.signIn("burst", "subject-burst");
+    const cookie = await t.signIn("subject-burst");
     const responses = await Promise.all(
       Array.from({ length: 5 }, () =>
         t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } }),

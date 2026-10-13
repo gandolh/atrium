@@ -32,7 +32,7 @@ describe("check-and-write races", () => {
 
   before(async () => {
     t = await buildTestApp();
-    cookie = t.ward.signIn("racer", "subject-racer");
+    cookie = await t.signIn("subject-racer");
     profileId = (await inject("GET", "/profiles")).json()[0].id;
   });
   after(async () => {

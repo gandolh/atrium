@@ -162,15 +162,15 @@ export async function deleteBookVersion(id: string, versionId: string): Promise<
 /**
  * Absolute URL for a book's cover thumbnail (served from disk, D25).
  *
- * A plain URL now, with no credential in it. `<img>` tags cannot send an
- * `Authorization` header, which is why this used to append `?token=` — and
- * Ward's cookie is `Path=/` on the shared origin, so the browser attaches it to
- * an image request on its own. Deleting the query parameter deleted a session
- * token from every cover URL in the app, the browser history and the API's
- * request log.
+ * A plain URL, with no credential in it. `<img>` tags cannot send an
+ * `Authorization` header, which is why this once appended `?token=`. The
+ * session is a cookie scoped to the API prefix (`Path=/atrium-api`, D58), and
+ * `apiUrl()` puts this URL under that prefix, so the browser attaches the
+ * cookie to the image request on its own.
  *
  * **If covers ever stop loading, this is the first thing to check**, and the
- * cause will not be here: it will be the cookie not reaching the API's origin.
+ * cause will not be here: it will be the cookie's path no longer covering
+ * `VITE_API_URL`'s path, or the cookie not reaching the API's origin.
  */
 export function coverUrl(id: string, coverVersion: number | null): string {
   const url = apiUrl(`/library/${id}/cover`);

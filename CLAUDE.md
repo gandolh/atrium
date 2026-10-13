@@ -74,7 +74,7 @@ corpus/
 ## Project one-liner
 
 **Atrium** — a personal **media gallery** with **per-person profiles** inside
-Ward accounts and a **shared persistent library**: books (PDF/EPUB), music (MP3)
+accounts and a **shared persistent library**: books (PDF/EPUB), music (MP3)
 and video (MP4/WebM), plus a **Notes** tab of per-profile paged notebooks (D32,
 briefs 24–26).
 Upload an item → it's saved (server-side SQLite) with a server-extracted cover →
@@ -82,11 +82,12 @@ reopen from its per-kind area (`/books` `/music` `/videos` `/notes`) any time.
 Books read 100% client-side (react-pdf, react-reader/epub.js); the Fastify
 backend owns the library (CRUD + file/cover storage), per-profile progress +
 resume locator (D31/D35), a Gutenberg discover proxy, PDF⇄EPUB conversion via
-Calibre (D34) and a LaTeX editor with its own typesetting engine. **Identity is
-Ward's (D53):** atrium has no login, no users and no sessions of its own — an
-app-wide guard verifies Ward's `ward_session` cookie and requires an `atrium`
-grant (401 / 403 / 503, `apps/api/src/modules/ward/`); atrium keeps only
-profiles, keyed on the Ward subject.
+Calibre (D34) and a LaTeX editor with its own typesetting engine. **Accounts
+are atrium's own (D58):** its login page signs in with a local password, and
+"Sign in with Ward" is a second way in, both on Ward's vendored library
+(`apps/*/vendor/ward/`, never edited). An app-wide guard checks the
+`atrium_session` cookie (`apps/api/src/modules/auth/`); profiles live inside an
+account, keyed on its id (`profiles.subject`).
 The internal npm scope `@ebook-reader/*` and the `books`/`library` code nouns are
 deliberately kept (D32) — see `corpus/wiki/glossary.md`. Start at `corpus/wiki/overview.md`.
 

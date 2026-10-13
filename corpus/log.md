@@ -2552,3 +2552,37 @@ the 401 redirect drops unsaved LaTeX source.
 the text at 390 px. Also fixed [overview.md](wiki/overview.md) "Runs", which
 still said local dev only with Calibre on the host: it now says deployed
 behind Ward, Calibre in the container image.
+
+## [2026-10-13] build | Local accounts again, with "Sign in with Ward" (D58)
+
+Ward's brief 22, built here. Atrium has its own login page again, in the
+Reading Room design, and "Sign in with Ward" is a button on it. Accounts,
+passwords, lockout and sessions are Ward's shared library, vendored into
+`apps/api/vendor/ward` and `apps/web/vendor/ward` at 0.2.0 and never edited;
+`modules/ward/` (the hand-written JWT and introspection client) is deleted, and
+`modules/auth/auth.guard.ts` registers the library's plugin first and then
+atrium's own hook (D55's allowlist, the active profile). The session is
+`atrium_session` at `Path=/atrium-api`; covers and media load because
+`apiUrl()` puts every URL under that prefix. The library shares Knex's single
+connection rather than opening a second one.
+
+**Data:** a boot task (`database/ward-subjects.ts`) makes every
+`profiles.subject` a local user whose id is that subject, linked to it, named
+`user-<first 8 characters>` (atrium never stored Ward usernames) with full
+access. `profiles.subject` keeps its name. A new migration drops
+`profile_selections`, whose keys were Ward refresh families. Revision notes on
+D30, D35, D53, D54 and D55; glossary Account, Seeded account and Session.
+
+**Verified:** 113 API tests (new: local sign-in and the guard, the subject
+migration, the Ward routes over a fake `fetch`, including a Ward-ended session
+and a Ward outage that leaves a password session working); typecheck and both
+builds. A boot against scratch storage with the local Ward container: a seeded
+account signed in with curl (`Set-Cookie: atrium_session=…; Path=/atrium-api;
+HttpOnly; SameSite=Lax`), `/library` and `/profiles` answered 200 with it, and
+`POST /auth/ward/start` answered an authorization URL on `localhost:8792`,
+which Ward accepted. Not driven in a browser: the dev server was not started.
+
+**Owed:** the deploy (the Dockerfile copies `apps/api/dist` only and must also
+copy `apps/api/vendor`; new env `PUBLIC_ORIGIN` and the `WARD_OIDC_*` set),
+seeding the owner's account, and just-a-bot signing in with a local `jukebox`
+account, since atrium no longer reads Ward's cookie.

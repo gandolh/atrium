@@ -4,7 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
 import { initDatabase } from "../src/database/bootstrap.js";
 import { closeDatabase, knex } from "../src/database/knex.js";
-import { FakeWard } from "./fake-ward.js";
+import { SESSION_COOKIE } from "../src/modules/auth/auth.guard.js";
 
 // Brief 73: Fastify's default answered a 500 with the error's message, which
 // for a Knex/SQLite error is the whole SQL statement with its bound values.
@@ -16,10 +16,10 @@ describe("a 500 does not send the error's message", () => {
   let cookie: string;
 
   before(async () => {
-    await initDatabase();
-    const ward = new FakeWard();
-    cookie = ward.signIn("owner", "subject-owner");
-    app = await buildApp({ wardClient: ward });
+    const accounts = await initDatabase();
+    await accounts.createUser({ id: "subject-owner", username: "owner", role: "member" });
+    cookie = `${SESSION_COOKIE}=${(await accounts.startSession("subject-owner")).token}`;
+    app = await buildApp({ accounts });
     app.log.level = "silent";
     app.get("/test/boom", async () => {
       throw Object.assign(new Error(SQL_MESSAGE), { code: "SQLITE_ERROR" });

@@ -2586,3 +2586,7 @@ which Ward accepted. Not driven in a browser: the dev server was not started.
 copy `apps/api/vendor`; new env `PUBLIC_ORIGIN` and the `WARD_OIDC_*` set),
 seeding the owner's account, and just-a-bot signing in with a local `jukebox`
 account, since atrium no longer reads Ward's cookie.
+
+## [2026-10-18] todo | Brief 87 filed: the docs site moves from Starlight to Docusaurus
+
+The owner's call (2026-10-18), one brief in every repo with a docs site. [87](briefs/todo/87-docs-site-on-docusaurus.md) keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.

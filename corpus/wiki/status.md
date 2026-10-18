@@ -133,3 +133,4 @@ got here.
 | 84 | Bug: changing the EPUB font size loses your place | **todo**, filed 2026-10-09; cause is a lead only |
 | 85 | Bug: an expired Ward session loses unsaved LaTeX edits | **todo**, filed 2026-10-09; cause is a lead only |
 | 86 | Bug: page-turn arrows cover the text at 390 px | **todo**, filed 2026-10-09; cause is a lead only |
+| 87 | Docs site from Starlight to Docusaurus, same URLs | **todo**, filed 2026-10-18; the deploy waits on vps-deploy brief 11 |

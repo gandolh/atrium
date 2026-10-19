@@ -200,7 +200,9 @@ async function main() {
       'toc_max_heading_level: 3',
       '---',
       '',
-      `:::note[Rendered from \`corpus/${src}\`${updated}]`,
+      // A plain-text title: in CommonMark mode (.md) Docusaurus drops a title
+      // that holds inline code into the body and shows "NOTE" instead.
+      `:::note[Rendered from corpus/${src}${updated}]`,
       'This page is generated from the project corpus and rewritten on every docs build. Edit the source in `corpus/`, not here.',
       ':::',
       '',

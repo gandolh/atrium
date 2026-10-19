@@ -172,7 +172,9 @@
 
 .navbar__title {
   font-family: var(--font-display);
+  font-size: 1.25rem;
   font-weight: 600;
+  color: var(--accent);
 }
 
 /* "You are here". Not .menu__link--active: Infima puts that on the parent
@@ -273,6 +275,13 @@
   --ifm-alert-background-color: var(--accent-low);
   --ifm-alert-border-color: var(--accent);
   --ifm-alert-foreground-color: var(--ink);
+}
+
+/* The classic theme sets admonition titles in capitals; the Starlight site's
+   were sentence case, and the synced pages' titles are file paths. */
+.theme-admonition [class*='admonitionHeading'] {
+  text-transform: none;
+  font-weight: 600;
 }
 
 /* --- Diagram frames (Diagram.tsx) ---------------------------------------- */

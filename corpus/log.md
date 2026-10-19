@@ -2589,7 +2589,7 @@ account, since atrium no longer reads Ward's cookie.
 
 ## [2026-10-18] todo | Brief 87 filed: the docs site moves from Starlight to Docusaurus
 
-The owner's call (2026-10-18), one brief in every repo with a docs site. [87](briefs/todo/87-docs-site-on-docusaurus.md) keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.
+The owner's call (2026-10-18), one brief in every repo with a docs site. [87](briefs/done/87-docs-site-on-docusaurus.md) keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.
 
 ## [2026-10-19] build | Brief 83: a theme change keeps the page
 
@@ -2629,3 +2629,13 @@ measure. The circles are now hidden below 740 px, where they fit outside the
 measure; phones turn by swipe and tap zones, keyboards by the arrow keys.
 Outcome in [86](briefs/done/86-page-turn-arrows-cover-text-on-phones.md);
 [reader.md](wiki/reader.md) notes it.
+
+## [2026-10-19] build | Brief 87: the docs site runs on Docusaurus
+
+Same base, same `dist/`, same URLs, both themes with the toggle; the colours
+match the Starlight site in both modes. The sync now discovers pages, and the
+owner chose to publish the four the old list left out (Jukebox, its glossary,
+the Jellyfin comparison, the 2026-08-26/27 status archive). The one link into
+`wzd_auth` now goes to Ward's GitHub repo. Not deployed: vps-deploy brief 11
+switches the docs stack's check to `assets/` first. Outcome in
+[87](briefs/done/87-docs-site-on-docusaurus.md).

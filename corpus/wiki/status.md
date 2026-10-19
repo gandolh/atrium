@@ -133,5 +133,5 @@ got here.
 | 84 | Bug: changing the EPUB font size loses your place | **done (2026-10-19)**; the place is read before the reflow and kept across presses |
 | 85 | Bug: an expired Ward session loses unsaved LaTeX edits | **done (2026-10-19)**; unsaved source is copied to the device and offered back after sign-in |
 | 86 | Bug: page-turn arrows cover the text at 390 px | **done (2026-10-19)**; the circles are hidden below 740 px, where they cannot clear the measure |
-| 87 | Docs site from Starlight to Docusaurus, same URLs | **todo**, filed 2026-10-18; the deploy waits on vps-deploy brief 11 |
+| 87 | Docs site from Starlight to Docusaurus, same URLs | **done (2026-10-19)**; four more wiki pages published; not deployed, waits on vps-deploy brief 11 |
 | 88 | Bug: an expired session loses unsaved Notes ink | **todo**, filed 2026-10-19 from brief 85; read from the code |

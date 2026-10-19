@@ -127,3 +127,72 @@ No new pages, no content rewrite.
 
 Deploying. The owner deploys after vps-deploy brief 11 flips the `atrium` docs
 stack.
+
+## Outcome (2026-10-19)
+
+**Done.** `apps/docs` builds with Docusaurus 3.10.2 (exact pins, D21; React
+19.2.7 and TypeScript 5.9.3 to match the other workspaces). Same base
+(`DOCS_BASE ?? '/atrium/docs/'`), same `dist/`, both themes with the toggle.
+Not deployed: vps-deploy brief 11 has to switch the `atrium` docs stack's
+check to `assets/` first.
+
+**Step 5, the owner's answer (2026-10-19):** publish all four pages, so
+`DENY` is empty. Placed in the sidebar:
+- `jukebox` ("The Jukebox") and `glossary-jukebox` ("Jukebox vocabulary") in
+  *The product*, after the PWA layer: the Jukebox is a product surface, and its
+  vocabulary sits with it the way "Authoring vocabulary" sits with LaTeX;
+- `jellyfin-comparison` ("Jellyfin compared") in *Decisions and state*, after
+  Open questions, which it feeds;
+- `status-history-v2` in *Status*, between "Archive — through brief 44" and
+  "Archive — v1", where its dates (2026-08-26 to 08-27) put it.
+
+**What changed on the way:**
+- `index.mdx` got `slug: /` and `hide_table_of_contents`; its one Markdown
+  link to TypeDoc became `pathname:///reference/`. The other page links were
+  already routes.
+- The corpus banner's title is plain text now (`Rendered from
+  corpus/wiki/x.md · updated …`). In CommonMark mode Docusaurus drops an
+  admonition title that holds inline code into the body and prints "NOTE"
+  (checked on a test page; a plain title works, and MDX pages are unaffected).
+  The skill's guide says inline code in titles carries over; that holds for
+  `.mdx` only, and the imbatranimOS site shows "NOTE" for the same reason.
+- `url` is `https://example.org`, as in imbatranimOS, rather than the
+  production origin the Astro config carried: it feeds only the sitemap and og
+  tags, and the host is the deploy's business.
+- `sharp` left the docs package; `apps/api` declares it (0.35.4) and still
+  loads it. `npm install` reports 62 known vulnerabilities across the
+  workspace; not looked into.
+
+**Acceptance:**
+- `npm run docs -w @ebook-reader/docs-site` exits 0 with
+  `onBrokenLinks: 'throw'`; the sync printed no warnings. The 12 TypeDoc
+  warnings are the same set the Starlight build printed.
+- Route parity: the new list is `/tmp/atrium-routes-before.txt` (23 routes)
+  plus `./search/index.html` and `./wiki/glossary-jukebox/`,
+  `./wiki/jellyfin-comparison/`, `./wiki/jukebox/` and
+  `./wiki/status-history-v2/`. Nothing missing.
+- `grep -c '/atrium/docs/assets/' dist/index.html` is 1, and
+  `grep -rl '_astro' dist` finds nothing.
+- The decisions page links Ward's overview at
+  `github.com/gandolh/ward-auth/blob/main/corpus/wiki/overview.md`.
+- `npm run typecheck` passes, for the docs package and the whole workspace.
+- Browser, with `dist/` and the saved Starlight `dist/` each served at
+  `/atrium/docs/` by `python3 -m http.server`:
+  - the landing page, `/data/`, `/wiki/overview/` and `/reference/` (TypeDoc,
+    476 links) load;
+  - both archify diagrams render in their frames;
+  - the toggle switches light and dark. Page background, text, link and navbar
+    colours are identical to the Starlight site in both modes (light `#f7f5f2`
+    / `#1a1917` / `#2f5486` / `#fffefd`, dark `#141310` / `#ece7de` /
+    `#8fb3dd` / `#1c1a17`), and prose and headings are in Newsreader;
+  - two deliberate differences: notes use the accent's low tint where
+    Starlight used its own default blue, and the current sidebar page is
+    accent text on paper rather than a filled accent bar (design.md: accent
+    never fills);
+  - Newsreader and Archivo load (`document.fonts.check` true for both, all ten
+    `woff2` URLs answer 200); the only 404 is `/favicon.ico` at the server
+    root, which the Starlight site also lacked (it pointed at a
+    `favicon.svg` that was never built);
+  - search for "jukebox" returns the Jukebox pages and log entries;
+  - no horizontal scroll at 390 px.
+- `bash corpus/lint.sh` passes.

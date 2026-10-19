@@ -57,7 +57,7 @@ Then open http://localhost:5173/atrium/ and sign in with a local account (`npm r
 |---|---|
 | `apps/web` | The client: library, reader, notes, LaTeX editor, Jukebox |
 | `apps/api` | The API: library storage, profiles and progress, Convert, LaTeX compiles, Jukebox |
-| `apps/docs` | The Starlight docs site, built from `corpus/` and the TypeScript |
+| `apps/docs` | The Docusaurus docs site, built from `corpus/` and the TypeScript |
 | `packages/shared` | Zod schemas and types shared by web and API |
 | `packages/typeset` | The LaTeX-subset typesetting engine |
 | `infrastructure` | Dockerfile and compose file for the API container |

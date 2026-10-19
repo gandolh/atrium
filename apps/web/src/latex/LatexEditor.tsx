@@ -11,7 +11,9 @@ import {
 import { Link } from "@tanstack/react-router";
 import type { LatexFile } from "@ebook-reader/shared";
 
+import { useSession } from "../../vendor/ward/ward-auth-react.js";
 import { AppHeader } from "../components/AppHeader";
+import { useActiveProfileId } from "../lib/auth";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { useReaderStore, type Theme } from "../store/reader-store";
@@ -36,6 +38,13 @@ import {
   useUpdateLatexProject,
   useWriteLatexFile,
 } from "./use-latex";
+import {
+  clearStash,
+  readStash,
+  writeStash,
+  type StashOwner,
+  type StashedSource,
+} from "./unsaved-stash";
 
 /**
  * The LaTeX editor at `/latex?project=<id>` (brief 38 chunk 8).
@@ -61,6 +70,12 @@ import {
  * last-write-wins per file** (decision 7): the whole buffer goes up as one
  * `PUT`, the server's copy becomes what was sent, and there is no CRDT, no
  * live cursor and no conflict UI to reason about.
+ *
+ * Every unsaved edit is also copied to this device (`unsaved-stash.ts`, brief
+ * 85), because a 401 replaces the editor with the login page and takes the
+ * buffer with it. A save that lands removes the copy; opening the file again
+ * as the same account and profile offers it back ("Recovered unsaved
+ * changes").
  */
 
 const SourceEditor = lazy(() =>
@@ -130,6 +145,28 @@ export function LatexEditor({ id }: { id: string }) {
   const writeRef = useRef(write);
   writeRef.current = write;
 
+  // --- The device copy of unsaved source (brief 85) -------------------------
+  // Keyed to the signed-in account and the active profile as well as the
+  // project, so whoever signs in next on this device never sees it.
+  const session = useSession();
+  const accountId = session.status === "signed_in" ? session.user.id : null;
+  const profileId = useActiveProfileId();
+  const owner = useMemo<StashOwner | null>(
+    () => (accountId && profileId ? { accountId, profileId, projectId: id } : null),
+    [accountId, profileId, id],
+  );
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
+  /**
+   * A copy found for the open file that differs from the server's, waiting for
+   * the person to restore or discard it. While it waits, the copy is left
+   * exactly as found: nothing typed meanwhile overwrites it, and no save
+   * clears it.
+   */
+  const [recovered, setRecovered] = useState<({ path: string } & StashedSource) | null>(null);
+  const recoveredRef = useRef(recovered);
+  recoveredRef.current = recovered;
+
   /**
    * The write queue: the promise for the LAST write this editor put on the
    * wire, resolving to whether the buffer it carried actually reached the
@@ -164,6 +201,31 @@ export function LatexEditor({ id }: { id: string }) {
     dirtyRef.current = false;
     setDirty(false);
   }, [editable, openPath, text.data]);
+
+  // Once per opened file (and per account and profile): is there a copy of it
+  // that never reached the server? A copy equal to the server's text is
+  // already saved and simply goes.
+  const draftPath = draft?.path ?? null;
+  const checkedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!owner || draftPath === null || draftPath !== openPath || text.data === undefined) return;
+    const checked = JSON.stringify([owner.accountId, owner.profileId, draftPath]);
+    if (checkedRef.current === checked) return;
+    checkedRef.current = checked;
+    const stashed = readStash(owner, draftPath);
+    if (stashed && stashed.text === text.data) clearStash(owner, draftPath);
+    setRecovered(
+      stashed && stashed.text !== text.data ? { path: draftPath, ...stashed } : null,
+    );
+  }, [owner, draftPath, openPath, text.data]);
+
+  // Copy every unsaved buffer to the device, except a file whose earlier copy
+  // is still on offer.
+  useEffect(() => {
+    if (!dirty || !draft || !owner) return;
+    if (recovered?.path === draft.path) return;
+    writeStash(owner, draft.path, draft.text);
+  }, [draft, dirty, owner, recovered]);
 
   /**
    * Write the pending buffer now, if there is one, and resolve once **the
@@ -208,6 +270,8 @@ export function LatexEditor({ id }: { id: string }) {
           if (current && current.path === path && current.text === content) {
             dirtyRef.current = false;
             setDirty(false);
+            const who = ownerRef.current;
+            if (who && recoveredRef.current?.path !== path) clearStash(who, path);
           }
           return true;
         },
@@ -227,6 +291,26 @@ export function LatexEditor({ id }: { id: string }) {
     setDraft((prev) => (prev ? { ...prev, text: next } : prev));
     dirtyRef.current = true;
     setDirty(true);
+  }, []);
+
+  /** Put the recovered copy in the buffer; the autosave then sends it. */
+  const restoreRecovered = useCallback(() => {
+    const copy = recoveredRef.current;
+    if (!copy) return;
+    if (draftRef.current?.path === copy.path) {
+      setDraft({ path: copy.path, text: copy.text });
+      dirtyRef.current = true;
+      setDirty(true);
+    }
+    setRecovered(null);
+  }, []);
+
+  /** Keep the server's version and forget the copy. */
+  const discardRecovered = useCallback(() => {
+    const copy = recoveredRef.current;
+    const who = ownerRef.current;
+    if (copy && who) clearStash(who, copy.path);
+    setRecovered(null);
   }, []);
 
   // Debounced autosave. Every keystroke restarts the timer, so a burst of
@@ -400,6 +484,10 @@ export function LatexEditor({ id }: { id: string }) {
           { from, to },
           {
             onSuccess: (file) => {
+              // The old path is gone; its copy (if any) would only resurface
+              // on a new file that happens to take the name.
+              const who = ownerRef.current;
+              if (who) clearStash(who, from);
               setDraft((prev) => (prev?.path === from ? { ...prev, path: file.path } : prev));
               setOpenPath((prev) => (prev === from ? file.path : prev));
             },
@@ -431,6 +519,8 @@ export function LatexEditor({ id }: { id: string }) {
       void writeQueueRef.current.then(() => {
         deleteFile.mutate(path, {
           onSuccess: () => {
+            const who = ownerRef.current;
+            if (who) clearStash(who, path);
             if (draftRef.current?.path === path) {
               dirtyRef.current = false;
               setDirty(false);
@@ -606,6 +696,15 @@ export function LatexEditor({ id }: { id: string }) {
             Dismiss
           </button>
         </div>
+      )}
+
+      {recovered && recovered.path === openPath && (
+        <RecoveredBanner
+          path={recovered.path}
+          at={recovered.at}
+          onRestore={restoreRecovered}
+          onDiscard={discardRecovered}
+        />
       )}
 
       <div className="flex min-h-0 flex-1">
@@ -798,6 +897,59 @@ function SaveState({
     <span className={`shrink-0 font-ui text-xs ${failed ? "text-danger" : "text-ink-variant"}`}>
       {label}
     </span>
+  );
+}
+
+/**
+ * The offer of a recovered copy (brief 85). A choice, not an automatic
+ * restore: the server's version may be newer than the copy if the file was
+ * edited somewhere else since. Not `role="alert"`: it appears on arrival, not
+ * in the middle of typing, and its buttons are the next thing a keyboard
+ * reaches after the header.
+ */
+function RecoveredBanner({
+  path,
+  at,
+  onRestore,
+  onDiscard,
+}: {
+  path: string;
+  at: number;
+  onRestore: () => void;
+  onDiscard: () => void;
+}) {
+  const when = new Date(at);
+  const sameDay = when.toDateString() === new Date().toDateString();
+  const stamp = sameDay
+    ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  return (
+    <div
+      role="region"
+      aria-label="Recovered unsaved changes"
+      className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft/50 bg-paper-low px-page py-2"
+    >
+      <p className="min-w-0 flex-1 font-ui text-sm text-ink">
+        <span className="font-semibold">Recovered unsaved changes</span> to {basename(path)} from{" "}
+        <span className="tabular-nums">{stamp}</span>, which never reached the server.
+      </p>
+      <div className="flex shrink-0 gap-1">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="rounded-card border border-line-soft px-3 py-1 font-ui text-xs font-semibold text-ink transition hover:bg-paper-container focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Restore them
+        </button>
+        <button
+          type="button"
+          onClick={onDiscard}
+          className="rounded-card px-3 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          Discard
+        </button>
+      </div>
+    </div>
   );
 }
 

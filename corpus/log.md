@@ -2546,7 +2546,7 @@ Seen while capturing README screenshots with Project Gutenberg EPUBs. Not
 fixed, and none reproduced a second time here; each brief carries code leads,
 marked as leads. [83](briefs/done/83-reader-theme-change-keeps-the-page.md):
 a theme change moved page 40 to 41. [84](briefs/done/84-reader-font-size-keeps-your-place.md):
-A+ and A- lose the place. [85](briefs/todo/85-expired-ward-session-keeps-unsaved-latex.md):
+A+ and A- lose the place. [85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md):
 the 401 redirect drops unsaved LaTeX source.
 [86](briefs/todo/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
 the text at 390 px. Also fixed [overview.md](wiki/overview.md) "Runs", which
@@ -2609,3 +2609,14 @@ reader stays on the page it landed on, which also stops the redisplay walking
 back a few lines per press. The redisplay waits for the section's width to
 settle, not only for its fonts, which brief 83's fix had relied on. Outcome in
 [84](briefs/done/84-reader-font-size-keeps-your-place.md).
+
+## [2026-10-19] build | Brief 85: unsaved LaTeX source survives a sign-out
+
+Confirmed the loss: a 401 puts the login page up in place and unmounts the
+editor with its unsaved buffer. Every unsaved edit is now copied to
+localStorage, keyed by account, profile, project and path, and removed when a
+save lands. After sign-in the editor offers the copy back with Restore or
+Discard. Signing in as another account deletes the copies. Outcome in
+[85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md); the same gap
+in Notes is [brief 88](briefs/todo/88-expired-session-keeps-unsaved-notes.md),
+filed today. [latex.md](wiki/latex.md) has a section on it.

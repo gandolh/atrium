@@ -78,3 +78,52 @@ redirect, or pausing the redirect on an editor with unsaved text).
 - Signing in as a different account never shows the first account's text.
 - A successful save clears the stash.
 - Typecheck, build and the existing tests are clean.
+
+## Outcome (2026-10-19)
+
+**Done.** Reproduced on `main` with a local account (Ward off; since D58 the
+session is atrium's own `atrium_session`, so deleting that cookie is the same
+event as Ward ending a session). Typed, waited for "Saved", cleared the
+cookie, typed more: the next autosave got a 401 and the login page replaced
+the editor in place, URL unchanged. After signing in and picking the profile
+the same project reopened with the second edit gone. The editor never showed
+the failed save: the 401 handler unmounted it in the same tick.
+
+**Mechanism: a device copy, per editor.** Not a pause on the 401 handler: that
+would keep a dead session's page on screen for every request on every page,
+and the copy also covers a closed tab or a crash. New file
+[`unsaved-stash.ts`](../../../apps/web/src/latex/unsaved-stash.ts):
+- one localStorage entry per file, keyed by account id, active profile id,
+  project id and path (the account id rather than the Ward subject: since D58
+  the account is the identity and a Ward subject maps onto one);
+- `LatexEditor.tsx` writes it on every unsaved edit and removes it when a save
+  of exactly that text lands, and on rename and delete;
+- opening a file whose copy differs from the server's text shows "Recovered
+  unsaved changes to main.tex from 03:02 PM, which never reached the server" with
+  **Restore them** and **Discard**. A choice rather than an automatic restore,
+  because the server copy may be newer. While the offer stands, the copy is
+  left as found: typing does not overwrite it and saves do not clear it;
+- `lib/auth.ts` subscribes to the auth client and, whenever an account is
+  signed in, deletes every copy that belongs to another account, whatever page
+  they land on.
+
+The failed save is now shown by that offer after sign-in. A failed save that
+keeps the editor mounted (the API down) already showed "Not saved" and the
+alert banner. `ward.ts` no longer exists (D58), so nothing changed there.
+
+**Checked** in the browser (local Ward off, scratch library):
+- Steps 1 to 4 as `tester`: the offer appeared, Restore put the text back,
+  autosave showed "Saved", the copy was gone, and a reload showed the text from
+  the server.
+- The same as `tester`, then sign in as `tester2`: "Project not found" (the
+  project is another profile's), no offer, and the copy was deleted on
+  sign-in. Signing back in as `tester` offered nothing.
+- Discard left the server's text and removed the copy.
+- The banner in Light, Warm and Dark at 1280 px and at 390 px. Design
+  checklist: tokens only, Archivo for UI text, the time in tabular numerals,
+  no accent (it is not a state), the card radius, no motion.
+- Typecheck, build, and the existing tests (647 typeset, 113 API) are clean.
+
+**Left:** Notes has the same gap; filed as
+[brief 88](../todo/88-expired-session-keeps-unsaved-notes.md), which also needs
+a decision on note size against localStorage's limit.

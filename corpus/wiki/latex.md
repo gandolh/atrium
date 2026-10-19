@@ -1,6 +1,6 @@
 ---
 summary: The /latex destination — projects, the compile job, publishing into the library as versioned documents, where the sandbox actually lives now that the engine is pure, and the worker thread the engine is hosted on.
-updated: 2026-08-29
+updated: 2026-10-19
 ---
 
 # LaTeX in Atrium
@@ -106,6 +106,19 @@ defect spanned files owned by different chunks, and none tripped the gates**:
   compile, so two racing publishes could each create a card.
 
 Budget the scoped review accordingly on anything this size.
+
+## Unsaved source survives a sign-out
+
+A 401 replaces the editor with the login page in place (D58), which unmounts it
+with whatever the last autosave did not carry. So every unsaved edit is also
+copied to localStorage
+([`unsaved-stash.ts`](../../apps/web/src/latex/unsaved-stash.ts), brief 85),
+one entry per file, keyed by account, profile, project and path. A save that
+lands removes the copy. Opening the file again as the same account and profile
+offers it back ("Recovered unsaved changes", Restore or Discard), never
+silently, because the server's copy may be newer. Whenever an account signs in,
+`lib/auth.ts` deletes every copy that belongs to another account. Notes has the
+same gap and no copy yet (brief 88).
 
 ## Storage
 

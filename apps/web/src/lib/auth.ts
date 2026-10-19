@@ -5,6 +5,7 @@ import { authClient } from "../auth/client";
 import { ApiError, setOnForbidden, setOnUnauthorized } from "./api-client";
 import { activateProfile, fetchProfiles } from "./profiles-api";
 import { queryClient } from "./query-client";
+import { discardOtherAccounts } from "../latex/unsaved-stash";
 
 /**
  * Web-side session state: whether the app is open, and the **profile** half.
@@ -414,6 +415,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 setOnUnauthorized(() => {
   useAuthStore.getState().signedOut();
   void authClient.refresh();
+});
+
+/**
+ * Unsaved LaTeX source copied to this device belongs to the account that typed
+ * it (brief 85). The moment anyone else is signed in here, it goes, whichever
+ * page they land on, so it can never be shown to them.
+ */
+authClient.subscribe(() => {
+  const state = authClient.getState();
+  if (state.status === "signed_in") discardOtherAccounts(state.user.id);
 });
 
 /**

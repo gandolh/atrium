@@ -1,0 +1,330 @@
+/*
+ * Atrium's docs wear the Reading Room.
+ *
+ * The values below are lifted from `corpus/wiki/design.md` (D33), which is the
+ * enforced visual language for `apps/web` and is authoritative for this site
+ * too. The premise there is a room rather than a product surface: warm
+ * neutrals, "paper that has been in a room, not bleached stock", one faded-ink
+ * accent that means STATE only, and the Newsreader/Archivo split — serif for
+ * anything read at length, sans for anything operated.
+ *
+ * Two rules from design.md are carried over literally because breaking them
+ * here would make the docs read as a different product:
+ *
+ *   • **Accent never fills a button.** It is progress, active, focus, and links.
+ *     The solid control is ink, not colour, so Infima's primary button is
+ *     re-pointed below.
+ *   • **Both light and dark sit on one warm axis.** design.md explains why: a
+ *     neutral #181818 under warm cover art makes every cover look sour. There is
+ *     no artwork on a docs page, but the two themes have to stay recognisably
+ *     one system with the app, so the warm dark is used unchanged.
+ *
+ * Unlike Ward's docs, this site KEEPS the light/dark toggle
+ * (`themeConfig.colorMode` in docusaurus.config.ts). Atrium is a three-theme
+ * app (light / sepia / dark via `data-theme`) and a reading surface that offered
+ * no choice would contradict the thing being documented. Sepia is not offered
+ * here — it is a reading-surface theme, and this is chrome.
+ *
+ * Fonts are self-hosted through @fontsource, the same packages apps/web uses,
+ * rather than fetched from a CDN — so the docs and the app render in the same
+ * cut of the same face and the docs add no third-party request.
+ *
+ * Ported from the Starlight site's theme.css (brief 87): each --sl-* token now
+ * sets the matching --ifm-* one, and `.sl-markdown-content` is `.markdown`.
+ */
+
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/600.css';
+@import '@fontsource/archivo/400.css';
+@import '@fontsource/archivo/500.css';
+@import '@fontsource/archivo/600.css';
+
+:root {
+  --font-display: 'Newsreader', Georgia, serif;
+  --font-reading: 'Newsreader', Georgia, serif;
+  --font-ui: 'Archivo', system-ui, sans-serif;
+  --font-code: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Kind tints — the one decorative move in the system. */
+  --tint-book: #efe9dd;
+  --tint-music: #f1e6e8;
+  --tint-video: #e4ebf1;
+  --tint-note: #e4eee7;
+
+  --ifm-font-family-base: var(--font-ui);
+  --ifm-font-family-monospace: var(--font-code);
+  --ifm-heading-font-family: var(--font-display);
+  --ifm-heading-font-weight: 600;
+  --ifm-code-font-size: 0.875em;
+  --ifm-table-border-width: 0;
+  --ifm-table-stripe-background: transparent;
+}
+
+/* --- Light (canonical, from design.md) ---------------------------------- */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --paper: #f7f5f2;
+  --paper-raised: #fffefd;
+  --paper-low: #f1eee9;
+  --paper-container: #e9e4dc;
+  --ink: #1a1917;
+  --ink-variant: #6c665e;
+  --line: #ddd7cc;
+  --line-soft: #e9e4dc;
+  --accent: #2f5486;
+  --accent-low: #dde5f0;
+  --accent-high: #1e3a5f;
+  --ink-fill: #2b2926;
+  --on-ink-fill: #faf8f5;
+
+  --ifm-color-primary: #2f5486;
+  --ifm-color-primary-dark: #2a4c79;
+  --ifm-color-primary-darker: #284772;
+  --ifm-color-primary-darkest: #213b5e;
+  --ifm-color-primary-light: #38639e;
+  --ifm-color-primary-lighter: #3c6bab;
+  --ifm-color-primary-lightest: #5584c3;
+
+  --ifm-background-color: var(--paper);
+  --ifm-background-surface-color: var(--paper-raised);
+  --ifm-navbar-background-color: var(--paper-raised);
+  --ifm-font-color-base: var(--ink);
+  --ifm-heading-color: var(--ink);
+  --ifm-color-content: var(--ink);
+  --ifm-color-content-secondary: var(--ink-variant);
+  --ifm-link-color: var(--accent);
+  --ifm-link-hover-color: var(--accent-high);
+  --ifm-menu-color: var(--ink-variant);
+  --ifm-menu-color-active: var(--accent);
+  --ifm-menu-color-background-active: var(--paper-low);
+  --ifm-menu-color-background-hover: var(--paper-low);
+  --ifm-toc-border-color: var(--line);
+  --ifm-hr-background-color: var(--line);
+  --ifm-color-emphasis-200: var(--line-soft);
+  --ifm-color-emphasis-300: var(--line);
+  --ifm-code-background: var(--paper-low);
+  --ifm-table-head-background: var(--paper-low);
+  --ifm-table-border-color: var(--line-soft);
+  --docusaurus-highlighted-code-line-bg: rgba(26, 25, 23, 0.06);
+}
+
+/* --- Dark (warm, not neutral — design.md says why) ---------------------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --paper: #141310;
+  --paper-raised: #1c1a17;
+  --paper-low: #100f0d;
+  --paper-container: #24211d;
+  --ink: #ece7de;
+  --ink-variant: #948d82;
+  --line: #302c26;
+  --line-soft: #302c26;
+  --accent: #8fb3dd;
+  --accent-low: #22303f;
+  --accent-high: #c3d8ef;
+  --ink-fill: #ece7de;
+  --on-ink-fill: #17150f;
+
+  --tint-book: #241f16;
+  --tint-music: #241a1d;
+  --tint-video: #171f28;
+  --tint-note: #16221b;
+
+  --ifm-color-primary: #8fb3dd;
+  --ifm-color-primary-dark: #73a0d5;
+  --ifm-color-primary-darker: #6597d0;
+  --ifm-color-primary-darkest: #3b7ac3;
+  --ifm-color-primary-light: #9abbe0;
+  --ifm-color-primary-lighter: #a0bee2;
+  --ifm-color-primary-lightest: #b1cae7;
+
+  --ifm-background-color: var(--paper);
+  --ifm-background-surface-color: var(--paper-raised);
+  --ifm-navbar-background-color: var(--paper-raised);
+  --ifm-font-color-base: var(--ink);
+  --ifm-heading-color: var(--ink);
+  --ifm-color-content: var(--ink);
+  --ifm-color-content-secondary: var(--ink-variant);
+  --ifm-link-color: var(--accent);
+  --ifm-link-hover-color: var(--accent-high);
+  --ifm-menu-color: var(--ink-variant);
+  --ifm-menu-color-active: var(--accent);
+  --ifm-menu-color-background-active: var(--paper-container);
+  --ifm-menu-color-background-hover: var(--paper-container);
+  --ifm-toc-border-color: var(--line);
+  --ifm-hr-background-color: var(--line);
+  --ifm-color-emphasis-200: var(--line);
+  --ifm-color-emphasis-300: var(--line);
+  --ifm-code-background: var(--paper-container);
+  --ifm-table-head-background: var(--paper-low);
+  --ifm-table-border-color: var(--line);
+  --docusaurus-highlighted-code-line-bg: rgba(236, 231, 222, 0.08);
+}
+
+/* --- Chrome --------------------------------------------------------------- */
+.navbar {
+  box-shadow: none;
+  border-bottom: 1px solid var(--line);
+}
+
+.navbar__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
+/* "You are here". Not .menu__link--active: Infima puts that on the parent
+   category of the current page as well. */
+.menu__link[aria-current='page'] {
+  font-weight: 600;
+}
+
+/* --- Type: the split is the system -------------------------------------- */
+/* Newsreader for anything read at length, Archivo for anything operated.
+   Prose and headings are read; the sidebar, the TOC and the search box are
+   operated, and Infima already sets those in --ifm-font-family-base. */
+.markdown {
+  font-family: var(--font-reading);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Anything operated, or anything that is data rather than prose, goes back to
+   the UI face: tables are scanned, not read. */
+.markdown table,
+.markdown kbd {
+  font-family: var(--font-ui);
+}
+
+.markdown code,
+.markdown pre code {
+  font-family: var(--font-code);
+}
+
+/* Prose links only: --ifm-link-decoration would underline the sidebar, the TOC
+   and the navbar too, which the Starlight site never did. */
+.markdown a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+/* --- Accent means state only -------------------------------------------- */
+/* design.md: "it never fills a button. The solid button is ink, not colour." */
+.button--primary {
+  --ifm-button-background-color: var(--ink-fill);
+  --ifm-button-border-color: var(--ink-fill);
+  --ifm-button-color: var(--on-ink-fill);
+}
+
+/* --- Surfaces are raised paper, not outlined boxes ----------------------- */
+.markdown table {
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.markdown th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--paper-low);
+  border-bottom: 1px solid var(--line);
+  padding: 0.5rem 0.75rem;
+}
+
+.markdown td {
+  border-bottom: 1px solid var(--line-soft);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+
+.markdown tr {
+  border-top: 0;
+}
+
+.markdown :not(pre) > code {
+  background: var(--ifm-code-background);
+  border: 0;
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-variant-ligatures: none;
+}
+
+.theme-code-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* --- Asides --------------------------------------------------------------- */
+/* Starlight's notes were the accent's low tint with an accent rule; the
+   classic theme's `note` is grey. Keep the old look so the "Rendered from
+   corpus/…" banner on every synced page reads the same. */
+.theme-admonition-note {
+  --ifm-alert-background-color: var(--accent-low);
+  --ifm-alert-border-color: var(--accent);
+  --ifm-alert-foreground-color: var(--ink);
+}
+
+/* --- Diagram frames (Diagram.tsx) ---------------------------------------- */
+.doc-diagram {
+  margin: 1.75rem 0;
+}
+
+.doc-diagram__frame {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-raised);
+}
+
+.doc-diagram__caption {
+  margin-top: 0.5rem;
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  color: var(--ink-variant);
+  line-height: 1.5;
+}
+
+/* --- Key/value facts ----------------------------------------------------- */
+.doc-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1.25rem;
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 0.9375rem;
+}
+
+.doc-facts dt {
+  color: var(--ink-variant);
+  font-weight: 400;
+}
+
+.doc-facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

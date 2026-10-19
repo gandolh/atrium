@@ -1,10 +1,11 @@
 ---
 title: Atrium
 description: A personal cloud space — a household media library of books, music and video, plus authored Notes and LaTeX documents.
-tableOfContents: false
+slug: /
+hide_table_of_contents: true
 ---
 
-import Diagram from '../../components/Diagram.astro'
+import Diagram from '@site/src/components/Diagram'
 
 Atrium is a personal cloud space: a **household media library** — books, music,
 video — and a place to **author** things, in Notes and in LaTeX. One home, no
@@ -37,7 +38,7 @@ Only three things are authored here, because the corpus does not have them:
 - This page.
 
 Everything else is either corpus or generated. The
-[packages reference](/reference/) is TypeDoc over `@ebook-reader/shared` and
+[packages reference](pathname:///reference/) is TypeDoc over `@ebook-reader/shared` and
 `@ebook-reader/typeset`, so the contracts the web and API agree on cannot drift
 from what the code exports.
 

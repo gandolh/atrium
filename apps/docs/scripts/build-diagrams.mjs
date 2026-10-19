@@ -1,7 +1,7 @@
 // Compile the typed JSON IR in diagrams/ into self-contained interactive HTML
-// under public/diagrams/, using archify.
+// under static/diagrams/, using archify.
 //
-//   docs/diagrams/<name>.json  ──►  docs/public/diagrams/<name>.html
+//   docs/diagrams/<name>.json  ──►  docs/static/diagrams/<name>.html
 //
 // ── Why the output is committed ────────────────────────────────────────────
 //
@@ -30,7 +30,7 @@ import { homedir } from 'node:os'
 const run = promisify(execFile)
 const here = dirname(fileURLToPath(import.meta.url))
 const srcDir = resolve(here, '../diagrams')
-const outDir = resolve(here, '../public/diagrams')
+const outDir = resolve(here, '../static/diagrams')
 
 /** The first location that actually holds an archify CLI, or undefined. */
 function findArchify() {
@@ -113,7 +113,7 @@ async function main() {
     )
     console.log(`  ✓ ${name} (${type})`)
   }
-  console.log(`build-diagrams: delivered ${sources.length} diagram(s) → public/diagrams/`)
+  console.log(`build-diagrams: delivered ${sources.length} diagram(s) → static/diagrams/`)
 }
 
 main().catch((err) => {

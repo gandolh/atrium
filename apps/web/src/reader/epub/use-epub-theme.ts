@@ -187,13 +187,20 @@ export function useEpubTheme(rendition: Rendition | null) {
   // Tracks which rendition has had its initial settings applied, so the
   // re-render nudge below only runs for *changes*, not the first application.
   const appliedRef = useRef<Rendition | null>(null);
-  // Where the reader was when the current burst of setting changes began
-  // (briefs 83 and 84). Read BEFORE the new settings reach the rendition: once a
-  // font size lands, epub.js reflows under the same scroll offset, and the start
-  // of "the current page" is then different text (A+ reads earlier text, A-
-  // later). Kept across a burst of presses so the last setting wins but the
-  // place is the one the reader started from; cleared once a redisplay lands.
-  const anchorRef = useRef<string | null>(null);
+  // The reader's place, kept across setting changes (briefs 83 and 84). Read
+  // BEFORE the new settings reach the rendition: once a font size lands,
+  // epub.js reflows under the same scroll offset, and the start of "the current
+  // page" is then different text (A+ reads earlier text, A- later).
+  //
+  // It is sticky. A redisplay lands on the page that CONTAINS the anchor, and
+  // that page usually starts a little earlier, so re-reading the start after
+  // every change walks the reader backwards a few lines per press (A+ twice,
+  // A- four times, A+ twice ended a page before Chapter I). The anchor is kept
+  // while a redisplay is pending or in flight and while the reader is still on
+  // the page it landed on (`landed`); turning a page or jumping replaces it.
+  const anchorRef = useRef<{ cfi: string; landed: string | null } | null>(null);
+  // True from a change until its redisplay lands.
+  const busyRef = useRef(false);
   // Bumped on every change, so a redisplay still in flight from an earlier
   // press stands down instead of fighting the newer one.
   const generationRef = useRef(0);
@@ -202,8 +209,13 @@ export function useEpubTheme(rendition: Rendition | null) {
     if (!rendition) return;
 
     const isChange = appliedRef.current === rendition;
-    if (!isChange) anchorRef.current = null;
-    else if (anchorRef.current === null) anchorRef.current = startCfi(rendition);
+    if (!isChange) {
+      anchorRef.current = null;
+      busyRef.current = false;
+    } else {
+      anchorRef.current = keepOrTakeAnchor(anchorRef.current, startCfi(rendition), busyRef.current);
+      busyRef.current = true;
+    }
 
     const themeName = `reader-${theme}${isNarrow ? "-narrow" : ""}`;
     // Register (idempotent) + select the themed rule set. `register` with a
@@ -233,11 +245,16 @@ export function useEpubTheme(rendition: Rendition | null) {
     }
     const generation = ++generationRef.current;
     const nudge = setTimeout(() => {
-      const cfi = anchorRef.current;
-      if (!cfi) return;
-      void redisplayAt(rendition, cfi, () => generationRef.current !== generation).finally(
+      const anchor = anchorRef.current;
+      if (!anchor) {
+        busyRef.current = false;
+        return;
+      }
+      void redisplayAt(rendition, anchor.cfi, () => generationRef.current !== generation).finally(
         () => {
-          if (generationRef.current === generation) anchorRef.current = null;
+          if (generationRef.current !== generation) return;
+          anchor.landed = startCfi(rendition);
+          busyRef.current = false;
         },
       );
     }, 180);
@@ -254,6 +271,20 @@ export function useEpubTheme(rendition: Rendition | null) {
   ]);
 }
 
+/**
+ * The anchor for a setting change: the previous one while a redisplay is still
+ * pending (`busy`) or while the reader has not left the page it landed on,
+ * otherwise the start of the current page.
+ */
+function keepOrTakeAnchor(
+  previous: { cfi: string; landed: string | null } | null,
+  currentStart: string | null,
+  busy: boolean,
+): { cfi: string; landed: string | null } | null {
+  if (previous && (busy || previous.landed === currentStart)) return previous;
+  return currentStart ? { cfi: currentStart, landed: null } : null;
+}
+
 /** The CFI of the first text on the reader's current page, or null. */
 function startCfi(rendition: Rendition): string | null {
   try {
@@ -268,15 +299,16 @@ function startCfi(rendition: Rendition): string | null {
  * Re-render the current section and put the reader back at `cfi` (the repaint
  * nudge above).
  *
- * `clear()` throws the section's iframe away, and the new one positions `cfi`
- * while its web fonts are still loading: epub.js measures the text in the
- * fallback face, scrolls to that page, and then Newsreader or Archivo arrives
- * and the text reflows under a scroll offset that no longer matches. Measured
- * on Pride and Prejudice at 390 px: the anchor word sat at x=19837 with the
- * fonts loaded and at x=20372 in the fallback, one 374 px page later, so every
- * theme change from that page moved the reader from page 55 to 56 (brief 83).
- * So once the fonts are in, display `cfi` again. That second call finds the
- * section already rendered and only scrolls, which is exact.
+ * `clear()` throws the section's iframe away, and epub.js positions `cfi` in
+ * the new one before its layout has settled: the web fonts are still arriving
+ * and the iframe is still growing to its full column strip (measured on Pride
+ * and Prejudice at 390 px: 44,506 px wide when `display()` resolved, 63,954 px
+ * about 180 ms later). The anchor word sat at x=20372 in that early layout and
+ * at x=19837 in the final one, one 374 px page apart, so every theme change
+ * from that page moved the reader from page 55 to 56 (brief 83). So wait for
+ * the fonts and for the strip to stop changing, then display `cfi` again. That
+ * second call finds the section already rendered and only scrolls, which is
+ * exact.
  */
 async function redisplayAt(
   rendition: Rendition,
@@ -287,17 +319,52 @@ async function redisplayAt(
     (rendition as unknown as { clear(): void }).clear();
     await rendition.display(cfi);
     if (isStale()) return;
-    // One frame, so the new document has requested its faces before we ask.
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    // epub.js types `getContents()` as one Contents; it returns an array.
-    const contents = rendition.getContents() as unknown as { document?: Document }[];
-    const docs = contents
-      .map((c) => c.document)
-      .filter((d): d is Document => !!d?.fonts);
-    await Promise.all(docs.map((d) => d.fonts.ready));
+    await settledLayout(rendition, isStale);
     if (isStale()) return;
     await rendition.display(cfi);
   } catch {
     /* repaint nudge is best-effort */
+  }
+}
+
+/** Frames a section's size must hold still before it counts as laid out. */
+const STABLE_FRAMES = 6;
+/** Give up waiting after this long and display anyway. */
+const SETTLE_CAP_MS = 2000;
+
+/**
+ * Resolves once every rendered section has its fonts and has kept the same
+ * width (document and iframe) for `STABLE_FRAMES` frames, or after
+ * `SETTLE_CAP_MS`. `document.fonts.status` alone is not enough: it already
+ * read "loaded" while the strip was still growing.
+ */
+async function settledLayout(rendition: Rendition, isStale: () => boolean): Promise<void> {
+  const docs = (): Document[] =>
+    // epub.js types `getContents()` as one Contents; it returns an array.
+    (rendition.getContents() as unknown as { document?: Document }[])
+      .map((c) => c.document)
+      .filter((d): d is Document => !!d);
+  const signature = () =>
+    docs()
+      .map((d) => {
+        const frameEl = d.defaultView?.frameElement as HTMLElement | null | undefined;
+        return `${d.documentElement.scrollWidth}x${frameEl?.offsetWidth ?? 0}`;
+      })
+      .join(",");
+  const frame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+  const started = performance.now();
+  await Promise.all(docs().map((d) => d.fonts?.ready));
+  let last = signature();
+  let still = 0;
+  while (still < STABLE_FRAMES && performance.now() - started < SETTLE_CAP_MS) {
+    await frame();
+    if (isStale()) return;
+    const now = signature();
+    if (now === last && docs().every((d) => d.fonts?.status !== "loading")) still += 1;
+    else {
+      still = 0;
+      last = now;
+    }
   }
 }

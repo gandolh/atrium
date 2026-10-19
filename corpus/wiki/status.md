@@ -129,8 +129,8 @@ got here.
 | 80 | The bot account's `jukebox` role is an allowlist (D55) | **done (2026-10-08)**; local `discord-bot-dev` made; the production account is the owner's |
 | 81 | The Jukebox API: Players, Queue, next-Track rules, bot long-poll (D56, D57) | **done (2026-10-08)**; long-poll timed live through Vite and the container |
 | 82 | The Jukebox page, plus "Add to Discord queue" on music tiles | **done (2026-10-09)**; browser-checked with a stand-in bot; status rules fixed on the way |
-| 83 | Bug: changing the EPUB reader theme moves the page (40 to 41) | **done (2026-10-19)**; the repaint nudge placed the page before the web fonts loaded |
-| 84 | Bug: changing the EPUB font size loses your place | **todo**, filed 2026-10-09; cause is a lead only |
+| 83 | Bug: changing the EPUB reader theme moves the page (40 to 41) | **done (2026-10-19)**; the repaint nudge placed the page before the section's layout settled |
+| 84 | Bug: changing the EPUB font size loses your place | **done (2026-10-19)**; the place is read before the reflow and kept across presses |
 | 85 | Bug: an expired Ward session loses unsaved LaTeX edits | **todo**, filed 2026-10-09; cause is a lead only |
 | 86 | Bug: page-turn arrows cover the text at 390 px | **todo**, filed 2026-10-09; cause is a lead only |
 | 87 | Docs site from Starlight to Docusaurus, same URLs | **todo**, filed 2026-10-18; the deploy waits on vps-deploy brief 11 |

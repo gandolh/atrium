@@ -2545,7 +2545,7 @@ which refused a 64 MB film.
 Seen while capturing README screenshots with Project Gutenberg EPUBs. Not
 fixed, and none reproduced a second time here; each brief carries code leads,
 marked as leads. [83](briefs/done/83-reader-theme-change-keeps-the-page.md):
-a theme change moved page 40 to 41. [84](briefs/todo/84-reader-font-size-keeps-your-place.md):
+a theme change moved page 40 to 41. [84](briefs/done/84-reader-font-size-keeps-your-place.md):
 A+ and A- lose the place. [85](briefs/todo/85-expired-ward-session-keeps-unsaved-latex.md):
 the 401 redirect drops unsaved LaTeX source.
 [86](briefs/todo/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
@@ -2599,3 +2599,13 @@ and epub.js placed the CFI while Newsreader was still loading, so the text
 reflowed one page back under the scroll offset. The nudge now waits for the
 iframe's fonts and displays the CFI again, read before the settings change.
 Outcome in [83](briefs/done/83-reader-theme-change-keeps-the-page.md).
+
+## [2026-10-19] build | Brief 84: a font size change keeps your place
+
+The repaint nudge read the reader's place 180 ms after the new size had
+reflowed the section, so A+ saved earlier text and A- later text. The place is
+now read before the change and kept across a burst of presses and while the
+reader stays on the page it landed on, which also stops the redisplay walking
+back a few lines per press. The redisplay waits for the section's width to
+settle, not only for its fonts, which brief 83's fix had relied on. Outcome in
+[84](briefs/done/84-reader-font-size-keeps-your-place.md).

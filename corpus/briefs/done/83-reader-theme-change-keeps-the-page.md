@@ -99,3 +99,8 @@ Chromium still needs it to repaint large section iframes.
 - Typecheck and build are clean. No test: `apps/web` has no test runner, and
   the fix is the order of epub.js calls against a live iframe, which needs a
   browser.
+
+**Revised the same day under [brief 84](84-reader-font-size-keeps-your-place.md):**
+waiting for `fonts.ready` alone still moved page 55 to 56 once after a fresh
+load, because the font set read "loaded" while the column strip was still
+growing. The nudge now also waits for the section's width to hold still.

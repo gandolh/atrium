@@ -1,6 +1,6 @@
 ---
 summary: The reader experience — PDF + EPUB renderers sharing one Kindle-style frame: nav, TOC, search, themes, progress rail, resume, a paged⇄scroll mode toggle, and a shared running header.
-updated: 2026-08-24
+updated: 2026-10-19
 ---
 
 # Reader
@@ -99,7 +99,8 @@ single-page-per-view and continuous vertical scroll:
   IntersectionObserver syncs the top-of-viewport page to `currentLocation` so
   resume + the rail keep tracking. A `suppressObserverRef` guards programmatic
   jumps/resume (incl. across the async page-aspect reflow) from being
-  overwritten. `PageNav` edge-bar flip buttons render **only in paged mode**;
+  overwritten. `PageNav` flip circles render **only in paged mode**, and only
+  on windows 740 px and wider, where they clear the 620 px measure (brief 86);
   in scroll mode the PDF scroll container is `overflow-x: hidden` and pages are
   fit-to-width (zoom ignored) so continuous reading never scrolls sideways.
 

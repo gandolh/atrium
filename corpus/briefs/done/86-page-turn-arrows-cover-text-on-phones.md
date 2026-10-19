@@ -64,3 +64,45 @@ first case. Also check the PDF reader, which uses the same component.
 - Page turning still works by swipe, tap zone and keyboard.
 - Desktop width looks the same as before.
 - Typecheck and build are clean.
+
+## Outcome (2026-10-19)
+
+**Done.** Reproduced at 390 px in a desktop browser (fine pointer, so the
+circles were persistent; on a touch device they show with the chrome). Each
+44 px circle spans x=8 to 52 from its edge. The EPUB text ran from x=23 to
+366, so about 29 px of each button sat on glyphs. The fitted PDF page ran
+from x=24 to 366; on the test PDF its own margins kept glyphs clear (text from
+x=91), but the buttons sat on the paper and would cover a tighter PDF.
+
+**The overlap is wider than phones.** Both readers set the page in the 620 px
+measure with an 8 px inset, and the circles reach 52 px in (60 px from 640 px
+up). Measured EPUB text start: x=32 at 521 px, x=81 at 640 px, x=93 at
+740 px. So the 520 px narrow query would have left 521 to about 675 px
+overlapping, which includes landscape phones.
+
+**Chosen: hide the circles below 740 px** (`PageNav.tsx`,
+`[@media(max-width:739px)]:hidden`), for every pointer type. 740 is the
+measure plus a 60 px gutter each side, where the circles sit fully outside the
+column whatever the margins setting. Rejected: shrinking them into a 24 px
+margin (too small to hit), and widening the narrow text padding to clear them
+(about a sixth of a phone's measure, and no help for PDF). The trade-off,
+written in the component header: a desktop window under 740 px has no mouse
+target for turning, because the tap zones are touch-only (`EpubReader.tsx`,
+`PdfReader.tsx`, not in this brief); the arrow keys, the page field and the
+rail still work there.
+
+**Checked:**
+- At 390 px, paged mode, chrome visible: both circles are `display: none` in
+  the EPUB (Light, Sepia, Dark) and the PDF reader.
+- At 739 px hidden; at 740 px shown at x=16 to 60 with the EPUB text from
+  x=93; at 1280 px unchanged (x=16 to 60 and 1220 to 1264).
+- ArrowRight and ArrowLeft turned the page at 390 px (52, 53, 52). Swipe and
+  the tap zones are untouched code, gated on a coarse pointer; not driven here,
+  because the headless browser is a fine pointer.
+- Design checklist: no new colours or tokens, nothing else on the circles
+  changed, no motion added.
+- Typecheck and build are clean.
+
+**Not covered:** with the contents sidebar docked on a desktop, the reading
+pane is narrower than the window, and the query reads the window. That was
+the same before this brief.

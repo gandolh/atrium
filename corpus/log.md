@@ -2548,7 +2548,7 @@ marked as leads. [83](briefs/done/83-reader-theme-change-keeps-the-page.md):
 a theme change moved page 40 to 41. [84](briefs/done/84-reader-font-size-keeps-your-place.md):
 A+ and A- lose the place. [85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md):
 the 401 redirect drops unsaved LaTeX source.
-[86](briefs/todo/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
+[86](briefs/done/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
 the text at 390 px. Also fixed [overview.md](wiki/overview.md) "Runs", which
 still said local dev only with Calibre on the host: it now says deployed
 behind Ward, Calibre in the container image.
@@ -2620,3 +2620,12 @@ Discard. Signing in as another account deletes the copies. Outcome in
 [85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md); the same gap
 in Notes is [brief 88](briefs/todo/88-expired-session-keeps-unsaved-notes.md),
 filed today. [latex.md](wiki/latex.md) has a section on it.
+
+## [2026-10-19] build | Brief 86: the page-turn circles leave the text alone
+
+At 390 px each circle covered about 29 px of the EPUB text, and the overlap
+lasts up to about 675 px because both readers set the page in the 620 px
+measure. The circles are now hidden below 740 px, where they fit outside the
+measure; phones turn by swipe and tap zones, keyboards by the arrow keys.
+Outcome in [86](briefs/done/86-page-turn-arrows-cover-text-on-phones.md);
+[reader.md](wiki/reader.md) notes it.

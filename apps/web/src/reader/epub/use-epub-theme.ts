@@ -187,9 +187,23 @@ export function useEpubTheme(rendition: Rendition | null) {
   // Tracks which rendition has had its initial settings applied, so the
   // re-render nudge below only runs for *changes*, not the first application.
   const appliedRef = useRef<Rendition | null>(null);
+  // Where the reader was when the current burst of setting changes began
+  // (briefs 83 and 84). Read BEFORE the new settings reach the rendition: once a
+  // font size lands, epub.js reflows under the same scroll offset, and the start
+  // of "the current page" is then different text (A+ reads earlier text, A-
+  // later). Kept across a burst of presses so the last setting wins but the
+  // place is the one the reader started from; cleared once a redisplay lands.
+  const anchorRef = useRef<string | null>(null);
+  // Bumped on every change, so a redisplay still in flight from an earlier
+  // press stands down instead of fighting the newer one.
+  const generationRef = useRef(0);
 
   useEffect(() => {
     if (!rendition) return;
+
+    const isChange = appliedRef.current === rendition;
+    if (!isChange) anchorRef.current = null;
+    else if (anchorRef.current === null) anchorRef.current = startCfi(rendition);
 
     const themeName = `reader-${theme}${isNarrow ? "-narrow" : ""}`;
     // Register (idempotent) + select the themed rule set. `register` with a
@@ -213,23 +227,19 @@ export function useEpubTheme(rendition: Rendition | null) {
     // current section so changed settings actually paint. Debounced so slider
     // drags don't thrash; skipped on first application (fresh iframes bake
     // the theme in at load).
-    if (appliedRef.current !== rendition) {
+    if (!isChange) {
       appliedRef.current = rendition;
       return;
     }
+    const generation = ++generationRef.current;
     const nudge = setTimeout(() => {
-      try {
-        const loc = rendition.currentLocation() as unknown as {
-          start?: { cfi?: string };
-        };
-        const cfi = loc?.start?.cfi;
-        if (cfi) {
-          (rendition as unknown as { clear(): void }).clear();
-          void rendition.display(cfi);
-        }
-      } catch {
-        /* repaint nudge is best-effort */
-      }
+      const cfi = anchorRef.current;
+      if (!cfi) return;
+      void redisplayAt(rendition, cfi, () => generationRef.current !== generation).finally(
+        () => {
+          if (generationRef.current === generation) anchorRef.current = null;
+        },
+      );
     }, 180);
     return () => clearTimeout(nudge);
   }, [
@@ -242,4 +252,52 @@ export function useEpubTheme(rendition: Rendition | null) {
     fontSettings.lineSpacing,
     fontSettings.margins,
   ]);
+}
+
+/** The CFI of the first text on the reader's current page, or null. */
+function startCfi(rendition: Rendition): string | null {
+  try {
+    const loc = rendition.currentLocation() as unknown as { start?: { cfi?: string } };
+    return loc?.start?.cfi ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-render the current section and put the reader back at `cfi` (the repaint
+ * nudge above).
+ *
+ * `clear()` throws the section's iframe away, and the new one positions `cfi`
+ * while its web fonts are still loading: epub.js measures the text in the
+ * fallback face, scrolls to that page, and then Newsreader or Archivo arrives
+ * and the text reflows under a scroll offset that no longer matches. Measured
+ * on Pride and Prejudice at 390 px: the anchor word sat at x=19837 with the
+ * fonts loaded and at x=20372 in the fallback, one 374 px page later, so every
+ * theme change from that page moved the reader from page 55 to 56 (brief 83).
+ * So once the fonts are in, display `cfi` again. That second call finds the
+ * section already rendered and only scrolls, which is exact.
+ */
+async function redisplayAt(
+  rendition: Rendition,
+  cfi: string,
+  isStale: () => boolean,
+): Promise<void> {
+  try {
+    (rendition as unknown as { clear(): void }).clear();
+    await rendition.display(cfi);
+    if (isStale()) return;
+    // One frame, so the new document has requested its faces before we ask.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    // epub.js types `getContents()` as one Contents; it returns an array.
+    const contents = rendition.getContents() as unknown as { document?: Document }[];
+    const docs = contents
+      .map((c) => c.document)
+      .filter((d): d is Document => !!d?.fonts);
+    await Promise.all(docs.map((d) => d.fonts.ready));
+    if (isStale()) return;
+    await rendition.display(cfi);
+  } catch {
+    /* repaint nudge is best-effort */
+  }
 }

@@ -2544,7 +2544,7 @@ which refused a 64 MB film.
 
 Seen while capturing README screenshots with Project Gutenberg EPUBs. Not
 fixed, and none reproduced a second time here; each brief carries code leads,
-marked as leads. [83](briefs/todo/83-reader-theme-change-keeps-the-page.md):
+marked as leads. [83](briefs/done/83-reader-theme-change-keeps-the-page.md):
 a theme change moved page 40 to 41. [84](briefs/todo/84-reader-font-size-keeps-your-place.md):
 A+ and A- lose the place. [85](briefs/todo/85-expired-ward-session-keeps-unsaved-latex.md):
 the 401 redirect drops unsaved LaTeX source.
@@ -2590,3 +2590,12 @@ account, since atrium no longer reads Ward's cookie.
 ## [2026-10-18] todo | Brief 87 filed: the docs site moves from Starlight to Docusaurus
 
 The owner's call (2026-10-18), one brief in every repo with a docs site. [87](briefs/todo/87-docs-site-on-docusaurus.md) keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.
+
+## [2026-10-19] build | Brief 83: a theme change keeps the page
+
+Reproduced at 390 px on *Pride and Prejudice*: page 55 went to 56 on a theme
+change. The repaint nudge's `rendition.clear()` builds a new section iframe,
+and epub.js placed the CFI while Newsreader was still loading, so the text
+reflowed one page back under the scroll offset. The nudge now waits for the
+iframe's fonts and displays the CFI again, read before the settings change.
+Outcome in [83](briefs/done/83-reader-theme-change-keeps-the-page.md).

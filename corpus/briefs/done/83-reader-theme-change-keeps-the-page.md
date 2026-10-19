@@ -65,3 +65,37 @@ if it does not, close the brief with a note.
   page badge at 40 each time, on desktop width and at 390 px.
 - The page still repaints in the new colours (the reason for the nudge).
 - Typecheck and build are clean.
+
+## Outcome (2026-10-19)
+
+**Done.** Reproduced on `main` with the Project Gutenberg EPUB of *Pride and
+Prejudice*, not at page 40 but at page 55 of 976 at 390 px: Light to Sepia to
+Dark went 55, 55, 56. The CFI moved, not only the badge.
+
+**Why it moved.** None of the three leads. The repaint nudge calls
+`rendition.clear()` and then `display(cfi)`. `clear()` throws the section's
+iframe away, and the new iframe places the CFI while its web fonts are still
+loading. epub.js measures the text in the fallback face, scrolls to that page,
+and then Newsreader arrives and the text reflows under the old scroll offset.
+Measured on page 55: the anchor word sat at x=19837 with the fonts loaded and
+at x=20372 while they loaded, one 374 px page later. `display(cfi)` without
+`clear()` was exact every time; with `clear()` it moved every time on that page.
+
+**Fix** (`use-epub-theme.ts`): the nudge now waits for the new document's
+`fonts.ready` and displays the same CFI a second time. That call finds the
+section rendered and only scrolls, which is exact. The CFI is also read before
+the new settings are applied rather than 180 ms later, which is brief 84's fix
+and is harmless for a colour change. The `clear()` itself stays, because
+Chromium still needs it to repaint large section iframes.
+
+**Checked:**
+- At 390 px, pages 38 to 42 and 54 to 56, Light to Sepia to Dark to Light, kept
+  the badge on its page each time; page 55 also through two full cycles with
+  the same start CFI throughout.
+- At 1280 px, pages 38 to 42, 58 to 65, 70, 100 and 200 the same. One run right
+  after a viewport resize showed 60 to 59; it did not repeat in two later runs
+  and lines up with the page map rebuilding after the resize.
+- Page 40 at 390 px repainted in Sepia and Dark with the same text on screen.
+- Typecheck and build are clean. No test: `apps/web` has no test runner, and
+  the fix is the order of epub.js calls against a live iframe, which needs a
+  browser.

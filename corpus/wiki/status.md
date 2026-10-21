@@ -1,9 +1,13 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-13
+updated: 2026-10-21
 ---
 
-# Status — 2026-10-13
+# Status — 2026-10-21
+
+**2026-10-21: the 2026-10-20 improvement sweep is filed as briefs 89-99.** 89-91 settle
+the accounts-rework deploy (the login lockout behind the proxy, the migrated passwordless accounts,
+the stale Jukebox page), 92-93 are the other Now items, 94-99 Next. The watch list is not briefed.
 
 **2026-10-13: accounts are atrium's own again (D58).** A login page in the
 Reading Room design signs in with a local password, and "Sign in with Ward" is
@@ -135,3 +139,14 @@ got here.
 | 86 | Bug: page-turn arrows cover the text at 390 px | **done (2026-10-19)**; the circles are hidden below 740 px, where they cannot clear the measure |
 | 87 | Docs site from Starlight to Docusaurus, same URLs | **done (2026-10-19)**; four more wiki pages published; not deployed, waits on vps-deploy brief 11 |
 | 88 | Bug: an expired session loses unsaved Notes ink | **todo**, filed 2026-10-19 from brief 85; read from the code |
+| 89 | Set `AUTH_TRUSTED_PROXIES` wherever atrium runs behind a proxy | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 90 | First deploy of the accounts rework: keep every household member's way in | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 91 | `jukebox.md`: describe the bot's local account, not the Ward one | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 92 | Jukebox: deleting the playing song must not restart the library | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 93 | `npm run typecheck` works on a fresh clone | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 94 | Jukebox: an idle report must not stop playback between songs | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 95 | Jukebox: stop a Player whose songs keep failing | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 97 | Songs the bot streams don't count as opened | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 98 | Tile menu: reachable and usable with a keyboard | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 99 | Skip the Calibre tests when Calibre isn't installed | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |

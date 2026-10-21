@@ -2639,3 +2639,13 @@ the Jellyfin comparison, the 2026-08-26/27 status archive). The one link into
 `wzd_auth` now goes to Ward's GitHub repo. Not deployed: vps-deploy brief 11
 switches the docs stack's check to `assets/` first. Outcome in
 [87](briefs/done/87-docs-site-on-docusaurus.md).
+
+## [2026-10-21] todo | Briefs 89-99 filed from the 2026-10-20 improvement sweep
+
+The owner asked for every Now and Next item of the 2026-10-20 sweep as a brief. The September
+sweep (53-72) and 73-88 cover what came before, so this one read the accounts rework of
+2026-10-13 (not deployed) and the Jukebox (80-82): two finders, every item re-read against the
+code, the lockout and the Jukebox races reproduced on a built copy, plus a fresh-clone check
+(typecheck needs a build first; two tests need Calibre). 12 raw findings, none dropped, filed
+as 11 briefs. 89-91 should land before the accounts rework is deployed. Listed in
+[status.md](wiki/status.md).

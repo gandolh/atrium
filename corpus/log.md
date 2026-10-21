@@ -2618,7 +2618,7 @@ localStorage, keyed by account, profile, project and path, and removed when a
 save lands. After sign-in the editor offers the copy back with Restore or
 Discard. Signing in as another account deletes the copies. Outcome in
 [85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md); the same gap
-in Notes is [brief 88](briefs/todo/88-expired-session-keeps-unsaved-notes.md),
+in Notes is [brief 88](briefs/done/88-expired-session-keeps-unsaved-notes.md),
 filed today. [latex.md](wiki/latex.md) has a section on it.
 
 ## [2026-10-19] build | Brief 86: the page-turn circles leave the text alone
@@ -2639,3 +2639,17 @@ the Jellyfin comparison, the 2026-08-26/27 status archive). The one link into
 `wzd_auth` now goes to Ward's GitHub repo. Not deployed: vps-deploy brief 11
 switches the docs stack's check to `assets/` first. Outcome in
 [87](briefs/done/87-docs-site-on-docusaurus.md).
+
+## [2026-10-21] build | Brief 88: unsaved Notes ink survives a sign-out
+
+Reproduced first: a stroke drawn after the session cookie was deleted got a
+401 on its autosave, the login page replaced the editor, and after signing in
+the note had lost it. Each save now copies the note to IndexedDB first (a
+note can be 16 MiB, past localStorage's limit), keyed by account, profile and
+note, and a save with nothing newer waiting removes it. After sign-in the
+editor offers the copy back with Restore or Discard, the same banner as the
+LaTeX editor's, now shared. Signing in as another account deletes both kinds
+of copy. The stash module moved to `lib/unsaved-stash.ts`; LaTeX keeps its
+localStorage keys. Outcome in
+[88](briefs/done/88-expired-session-keeps-unsaved-notes.md);
+[latex.md](wiki/latex.md) covers both editors.

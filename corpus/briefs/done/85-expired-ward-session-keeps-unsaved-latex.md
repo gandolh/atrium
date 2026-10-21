@@ -125,5 +125,5 @@ alert banner. `ward.ts` no longer exists (D58), so nothing changed there.
 - Typecheck, build, and the existing tests (647 typeset, 113 API) are clean.
 
 **Left:** Notes has the same gap; filed as
-[brief 88](../todo/88-expired-session-keeps-unsaved-notes.md), which also needs
+[brief 88](88-expired-session-keeps-unsaved-notes.md), which also needs
 a decision on note size against localStorage's limit.

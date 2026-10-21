@@ -13,6 +13,7 @@ import type { LatexFile } from "@ebook-reader/shared";
 
 import { useSession } from "../../vendor/ward/ward-auth-react.js";
 import { AppHeader } from "../components/AppHeader";
+import { RecoveredBanner } from "../components/RecoveredBanner";
 import { useActiveProfileId } from "../lib/auth";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
@@ -44,7 +45,7 @@ import {
   writeStash,
   type StashOwner,
   type StashedSource,
-} from "./unsaved-stash";
+} from "../lib/unsaved-stash";
 
 /**
  * The LaTeX editor at `/latex?project=<id>` (brief 38 chunk 8).
@@ -71,7 +72,7 @@ import {
  * `PUT`, the server's copy becomes what was sent, and there is no CRDT, no
  * live cursor and no conflict UI to reason about.
  *
- * Every unsaved edit is also copied to this device (`unsaved-stash.ts`, brief
+ * Every unsaved edit is also copied to this device (`lib/unsaved-stash.ts`, brief
  * 85), because a 401 replaces the editor with the login page and takes the
  * buffer with it. A save that lands removes the copy; opening the file again
  * as the same account and profile offers it back ("Recovered unsaved
@@ -700,10 +701,11 @@ export function LatexEditor({ id }: { id: string }) {
 
       {recovered && recovered.path === openPath && (
         <RecoveredBanner
-          path={recovered.path}
+          subject={basename(recovered.path)}
           at={recovered.at}
           onRestore={restoreRecovered}
           onDiscard={discardRecovered}
+          className="border-b border-line-soft/50 px-page"
         />
       )}
 
@@ -897,59 +899,6 @@ function SaveState({
     <span className={`shrink-0 font-ui text-xs ${failed ? "text-danger" : "text-ink-variant"}`}>
       {label}
     </span>
-  );
-}
-
-/**
- * The offer of a recovered copy (brief 85). A choice, not an automatic
- * restore: the server's version may be newer than the copy if the file was
- * edited somewhere else since. Not `role="alert"`: it appears on arrival, not
- * in the middle of typing, and its buttons are the next thing a keyboard
- * reaches after the header.
- */
-function RecoveredBanner({
-  path,
-  at,
-  onRestore,
-  onDiscard,
-}: {
-  path: string;
-  at: number;
-  onRestore: () => void;
-  onDiscard: () => void;
-}) {
-  const when = new Date(at);
-  const sameDay = when.toDateString() === new Date().toDateString();
-  const stamp = sameDay
-    ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-  return (
-    <div
-      role="region"
-      aria-label="Recovered unsaved changes"
-      className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft/50 bg-paper-low px-page py-2"
-    >
-      <p className="min-w-0 flex-1 font-ui text-sm text-ink">
-        <span className="font-semibold">Recovered unsaved changes</span> to {basename(path)} from{" "}
-        <span className="tabular-nums">{stamp}</span>, which never reached the server.
-      </p>
-      <div className="flex shrink-0 gap-1">
-        <button
-          type="button"
-          onClick={onRestore}
-          className="rounded-card border border-line-soft px-3 py-1 font-ui text-xs font-semibold text-ink transition hover:bg-paper-container focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          Restore them
-        </button>
-        <button
-          type="button"
-          onClick={onDiscard}
-          className="rounded-card px-3 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          Discard
-        </button>
-      </div>
-    </div>
   );
 }
 

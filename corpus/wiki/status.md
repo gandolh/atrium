@@ -134,4 +134,4 @@ got here.
 | 85 | Bug: an expired Ward session loses unsaved LaTeX edits | **done (2026-10-19)**; unsaved source is copied to the device and offered back after sign-in |
 | 86 | Bug: page-turn arrows cover the text at 390 px | **done (2026-10-19)**; the circles are hidden below 740 px, where they cannot clear the measure |
 | 87 | Docs site from Starlight to Docusaurus, same URLs | **done (2026-10-19)**; four more wiki pages published; not deployed, waits on vps-deploy brief 11 |
-| 88 | Bug: an expired session loses unsaved Notes ink | **todo**, filed 2026-10-19 from brief 85; read from the code |
+| 88 | Bug: an expired session loses unsaved Notes ink | **done (2026-10-21)**; reproduced, then each save copies the note to IndexedDB and it is offered back after sign-in |

@@ -5,7 +5,7 @@ import { authClient } from "../auth/client";
 import { ApiError, setOnForbidden, setOnUnauthorized } from "./api-client";
 import { activateProfile, fetchProfiles } from "./profiles-api";
 import { queryClient } from "./query-client";
-import { discardOtherAccounts } from "../latex/unsaved-stash";
+import { discardOtherAccounts } from "./unsaved-stash";
 
 /**
  * Web-side session state: whether the app is open, and the **profile** half.
@@ -418,9 +418,10 @@ setOnUnauthorized(() => {
 });
 
 /**
- * Unsaved LaTeX source copied to this device belongs to the account that typed
- * it (brief 85). The moment anyone else is signed in here, it goes, whichever
- * page they land on, so it can never be shown to them.
+ * Unsaved LaTeX source (brief 85) and Notes (brief 88) copied to this device
+ * belong to the account that wrote them. The moment anyone else is signed in
+ * here, they go, whichever page they land on, so they can never be shown to
+ * them.
  */
 authClient.subscribe(() => {
   const state = authClient.getState();

@@ -70,7 +70,7 @@ books-only; no transcoding/ffmpeg.
 **Accounts are atrium's own (D58)**, on Ward's vendored library (`apps/api/vendor/ward`): an `onRequest` guard in front of everything, the library's plugin first and then atrium's hook (`modules/auth/auth.guard.ts`). Its tables are `auth_users`, `auth_sessions`, `auth_ward_links`; the boot task `database/ward-subjects.ts` made every D53-era subject a local user with that id.
 ```
 every request ──atrium_session cookie (Path=/atrium-api)──► session row (opaque token, stored hashed)
-     → 401 unauthorized   (no/expired session; the web gate shows atrium's login page in place)
+     → 401 unauthorized   (no/expired session; the web gate shows atrium's login page in place; the LaTeX and Notes editors keep unsaved work on the device, web lib/unsaved-stash.ts)
      → Ward-originated session, checked with Ward (30 s cache): ended → 401 ward_session_ended · down → 401 ward_unavailable
      → role jukebox off its allowlist → 403 JUKEBOX_ROLE_FORBIDDEN
      → else: Default profile on first contact, then request.auth + request.authProfile (per session, profile_selections)

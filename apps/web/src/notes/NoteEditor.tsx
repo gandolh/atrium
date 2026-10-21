@@ -31,8 +31,18 @@ import {
   type TextBox,
 } from "@ebook-reader/shared";
 
+import { useSession } from "../../vendor/ward/ward-auth-react.js";
+import { RecoveredBanner } from "../components/RecoveredBanner";
+import { useActiveProfileId } from "../lib/auth";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { cssToken } from "../lib/tokens";
+import {
+  clearNoteStash,
+  readNoteStash,
+  writeNoteStash,
+  type NoteStashOwner,
+  type StashedNote,
+} from "../lib/unsaved-stash";
 import { fetchNotePdf } from "./notes-api";
 import { useNote, useNoteAutosave } from "./use-notes";
 
@@ -42,6 +52,12 @@ import { useNote, useNoteAutosave } from "./use-notes";
  * the page box (width 1, height PAGE_ASPECT) so a note drawn on a phone renders
  * identically on a monitor. Autosaves through `useNoteAutosave`: debounced, one
  * save at a time, and a failure is shown rather than swallowed (brief 56).
+ *
+ * Every save also copies the note to this device first (`lib/unsaved-stash.ts`,
+ * brief 88), because a 401 replaces the editor with the login page and takes
+ * the unsaved ink with it. A save that leaves nothing unsaved removes the copy;
+ * opening the note again as the same account and profile offers it back
+ * ("Recovered unsaved changes"), as the LaTeX editor does (brief 85).
  *
  * The page sheet is deliberately a light "paper" surface in every theme (a
  * sheet of paper looks the same; the desk around it changes) so dark ink stays
@@ -95,6 +111,25 @@ const BLANK_PAGE: NotePage = { strokes: [], texts: [], template: "blank" };
 // theme-independent by design — `--note-sheet-rule` in globals.css.
 const RULE_COLOR = "var(--note-sheet-rule)";
 const RULE_STEP = STROKE_VB / 24; // line spacing as ~1/24 of the page width
+
+/** The title a save stores (`useNoteAutosave` sends the same). */
+function storedTitle(title: string): string {
+  return title.trim() || "Untitled note";
+}
+
+/**
+ * Whether a recovered copy holds exactly what the server has. `readNoteStash`
+ * returns the pages in the shape the API's answer has, so JSON compares them.
+ */
+function sameNote(
+  copy: { title: string; pages: NotePage[] },
+  server: { title: string; pages: NotePage[] },
+): boolean {
+  return (
+    storedTitle(copy.title) === storedTitle(server.title) &&
+    JSON.stringify(copy.pages) === JSON.stringify(server.pages)
+  );
+}
 
 /** Build an SVG path string from a perfect-freehand outline. */
 function outlineToPath(outline: number[][]): string {
@@ -425,6 +460,100 @@ export function NoteEditor({ id }: { id: string }) {
     setHistTick((t) => t + 1);
   }
 
+  // --- The device copy of unsaved ink (brief 88) ---------------------------
+  // The LaTeX editor's rules (brief 85): keyed to the signed-in account and the
+  // active profile as well as the note, so whoever signs in next on this
+  // device never sees it; offered back with Restore or Discard; gone once a
+  // save leaves nothing unsaved.
+  const session = useSession();
+  const accountId = session.status === "signed_in" ? session.user.id : null;
+  const profileId = useActiveProfileId();
+  const owner = useMemo<NoteStashOwner | null>(
+    () => (accountId && profileId ? { accountId, profileId, noteId: id } : null),
+    [accountId, profileId, id],
+  );
+  // The last owner seen, kept through the render a 401 can cause on the way
+  // out, so the unmount flush still knows whose copy it is writing. An editor
+  // never changes account while mounted: signing in as somebody else goes
+  // through the login page, which unmounts it.
+  const ownerRef = useRef(owner);
+  if (owner) ownerRef.current = owner;
+  /**
+   * A copy found on opening that differs from the server's note, waiting for
+   * the person to restore or discard it. While it waits, the stored copy is
+   * left exactly as found: no save overwrites it and none clears it.
+   */
+  const [recovered, setRecovered] = useState<StashedNote | null>(null);
+  const recoveredRef = useRef(recovered);
+  recoveredRef.current = recovered;
+  /** False until the copy found on opening (if any) has been read, so the first
+   *  save cannot overwrite it before it is offered. */
+  const copyReadyRef = useRef(false);
+  /** The draft as of this render, for saves fired from timers and on the way out. */
+  const latestRef = useRef({ title, pages });
+  latestRef.current = { title, pages };
+
+  // Once the note is open: is there a copy of it that never reached the
+  // server? A copy equal to the server's note is already saved and simply goes.
+  useEffect(() => {
+    const seeded = seededRef.current;
+    if (!owner || !loaded || !seeded) return;
+    let cancelled = false;
+    copyReadyRef.current = false;
+    void readNoteStash(owner).then((copy) => {
+      if (cancelled) return;
+      copyReadyRef.current = true;
+      if (!copy) return;
+      if (sameNote(copy, seeded)) void clearNoteStash(owner);
+      else setRecovered(copy);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [owner, loaded]);
+
+  /**
+   * Ask for a save, copying the draft to the device first. One copy per save
+   * rather than per edit: typing in a text box would otherwise clone the whole
+   * notebook on every key, and the copy written just before the request is on
+   * the device before the server can answer 401. Resolves and rejects as
+   * `save` does.
+   */
+  const saveWithCopy = useCallback((): Promise<void> => {
+    const who = ownerRef.current;
+    if (!who) return save();
+    const copying = () => copyReadyRef.current && !recoveredRef.current;
+    if (copying() && isDirty()) void writeNoteStash(who, latestRef.current);
+    const run = save();
+    run.then(
+      () => {
+        // Nothing newer waiting: the server has everything the copy holds.
+        if (copying() && !isDirty()) void clearNoteStash(who);
+      },
+      () => undefined, // the copy stays; the failure is shown through `saveStatus`
+    );
+    return run;
+  }, [isDirty, save]);
+
+  /** Put the recovered copy on the sheet; the autosave then sends it. Undoable. */
+  const restoreRecovered = useCallback(() => {
+    const copy = recoveredRef.current;
+    if (!copy) return;
+    const restored = copy.pages.length ? copy.pages : [BLANK_PAGE];
+    snapshot();
+    setTitle(copy.title);
+    setPages(restored);
+    setPageIndex((i) => Math.min(i, restored.length - 1));
+    setRecovered(null);
+  }, [snapshot]);
+
+  /** Keep the server's note and forget the copy. */
+  const discardRecovered = useCallback(() => {
+    const who = ownerRef.current;
+    if (who && recoveredRef.current) void clearNoteStash(who);
+    setRecovered(null);
+  }, []);
+
   // --- Autosave (brief 56) --------------------------------------------------
   // Every render hands the pipeline the current draft (a ref write), so a save
   // that starts later, queued behind one in flight or fired on the way out,
@@ -444,12 +573,12 @@ export function NoteEditor({ id }: { id: string }) {
     const fire = () => {
       if (maxWaitRef.current) clearTimeout(maxWaitRef.current);
       maxWaitRef.current = null;
-      save().catch(() => undefined); // shown through `saveStatus`
+      saveWithCopy().catch(() => undefined); // shown through `saveStatus`
     };
     maxWaitRef.current ??= setTimeout(fire, 5000);
     const t = setTimeout(fire, 900);
     return () => clearTimeout(t);
-  }, [title, pages, loaded, markDirty, save]);
+  }, [title, pages, loaded, markDirty, saveWithCopy]);
 
   // Flush on the way out: hiding the tab, leaving the page, or leaving the
   // editor. Registered ONCE: these functions are stable and reads the draft from a
@@ -458,7 +587,7 @@ export function NoteEditor({ id }: { id: string }) {
   // pair as `lib/preferences.ts`.
   useEffect(() => {
     const flush = () => {
-      if (isDirty()) save().catch(() => undefined);
+      if (isDirty()) saveWithCopy().catch(() => undefined);
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -471,7 +600,7 @@ export function NoteEditor({ id }: { id: string }) {
       if (maxWaitRef.current) clearTimeout(maxWaitRef.current);
       flush();
     };
-  }, [isDirty, save]);
+  }, [isDirty, saveWithCopy]);
 
   // --- Export (brief 49) ----------------------------------------------------
   // The PDF is rendered by the server from the STORED note, so a pending
@@ -483,7 +612,7 @@ export function NoteEditor({ id }: { id: string }) {
     setExporting("pdf");
     try {
       const name = title.trim() || "Untitled note";
-      await save();
+      await saveWithCopy();
       downloadBlob(await fetchNotePdf(id), exportFilename(name, ".pdf"));
     } catch {
       setExportError("Couldn't export this note.");
@@ -586,6 +715,16 @@ export function NoteEditor({ id }: { id: string }) {
             screen. Remove some ink, or move pages into a new note, and it will
             save again.
           </p>
+        )}
+
+        {recovered && (
+          <RecoveredBanner
+            subject="this note"
+            at={recovered.at}
+            onRestore={restoreRecovered}
+            onDiscard={discardRecovered}
+            className="border-y border-line-soft/50 px-4"
+          />
         )}
 
         <Toolbar

@@ -4,7 +4,7 @@ Everything needed to run Atrium on your own machine, with your own library or a 
 
 ## Prerequisites
 
-- Node 24 or later (`.nvmrc` pins 24.14.1) and npm.
+- Node 24 or later (`.nvmrc` pins 24.22.1) and npm.
 - Optional: a local Ward, the estate's sign-in service, for the "Sign in with Ward" button. Atrium has its own accounts and runs without it. Ward runs in Docker from the sibling repo, `wzd_auth/infrastructure/local`, and answers on http://localhost:8792.
 - Calibre, optional. Convert shells out to its `ebook-convert`. Without it the API logs a warning at startup and each conversion fails with that reason; everything else works.
 

@@ -66,6 +66,10 @@ file route.
   time anything reads or changes it, the page's listing included.
 - **A report for an older play** changes only voice and liveness. The bot may
   not have reached the `join` and `play` atrium just queued.
+- **A control that would start a song needs a voice channel** (brief 96):
+  `play`, `resume`, `next`, `previous` and `playTrack` answer 409
+  `NOT_IN_VOICE` while the Player has none. `join` sets it at once, so Join
+  then Play works before the bot reports the channel.
 - **Five failed songs in a row stop the Player** (brief 95). Each
   `advance(error)` counts, an `ended` one or going idle resets the count, and
   the fifth goes idle with a `failure` ("5 songs in a row would not play, the
@@ -90,7 +94,8 @@ file route.
 and puts each write's returned `Player` straight into the cache. While playing,
 the progress bar moves on from `positionMs` at `positionAt` between polls.
 Offline, the transport and voice controls are disabled and Queue edits still
-work. A Player's `failure` shows under the title as "Playback failed: …"
+work. Out of a voice channel, Previous, Play and Next are disabled and a line
+says to pick a channel and press Join. A Player's `failure` shows under the title as "Playback failed: …"
 (brief 95; `failure` is the one field the Player gained since brief 81, and
 just-a-bot's restated shapes do not list it yet). The Playlist is the library query filtered to `audio` and sorted with
 `comparePlaylistOrder`; upload there is `UploadZone` with `audioOnly`, and

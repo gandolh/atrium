@@ -2729,3 +2729,12 @@ page shows as "Playback failed: …" until the next play. `Player` gains `failur
 in the shared contract; just-a-bot's briefs that restate it were out of reach and
 owe a note. Checked by tests and in a browser with a stand-in for the bot.
 Outcome in [95](briefs/done/95-jukebox-failure-budget.md).
+
+## [2026-10-27] build | Brief 96: no pretend play outside a voice channel
+
+Play, Resume, Next, Previous and Play-this-song answer 409 `NOT_IN_VOICE` while a
+Player has no voice channel, instead of starting a Track the bot cannot play. The
+Jukebox page disables them and says to pick a channel and press Join. Checked by a
+test and in a browser with the stand-in bot. Discord's `/jukebox` now gets the 409
+too; how just-a-bot words it is unchecked. Outcome in
+[96](briefs/done/96-jukebox-play-needs-voice.md).

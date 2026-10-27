@@ -150,7 +150,7 @@ got here.
 | 93 | `npm run typecheck` works on a fresh clone | **done (2026-10-27)**; `pretypecheck` and `pretest` build shared and typeset, checked on a fresh clone |
 | 94 | Jukebox: an idle report must not stop playback between songs | **done (2026-10-27)**; the report waits 5 s for the advance (a new column), lost voice takes two reports |
 | 95 | Jukebox: stop a Player whose songs keep failing | **done (2026-10-27)**; the fifth failure in a row goes idle, the page says "Playback failed: …"; `Player.failure` is new in the shared contract, just-a-bot's restated shapes owe a note |
-| 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **done (2026-10-27)**; play-type controls answer 409 `NOT_IN_VOICE`, the page disables them and says to join |
 | 97 | Songs the bot streams don't count as opened | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 98 | Tile menu: reachable and usable with a keyboard | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 99 | Skip the Calibre tests when Calibre isn't installed | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |

@@ -78,5 +78,6 @@ export function toPlayer(
     repeat: row.repeat,
     queue: parts.queue,
     upcoming: parts.upcoming,
+    failure: row.failure,
   };
 }

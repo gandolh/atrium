@@ -57,6 +57,12 @@ export function NowPlaying({
           {track && (
             <p className="truncate font-ui text-sm text-ink-variant">{trackByline(track.artist, track.album)}</p>
           )}
+          {/* Atrium stopped after songs kept failing (brief 95); the next play clears it. */}
+          {player.failure && (
+            <p role="status" className="font-ui text-sm text-danger">
+              Playback failed: {player.failure} Check that the songs’ files are still there, then press Play.
+            </p>
+          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { randomInt } from "node:crypto";
 import type { Knex } from "knex";
 import {
   comparePlaylistOrder,
+  JUKEBOX_FAILURE_BUDGET,
   UPCOMING_LENGTH,
   type BotAdvanceRequest,
   type BotAdvanceResponse,
@@ -263,13 +264,18 @@ async function startTrack(
     position_ms: 0,
     position_at: op.now.toISOString(),
     idle_reported_at: null,
+    failure: null,
     ...(moveCursor ? { playlist_cursor_book_id: pick.track.id } : {}),
   });
   // Refill after the change, so the new current Track counts as recently played.
   await ensurePicks(op);
 }
 
-/** Idle, with no current Track. The Queue, the cursor and the voice channel stay. */
+/**
+ * Idle, with no current Track. The Queue, the cursor and the voice channel
+ * stay, and so does a `failure`: it is cleared by the next play, not by a stop.
+ * A run of failed songs ends here, so the count starts again.
+ */
 async function goIdle(op: Op, extra: Partial<PlayerRow> = {}): Promise<void> {
   await retireCurrent(op);
   await patch(op, {
@@ -278,6 +284,7 @@ async function goIdle(op: Op, extra: Partial<PlayerRow> = {}): Promise<void> {
     position_ms: 0,
     position_at: null,
     idle_reported_at: null,
+    failed_advances: 0,
     ...extra,
   });
 }
@@ -619,6 +626,7 @@ export async function deleteTrack(
               position_ms: 0,
               position_at: null,
               idle_reported_at: null,
+              failed_advances: 0,
             });
             op.commands.push("stop");
           }
@@ -713,6 +721,12 @@ export async function reportStatus(request: BotStatusRequest): Promise<{ upcomin
  * changes: this is how a skip racing a natural end avoids advancing twice. A
  * Player already idle was stopped meanwhile, so it stays stopped. The play is
  * returned, not written as a command.
+ *
+ * **The failure budget** (brief 95). The bot asks again at once after an
+ * `error`, and shuffle and repeat-all never run out, so with the media missing
+ * the two would loop through the library as fast as HTTP allows. The
+ * `JUKEBOX_FAILURE_BUDGET`th `error` in a row goes idle instead, with a
+ * `failure` the page shows; an `ended` advance resets the count.
  */
 export async function advance(guildId: string, request: BotAdvanceRequest): Promise<BotAdvanceResponse> {
   return withPlayer(guildId, async (op) => {
@@ -721,6 +735,19 @@ export async function advance(guildId: string, request: BotAdvanceRequest): Prom
     // Stopped (Stop, Leave, a restart) while the Track was ending: there is
     // nothing to advance, and starting the next Track would undo the stop.
     if (op.row.state === "idle") return { play: null };
+    if (request.reason === "error") {
+      const failures = op.row.failed_advances + 1;
+      if (failures >= JUKEBOX_FAILURE_BUDGET) {
+        const title = op.row.current_book_id === null ? undefined : op.playlist.byId.get(op.row.current_book_id)?.title;
+        await goIdle(op, {
+          failure: `${failures} songs in a row would not play${title ? `, the last “${title}”` : ""}.`,
+        });
+        return { play: null };
+      }
+      await patch(op, { failed_advances: failures });
+    } else if (op.row.failed_advances !== 0) {
+      await patch(op, { failed_advances: 0 });
+    }
     // `repeat: one` replays only a Track that ended on its own; an error moves on.
     const replayed = request.reason === "ended" && op.row.repeat === "one" && (await replayCurrent(op));
     if (!replayed) {

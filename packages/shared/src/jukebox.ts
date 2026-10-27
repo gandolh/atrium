@@ -24,6 +24,12 @@ export const PLAYER_ONLINE_WINDOW_MS = 30_000;
 /** How many Tracks `upcoming` names: the Queue first, then the Playlist. */
 export const UPCOMING_LENGTH = 2;
 
+/**
+ * The bot's `error` advances in a row after which a Player stops trying and
+ * goes idle with a `failure` (brief 95). An `ended` advance resets the count.
+ */
+export const JUKEBOX_FAILURE_BUDGET = 5;
+
 /** The longest Discord display name a Queue entry records. */
 export const MAX_ADDED_BY_NAME = 64;
 
@@ -71,7 +77,9 @@ export type RepeatMode = z.infer<typeof repeatModeSchema>;
  * `PLAYER_ONLINE_WINDOW_MS`. `playId` goes up by one every time the current
  * Track starts, a repeat of the same Track included. `positionMs` is what the
  * bot measured at `positionAt`. `upcoming` is the next `UPCOMING_LENGTH`
- * Tracks: the Queue first, then the Playlist.
+ * Tracks: the Queue first, then the Playlist. `failure` says why playback
+ * gave up after `JUKEBOX_FAILURE_BUDGET` songs in a row would not play
+ * (brief 95); null otherwise, and the next play clears it.
  */
 export const playerSchema = z.object({
   guildId: discordIdSchema,
@@ -89,6 +97,7 @@ export const playerSchema = z.object({
   repeat: repeatModeSchema,
   queue: z.array(queueEntrySchema),
   upcoming: z.array(trackSchema),
+  failure: z.string().nullable(),
 });
 export type Player = z.infer<typeof playerSchema>;
 export const playerListSchema = z.array(playerSchema);

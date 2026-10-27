@@ -1,6 +1,6 @@
 import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { BotCommandsResponse, Player, Track } from "@ebook-reader/shared";
+import { JUKEBOX_FAILURE_BUDGET, type BotCommandsResponse, type Player, type Track } from "@ebook-reader/shared";
 import { runMigrations } from "../src/database/bootstrap.js";
 import { IDLE_REPORT_GRACE_MS } from "../src/modules/jukebox/jukebox.service.js";
 import { knex } from "../src/database/knex.js";
@@ -32,6 +32,8 @@ const GUILD = {
   deletePaused: "100000000000000011",
   idleReport: "100000000000000012",
   idleGrace: "100000000000000013",
+  failing: "100000000000000014",
+  recovering: "100000000000000015",
 };
 
 async function seedTrack(id: string, title: string, author: string, series: string, index: number): Promise<void> {
@@ -100,7 +102,11 @@ describe("the Jukebox API", () => {
   it("the migration runs down and up again", async () => {
     // By name: it is no longer the newest migration (D58's came after it). The
     // later one that alters its table goes first, or latest would not re-add it.
-    for (const name of ["20261027000000-jukebox-idle-report", "20261008000000-jukebox"]) {
+    for (const name of [
+      "20261027000001-jukebox-failures",
+      "20261027000000-jukebox-idle-report",
+      "20261008000000-jukebox",
+    ]) {
       await knex.migrate.down({ migrationSource, tableName: "knex_migrations", disableTransactions: true, name });
     }
     for (const table of ["jukebox_players", "jukebox_queue_entries", "jukebox_history", "jukebox_commands"]) {
@@ -466,6 +472,60 @@ describe("the Jukebox API", () => {
     const row = await knex("jukebox_players").where("guild_id", g).first();
     assert.equal(row.idle_reported_at, null);
     assert.equal((await player(g)).track?.id, "t3");
+  });
+
+  /** The bot could not play the current Track, `times` times running. Answers each advance's play. */
+  const failRepeatedly = async (guildId: string, times: number) => {
+    const plays = [];
+    for (let attempt = 0; attempt < times; attempt++) {
+      const { playId } = await player(guildId);
+      const res = await send(bot, "POST", `/jukebox/bot/players/${guildId}/advance`, { playId, reason: "error" });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      plays.push(res.body.play);
+    }
+    return plays;
+  };
+
+  it("five songs in a row that will not play leave the Player idle, saying so", async () => {
+    assert.equal(JUKEBOX_FAILURE_BUDGET, 5);
+    const g = GUILD.failing;
+    await report(g);
+    // Repeat-all never runs out, which is how the bot and atrium used to loop.
+    await send(person, "PATCH", `/jukebox/players/${g}/settings`, { repeat: "all" });
+    await control(g, { action: "playTrack", bookId: "t1" });
+
+    const plays = await failRepeatedly(g, 5);
+    assert.ok(plays.slice(0, 4).every((play) => play !== null), "the first four failures move on");
+    assert.equal(plays[4], null, "the fifth stops");
+    const p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
+    assert.match(p.failure ?? "", /^5 songs in a row would not play, the last “.+”\.$/);
+
+    // A person's Play starts afresh: the failure goes, and the count starts again.
+    const again = await control(g, { action: "play" });
+    assert.equal(again.state, "playing");
+    assert.equal(again.failure, null);
+    const more = await failRepeatedly(g, 4);
+    assert.ok(more.every((play) => play !== null));
+  });
+
+  it("a song that ends normally resets the count of failures", async () => {
+    const g = GUILD.recovering;
+    await report(g);
+    await send(person, "PATCH", `/jukebox/players/${g}/settings`, { repeat: "all" });
+    await control(g, { action: "playTrack", bookId: "t1" });
+
+    await failRepeatedly(g, 4);
+    const { playId } = await player(g);
+    const ended = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId, reason: "ended" });
+    assert.ok(ended.body.play);
+    const plays = await failRepeatedly(g, 4);
+    assert.ok(plays.every((play) => play !== null), "four more failures are not five in a row");
+    const p = await player(g);
+    assert.equal(p.state, "playing");
+    assert.equal(p.failure, null);
+    assert.equal((await failRepeatedly(g, 1))[0], null, "the fifth in a row stops");
   });
 
   it("a report about an older play changes nothing but voice and liveness", async () => {

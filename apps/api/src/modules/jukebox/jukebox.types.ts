@@ -29,6 +29,10 @@ export interface PlayerRow {
    * `advance` (brief 94). Null with nothing pending.
    */
   idle_reported_at: string | null;
+  /** The bot's `error` advances in a row; an `ended` one or going idle resets it (brief 95). */
+  failed_advances: number;
+  /** Why playback gave up, for the page. Null until it does; a new play clears it. */
+  failure: string | null;
   updated_at: string;
 }
 

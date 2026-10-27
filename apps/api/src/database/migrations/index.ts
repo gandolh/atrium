@@ -5,6 +5,7 @@ import * as pruneCutoverOrphans from "./20260925000000-prune-cutover-orphans.js"
 import * as jukebox from "./20261008000000-jukebox.js";
 import * as localAccounts from "./20261013000000-local-accounts.js";
 import * as jukeboxIdleReport from "./20261027000000-jukebox-idle-report.js";
+import * as jukeboxFailures from "./20261027000001-jukebox-failures.js";
 
 /**
  * The migration list, as **static imports** rather than a directory Knex scans.
@@ -39,6 +40,7 @@ const MIGRATIONS: Migration[] = [
   { name: "20261008000000-jukebox", up: jukebox.up, down: jukebox.down },
   { name: "20261013000000-local-accounts", up: localAccounts.up, down: localAccounts.down },
   { name: "20261027000000-jukebox-idle-report", up: jukeboxIdleReport.up, down: jukeboxIdleReport.down },
+  { name: "20261027000001-jukebox-failures", up: jukeboxFailures.up, down: jukeboxFailures.down },
 ];
 
 /**

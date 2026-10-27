@@ -2692,3 +2692,13 @@ made with `npm run seed:user`, that signs in with `POST /atrium-api/auth/login`,
 and links D55 as amended by D58 and `auth.guard.ts`.
 [glossary-jukebox.md](wiki/glossary-jukebox.md)'s "Bot account" says the same.
 Outcome in [91](briefs/done/91-jukebox-page-local-account.md).
+
+## [2026-10-27] build | Brief 92: deleting the playing song keeps the Jukebox's place
+
+A library delete of an audio item now goes through the Jukebox's `deleteTrack`, in
+the same transaction as the row: a Player's cursor on the Track moves to the one
+before it, a playing current Track advances as if it had ended, a paused one stops.
+Before, the foreign keys nulled the cursor and the next song was the library's
+first. Tests cover the middle song, the last song at repeat off, a deleted cursor
+and a paused song. [jukebox.md](wiki/jukebox.md) has the rule. Outcome in
+[92](briefs/done/92-jukebox-delete-playing-song.md).

@@ -60,6 +60,11 @@ file route.
   No voice channel on the current play means lost voice: idle.
 - **A report for an older play** changes only voice and liveness. The bot may
   not have reached the `join` and `play` atrium just queued.
+- **Deleting a Track** goes through `deleteTrack` (brief 92), in the same
+  transaction as the row: a Player's cursor on it moves to the Track before
+  it, a playing current Track advances as if it had ended (the bot gets `play`,
+  or `stop` at the end), and a paused one stops. The foreign keys alone would
+  null the cursor, and a null cursor restarts the Playlist from its top.
 - **Idle never keeps a current Track.**
 - **History** gets a Track whenever it stops being current, except through
   Previous (two presses would swap the same two) and a `repeat: one` replay.

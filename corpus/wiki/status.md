@@ -16,9 +16,12 @@ a second way in, both on Ward's vendored library (`vendor/ward/`, Ward's brief
 profile moved. Settings (`/settings`) links and unlinks Ward and sets a
 password. Not deployed. Owed: the deploy (Ward's brief 27: the new env, and the
 Dockerfile must copy `apps/api/vendor`), `AUTH_TRUSTED_PROXIES` in that env set to the
-container network's subnet (brief 89), a seeded owner account, and
-just-a-bot signing in to atrium with a local `jukebox` account (D55 as
-amended).
+container network's subnet (brief 89), and just-a-bot signing in to atrium
+with a local `jukebox` account (D55 as amended). **Not a seeded owner account**
+(brief 90): the owner's data belongs to the migrated `user-…` account the first
+boot logs. Keep `WARD_OIDC_*` set for that deploy, each person signs in with Ward
+and sets a password (or `seed:user --set-password`), then seed new accounts;
+the steps are in `docs/getting-started.md`, "Upgrading to local accounts".
 
 **2026-10-09: atrium's half of the Jukebox is built** (briefs 80, 81, 82). The
 bot's account is limited to the Jukebox (D55), atrium owns every Player and
@@ -141,7 +144,7 @@ got here.
 | 87 | Docs site from Starlight to Docusaurus, same URLs | **done (2026-10-19)**; four more wiki pages published; not deployed, waits on vps-deploy brief 11 |
 | 88 | Bug: an expired session loses unsaved Notes ink | **done (2026-10-21)**; reproduced, then each save copies the note to IndexedDB and it is offered back after sign-in |
 | 89 | Set `AUTH_TRUSTED_PROXIES` wherever atrium runs behind a proxy | **done (2026-10-27)**; `.env.example` names it, the API warns at boot without it in production; the deploy's env is the owner's |
-| 90 | First deploy of the accounts rework: keep every household member's way in | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 90 | First deploy of the accounts rework: keep every household member's way in | **done (2026-10-27)**; the boot logs each migrated account, `seed:user --set-password`, first-deploy steps in the docs |
 | 91 | `jukebox.md`: describe the bot's local account, not the Ward one | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
 | 92 | Jukebox: deleting the playing song must not restart the library | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
 | 93 | `npm run typecheck` works on a fresh clone | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |

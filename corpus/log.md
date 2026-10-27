@@ -2673,3 +2673,13 @@ variable unset, the API warns at boot. A new test signs in through a bridge peer
 one client's five wrong passwords lock only that client. Owed by the owner: the
 value in vps-deploy's env before the accounts rework is deployed. Outcome in
 [89](briefs/done/89-trusted-proxies-for-login-lockout.md).
+
+## [2026-10-27] build | Brief 90: the first deploy keeps every household member's way in
+
+The first boot with local accounts now logs each Ward subject it turned into a
+passwordless `user-…` account, and how that account gets in (with Ward off, that
+it has none yet). `seed:user --set-password` sets the password of an existing
+account and touches nothing else; there is no `--rename`, because the vendored
+library cannot change a username. `docs/getting-started.md` has the first-deploy
+steps, and status.md no longer asks for a seeded owner account, which would have
+been an empty one. Outcome in [90](briefs/done/90-first-deploy-keeps-accounts-reachable.md).

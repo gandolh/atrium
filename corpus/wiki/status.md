@@ -5,6 +5,12 @@ updated: 2026-10-27
 
 # Status — 2026-10-27
 
+**2026-10-27: briefs 89-99 are done**, each with its outcome; not deployed. Owed
+outside the repo: `AUTH_TRUSTED_PROXIES` in vps-deploy's env (89), and a note in
+just-a-bot's restated Jukebox shapes for `Player.failure` (95) and the 409
+`NOT_IN_VOICE` its `/jukebox` command can now get (96). Two new migrations
+(94, 95) run on the next deploy.
+
 **2026-10-21: the 2026-10-20 improvement sweep is filed as briefs 89-99.** 89-91 settle
 the accounts-rework deploy (the login lockout behind the proxy, the migrated passwordless accounts,
 the stale Jukebox page), 92-93 are the other Now items, 94-99 Next. The watch list is not briefed.
@@ -153,4 +159,4 @@ got here.
 | 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **done (2026-10-27)**; play-type controls answer 409 `NOT_IN_VOICE`, the page disables them and says to join |
 | 97 | Songs the bot streams don't count as opened | **done (2026-10-27)**; the file route skips `touchOpened` for the jukebox-only account |
 | 98 | Tile menu: reachable and usable with a keyboard | **done (2026-10-27)**; Base UI's Menu, keyboard-checked in a browser (Add to Discord queue queued the song) |
-| 99 | Skip the Calibre tests when Calibre isn't installed | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 99 | Skip the Calibre tests when Calibre isn't installed | **done (2026-10-27)**; probed once, both skip with "Calibre not installed" |

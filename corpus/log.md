@@ -2752,3 +2752,10 @@ A tile's More actions menu is Base UI's Menu now, not modal. Checked keyboard on
 in a browser: Tab to a music tile's trigger, Enter, Enter on "Add to Discord queue",
 and the song was in the scratch Queue. The main chunk grows by about 12 kB gzip.
 Outcome in [98](briefs/done/98-tile-menu-keyboard.md).
+
+## [2026-10-27] build | Brief 99: the Calibre tests skip without Calibre
+
+The two conversion status-write tests probe `ebook-convert` once with the API's
+`isCalibreAvailable()` and skip with "Calibre not installed" when it is missing.
+With it off `PATH`: 127 pass, 2 skipped; with Calibre: 129 pass. Outcome in
+[99](briefs/done/99-skip-calibre-tests.md).

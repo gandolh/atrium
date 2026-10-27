@@ -146,9 +146,23 @@ export async function openMigratedAccounts(): Promise<Accounts> {
   return openAccounts();
 }
 
+/** A local account this boot made for a pre-D58 Ward subject (`linkWardSubjects`). */
+export interface MigratedAccount {
+  subject: string;
+  username: string;
+}
+
+/** What the boot answers: the accounts the guard is built from, and what it migrated. */
+export interface BootDatabase {
+  accounts: Accounts;
+  /** Empty on every boot but the first after the D58 upgrade. */
+  migratedAccounts: MigratedAccount[];
+}
+
 /**
  * The full boot sequence: schema first, then the accounts (D58), then the two
- * job reapers. Answers the accounts, which the app's guard is built from.
+ * job reapers. Answers the accounts, which the app's guard is built from, and
+ * the accounts this boot migrated, which `index.ts` logs (`logMigratedAccounts`).
  *
  * The accounts open on this same database (`auth-store.ts`) only after the
  * fresh-database check, because opening them opens the connection, and the
@@ -156,12 +170,50 @@ export async function openMigratedAccounts(): Promise<Accounts> {
  * user is made after the migrations, because it reads `profiles`, and on every
  * boot, because it skips what exists.
  */
-export async function initDatabase(): Promise<Accounts> {
+export async function initDatabase(): Promise<BootDatabase> {
   const accounts = await openMigratedAccounts();
-  await linkWardSubjects(accounts);
+  const subjects = await linkWardSubjects(accounts);
+  const migratedAccounts: MigratedAccount[] = [];
+  for (const subject of subjects) {
+    const user = await accounts.findUserById(subject);
+    if (user) migratedAccounts.push({ subject, username: user.username });
+  }
   await reapInterruptedConversions();
   await reapInterruptedLatexCompiles();
-  return accounts;
+  return { accounts, migratedAccounts };
+}
+
+/** The slice of a pino/Fastify logger the boot log needs. */
+export interface BootLog {
+  warn(detail: object, message: string): void;
+}
+
+/**
+ * One warning per account the boot migrated (brief 90), so the first deploy of
+ * D58 says who now has an account with no password and how they get in.
+ *
+ * A migrated account is `user-<8 characters of the subject>` with no password,
+ * and owns every profile, note, LaTeX project and position its person had.
+ * Seeding a fresh account for that person instead makes an empty one, and the
+ * data looks lost. With "Sign in with Ward" on, the person signs in with Ward
+ * and sets a password in Settings. With it off the account has no way in at
+ * all until `seed:user --set-password` gives it one, so the line says that.
+ */
+export function logMigratedAccounts(
+  log: BootLog,
+  migrated: readonly MigratedAccount[],
+  options: { signInWithWard: boolean },
+): void {
+  for (const { subject, username } of migrated) {
+    const howIn = options.signInWithWard
+      ? "sign in with Ward, then set a password in Settings"
+      : "Sign in with Ward is off, so it has no way in: set the WARD_OIDC_* variables and sign in " +
+        `with Ward, or give it a password with seed:user --set-password and SEED_USERNAME=${username}`;
+    log.warn(
+      { subject, username },
+      `Ward subject ${subject} is now ${username} with no password: ${howIn}`,
+    );
+  }
 }
 
 /**

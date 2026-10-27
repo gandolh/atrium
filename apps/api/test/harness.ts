@@ -24,7 +24,7 @@ export interface TestApp {
  * (`node --test`), so each file owns its database; call this once per file.
  */
 export async function buildTestApp(options: { wardClient?: WardClient } = {}): Promise<TestApp> {
-  const accounts = await initDatabase();
+  const { accounts } = await initDatabase();
   const app = await buildApp({ accounts, wardClient: options.wardClient });
   // The production logger is on; a test run does not need every request.
   app.log.level = "silent";

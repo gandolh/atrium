@@ -24,6 +24,8 @@ Atrium signs people in with a local username and password. There is no Register 
 SEED_USERNAME=you SEED_PASSWORD=... SEED_ROLE=member npm run seed:user -w @ebook-reader/api
 ```
 
+An account that already exists is left as it is. To give an existing account a new password, add `-- --set-password` (see [Upgrading to local accounts](#upgrading-to-local-accounts)).
+
 For "Sign in with Ward" as well, follow the README in `wzd_auth/infrastructure/local`. In short, from that folder:
 
 ```bash
@@ -74,6 +76,30 @@ This builds `packages/shared` and `packages/typeset`, then runs three processes 
 The web dev server serves everything on one origin, the way Caddy does in the deploy: `/atrium-api` goes to the API (prefix stripped), so the API never needs CORS. There is no `/ward` proxy: "Sign in with Ward" sends the browser to Ward's own origin (http://localhost:8792) and back to the callback under `/atrium-api`. `GET /atrium-api/health` answers without signing in.
 
 The API's `API ready` log line lists the five storage roots it is using. Check it whenever you point Atrium at other data.
+
+## Upgrading to local accounts
+
+Before local accounts (D58) every person signed in with Ward, and their profiles, notes, LaTeX projects and reading positions are keyed on their Ward subject. The first boot of a version with local accounts turns each such subject into a local account whose id is that subject, so nothing moves. The account is named `user-` and the first eight characters of the subject (`user-0a1b2c3d`), has full access, and has **no password**. The boot logs one line per account it made:
+
+```
+Ward subject 0a1b2c3d-… is now user-0a1b2c3d with no password: sign in with Ward, then set a password in Settings
+```
+
+The data belongs to those accounts. Seeding a new account for the same person makes an empty one, and linking their Ward account to it fails, because the Ward subject is already linked to the migrated account. For the first deploy:
+
+1. Keep every `WARD_OIDC_*` variable set. Without them the migrated accounts have no way in, and the boot line says so.
+2. Deploy and read the boot log for the `user-…` names.
+3. Each person signs in with Ward, lands in their own library, and sets a password in Settings. From then on the password works while Ward is down.
+4. For a person who cannot sign in with Ward, set the password from the server instead. It changes only the password and signs out the account's sessions:
+
+   ```bash
+   SEED_USERNAME=user-0a1b2c3d SEED_PASSWORD=... npm run seed:user -w @ebook-reader/api -- --set-password
+   ```
+
+   In the container the built copy is `node apps/api/dist/scripts/seed-user.js --set-password`. An unknown username is an error; it never creates an account.
+5. Only then seed new accounts: the Discord bot's `jukebox` account, and anyone who never had a Ward account.
+
+A username cannot be changed yet; the vendored Ward library has no rename.
 
 ## Run against a scratch library
 

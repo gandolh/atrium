@@ -16,7 +16,7 @@ describe("a 500 does not send the error's message", () => {
   let cookie: string;
 
   before(async () => {
-    const accounts = await initDatabase();
+    const { accounts } = await initDatabase();
     await accounts.createUser({ id: "subject-owner", username: "owner", role: "member" });
     cookie = `${SESSION_COOKIE}=${(await accounts.startSession("subject-owner")).token}`;
     app = await buildApp({ accounts });

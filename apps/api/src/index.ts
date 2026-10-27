@@ -11,7 +11,7 @@ import {
   PORT,
   THUMBNAILS_DIR,
 } from "./common/config.js";
-import { initDatabase } from "./database/bootstrap.js";
+import { initDatabase, logMigratedAccounts } from "./database/bootstrap.js";
 import { closeDatabase } from "./database/knex.js";
 import { isCalibreAvailable } from "./modules/library/calibre.service.js";
 import { cancelAllConverts, sweepInterruptedOutputs } from "./modules/library/convert.service.js";
@@ -55,7 +55,7 @@ import { createWardClient, wardClientOptionsFromEnv } from "../vendor/ward/ward-
  * Read here and nowhere else, so a test never picks up the real issuer from
  * the repo-root `.env`.
  */
-const accounts = await initDatabase().catch((err: unknown) => {
+const { accounts, migratedAccounts } = await initDatabase().catch((err: unknown) => {
   console.error("database bootstrap failed:", err);
   process.exit(1);
 });
@@ -112,6 +112,9 @@ async function start(): Promise<void> {
   try {
     await checkCalibre();
     checkTrustedProxies();
+    // The first boot after D58 turns each Ward subject into a passwordless
+    // account; say which, and how each gets in (brief 90).
+    logMigratedAccounts(app.log, migratedAccounts, { signInWithWard: wardClient !== undefined });
     await app.listen({ port: PORT, host: HOST });
     // Every storage root, in the first line an operator reads. Two incidents and
     // brief 53 were all a root silently pointing somewhere unintended; this is

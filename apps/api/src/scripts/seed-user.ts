@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
-import { seedUsers } from "../../vendor/ward/ward-auth.js";
+import { seedUsers, type Accounts } from "../../vendor/ward/ward-auth.js";
 import { openMigratedAccounts } from "../database/bootstrap.js";
 import { closeDatabase } from "../database/knex.js";
 import { JUKEBOX_ROLE, MEMBER_ROLE } from "../modules/auth/auth.guard.js";
@@ -20,6 +20,20 @@ import { JUKEBOX_ROLE, MEMBER_ROLE } from "../modules/auth/auth.guard.js";
  * exactly as it is, password and role included. In the deploy, run the built
  * copy inside the container: `node apps/api/dist/scripts/seed-user.js`.
  *
+ * ## `--set-password`: a password for an account that exists (brief 90)
+ *
+ *   SEED_USERNAME=user-0a1b2c3d SEED_PASSWORD=…  npm run seed:user -- --set-password
+ *
+ * Sets the password of the account with that username and signs out every
+ * session it holds; the role and everything the account owns stay as they
+ * are, and `SEED_ROLE` is not read. An unknown username is an error, never a
+ * new account. It exists for the accounts the D58 upgrade made from Ward
+ * subjects: `user-<8 characters>`, no password, and the owner of all that
+ * person's data. Seeding a new account for them would make an empty one, so
+ * this is how such an account gets a password without signing in with Ward.
+ * There is no `--rename`: the vendored library has no way to change a
+ * username, and atrium does not write the library's tables itself (D58).
+ *
  * It migrates and opens the accounts as the API's boot does, against the same
  * storage roots, so it needs the same `.env`. It skips the boot's job reapers,
  * so running it beside a live API leaves that API's conversions and compiles
@@ -37,10 +51,23 @@ class Muted extends Writable {
   }
 }
 
-async function ask(): Promise<{ username: string; password: string; role: string }> {
+const SET_PASSWORD = "--set-password";
+
+/** The one flag. Anything else is refused, so a typo never creates an account. */
+function parseArgs(args: readonly string[]): { setPassword: boolean } {
+  let setPassword = false;
+  for (const arg of args) {
+    if (arg === SET_PASSWORD) setPassword = true;
+    else throw new Error(`Unknown option ${JSON.stringify(arg)}. The only option is ${SET_PASSWORD}.`);
+  }
+  return { setPassword };
+}
+
+async function ask(setPassword: boolean): Promise<{ username: string; password: string; role: string }> {
   let username = process.env.SEED_USERNAME?.trim() ?? "";
   let password = process.env.SEED_PASSWORD ?? "";
-  let role = process.env.SEED_ROLE?.trim() ?? "";
+  // `--set-password` never changes a role, so it neither reads nor asks for one.
+  let role = setPassword ? MEMBER_ROLE : (process.env.SEED_ROLE?.trim() ?? "");
   if (username && password) return { username, password, role: role || MEMBER_ROLE };
 
   if (!process.stdin.isTTY) {
@@ -64,18 +91,36 @@ async function ask(): Promise<{ username: string; password: string; role: string
   return { username, password, role: role || MEMBER_ROLE };
 }
 
+/** `--set-password`: the existing account's new password, and nothing else. */
+async function setPasswordOf(accounts: Accounts, username: string, password: string): Promise<void> {
+  const existing = await accounts.findUserByUsername(username);
+  if (!existing) {
+    throw new Error(`No account is named ${JSON.stringify(username)}. Run without ${SET_PASSWORD} to create it.`);
+  }
+  await accounts.setPassword(existing.id, password);
+  console.log(
+    `Set a new password for ${existing.username}, and signed out its sessions. ` +
+      `Its role (${existing.role}) and everything it owns are unchanged.`,
+  );
+}
+
 async function main(): Promise<void> {
-  const user = await ask();
+  const { setPassword } = parseArgs(process.argv.slice(2));
+  const user = await ask(setPassword);
   if (!ROLES.includes(user.role)) {
     throw new Error(`SEED_ROLE must be ${ROLES.join(" or ")}, not ${JSON.stringify(user.role)}.`);
   }
   const accounts = await openMigratedAccounts();
   try {
+    if (setPassword) {
+      await setPasswordOf(accounts, user.username, user.password);
+      return;
+    }
     const result = await seedUsers(accounts, [user]);
     console.log(
       result.created.length > 0
         ? `Created ${result.created.join(", ")} (${user.role}).`
-        : `${user.username} already exists; left as it is.`,
+        : `${user.username} already exists; left as it is. ${SET_PASSWORD} sets a new password on it.`,
     );
   } finally {
     await closeDatabase();

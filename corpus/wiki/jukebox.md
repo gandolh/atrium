@@ -42,7 +42,8 @@ The bot holds `GET /jukebox/bot/commands?after=&wait=` open (at most 20 s,
 measured live through Vite and the container on 2026-10-08). An in-process
 emitter wakes it after the commit; it holds no database handle while it
 waits. Audio never travels there: the bot fetches each Track from the library
-file route.
+file route, which records no open for it (brief 97), so the songs it plays do
+not move up the home grid's "recently opened".
 
 ## The rules that are easy to get wrong
 

@@ -22,3 +22,16 @@ Improvement sweep of 2026-10-20 (Jukebox lens), vetted against the code; the ran
 ## Acceptance
 
 - A test: a jukebox-only file request leaves `last_opened_at` unchanged; a member's request still updates it.
+
+## Outcome (2026-10-27)
+
+**Done**, code in `e2b2ce6`. [`library.controller.ts`](../../../apps/api/src/modules/library/library.controller.ts)'s
+file route calls `touchOpened` only when `request.jukeboxOnly` is false; the
+audio-only check above it is unchanged. Covers never recorded an open, so nothing
+else changed.
+
+**Checked:** in [`jukebox-role.test.ts`](../../../apps/api/test/jukebox-role.test.ts),
+the bot streams the song whole and by range, and `last_opened_at` is unchanged; a
+member then streams it and `last_opened_at` is set. On the old controller the
+first half fails (`actual: '2026-10-27T21:05:49.651Z'`, expected the earlier
+value). `npm run typecheck` is clean and the API suite passes (129 of 129).

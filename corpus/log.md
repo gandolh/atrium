@@ -2738,3 +2738,10 @@ Jukebox page disables them and says to pick a channel and press Join. Checked by
 test and in a browser with the stand-in bot. Discord's `/jukebox` now gets the 409
 too; how just-a-bot words it is unchecked. Outcome in
 [96](briefs/done/96-jukebox-play-needs-voice.md).
+
+## [2026-10-27] build | Brief 97: the bot's streams are not opens
+
+The library file route no longer records an open for the jukebox-only account, so
+songs the bot plays stay where they were on the home grid and its Range requests
+write nothing. A test covers the bot and a member. Outcome in
+[97](briefs/done/97-bot-streams-not-opens.md).

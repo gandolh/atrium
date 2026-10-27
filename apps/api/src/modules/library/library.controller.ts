@@ -153,7 +153,10 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     }
 
     // Record the open (drives "recently opened" ordering) even on a cache hit.
-    await touchOpened(id, nowIso());
+    // Not for the bot (brief 97): a song it streams to Discord was not opened
+    // by anyone here, and each of its Range requests would be a write that
+    // pushes what people did open down the home grid.
+    if (!request.jukeboxOnly) await touchOpened(id, nowIso());
 
     // No `?version=` means the NEWEST, and the newest needs no lookup at all:
     // publish copies it to `filePathFor(bookId, "pdf")`, the same derived

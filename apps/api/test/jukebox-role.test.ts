@@ -112,6 +112,22 @@ describe("the jukebox role", () => {
       assert.equal(part.rawPayload.length, 100);
     });
 
+    it("streaming a song records no open; a member's request still does (brief 97)", async () => {
+      const openedAt = async () => (await knex("books").where({ id: "song" }).first()).last_opened_at as string | null;
+      const before = await openedAt();
+      for (const headers of [{ cookie: bot }, { cookie: bot, range: "bytes=100-199" }]) {
+        const res = await t.app.inject({ method: "GET", url: "/library/song/file", headers });
+        assert.ok(res.statusCode === 200 || res.statusCode === 206, String(res.statusCode));
+      }
+      assert.equal(await openedAt(), before, "the bot's requests left last_opened_at alone");
+
+      const member = await t.signIn("subject-listener");
+      const res = await t.app.inject({ method: "GET", url: "/library/song/file", headers: { cookie: member } });
+      assert.equal(res.statusCode, 200);
+      const after = await openedAt();
+      assert.ok(after !== null && after !== before, `a member's request records the open (${after})`);
+    });
+
     it("cannot stream a book's file", async () => {
       forbidden(await t.app.inject({ method: "GET", url: "/library/book/file", headers: { cookie: bot } }));
     });

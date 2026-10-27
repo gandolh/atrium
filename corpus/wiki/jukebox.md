@@ -1,6 +1,6 @@
 ---
 summary: How the Jukebox works end to end — the bot account's allowlist, atrium-owned Players in SQLite, the command long-poll, the next-Track and status rules (restart, lost voice, stale reports), and the /jukebox page. Read before touching modules/jukebox, apps/web/src/jukebox or just-a-bot's link.
-updated: 2026-10-09
+updated: 2026-10-27
 ---
 
 # Jukebox
@@ -8,17 +8,27 @@ updated: 2026-10-09
 just-a-bot plays atrium's music in Discord voice channels, and anyone signed in
 steers it from `/jukebox` or from Discord's `/jukebox` command. Terms are in
 [glossary-jukebox.md](glossary-jukebox.md). The calls are D55 (the bot's own
-account and its allowlist), D56 (the Playlist is the library) and D57 (atrium
+account and its allowlist, amended by D58), D56 (the Playlist is the library) and D57 (atrium
 owns every Player, the bot long-polls). Built by briefs 80, 81 and 82.
 
 ## Who may call what
 
-The bot signs in as its own Ward account whose only atrium role is `jukebox`.
-The guard (`modules/ward/ward.guard.ts`) sets `request.jukeboxOnly` and limits
-that account to `/jukebox/*` and `GET /library/:id/file` and `/cover`, matched
-on the route pattern. The file and cover handlers refuse anything not `audio`.
-`jukebox` beside any other role is full access. The `/jukebox/bot/*` routes
-answer 403 `JUKEBOX_BOT_ONLY` to anyone else, so only the bot reports status.
+The bot has its own local account whose role is `jukebox`
+([D55](decisions.md), as amended by [D58](decisions.md)). It is made like any other account, with
+`SEED_USERNAME=… SEED_PASSWORD=… SEED_ROLE=jukebox npm run seed:user`, and the
+bot signs in to it with `POST /atrium-api/auth/login`, a password sign-in with
+no browser, and sends the `atrium_session` cookie it gets back. A session
+lasts at most 30 days, and 14 without use, so the bot must sign in again rather
+than keep one cookie for good. Its password sign-ins share the lockout with
+everyone's, so the deploy needs `AUTH_TRUSTED_PROXIES` (brief 89), or anyone's
+wrong passwords lock the bot out too. The guard
+([`auth.guard.ts`](../../apps/api/src/modules/auth/auth.guard.ts)) sets
+`request.jukeboxOnly` and limits that account to `/jukebox/*`, its own
+`/auth/*` routes, and `GET /library/:id/file` and `/cover`, matched on the
+route pattern. The file and cover handlers refuse anything not `audio`. The
+role is one string in atrium's account row: `jukebox`, or anything else for
+full access. The `/jukebox/bot/*` routes answer 403 `JUKEBOX_BOT_ONLY` to
+anyone else, so only the bot reports status.
 
 ## State lives in atrium
 

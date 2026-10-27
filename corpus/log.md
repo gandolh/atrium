@@ -2683,3 +2683,12 @@ account and touches nothing else; there is no `--rename`, because the vendored
 library cannot change a username. `docs/getting-started.md` has the first-deploy
 steps, and status.md no longer asks for a seeded owner account, which would have
 been an empty one. Outcome in [90](briefs/done/90-first-deploy-keeps-accounts-reachable.md).
+
+## [2026-10-27] build | Brief 91: jukebox.md names the bot's local account
+
+[jukebox.md](wiki/jukebox.md) said the bot signs in as a Ward account and named
+the deleted `ward.guard.ts`. It now says the bot has a local `jukebox` account,
+made with `npm run seed:user`, that signs in with `POST /atrium-api/auth/login`,
+and links D55 as amended by D58 and `auth.guard.ts`.
+[glossary-jukebox.md](wiki/glossary-jukebox.md)'s "Bot account" says the same.
+Outcome in [91](briefs/done/91-jukebox-page-local-account.md).

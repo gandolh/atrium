@@ -1,6 +1,6 @@
 ---
 summary: Naming authority for the Jukebox, atrium's remote control for the Discord bot's music. Defines jukebox, player, track, playlist, queue, queue entry and the bot account. just-a-bot's glossary repeats these terms and defers to this page.
-updated: 2026-10-08
+updated: 2026-10-27
 ---
 
 # Glossary: Jukebox
@@ -50,8 +50,8 @@ display name from Discord.
 _Avoid_: request, item, slot
 
 **Bot account**:
-The Ward account the Discord bot signs in as. Its `atrium` grant carries the
-role `jukebox`, which atrium enforces as an allowlist of routes (D55). It is a
-separate account, not a profile, because a profile is not a security boundary
-(D35).
-_Avoid_: bot user, bot profile, service account (Ward has no such concept)
+The local atrium account the Discord bot signs in to with a password. Its role
+is `jukebox`, which atrium enforces as an allowlist of routes (D55, as amended
+by D58). It is a separate account, not a profile, because a profile is not a
+security boundary (D35).
+_Avoid_: bot user, bot profile, service account

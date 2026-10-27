@@ -8,9 +8,12 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run build -w @ebook-reader/shared && npm run build -w @ebook-reader/typeset && concurrently -n web,api,typeset -c cyan,magenta,yellow \"npm run dev -w @ebook-reader/web\" \"npm run dev -w @ebook-reader/api\" \"tsc --watch --preserveWatchOutput -p packages/typeset/tsconfig.json\"",
+    "build:packages": "npm run build -w @ebook-reader/shared && npm run build -w @ebook-reader/typeset",
+    "dev": "npm run build:packages && concurrently -n web,api,typeset -c cyan,magenta,yellow \"npm run dev -w @ebook-reader/web\" \"npm run dev -w @ebook-reader/api\" \"tsc --watch --preserveWatchOutput -p packages/typeset/tsconfig.json\"",
     "build": "npm run build --workspaces --if-present",
+    "pretypecheck": "npm run build:packages",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "pretest": "npm run build:packages",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {

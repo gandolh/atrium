@@ -114,13 +114,15 @@ LATEX_PROJECTS_DIR=$S/latex DOCUMENT_VERSIONS_DIR=$S/versions npm run dev
 
 Redirect all five together. Moving only the database leaves the other roots on the real files, which is how a test run deleted a real book on 2026-08-25. Values passed on the command line win over `.env`.
 
-## Test, typecheck, build
+## Build, typecheck, test
 
 ```bash
-npm test             # the typesetting engine's suite, then the API's
+npm run build        # every workspace, shared and typeset first
 npm run typecheck
-npm run build
+npm test             # the typesetting engine's suite, then the API's
 ```
+
+`packages/shared` and `packages/typeset` publish their types and code from their `dist/` folders, which only a build creates. So `npm run typecheck` and `npm test` build those two packages first (`npm run build:packages`, a few seconds), and both work on a fresh clone in any order. Run a single workspace's script, such as `npm run typecheck -w @ebook-reader/api`, only after one of them has.
 
 The API tests run on a harness that cannot reach the real library ([corpus/wiki/api-layering.md](../corpus/wiki/api-layering.md) says how).
 

@@ -101,4 +101,5 @@ says to pick a channel and press Join. A Player's `failure` shows under the titl
 just-a-bot's restated shapes do not list it yet). The Playlist is the library query filtered to `audio` and sorted with
 `comparePlaylistOrder`; upload there is `UploadZone` with `audioOnly`, and
 delete is the library delete behind a two-step confirm. Music tiles on the home
-grid get "Add to Discord queue". The Dock stays local playback.
+grid get "Add to Discord queue" in their More actions menu, Base UI's Menu since
+brief 98, so it works from the keyboard. The Dock stays local playback.

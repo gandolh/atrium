@@ -2745,3 +2745,10 @@ The library file route no longer records an open for the jukebox-only account, s
 songs the bot plays stay where they were on the home grid and its Range requests
 write nothing. A test covers the bot and a member. Outcome in
 [97](briefs/done/97-bot-streams-not-opens.md).
+
+## [2026-10-27] build | Brief 98: the tile menu works from the keyboard
+
+A tile's More actions menu is Base UI's Menu now, not modal. Checked keyboard only
+in a browser: Tab to a music tile's trigger, Enter, Enter on "Add to Discord queue",
+and the song was in the scratch Queue. The main chunk grows by about 12 kB gzip.
+Outcome in [98](briefs/done/98-tile-menu-keyboard.md).

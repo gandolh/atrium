@@ -152,5 +152,5 @@ got here.
 | 95 | Jukebox: stop a Player whose songs keep failing | **done (2026-10-27)**; the fifth failure in a row goes idle, the page says "Playback failed: …"; `Player.failure` is new in the shared contract, just-a-bot's restated shapes owe a note |
 | 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **done (2026-10-27)**; play-type controls answer 409 `NOT_IN_VOICE`, the page disables them and says to join |
 | 97 | Songs the bot streams don't count as opened | **done (2026-10-27)**; the file route skips `touchOpened` for the jukebox-only account |
-| 98 | Tile menu: reachable and usable with a keyboard | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 98 | Tile menu: reachable and usable with a keyboard | **done (2026-10-27)**; Base UI's Menu, keyboard-checked in a browser (Add to Discord queue queued the song) |
 | 99 | Skip the Calibre tests when Calibre isn't installed | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |

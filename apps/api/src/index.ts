@@ -85,9 +85,33 @@ async function checkCalibre(): Promise<void> {
   );
 }
 
+/**
+ * Startup check for `AUTH_TRUSTED_PROXIES` (brief 89). Not fatal either: a
+ * deploy without it still serves everyone, but the password lockout then keys
+ * on the proxy, so the sixth wrong password from anyone answers 429 to every
+ * account for 15 minutes. Production only (the image sets `NODE_ENV`): locally
+ * the dev proxy is loopback, which the library always trusts. An empty or
+ * blank value is an empty list to the library, so it counts as unset here.
+ */
+function checkTrustedProxies(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if ((process.env.AUTH_TRUSTED_PROXIES ?? "").replace(/[\s,]/g, "") !== "") return;
+  app.log.warn(
+    "============================================================\n" +
+      "  WARNING: AUTH_TRUSTED_PROXIES is not set.\n" +
+      "  Behind a container proxy every client then shares one\n" +
+      "  sign-in lockout counter: six wrong passwords from anyone\n" +
+      "  lock every account out of password sign-in for 15 minutes.\n" +
+      "  Set it to the proxy's network, e.g. 172.16.0.0/12 for\n" +
+      "  Docker's default bridges. See .env.example.\n" +
+      "============================================================",
+  );
+}
+
 async function start(): Promise<void> {
   try {
     await checkCalibre();
+    checkTrustedProxies();
     await app.listen({ port: PORT, host: HOST });
     // Every storage root, in the first line an operator reads. Two incidents and
     // brief 53 were all a root silently pointing somewhere unintended; this is

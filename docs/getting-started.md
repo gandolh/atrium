@@ -54,7 +54,7 @@ To use "Sign in with Ward", run the Ward seed (step 2) so the `WARD_OIDC_*` valu
 | `WARD_OIDC_CLIENT_KEY` | Atrium's private key at Ward. A secret: server-side only, never logged | written by `seed.mjs` |
 | `WARD_OIDC_REDIRECT_URI` | The callback as the browser reaches it, registered at Ward | `http://localhost:5173/atrium-api/auth/ward/callback` |
 | `WARD_OIDC_POST_LOGOUT_REDIRECT_URI` | Optional. Where Ward returns after "Sign out of Ward too" | `http://localhost:5173/atrium/` |
-| `AUTH_TRUSTED_PROXIES` | Optional. Proxies whose `X-Forwarded-For` the sign-in lockout believes; set it in a container | unset locally |
+| `AUTH_TRUSTED_PROXIES` | Proxies whose `X-Forwarded-For` the sign-in lockout believes, comma-separated. Required behind a container proxy: unset, every client shares one lockout counter, and the API warns at boot when `NODE_ENV=production` | `172.16.0.0/12` (Docker's default bridges; harmless locally, where the proxy is loopback) |
 | `MAX_UPLOAD_MB` | Largest file one upload may be | `50` |
 | `CONVERT_JOB_TIMEOUT_MS` | Last-resort ceiling on one Convert job | `86400000` (24 hours) |
 | `GUTENDEX_BASE_URL` | Optional. Gutenberg catalog the Discover page queries | public instance when unset |
@@ -108,3 +108,4 @@ The site at `/atrium/docs/` is the workspace in `apps/docs` (Docusaurus). It ren
 - **"Sign in with Ward" fails or returns an error.** Check that http://localhost:8792 answers and that `WARD_OIDC_ISSUER` points at it. The redirect URI in `.env` must match the one registered at Ward exactly; re-run `seed.mjs` if it does not. Password sign-in works while Ward is down.
 - **Sign-in POSTs are refused.** `PUBLIC_ORIGIN` must be the origin in the browser's address bar, here `http://localhost:5173`.
 - **Convert fails on every book.** `ebook-convert` is not on `PATH`; install Calibre.
+- **Everyone gets 429 on password sign-in, in a container.** The lockout is counting the proxy, not the clients, so one person's wrong passwords lock everybody out. Set `AUTH_TRUSTED_PROXIES` to the proxy's network (`docker network inspect` shows its subnet). A log line "X-Forwarded-For ignored for the login lockout" names the peer that is missing.

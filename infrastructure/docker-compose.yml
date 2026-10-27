@@ -5,6 +5,15 @@
 # WARD_OIDC_CLIENT_ID, WARD_OIDC_CLIENT_KEY, WARD_OIDC_REDIRECT_URI and
 # WARD_OIDC_POST_LOGOUT_REDIRECT_URI), AUTH_TRUSTED_PROXIES and the tuning
 # knobs. Accounts are atrium's own (D58); Ward is a second way in.
+#
+# AUTH_TRUSTED_PROXIES is not optional here (brief 89). Host Caddy reaches this
+# container through the published port below, so the API sees the network's
+# bridge address as the peer of every request, never the client. Unset, the
+# sign-in lockout counts every client as that one peer, and six wrong passwords
+# from anyone lock everybody out for 15 minutes. Set it to this project's
+# network subnet: 172.16.0.0/12 covers Docker's default pool, and
+# `docker network inspect` shows the real one. The API warns at boot when it is
+# missing.
 services:
   atrium-api:
     build:

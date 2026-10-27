@@ -2,6 +2,7 @@ import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { BotCommandsResponse, Player, Track } from "@ebook-reader/shared";
 import { runMigrations } from "../src/database/bootstrap.js";
+import { IDLE_REPORT_GRACE_MS } from "../src/modules/jukebox/jukebox.service.js";
 import { knex } from "../src/database/knex.js";
 import { migrationSource } from "../src/database/migrations/index.js";
 import { buildTestApp, type TestApp } from "./harness.js";
@@ -29,6 +30,8 @@ const GUILD = {
   deleteMiddle: "100000000000000009",
   deleteCursor: "100000000000000010",
   deletePaused: "100000000000000011",
+  idleReport: "100000000000000012",
+  idleGrace: "100000000000000013",
 };
 
 async function seedTrack(id: string, title: string, author: string, series: string, index: number): Promise<void> {
@@ -95,13 +98,11 @@ describe("the Jukebox API", () => {
     (await knex("jukebox_players").where("guild_id", guildId).first()).playlist_cursor_book_id;
 
   it("the migration runs down and up again", async () => {
-    // By name: it is no longer the newest migration (D58's came after it).
-    await knex.migrate.down({
-      migrationSource,
-      tableName: "knex_migrations",
-      disableTransactions: true,
-      name: "20261008000000-jukebox",
-    });
+    // By name: it is no longer the newest migration (D58's came after it). The
+    // later one that alters its table goes first, or latest would not re-add it.
+    for (const name of ["20261027000000-jukebox-idle-report", "20261008000000-jukebox"]) {
+      await knex.migrate.down({ migrationSource, tableName: "knex_migrations", disableTransactions: true, name });
+    }
     for (const table of ["jukebox_players", "jukebox_queue_entries", "jukebox_history", "jukebox_commands"]) {
       assert.equal(await knex.schema.hasTable(table), false, table);
     }
@@ -391,14 +392,80 @@ describe("the Jukebox API", () => {
     assert.equal(p.queue.length, 1);
   });
 
-  it("no voice channel on the current play is lost voice: idle", async () => {
+  it("no voice channel on the current play twice running is lost voice: idle", async () => {
     const g = GUILD.offline;
     await report(g);
     const playing = await control(g, { action: "playTrack", bookId: "t1" });
+    // One report without voice is a Discord voice reconnect: the audio carries on.
     await report(g, { voiceChannel: null, playId: playing.playId, state: "playing" });
-    const p = await player(g);
+    let p = await player(g);
+    assert.equal(p.state, "playing");
+    assert.equal(p.track?.id, "t1");
+    // The voice came back: a later gap starts counting again.
+    await report(g, { playId: playing.playId, state: "playing" });
+    await report(g, { voiceChannel: null, playId: playing.playId, state: "playing" });
+    assert.equal((await player(g)).state, "playing");
+    // A second report in a row without voice is lost voice.
+    await report(g, { voiceChannel: null, playId: playing.playId, state: "playing" });
+    p = await player(g);
     assert.equal(p.state, "idle");
     assert.equal(p.track, null);
+  });
+
+  it("an idle report for the current play waits for the advance, which plays the next Track", async () => {
+    const g = GUILD.idleReport;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "t1" });
+    // The bot set itself idle at the Track's end and reported before advancing.
+    await report(g, { playId: playing.playId, state: "idle" });
+    const waiting = await player(g);
+    assert.equal(waiting.state, "playing");
+    assert.equal(waiting.track?.id, "t1");
+    const next = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, {
+      playId: playing.playId,
+      reason: "ended",
+    });
+    assert.equal(next.status, 200);
+    assert.equal(next.body.play.track.id, "t2");
+    const p = await player(g);
+    assert.equal(p.state, "playing");
+    assert.equal(p.track?.id, "t2");
+    assert.equal(
+      (await knex("jukebox_players").where("guild_id", g).first()).idle_reported_at,
+      null,
+      "the new play has no idle report pending",
+    );
+  });
+
+  it("an idle report with no advance goes idle once the grace period passes", async () => {
+    const g = GUILD.idleGrace;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "t2" });
+    await report(g, { playId: playing.playId, state: "idle" });
+    assert.equal((await player(g)).state, "playing", "still inside the grace period");
+
+    await knex("jukebox_players")
+      .where("guild_id", g)
+      .update({ idle_reported_at: new Date(Date.now() - IDLE_REPORT_GRACE_MS - 1000).toISOString() });
+    const listed = (await send(person, "GET", "/jukebox/players")).body as Player[];
+    const p = listed.find((one) => one.guildId === g)!;
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
+    assert.equal(p.playId, playing.playId);
+    // An advance that comes after that finds the Player stopped.
+    const late = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, {
+      playId: playing.playId,
+      reason: "ended",
+    });
+    assert.equal(late.body.play, null);
+
+    // A playing report after an idle one clears it: the grace never runs out.
+    const again = await control(g, { action: "playTrack", bookId: "t3" });
+    await report(g, { playId: again.playId, state: "idle" });
+    await report(g, { playId: again.playId, state: "playing", positionMs: 1000 });
+    const row = await knex("jukebox_players").where("guild_id", g).first();
+    assert.equal(row.idle_reported_at, null);
+    assert.equal((await player(g)).track?.id, "t3");
   });
 
   it("a report about an older play changes nothing but voice and liveness", async () => {

@@ -24,6 +24,11 @@ export interface PlayerRow {
   shuffle_picks: string;
   repeat: RepeatMode;
   last_seen_at: string | null;
+  /**
+   * When the bot reported the current play idle, while atrium waits for its
+   * `advance` (brief 94). Null with nothing pending.
+   */
+  idle_reported_at: string | null;
   updated_at: string;
 }
 

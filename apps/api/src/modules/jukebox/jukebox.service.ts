@@ -62,6 +62,13 @@ export class JukeboxError extends Error {
 const SHUFFLE_LOOKBACK = 50;
 
 /**
+ * How long a Player waits for the bot's `advance` after the bot reported the
+ * current play idle (brief 94). The `advance` normally follows within one
+ * request; past this, the Player goes idle on its own.
+ */
+export const IDLE_REPORT_GRACE_MS = 5_000;
+
+/**
  * Wakes waiting long-polls. The API is one process (one container), so an
  * in-process emitter reaches every waiter. Emitted only after the transaction
  * that wrote the command has committed.
@@ -255,6 +262,7 @@ async function startTrack(
     current_from_playlist: pick.fromPlaylist ? 1 : 0,
     position_ms: 0,
     position_at: op.now.toISOString(),
+    idle_reported_at: null,
     ...(moveCursor ? { playlist_cursor_book_id: pick.track.id } : {}),
   });
   // Refill after the change, so the new current Track counts as recently played.
@@ -264,7 +272,26 @@ async function startTrack(
 /** Idle, with no current Track. The Queue, the cursor and the voice channel stay. */
 async function goIdle(op: Op, extra: Partial<PlayerRow> = {}): Promise<void> {
   await retireCurrent(op);
-  await patch(op, { state: "idle", current_book_id: null, position_ms: 0, position_at: null, ...extra });
+  await patch(op, {
+    state: "idle",
+    current_book_id: null,
+    position_ms: 0,
+    position_at: null,
+    idle_reported_at: null,
+    ...extra,
+  });
+}
+
+/**
+ * The bot reported the current play idle and no `advance` came within the
+ * grace period (brief 94): the play is over, so the Player goes idle. Applied
+ * lazily, at the start of every operation on the Player and on every listing,
+ * so whoever looks next sees it. No `stop` is sent: the bot said it is idle.
+ */
+async function expireIdleReport(op: Op): Promise<void> {
+  if (op.row.idle_reported_at === null || op.row.state === "idle") return;
+  if (op.now.getTime() - Date.parse(op.row.idle_reported_at) < IDLE_REPORT_GRACE_MS) return;
+  await goIdle(op);
 }
 
 /** Next: the button, `/jukebox skip`, or the bot's `error`. Always advances. */
@@ -424,6 +451,7 @@ async function withPlayer<T>(
     }
     if (!row) throw new JukeboxError(404, "PLAYER_NOT_FOUND");
     const op: Op = { trx, row, playlist: await loadPlaylist(trx), now, commands: [] };
+    await expireIdleReport(op);
     const value = await fn(op);
     wrote = await writeCommands(op);
     return value;
@@ -440,7 +468,9 @@ export async function listPlayers(): Promise<Player[]> {
     const playlist = await loadPlaylist(trx);
     const players: Player[] = [];
     for (const row of await listPlayerRows(trx)) {
-      players.push(await buildPlayer({ trx, row, playlist, now, commands: [] }));
+      const op: Op = { trx, row, playlist, now, commands: [] };
+      await expireIdleReport(op);
+      players.push(await buildPlayer(op));
     }
     return players;
   });
@@ -583,7 +613,13 @@ export async function deleteTrack(
             await startTrack(op, pick, { retire: false });
             op.commands.push("play");
           } else {
-            await patch(op, { state: "idle", current_book_id: null, position_ms: 0, position_at: null });
+            await patch(op, {
+              state: "idle",
+              current_book_id: null,
+              position_ms: 0,
+              position_at: null,
+              idle_reported_at: null,
+            });
             op.commands.push("stop");
           }
         } else {
@@ -609,11 +645,26 @@ export async function deleteTrack(
  * report sent before the bot saw the `stop` must not start it again. Any other
  * report carries just the voice fields and liveness.
  *
- * No voice channel on the current play means the bot lost its voice
- * connection, so the Player goes idle and keeps its Queue. A report for an
- * older play says nothing about the current one: the bot may not have reached
- * the `join` and `play` that atrium just queued. A bot restart is caught
- * earlier and more surely by its cursor poll (`pollCommands`).
+ * **Idle for the current play is not taken at its word** (brief 94). The bot
+ * ends a Track by going idle and then asking `advance` for the next one, and
+ * this report can land in between: idling here would drop the Track, and the
+ * `advance` would then find nothing to advance. So the report only stamps
+ * `idle_reported_at`, and the Player goes idle if no `advance` arrives within
+ * `IDLE_REPORT_GRACE_MS` (`expireIdleReport`). A later report that the play
+ * is playing or paused clears the stamp.
+ *
+ * **Lost voice takes two reports** (brief 94). No voice channel on the current
+ * play means the bot lost its voice connection, so the Player goes idle and
+ * keeps its Queue, but only if the report before this one had no voice
+ * channel either: a Discord voice reconnect drops it for one report while the
+ * audio carries on. "The report before" is the stored `voice_channel_id`,
+ * which every report rewrites and a `join` sets, so a report about an older
+ * play with no voice channel counts as the first of the two.
+ *
+ * A report for an older play says nothing about the current one: the bot may
+ * not have reached the `join` and `play` that atrium just queued. A bot
+ * restart is caught earlier and more surely by its cursor poll
+ * (`pollCommands`).
  */
 export async function reportStatus(request: BotStatusRequest): Promise<{ upcoming: Track[] }> {
   return withPlayer(
@@ -628,14 +679,20 @@ export async function reportStatus(request: BotStatusRequest): Promise<{ upcomin
       };
       const believed = op.row.state;
       const aboutCurrentPlay = request.playId === op.row.play_id && believed !== "idle";
-      if (aboutCurrentPlay) {
+      // What the previous report said (or a `join` set), before this one replaces it.
+      const voiceAlreadyMissing = op.row.voice_channel_id === null;
+      if (aboutCurrentPlay && request.state === "idle") {
+        // Ended, waiting for the advance. The first stamp counts.
+        changes.idle_reported_at = op.row.idle_reported_at ?? op.now.toISOString();
+      } else if (aboutCurrentPlay) {
         changes.state = request.state;
         changes.position_ms = request.positionMs;
         changes.position_at = op.now.toISOString();
+        changes.idle_reported_at = null;
       }
       await patch(op, changes);
-      // Lost voice, or the bot stopped the current play on its own: idle never keeps a Track.
-      const lostVoice = aboutCurrentPlay && request.voiceChannel === null;
+      // Lost voice, or a Player idle with a Track: idle never keeps a Track.
+      const lostVoice = aboutCurrentPlay && request.voiceChannel === null && voiceAlreadyMissing;
       if (lostVoice || (op.row.state === "idle" && op.row.current_book_id !== null)) await goIdle(op);
       return { upcoming: await computeUpcoming(op) };
     },

@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { DB_PATH } from "../src/common/config.js";
 import { filePathFor } from "../src/common/paths.js";
+import { isCalibreAvailable } from "../src/modules/library/calibre.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // Brief 67: a conversion's terminal status write that threw left the source row
@@ -14,6 +15,14 @@ import { buildTestApp, type TestApp } from "./harness.js";
 // connection holds the write lock across the write.
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Both tests end in a real conversion through Calibre's `ebook-convert`, which
+ * getting-started.md calls optional. Probed once, the way the API's own boot
+ * probes it, so a machine without Calibre skips them with the reason instead of
+ * failing them (brief 99).
+ */
+const needsCalibre = { skip: (await isCalibreAvailable()) ? false : "Calibre not installed" };
 
 async function fixturePdf(title: string): Promise<Buffer> {
   const doc = await PDFDocument.create();
@@ -76,7 +85,7 @@ describe("a failed conversion status write cannot wedge conversions", () => {
     await t.close();
   });
 
-  it("a job's terminal write hits SQLITE_BUSY: logged with its code, and the next book still converts", async () => {
+  it("a job's terminal write hits SQLITE_BUSY: logged with its code, and the next book still converts", needsCalibre, async () => {
     const broken = await upload("Broken");
     const next = await upload("Next");
     // No source file: Calibre fails fast (or is missing), and either way the job
@@ -102,7 +111,7 @@ describe("a failed conversion status write cannot wedge conversions", () => {
     assert.ok(["ready", "poor"].includes(await status(next)), await status(next));
   });
 
-  it("a cancel whose reset hits SQLITE_BUSY answers, and the next convert clears it", async () => {
+  it("a cancel whose reset hits SQLITE_BUSY answers, and the next convert clears it", needsCalibre, async () => {
     const book = await upload("Cancelled");
     const other = await upload("Afterwards");
     assert.equal((await convert(book)).statusCode, 202);

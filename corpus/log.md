@@ -2711,3 +2711,12 @@ a fresh clone and `npm ci`, `npm run typecheck` went from TS2307 to exit 0, and
 `npm test` from 23 failing API test files to green. `docs/getting-started.md`
 lists build, typecheck, test. Outcome in
 [93](briefs/done/93-typecheck-on-fresh-clone.md).
+
+## [2026-10-27] build | Brief 94: an idle report waits for the bot's advance
+
+An idle status report for the current play now stamps a new column,
+`jukebox_players.idle_reported_at`, instead of idling the Player, so the bot's
+`advance` that follows plays the next Track. With no advance within 5 s the Player
+goes idle the next time anything reads or changes it. Lost voice now takes two
+reports in a row. [jukebox.md](wiki/jukebox.md) has both rules. Outcome in
+[94](briefs/done/94-jukebox-idle-report-race.md).

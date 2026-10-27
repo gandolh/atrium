@@ -57,7 +57,13 @@ file route.
   `playId`, and only while atrium has not already stopped that play. Stop,
   Leave and the end of the Playlist set idle without a new `playId`, so a
   report the bot sent before it saw the `stop` must not start the play again.
-  No voice channel on the current play means lost voice: idle.
+  No voice channel on the current play **in two reports running** means lost
+  voice: idle. One such report is a voice reconnect (brief 94).
+- **An idle report for the current play waits for the advance** (brief 94).
+  The bot goes idle at a Track's end before it asks `advance`, so the report
+  only stamps `idle_reported_at` and the Track stays current. With no
+  `advance` within 5 s (`IDLE_REPORT_GRACE_MS`) the Player goes idle the next
+  time anything reads or changes it, the page's listing included.
 - **A report for an older play** changes only voice and liveness. The bot may
   not have reached the `join` and `play` atrium just queued.
 - **Deleting a Track** goes through `deleteTrack` (brief 92), in the same

@@ -148,7 +148,7 @@ got here.
 | 91 | `jukebox.md`: describe the bot's local account, not the Ward one | **done (2026-10-27)**; the page and the glossary's "Bot account" name the local `jukebox` account |
 | 92 | Jukebox: deleting the playing song must not restart the library | **done (2026-10-27)**; the cursor moves back one, a playing Track advances, all in the delete's transaction |
 | 93 | `npm run typecheck` works on a fresh clone | **done (2026-10-27)**; `pretypecheck` and `pretest` build shared and typeset, checked on a fresh clone |
-| 94 | Jukebox: an idle report must not stop playback between songs | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
+| 94 | Jukebox: an idle report must not stop playback between songs | **done (2026-10-27)**; the report waits 5 s for the advance (a new column), lost voice takes two reports |
 | 95 | Jukebox: stop a Player whose songs keep failing | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 97 | Songs the bot streams don't count as opened | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |

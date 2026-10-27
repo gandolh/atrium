@@ -534,6 +534,70 @@ export async function clearQueue(guildId: string): Promise<Player> {
   });
 }
 
+// --- The library deletes a Track ---------------------------------------------
+
+/**
+ * Let go of a Track the library is deleting, then delete its row with
+ * `deleteRow`, all in one transaction (brief 92).
+ *
+ * The foreign keys clear a deleted Track as a Player's current Track and its
+ * Playlist cursor (`SET NULL`), and drop its Queue and history rows. A null
+ * cursor reads as "before the first Track", so deleting the song playing 40th
+ * of 300 would make the next one the library's first, and the Player would stay
+ * `playing` with nothing current. So, for every Player that holds the Track:
+ *
+ * - **the cursor** moves to the Track before it in Playlist order (none before
+ *   the first, which is right: the next is then the new first);
+ * - **a playing current Track** advances as if it had ended, with the Track
+ *   already gone from the Playlist and the Queue: the bot is told `play`, or
+ *   `stop` at the end of the Playlist. `repeat: one` has nothing to replay;
+ * - **a paused current Track** stops: there is no paused start to give the bot.
+ *
+ * The deleted Track is not written to the history, whose rows of it the
+ * cascade removes anyway. The row goes in the same transaction, so nothing can
+ * make the Track current again between letting go of it and deleting it.
+ */
+export async function deleteTrack(
+  bookId: string,
+  deleteRow: (trx: Knex.Transaction) => Promise<void>,
+): Promise<void> {
+  const now = new Date();
+  let wrote = false;
+  await knex.transaction(async (trx) => {
+    const rows = (await listPlayerRows(trx)).filter(
+      (row) => row.playlist_cursor_book_id === bookId || row.current_book_id === bookId,
+    );
+    if (rows.length > 0) {
+      const full = await loadPlaylist(trx);
+      const index = full.tracks.findIndex((track) => track.id === bookId);
+      const before = index > 0 ? full.tracks[index - 1].id : null;
+      const tracks = full.tracks.filter((track) => track.id !== bookId);
+      const playlist: Playlist = { tracks, byId: new Map(tracks.map((track) => [track.id, track])) };
+
+      for (const row of rows) {
+        const op: Op = { trx, row, playlist, now, commands: [] };
+        if (row.playlist_cursor_book_id === bookId) await patch(op, { playlist_cursor_book_id: before });
+        if (row.current_book_id === bookId) {
+          const pick = row.state === "playing" ? await takeNext(op) : null;
+          if (pick) {
+            await startTrack(op, pick, { retire: false });
+            op.commands.push("play");
+          } else {
+            await patch(op, { state: "idle", current_book_id: null, position_ms: 0, position_at: null });
+            op.commands.push("stop");
+          }
+        } else {
+          // The cursor moved, so what follows the current Track did too.
+          op.commands.push("upcoming");
+        }
+        if (await writeCommands(op)) wrote = true;
+      }
+    }
+    await deleteRow(trx);
+  });
+  if (wrote) commandEvents.emit("command");
+}
+
 // --- The bot only -----------------------------------------------------------
 
 /**

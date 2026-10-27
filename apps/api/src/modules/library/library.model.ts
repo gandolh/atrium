@@ -84,8 +84,9 @@ export async function touchOpened(id: string, now: string): Promise<void> {
   await knex("books").where({ id }).update({ last_opened_at: now });
 }
 
-export async function deleteBook(id: string): Promise<void> {
-  await knex("books").where({ id }).delete();
+/** `db` is a transaction's handle when the delete is part of one (the Jukebox's, brief 92). */
+export async function deleteBook(id: string, db: Knex = knex): Promise<void> {
+  await db("books").where({ id }).delete();
 }
 
 /**

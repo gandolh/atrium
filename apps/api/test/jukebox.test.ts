@@ -26,6 +26,9 @@ const GUILD = {
   deleted: "100000000000000006",
   previous: "100000000000000007",
   stopped: "100000000000000008",
+  deleteMiddle: "100000000000000009",
+  deleteCursor: "100000000000000010",
+  deletePaused: "100000000000000011",
 };
 
 async function seedTrack(id: string, title: string, author: string, series: string, index: number): Promise<void> {
@@ -416,17 +419,87 @@ describe("the Jukebox API", () => {
     assert.equal(p.track, null);
   });
 
-  it("deleting a queued, current library Track removes the entry and clears it", async () => {
+  const deleteFromLibrary = async (id: string) => {
+    const res = await t.app.inject({ method: "DELETE", url: `/library/${id}`, headers: { cookie: person } });
+    assert.ok(res.statusCode < 300, res.body);
+  };
+
+  /** The newest command atrium wrote for a guild, as the bot would read it. */
+  const lastCommand = async (guildId: string) => {
+    const row = await knex("jukebox_commands").where("guild_id", guildId).orderBy("id", "desc").first();
+    return JSON.parse(row.body) as { kind: string; playId?: number; track?: Track };
+  };
+
+  it("deleting the playing last Track at repeat off goes idle, not back to the first", async () => {
     const g = GUILD.deleted;
     await report(g);
-    await control(g, { action: "playTrack", bookId: "zz" });
+    const playing = await control(g, { action: "playTrack", bookId: "zz" });
     await send(person, "POST", `/jukebox/players/${g}/queue`, { bookId: "zz", at: "end" });
-    const deleted = await t.app.inject({ method: "DELETE", url: "/library/zz", headers: { cookie: person } });
-    assert.ok(deleted.statusCode < 300, deleted.body);
+    await deleteFromLibrary("zz");
     const p = await player(g);
+    assert.equal(p.state, "idle");
     assert.equal(p.track, null);
     assert.deepEqual(p.queue, []);
+    assert.equal(p.playId, playing.playId, "no Track started");
+    assert.equal(await cursorOf(g), "t3", "the cursor is the Track before the deleted one");
+    assert.equal((await lastCommand(g)).kind, "stop");
     const next = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: p.playId, reason: "ended" });
-    assert.ok(next.body.play, "the bot's advance moves on normally");
+    assert.equal(next.body.play, null, "the bot's late advance starts nothing");
+  });
+
+  it("deleting the playing Track in the middle plays the one after it", async () => {
+    // The Playlist is now t1, t2, t3, then y1..y4 (artist Yan sorts before Zed).
+    for (const n of [1, 2, 3, 4]) await seedTrack(`y${n}`, `Yan ${n}`, "Yan", "Mid", n);
+    const g = GUILD.deleteMiddle;
+    await report(g);
+    const playing = await control(g, { action: "playTrack", bookId: "y2" });
+    await deleteFromLibrary("y2");
+    const p = await player(g);
+    assert.equal(p.state, "playing");
+    assert.equal(p.track?.id, "y3");
+    assert.equal(p.playId, playing.playId + 1);
+    assert.equal(await cursorOf(g), "y3");
+    const command = await lastCommand(g);
+    assert.equal(command.kind, "play");
+    assert.equal(command.track?.id, "y3");
+    assert.equal(command.playId, p.playId);
+    // The bot's advance for the deleted Track's play is stale.
+    const late = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: playing.playId, reason: "ended" });
+    assert.equal(late.body.stale, true);
+  });
+
+  it("deleting the cursor while a Queue Track plays continues after the Track before it", async () => {
+    const g = GUILD.deleteCursor;
+    await report(g);
+    await control(g, { action: "playTrack", bookId: "y1" });
+    await send(person, "POST", `/jukebox/players/${g}/queue`, { bookId: "t1", at: "next" });
+    const fromQueue = await control(g, { action: "next" });
+    assert.equal(fromQueue.track?.id, "t1");
+    assert.equal(await cursorOf(g), "y1");
+
+    await deleteFromLibrary("y1");
+    let p = await player(g);
+    assert.equal(p.track?.id, "t1", "the Queue Track plays on");
+    assert.equal(p.playId, fromQueue.playId);
+    assert.equal(await cursorOf(g), "t3");
+    assert.deepEqual(p.upcoming.map((track) => track.id), ["y3", "y4"]);
+
+    const next = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: p.playId, reason: "ended" });
+    assert.equal(next.body.play.track.id, "y3");
+    p = await player(g);
+    assert.equal(p.track?.id, "y3");
+  });
+
+  it("deleting a paused current Track stops the Player", async () => {
+    const g = GUILD.deletePaused;
+    await report(g);
+    await control(g, { action: "playTrack", bookId: "y4" });
+    await control(g, { action: "pause" });
+    await deleteFromLibrary("y4");
+    const p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
+    assert.equal(await cursorOf(g), "y3");
+    assert.equal((await lastCommand(g)).kind, "stop");
   });
 });

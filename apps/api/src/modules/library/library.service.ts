@@ -19,6 +19,7 @@ import {
   versionPdfPathFor,
   versionZipPathFor,
 } from "../../common/paths.js";
+import { deleteTrack } from "../jukebox/jukebox.service.js";
 import { listDocumentVersions } from "../latex/latex.model.js";
 import { getProfileProgress, listProfileProgress } from "../profiles/profiles.model.js";
 import { UPLOADING_SUFFIX, cancelConvert, isConverting, startConvert } from "./convert.service.js";
@@ -349,7 +350,14 @@ export async function deleteBookWithArtifacts(
     await cancelConvert(id);
   }
 
-  await deleteBook(id);
+  // A Track a Player is playing or continuing from must be let go of first, in
+  // the same transaction as the row (brief 92): the foreign keys alone would
+  // null the cursor, and a null cursor restarts the Playlist from its top.
+  if (row.kind === "audio") {
+    await deleteTrack(id, (trx) => deleteBook(id, trx));
+  } else {
+    await deleteBook(id);
+  }
   await rm(filePathFor(row.id, row.format), { force: true });
   // Only unlink the cover when this row OWNS it. Ownership is
   // `converted_from ?? id` (`coverOwnerId`): a converted book's thumbnail is

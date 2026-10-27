@@ -2720,3 +2720,12 @@ An idle status report for the current play now stamps a new column,
 goes idle the next time anything reads or changes it. Lost voice now takes two
 reports in a row. [jukebox.md](wiki/jukebox.md) has both rules. Outcome in
 [94](briefs/done/94-jukebox-idle-report-race.md).
+
+## [2026-10-27] build | Brief 95: a Player stops after five failed songs
+
+The bot's `error` advances are counted per Player (a new column); an `ended` one
+resets the count, and the fifth in a row goes idle with a `failure` the Jukebox
+page shows as "Playback failed: …" until the next play. `Player` gains `failure`
+in the shared contract; just-a-bot's briefs that restate it were out of reach and
+owe a note. Checked by tests and in a browser with a stand-in for the bot.
+Outcome in [95](briefs/done/95-jukebox-failure-budget.md).

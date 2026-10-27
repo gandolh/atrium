@@ -66,6 +66,11 @@ file route.
   time anything reads or changes it, the page's listing included.
 - **A report for an older play** changes only voice and liveness. The bot may
   not have reached the `join` and `play` atrium just queued.
+- **Five failed songs in a row stop the Player** (brief 95). Each
+  `advance(error)` counts, an `ended` one or going idle resets the count, and
+  the fifth goes idle with a `failure` ("5 songs in a row would not play, the
+  last …") that the next play clears. Without it the bot and atrium looped
+  through the library as fast as HTTP allows when the media was missing.
 - **Deleting a Track** goes through `deleteTrack` (brief 92), in the same
   transaction as the row: a Player's cursor on it moves to the Track before
   it, a playing current Track advances as if it had ended (the bot gets `play`,
@@ -85,7 +90,9 @@ file route.
 and puts each write's returned `Player` straight into the cache. While playing,
 the progress bar moves on from `positionMs` at `positionAt` between polls.
 Offline, the transport and voice controls are disabled and Queue edits still
-work. The Playlist is the library query filtered to `audio` and sorted with
+work. A Player's `failure` shows under the title as "Playback failed: …"
+(brief 95; `failure` is the one field the Player gained since brief 81, and
+just-a-bot's restated shapes do not list it yet). The Playlist is the library query filtered to `audio` and sorted with
 `comparePlaylistOrder`; upload there is `UploadZone` with `audioOnly`, and
 delete is the library delete behind a two-step confirm. Music tiles on the home
 grid get "Add to Discord queue". The Dock stays local playback.

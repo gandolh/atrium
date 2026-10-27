@@ -487,10 +487,23 @@ export async function readPlayer(guildId: string): Promise<Player> {
   return withPlayer(guildId, buildPlayer);
 }
 
-/** A control action. Refused with 409 while the bot is offline: nothing would act on it. */
+/** The controls that start or continue a Track, and so need the bot in a voice channel. */
+const NEEDS_VOICE = new Set<ControlRequest["action"]>(["play", "resume", "next", "previous", "playTrack"]);
+
+/**
+ * A control action. Refused with 409 while the bot is offline: nothing would
+ * act on it. A control that would start a Track is refused with 409
+ * `NOT_IN_VOICE` while the Player has no voice channel (brief 96): it used to
+ * start the Track and queue a `play` the bot could not act on, so the page
+ * showed Playing until the bot's idle report flipped it back. `join` sets the
+ * channel at once, so Join then Play works without waiting for the bot.
+ */
 export async function control(guildId: string, request: ControlRequest): Promise<Player> {
   return withPlayer(guildId, async (op) => {
     if (!isOnline(op.row, op.now)) throw new JukeboxError(409, "PLAYER_OFFLINE");
+    if (NEEDS_VOICE.has(request.action) && op.row.voice_channel_id === null) {
+      throw new JukeboxError(409, "NOT_IN_VOICE");
+    }
     await applyControl(op, request);
     return buildPlayer(op);
   });

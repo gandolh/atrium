@@ -34,6 +34,7 @@ const GUILD = {
   idleGrace: "100000000000000013",
   failing: "100000000000000014",
   recovering: "100000000000000015",
+  noVoice: "100000000000000016",
 };
 
 async function seedTrack(id: string, title: string, author: string, series: string, index: number): Promise<void> {
@@ -383,6 +384,38 @@ describe("the Jukebox API", () => {
     const queued = await send(person, "POST", `/jukebox/players/${g}/queue`, { bookId: "t2", at: "next" });
     assert.equal(queued.status, 200);
     assert.equal((queued.body as Player).queue.length, 1);
+  });
+
+  it("with no voice channel, a control that would start a song is 409 NOT_IN_VOICE", async () => {
+    const g = GUILD.noVoice;
+    // The bot is in the guild but in no voice channel.
+    await report(g, { voiceChannel: null });
+    for (const body of [
+      { action: "play" },
+      { action: "resume" },
+      { action: "next" },
+      { action: "previous" },
+      { action: "playTrack", bookId: "t1" },
+    ]) {
+      const res = await send(person, "POST", `/jukebox/players/${g}/control`, body);
+      assert.equal(res.status, 409, body.action);
+      assert.equal(res.body.error, "NOT_IN_VOICE");
+    }
+    let p = await player(g);
+    assert.equal(p.state, "idle");
+    assert.equal(p.track, null);
+    assert.equal(
+      await knex("jukebox_commands").where("guild_id", g).count({ n: "*" }).first().then((row) => Number(row?.n)),
+      0,
+      "nothing was queued for the bot",
+    );
+
+    // Stop is still allowed, and Join then Play works before the bot reports the channel.
+    assert.equal((await control(g, { action: "stop" })).state, "idle");
+    await control(g, { action: "join", channelId: VOICE.id });
+    p = await control(g, { action: "play" });
+    assert.equal(p.state, "playing");
+    assert.ok(p.track);
   });
 
   it("a bot restart (a fresh cursor) leaves the Player idle with its Queue", async () => {

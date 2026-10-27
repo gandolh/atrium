@@ -22,6 +22,9 @@ const STATE_LABEL = { idle: "Stopped", playing: "Playing", paused: "Paused" } as
  * Every control is a request to atrium, which queues a command for the bot
  * (D57), so nothing here plays a sound in this browser. That is the Dock's job.
  * While the bot is offline every control is disabled: nothing would act on it.
+ * Out of a voice channel, the controls that would start a song are disabled
+ * too, and a line above the voice row says to join one (brief 96): atrium
+ * refuses them.
  */
 export function NowPlaying({
   player,
@@ -39,6 +42,8 @@ export function NowPlaying({
   const disabled = offline;
   const track = player.track;
   const playing = player.state === "playing";
+  // Atrium answers NOT_IN_VOICE to these until the bot is in a channel. Pause and Stop still work.
+  const needsVoice = !player.voiceChannel;
 
   return (
     <section
@@ -70,15 +75,20 @@ export function NowPlaying({
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex items-center gap-1">
-          <RemoteButton label="Previous" onClick={() => onControl({ action: "previous" })} disabled={disabled}>
+          <RemoteButton
+            label="Previous"
+            onClick={() => onControl({ action: "previous" })}
+            disabled={disabled || needsVoice}
+          >
             <PreviousIcon className="h-5 w-5" />
           </RemoteButton>
           <button
             type="button"
             onClick={() => onControl({ action: playing ? "pause" : "play" })}
-            disabled={disabled}
+            disabled={disabled || (!playing && needsVoice)}
             aria-label={playing ? "Pause" : "Play"}
-            title={playing ? "Pause" : "Play"}
+            aria-describedby={!playing && needsVoice ? VOICE_HINT_ID : undefined}
+            title={playing ? "Pause" : needsVoice ? "Join a voice channel to play" : "Play"}
             className="mx-1 grid h-12 w-12 shrink-0 place-items-center rounded-card bg-ink-fill text-on-ink-fill transition-opacity ease-paper hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
           >
             {playing ? <PauseIcon className="h-6 w-6" /> : <PlayIcon className="h-6 w-6" />}
@@ -86,7 +96,7 @@ export function NowPlaying({
           <RemoteButton label="Stop" onClick={() => onControl({ action: "stop" })} disabled={disabled}>
             <StopIcon className="h-5 w-5" />
           </RemoteButton>
-          <RemoteButton label="Next" onClick={() => onControl({ action: "next" })} disabled={disabled}>
+          <RemoteButton label="Next" onClick={() => onControl({ action: "next" })} disabled={disabled || needsVoice}>
             <NextIcon className="h-5 w-5" />
           </RemoteButton>
         </div>
@@ -110,6 +120,12 @@ export function NowPlaying({
           </RemoteButton>
         </div>
       </div>
+
+      {needsVoice && !disabled && (
+        <p id={VOICE_HINT_ID} className="font-ui text-sm text-ink-variant">
+          Join a voice channel below to play: pick one and press Join.
+        </p>
+      )}
 
       <Voice player={player} disabled={disabled} onControl={onControl} />
     </section>
@@ -146,6 +162,9 @@ function Progress({ player }: { player: Player }) {
     </div>
   );
 }
+
+/** The "join a voice channel" line, which the disabled Play button points at. */
+const VOICE_HINT_ID = "jukebox-voice-hint";
 
 /** The voice channel the bot sits in, a picker of the guild's others, and Leave. */
 function Voice({

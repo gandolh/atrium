@@ -79,6 +79,7 @@ export function jukeboxErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     const code = (error.body as { error?: unknown } | undefined)?.error;
     if (code === "PLAYER_OFFLINE") return "The bot is offline, so nothing would act on that.";
+    if (code === "NOT_IN_VOICE") return "Join a voice channel first: pick one and press Join.";
     if (code === "NOT_A_TRACK") return "That isn't a song.";
     if (code === "ENTRY_NOT_FOUND") return "That song already left the queue.";
     if (code === "PLAYER_NOT_FOUND") return "The bot no longer knows this server.";

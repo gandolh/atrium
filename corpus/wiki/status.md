@@ -1,9 +1,9 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
-# Status — 2026-10-21
+# Status — 2026-10-27
 
 **2026-10-21: the 2026-10-20 improvement sweep is filed as briefs 89-99.** 89-91 settle
 the accounts-rework deploy (the login lockout behind the proxy, the migrated passwordless accounts,
@@ -15,7 +15,8 @@ a second way in, both on Ward's vendored library (`vendor/ward/`, Ward's brief
 22). Every existing Ward subject became a local account with that id, so no
 profile moved. Settings (`/settings`) links and unlinks Ward and sets a
 password. Not deployed. Owed: the deploy (Ward's brief 27: the new env, and the
-Dockerfile must copy `apps/api/vendor`), a seeded owner account, and
+Dockerfile must copy `apps/api/vendor`), `AUTH_TRUSTED_PROXIES` in that env set to the
+container network's subnet (brief 89), a seeded owner account, and
 just-a-bot signing in to atrium with a local `jukebox` account (D55 as
 amended).
 
@@ -139,7 +140,7 @@ got here.
 | 86 | Bug: page-turn arrows cover the text at 390 px | **done (2026-10-19)**; the circles are hidden below 740 px, where they cannot clear the measure |
 | 87 | Docs site from Starlight to Docusaurus, same URLs | **done (2026-10-19)**; four more wiki pages published; not deployed, waits on vps-deploy brief 11 |
 | 88 | Bug: an expired session loses unsaved Notes ink | **done (2026-10-21)**; reproduced, then each save copies the note to IndexedDB and it is offered back after sign-in |
-| 89 | Set `AUTH_TRUSTED_PROXIES` wherever atrium runs behind a proxy | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 89 | Set `AUTH_TRUSTED_PROXIES` wherever atrium runs behind a proxy | **done (2026-10-27)**; `.env.example` names it, the API warns at boot without it in production; the deploy's env is the owner's |
 | 90 | First deploy of the accounts rework: keep every household member's way in | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
 | 91 | `jukebox.md`: describe the bot's local account, not the Ward one | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
 | 92 | Jukebox: deleting the playing song must not restart the library | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |

@@ -2663,3 +2663,13 @@ of copy. The stash module moved to `lib/unsaved-stash.ts`; LaTeX keeps its
 localStorage keys. Outcome in
 [88](briefs/done/88-expired-session-keeps-unsaved-notes.md);
 [latex.md](wiki/latex.md) covers both editors.
+
+## [2026-10-27] build | Brief 89: the sign-in lockout counts clients behind the proxy
+
+`.env.example` now lists `AUTH_TRUSTED_PROXIES=172.16.0.0/12`, Docker's default
+bridge range, and says how to find the real subnet; the docs and the compose
+comment say it is required in a container. With `NODE_ENV=production` and the
+variable unset, the API warns at boot. A new test signs in through a bridge peer:
+one client's five wrong passwords lock only that client. Owed by the owner: the
+value in vps-deploy's env before the accounts rework is deployed. Outcome in
+[89](briefs/done/89-trusted-proxies-for-login-lockout.md).

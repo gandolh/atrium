@@ -147,7 +147,7 @@ got here.
 | 90 | First deploy of the accounts rework: keep every household member's way in | **done (2026-10-27)**; the boot logs each migrated account, `seed:user --set-password`, first-deploy steps in the docs |
 | 91 | `jukebox.md`: describe the bot's local account, not the Ward one | **done (2026-10-27)**; the page and the glossary's "Bot account" name the local `jukebox` account |
 | 92 | Jukebox: deleting the playing song must not restart the library | **done (2026-10-27)**; the cursor moves back one, a playing Track advances, all in the delete's transaction |
-| 93 | `npm run typecheck` works on a fresh clone | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Now) |
+| 93 | `npm run typecheck` works on a fresh clone | **done (2026-10-27)**; `pretypecheck` and `pretest` build shared and typeset, checked on a fresh clone |
 | 94 | Jukebox: an idle report must not stop playback between songs | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 95 | Jukebox: stop a Player whose songs keep failing | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |
 | 96 | Jukebox: say "join a voice channel first" instead of pretending to play | **todo**, filed 2026-10-21 from the 2026-10-20 sweep (Next) |

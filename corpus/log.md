@@ -2702,3 +2702,12 @@ Before, the foreign keys nulled the cursor and the next song was the library's
 first. Tests cover the middle song, the last song at repeat off, a deleted cursor
 and a paused song. [jukebox.md](wiki/jukebox.md) has the rule. Outcome in
 [92](briefs/done/92-jukebox-delete-playing-song.md).
+
+## [2026-10-27] build | Brief 93: typecheck and test work on a fresh clone
+
+A root `build:packages` script builds `packages/shared` and `packages/typeset`,
+whose types and code live in `dist/`, and `pretypecheck` and `pretest` run it. On
+a fresh clone and `npm ci`, `npm run typecheck` went from TS2307 to exit 0, and
+`npm test` from 23 failing API test files to green. `docs/getting-started.md`
+lists build, typecheck, test. Outcome in
+[93](briefs/done/93-typecheck-on-fresh-clone.md).

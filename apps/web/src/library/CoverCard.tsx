@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import { Menu } from "@base-ui/react/menu";
 import type { LibraryBook, MediaKind } from "@ebook-reader/shared";
 
 import { coverUrl } from "../lib/library-api";
@@ -86,7 +87,6 @@ export function CoverCard({
   offline?: CoverOfflineProps;
   discord?: CoverDiscordProps;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   // The inline answer to "Add to Discord queue", cleared after a few seconds.
   const [queued, setQueued] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
@@ -119,7 +119,6 @@ export function CoverCard({
   const discordPlayers = kind === "audio" ? (discord?.players ?? []) : [];
 
   function addToDiscord(guildId: string, guildName: string) {
-    setMenuOpen(false);
     discord
       ?.onAdd(book, guildId)
       .then(() => setQueued({ ok: true, text: `Added to ${guildName}'s queue` }))
@@ -209,67 +208,63 @@ export function CoverCard({
           )}
         </div>
 
-        {/* Per-card overflow → delete (design.md: quiet, appears on hover/focus). */}
-        <div className="relative shrink-0">
-          <button
-            type="button"
+        {/* Per-card overflow → delete (design.md: quiet, appears on hover/focus).
+            Base UI's Menu (D22, brief 98), so it works from the keyboard: Enter,
+            Space or ArrowDown on the trigger opens it on the first item, the
+            arrows move, Enter or Space runs an item, Esc closes and returns to
+            the trigger. Not modal, so a click outside still reaches the page. */}
+        <Menu.Root modal={false}>
+          <Menu.Trigger
             aria-label={`More actions for ${book.title}`}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            onBlur={() => setMenuOpen(false)}
-            className="grid h-9 w-9 place-items-center rounded-card text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-raised/60 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-card text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-raised/60 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:opacity-100 max-md:opacity-100"
           >
             <DotsGlyph className="h-4 w-4" />
-          </button>
-          {menuOpen && (
-            <div className="absolute top-8 right-0 z-10 w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift">
-              {/* Brief 82: queue a song on the Discord bot. One Player is one
-                  item; several are listed by guild name under a caption. */}
-              {discordPlayers.length === 1 && (
-                <button
-                  type="button"
-                  onMouseDown={() => addToDiscord(discordPlayers[0].guildId, discordPlayers[0].guildName)}
-                  className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper-low"
-                >
-                  Add to Discord queue
-                </button>
-              )}
-              {discordPlayers.length > 1 && (
-                <div className="border-b border-line-soft py-1">
-                  <p className="px-3 pt-1 pb-0.5 font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
+              <Menu.Popup className="w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised font-ui shadow-lift outline-none">
+                {/* Brief 82: queue a song on the Discord bot. One Player is one
+                    item; several are listed by guild name under a caption. */}
+                {discordPlayers.length === 1 && (
+                  <Menu.Item
+                    onClick={() => addToDiscord(discordPlayers[0].guildId, discordPlayers[0].guildName)}
+                    className="block w-full cursor-default px-3 py-2 text-left text-sm text-ink outline-none data-[highlighted]:bg-paper-low"
+                  >
                     Add to Discord queue
-                  </p>
-                  {discordPlayers.map((player) => (
-                    <button
-                      key={player.guildId}
-                      type="button"
-                      onMouseDown={() => addToDiscord(player.guildId, player.guildName)}
-                      className="block w-full truncate px-3 py-1.5 text-left text-sm text-ink hover:bg-paper-low"
-                    >
-                      {player.guildName}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                disabled={deleteDisabled}
-                // onMouseDown (not onClick) so it fires before the trigger's onBlur closes the menu.
-                onMouseDown={() => {
-                  if (!deleteDisabled) onDelete(book);
-                }}
-                title={deleteDisabled ? "Removing requires a connection" : undefined}
-                className={`block w-full px-3 py-2 text-left text-sm ${
-                  deleteDisabled
-                    ? "cursor-not-allowed text-ink-variant/60"
-                    : "text-danger hover:bg-danger-soft/50"
-                }`}
-              >
-                {deleteDisabled ? "Remove (requires connection)" : "Remove"}
-              </button>
-            </div>
-          )}
-        </div>
+                  </Menu.Item>
+                )}
+                {discordPlayers.length > 1 && (
+                  <Menu.Group className="border-b border-line-soft py-1">
+                    <Menu.GroupLabel className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
+                      Add to Discord queue
+                    </Menu.GroupLabel>
+                    {discordPlayers.map((player) => (
+                      <Menu.Item
+                        key={player.guildId}
+                        onClick={() => addToDiscord(player.guildId, player.guildName)}
+                        className="block w-full cursor-default truncate px-3 py-1.5 text-left text-sm text-ink outline-none data-[highlighted]:bg-paper-low"
+                      >
+                        {player.guildName}
+                      </Menu.Item>
+                    ))}
+                  </Menu.Group>
+                )}
+                <Menu.Item
+                  disabled={deleteDisabled}
+                  onClick={() => onDelete(book)}
+                  title={deleteDisabled ? "Removing requires a connection" : undefined}
+                  className={`block w-full cursor-default px-3 py-2 text-left text-sm outline-none ${
+                    deleteDisabled
+                      ? "cursor-not-allowed text-ink-variant/60"
+                      : "text-danger data-[highlighted]:bg-danger-soft/50"
+                  }`}
+                >
+                  {deleteDisabled ? "Remove (requires connection)" : "Remove"}
+                </Menu.Item>
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
       </div>
     </div>
   );

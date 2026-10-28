@@ -2769,3 +2769,11 @@ comes from the file plus a Look up the user asks for (shortlist 6: MusicBrainz
 and the Cover Art Archive for music, Open Library for books, keyless; films only
 if a TMDb key is ever registered). Recorded as D59; open-questions.md is empty.
 The lookup's brief is to be written.
+
+## [2026-10-28] todo | Brief 100: look up metadata on request
+
+[Brief 100](briefs/todo/100-look-up-metadata-on-request.md) builds D59's
+lookup: a Look up item in the tile menu for music and books searches
+MusicBrainz (with the Cover Art Archive) or Open Library from the API, shows
+candidates, and applies only the fields the user keeps, the cover through the
+existing sharp path. No films (no TMDb key), nothing on upload.

@@ -1,6 +1,6 @@
 ---
 summary: Dated snapshot of current state — a one-liner per brief/area and where things stand right now. The living dashboard.
-updated: 2026-10-27
+updated: 2026-10-28
 ---
 
 # Status — 2026-10-27
@@ -160,3 +160,4 @@ got here.
 | 97 | Songs the bot streams don't count as opened | **done (2026-10-27)**; the file route skips `touchOpened` for the jukebox-only account |
 | 98 | Tile menu: reachable and usable with a keyboard | **done (2026-10-27)**; Base UI's Menu, keyboard-checked in a browser (Add to Discord queue queued the song) |
 | 99 | Skip the Calibre tests when Calibre isn't installed | **done (2026-10-27)**; probed once, both skip with "Calibre not installed" |
+| 100 | [Look up an item's metadata and cover, on request](../briefs/todo/100-look-up-metadata-on-request.md) | **todo (filed 2026-10-28)**; Jellyfin shortlist 6, the owner's pick (D59): MusicBrainz + Cover Art Archive for music, Open Library for books, never automatic, no films |

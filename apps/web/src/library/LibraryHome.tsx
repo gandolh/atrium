@@ -210,6 +210,7 @@ export function LibraryHome() {
         onOpen={openBook}
         onDelete={(b) => remove.mutate(b)}
         deleteDisabled={isOffline}
+        lookupDisabled={isOffline}
         discord={discord}
         offline={
           offlineDownload.isSupported

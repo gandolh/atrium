@@ -131,6 +131,20 @@ export async function updateBookMetadata(
 }
 
 /**
+ * Write the metadata a person chose (brief 100's Look up), to every row in
+ * `ids` at once. Unlike `updateBookMetadata` above, which only fills a missing
+ * author, each field present in `fields` is assigned outright: the person
+ * asked for exactly this value. A field absent from `fields` is not touched.
+ */
+export async function setBookMetadata(
+  ids: readonly string[],
+  fields: Partial<Pick<BookRow, "title" | "author" | "series" | "series_index">>,
+): Promise<void> {
+  if (ids.length === 0 || Object.keys(fields).length === 0) return;
+  await knex("books").whereIn("id", ids).update(fields);
+}
+
+/**
  * Re-point a published document's card at its newest version (brief 38).
  *
  * Unlike `updateBookMetadata` above, `title` is assigned outright rather than

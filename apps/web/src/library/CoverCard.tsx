@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Menu } from "@base-ui/react/menu";
-import type { LibraryBook, MediaKind } from "@ebook-reader/shared";
+import { lookupSourceForKind, type LibraryBook, type MediaKind } from "@ebook-reader/shared";
 
 import { coverUrl } from "../lib/library-api";
 import { coverLayoutId } from "../lib/cover-layout-id";
@@ -9,6 +9,7 @@ import { useMotionTransition } from "../lib/motion";
 import { formatTime } from "../player/format-time";
 import type { OfflineDownloadStatus } from "../lib/use-library";
 import { CoverFallback } from "./CoverFallback";
+import { LookupDialog } from "./LookupDialog";
 import { OfflineToggle } from "./OfflineToggle";
 
 /** Per-book offline download affordance (brief 20 item 2, rendering side). */
@@ -71,12 +72,18 @@ const TINT_CLASS: Record<MediaKind, string> = {
  * instead of the navigation just cutting. Audio/video open into `MediaRoute`
  * instead, which has no matching element, so those kinds get no `layoutId`
  * (round 2 fix — dead wiring shouldn't ship).
+ *
+ * Brief 100 adds **Look up…** to the tile menu for music and books (D59): it
+ * opens `LookupDialog`, which asks MusicBrainz or Open Library through the
+ * API. Video has no source, so no item. Like Remove it is an API call, so
+ * `lookupDisabled` gates it while offline.
  */
 export function CoverCard({
   book,
   onOpen,
   onDelete,
   deleteDisabled = false,
+  lookupDisabled = false,
   offline,
   discord,
 }: {
@@ -84,6 +91,7 @@ export function CoverCard({
   onOpen: (book: LibraryBook) => void;
   onDelete: (book: LibraryBook) => void;
   deleteDisabled?: boolean;
+  lookupDisabled?: boolean;
   offline?: CoverOfflineProps;
   discord?: CoverDiscordProps;
 }) {
@@ -96,6 +104,12 @@ export function CoverCard({
   }, [queued]);
   const [imgFailed, setImgFailed] = useState(false);
   const kind = book.kind ?? "book";
+  // The dialog is mounted on demand and unmounted after its close transition,
+  // so a grid of tiles carries no idle dialogs, and each opening starts fresh.
+  const lookupSource = lookupSourceForKind(kind);
+  const [lookupMounted, setLookupMounted] = useState(false);
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const progressPct = Math.round(book.progress * 100);
   // `player/format-time` is the one duration formatter in the app. A private
   // copy used to live at the foot of this file and ROUNDED where the dock
@@ -215,6 +229,7 @@ export function CoverCard({
             the trigger. Not modal, so a click outside still reaches the page. */}
         <Menu.Root modal={false}>
           <Menu.Trigger
+            ref={menuTrigger}
             aria-label={`More actions for ${book.title}`}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-card text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-raised/60 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:opacity-100 max-md:opacity-100"
           >
@@ -223,6 +238,22 @@ export function CoverCard({
           <Menu.Portal>
             <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
               <Menu.Popup className="w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised font-ui shadow-lift outline-none">
+                {/* Brief 100: the on-request lookup, music and books only. */}
+                {lookupSource && (
+                  <Menu.Item
+                    disabled={lookupDisabled}
+                    onClick={() => {
+                      setLookupMounted(true);
+                      setLookupOpen(true);
+                    }}
+                    title={lookupDisabled ? "Looking up requires a connection" : undefined}
+                    className={`block w-full cursor-default px-3 py-2 text-left text-sm outline-none ${
+                      lookupDisabled ? "cursor-not-allowed text-ink-variant/60" : "text-ink data-[highlighted]:bg-paper-low"
+                    }`}
+                  >
+                    {lookupDisabled ? "Look up (requires connection)" : "Look up…"}
+                  </Menu.Item>
+                )}
                 {/* Brief 82: queue a song on the Discord bot. One Player is one
                     item; several are listed by guild name under a caption. */}
                 {discordPlayers.length === 1 && (
@@ -266,6 +297,17 @@ export function CoverCard({
           </Menu.Portal>
         </Menu.Root>
       </div>
+
+      {lookupSource && lookupMounted && (
+        <LookupDialog
+          book={book}
+          source={lookupSource}
+          open={lookupOpen}
+          onOpenChange={setLookupOpen}
+          onClosed={() => setLookupMounted(false)}
+          returnFocus={menuTrigger}
+        />
+      )}
     </div>
   );
 }

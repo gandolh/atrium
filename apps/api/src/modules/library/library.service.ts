@@ -32,6 +32,7 @@ import {
   insertBook,
   listBooks,
   resetConvert,
+  setBookMetadata,
 } from "./library.model.js";
 import type { BookRow, NewBookRow } from "./library.types.js";
 
@@ -248,6 +249,36 @@ export async function setBookCover(row: BookRow, bytes: Buffer): Promise<SetCove
   // Nothing is recorded in the DB: `hasCover` is a stat of the path we just
   // wrote (brief 41), so the write IS the state change.
   return { ok: true };
+}
+
+// --- Metadata (brief 100) ----------------------------------------------------
+
+/** The fields a person can set on an item; each present one is assigned outright. */
+export interface MetadataUpdate {
+  title?: string;
+  author?: string;
+  series?: string;
+  seriesIndex?: number;
+}
+
+/**
+ * Set an item's title, author, series and series index (brief 100's Look up),
+ * leaving every field absent from `update` as it was.
+ *
+ * Written to BOTH rows of a converted pair (D34). A conversion copies its
+ * source's title, author and series so the pair reads as one book, and the
+ * format switch shows whichever row is open; writing only the tile's row would
+ * leave the other format under the old name. The cover needs no such care:
+ * `setBookCover` already writes through to the pair's one cover.
+ */
+export async function updateBookMetadataFields(row: BookRow, update: MetadataUpdate): Promise<void> {
+  const fields: Partial<Pick<BookRow, "title" | "author" | "series" | "series_index">> = {};
+  if (update.title !== undefined) fields.title = update.title;
+  if (update.author !== undefined) fields.author = update.author;
+  if (update.series !== undefined) fields.series = update.series;
+  if (update.seriesIndex !== undefined) fields.series_index = update.seriesIndex;
+  const ids = [row.id, row.converted_from, row.converted_to].filter((id): id is string => id !== null);
+  await setBookMetadata(ids, fields);
 }
 
 // --- Convert (D34, brief 34) -------------------------------------------------

@@ -65,6 +65,30 @@ export type {
   ConvertStatus,
 } from "./library-book.js";
 
+// --- Metadata lookup contract (brief 100, D59) ------------------------------
+export {
+  LOOKUP_SOURCES,
+  lookupSourceSchema,
+  LOOKUP_SOURCE_NAMES,
+  lookupSourceForKind,
+  isLookupCoverRef,
+  lookupCandidateSchema,
+  lookupSearchParamsSchema,
+  LOOKUP_MAX_CANDIDATES,
+  lookupSearchResponseSchema,
+  LOOKUP_FIELDS,
+  lookupFieldValue,
+  lookupApplySchema,
+} from "./lookup.js";
+export type {
+  LookupSource,
+  LookupCandidate,
+  LookupSearchParams,
+  LookupSearchResponse,
+  LookupField,
+  LookupApplyRequest,
+} from "./lookup.js";
+
 // --- Catalog contract (brief 22) ------------------------------------------
 export {
   CATALOG_SORTS,

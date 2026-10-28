@@ -5,6 +5,7 @@ import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
 import { registerJukeboxRoutes } from "./modules/jukebox/jukebox.controller.js";
 import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
 import { registerLibraryRoutes } from "./modules/library/library.controller.js";
+import { registerLookupRoutes } from "./modules/lookup/lookup.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
 import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
 import { registerAuthGuard } from "./modules/auth/auth.guard.js";
@@ -90,6 +91,7 @@ export async function buildApp(options: {
   registerProfileRoutes(app);
   registerLatexRoutes(app);
   registerJukeboxRoutes(app);
+  registerLookupRoutes(app);
 
   return app;
 }

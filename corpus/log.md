@@ -2759,3 +2759,13 @@ The two conversion status-write tests probe `ebook-convert` once with the API's
 `isCalibreAvailable()` and skip with "Calibre not installed" when it is missing.
 With it off `PATH`: 127 pass, 2 skipped; with Calibre: 129 pass. Outcome in
 [99](briefs/done/99-skip-calibre-tests.md).
+
+## [2026-10-28] decision | The Jellyfin study's four questions answered (D59)
+
+The owner answered all four in a grill: ffmpeg stays out (no remux, no
+transcoding); upload stays the only way in (no watched folder, no import
+command); `MAX_UPLOAD_MB` stays 50, so films don't go in Atrium; and metadata
+comes from the file plus a Look up the user asks for (shortlist 6: MusicBrainz
+and the Cover Art Archive for music, Open Library for books, keyless; films only
+if a TMDb key is ever registered). Recorded as D59; open-questions.md is empty.
+The lookup's brief is to be written.

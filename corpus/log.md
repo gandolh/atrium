@@ -2789,3 +2789,10 @@ request a second by a process-wide gate. Sources mocked in 18 API tests;
 checked in a browser on a scratch library and once against the real services.
 No `npm run lint` exists in the repo. Owner question: the User-Agent's contact.
 
+
+## [2026-10-28] decision | The lookup's User-Agent keeps the repo URL as its contact
+
+Brief 100 asked which contact the MusicBrainz User-Agent should name. The repo is
+public (its GitHub page answers without a sign-in), and MusicBrainz accepts a URL
+as the contact, so `LOOKUP_USER_AGENT` in `apps/api/src/modules/lookup/lookup-http.ts`
+stays as built. The owner took the recommended answer; no address was added.

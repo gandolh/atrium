@@ -7,8 +7,8 @@ updated: 2026-10-28
 
 **2026-10-28: brief 100 is done** (`2ef5d43`, not deployed): Look up… on a
 music or book tile asks MusicBrainz or Open Library through the API and
-applies only the ticked fields (D59). Owed: the owner names the contact in
-the lookup's User-Agent (the repository URL stands in). Nothing in todo/.
+applies only the ticked fields (D59). The lookup's User-Agent names the public
+repository URL as its contact (the owner's answer, 2026-10-28). Nothing in todo/.
 
 **2026-10-27: briefs 89-99 are done**, each with its outcome; not deployed. Owed
 outside the repo: `AUTH_TRUSTED_PROXIES` in vps-deploy's env (89), and a note in

@@ -2772,8 +2772,20 @@ The lookup's brief is to be written.
 
 ## [2026-10-28] todo | Brief 100: look up metadata on request
 
-[Brief 100](briefs/todo/100-look-up-metadata-on-request.md) builds D59's
+[Brief 100](briefs/done/100-look-up-metadata-on-request.md) builds D59's
 lookup: a Look up item in the tile menu for music and books searches
 MusicBrainz (with the Cover Art Archive) or Open Library from the API, shows
 candidates, and applies only the fields the user keeps, the cover through the
 existing sharp path. No films (no TMDb key), nothing on upload.
+
+## [2026-10-28] done | Brief 100: look up metadata on request
+
+[Brief 100](briefs/done/100-look-up-metadata-on-request.md) built D59's
+lookup (`2ef5d43`): Look up… in the tile menu for music and books opens a
+dialog that asks MusicBrainz (Cover Art Archive covers) or Open Library through
+the API, never the browser, and Apply writes only the ticked fields, the cover
+through D40's setter, failing before any write. MusicBrainz is held to one
+request a second by a process-wide gate. Sources mocked in 18 API tests;
+checked in a browser on a scratch library and once against the real services.
+No `npm run lint` exists in the repo. Owner question: the User-Agent's contact.
+

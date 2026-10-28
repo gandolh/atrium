@@ -1,6 +1,6 @@
 ---
-summary: How apps/api is organised since D47 — the six domain modules, what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, how Knex migrations are registered, and how the API test harness keeps tests off the real library.
-updated: 2026-10-13
+summary: How apps/api is organised since D47 — the domain modules (lookup's outbound clients included), what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, how Knex migrations are registered, and how the API test harness keeps tests off the real library.
+updated: 2026-10-28
 ---
 
 # API layering (`apps/api/src`)
@@ -30,7 +30,19 @@ src/
                   + mapper · note-pdf service
     latex/        controller · service · model · compile service
                   + latex-paths · latex-worker · project-tree service
+    jukebox/      controller · service · model · mapper · types
+    lookup/       controller · service · musicbrainz · openlibrary services
+                  + lookup-http (User-Agent, timeouts, RateGate, TtlCache)
 ```
+
+**Outbound calls** go through a module's own client, never from the browser:
+`catalog/gutendex.service.ts` (brief 22) and `lookup/` (brief 100, D59: Look
+up on request, MusicBrainz and the Cover Art Archive for music, Open Library
+for books). Each sets a timeout and a descriptive `User-Agent`, caches in
+memory, and turns an unreachable source into a tagged `UPSTREAM` outcome the
+controller answers as a 502 naming it. MusicBrainz requests pass one
+process-wide `RateGate` (one a second). A cover is fetched by an id the server
+builds the URL from, never a URL the client sent.
 
 What each layer may do:
 

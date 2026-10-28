@@ -3,7 +3,12 @@ summary: Dated snapshot of current state — a one-liner per brief/area and wher
 updated: 2026-10-28
 ---
 
-# Status — 2026-10-27
+# Status — 2026-10-28
+
+**2026-10-28: brief 100 is done** (`2ef5d43`, not deployed): Look up… on a
+music or book tile asks MusicBrainz or Open Library through the API and
+applies only the ticked fields (D59). Owed: the owner names the contact in
+the lookup's User-Agent (the repository URL stands in). Nothing in todo/.
 
 **2026-10-27: briefs 89-99 are done**, each with its outcome; not deployed. Owed
 outside the repo: `AUTH_TRUSTED_PROXIES` in vps-deploy's env (89), and a note in
@@ -160,4 +165,4 @@ got here.
 | 97 | Songs the bot streams don't count as opened | **done (2026-10-27)**; the file route skips `touchOpened` for the jukebox-only account |
 | 98 | Tile menu: reachable and usable with a keyboard | **done (2026-10-27)**; Base UI's Menu, keyboard-checked in a browser (Add to Discord queue queued the song) |
 | 99 | Skip the Calibre tests when Calibre isn't installed | **done (2026-10-27)**; probed once, both skip with "Calibre not installed" |
-| 100 | [Look up an item's metadata and cover, on request](../briefs/todo/100-look-up-metadata-on-request.md) | **todo (filed 2026-10-28)**; Jellyfin shortlist 6, the owner's pick (D59): MusicBrainz + Cover Art Archive for music, Open Library for books, never automatic, no films |
+| 100 | [Look up an item's metadata and cover, on request](../briefs/done/100-look-up-metadata-on-request.md) | **done 2026-10-28** (`2ef5d43`, not deployed); Jellyfin shortlist 6, the owner's pick (D59): MusicBrainz + Cover Art Archive for music, Open Library for books, never automatic, no films |

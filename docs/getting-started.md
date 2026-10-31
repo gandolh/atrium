@@ -43,7 +43,7 @@ There is one `.env`, at the repo root, read by both the web app and the API.
 cp .env.example .env
 ```
 
-To use "Sign in with Ward", run the Ward seed (step 2) so the `WARD_OIDC_*` values are real. Every variable below is required unless marked optional; the API stops at startup with a list of what is missing.
+The copy runs on local accounts as it is: the `WARD_OIDC_*` lines in `.env.example` are commented out, because with `WARD_OIDC_ISSUER` set and no client key the API refuses to start. To use "Sign in with Ward", run the Ward seed (step 2) so the `WARD_OIDC_*` values are real. Every variable below is required unless marked optional; the API stops at startup with a list of what is missing.
 
 | Variable | Purpose | Value locally |
 |---|---|---|

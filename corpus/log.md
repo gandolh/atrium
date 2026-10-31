@@ -2796,3 +2796,11 @@ Brief 100 asked which contact the MusicBrainz User-Agent should name. The repo i
 public (its GitHub page answers without a sign-in), and MusicBrainz accepts a URL
 as the contact, so `LOOKUP_USER_AGENT` in `apps/api/src/modules/lookup/lookup-http.ts`
 stays as built. The owner took the recommended answer; no address was added.
+
+## [2026-10-31] maintenance | README checked; `.env.example` boots on local accounts again
+
+A README refresh pass with the readme-docs standard. The README now names brief 100's lookup: metadata comes from the files and, on request, from MusicBrainz, the Cover Art Archive or Open Library, one item at a time; it had said "only from the files". The images were not retaken: the app changes since 2026-10-09 (the tile menu, the lookup dialog, the reader keeping its page, the page-turn circles) change none of the default screens shown, and today's empty library has the same header and filters as the hero. Gutenberg, the source of the demo library in `docs/images/shots.md`, is not reachable from this workspace, so the images could not have been rebuilt here anyway.
+
+Found while running it: a straight `cp .env.example .env` set `WARD_OIDC_ISSUER` with an empty client key, and the API refused to start (`WARD_OIDC_ISSUER is set but WARD_OIDC_CLIENT_KEY is not`), against the file's own comment that an unset issuer means local accounts only. The five `WARD_OIDC_*` lines are now commented out; Ward's `seed.mjs` still supplies them. Checked: `npm install`, `npm run dev` on scratch roots reached `API ready` and served `/atrium/`, `seed:user` made a test account, and it signed in.
+
+`docs/architecture.md` linked two docs-site pages at their old Starlight paths; they point at `apps/docs/docs/` now. `bash corpus/lint.sh` still fails, as it did before this pass, on four links: `wiki/performance.md` into the gitignored `playwright/perf/`, and `wiki/decisions.md` into the sibling `wzd_auth` checkout, which a clone of this repo alone does not have.

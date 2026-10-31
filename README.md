@@ -15,9 +15,10 @@ A private library and reading room for one household: your own books, music and 
 - Gives each person in the household a profile with their own reading position and settings. Switching profiles takes one tap and no password.
 - Installs as an app and keeps downloaded books readable offline.
 - Converts a book between EPUB and PDF with Calibre and keeps both copies linked.
+- Looks up a wrong or missing title and cover on request: songs in MusicBrainz and the Cover Art Archive, books in Open Library. Nothing is looked up on upload.
 - Holds paged notebooks (pen strokes and text boxes) and LaTeX projects. LaTeX compiles with Atrium's own TypeScript engine, so no TeX install is needed, and a compiled document can be published into the library.
 
-It is deliberately smaller than a media server such as Jellyfin. It takes files by upload rather than watching a folder, reads metadata only from the files, plays only the formats a browser plays without transcoding, and keeps its own accounts, with "Sign in with Ward" as an optional second way in.
+It is deliberately smaller than a media server such as Jellyfin. It takes files by upload rather than watching a folder, reads metadata from the files and looks it up online only when you ask, one item at a time, plays only the formats a browser plays without transcoding, and keeps its own accounts, with "Sign in with Ward" as an optional second way in.
 
 ## Screenshots
 
@@ -45,7 +46,7 @@ Requires Node 24 or later. Calibre is optional; without it only Convert fails. A
 
 ```bash
 npm install
-cp .env.example .env     # set PUBLIC_ORIGIN; optionally run Ward's seed.mjs for the WARD_OIDC_* values
+cp .env.example .env     # runs on local accounts as it is; Ward's seed.mjs adds the WARD_OIDC_* values
 npm run dev              # web on :5173, API on :3001
 ```
 

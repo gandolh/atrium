@@ -79,7 +79,7 @@ These are manual. Nothing in the repo holds a credential.
    for the local dev bot. Two processes must never share one refresh token,
    which is why dev gets its own account.
 3. Deploy once brief 81 has landed too: `node cli.ts atrium deploy` from
-   `~/projects/vps-deploy`.
+   `vps-deploy`.
 
 ## Acceptance
 

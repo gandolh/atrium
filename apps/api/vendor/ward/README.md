@@ -5,8 +5,8 @@ estate's apps: local accounts, and "Sign in with Ward". It is generated: do not 
 build a newer version and copy it over this one, then follow the upgrade notes.
 
 - **Version:** 0.3.1
-- **Source:** https://github.com/gandolh/ward-auth, folder `shared-library/`
-- **Upgrade notes:** https://github.com/gandolh/ward-auth/blob/main/shared-library/CHANGELOG.md
+- **Source:** the `ward-auth` repository, folder `shared-library/`
+- **Upgrade notes:** `shared-library/CHANGELOG.md` in the same repository
 
 | File | What it is |
 |---|---|

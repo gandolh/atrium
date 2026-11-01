@@ -57,7 +57,7 @@ Three smaller problems in the same files:
 ## Files you must NOT touch
 
 - `apps/api/**`, owned by brief 53.
-- `../vps-deploy/**` is a **separate repository**. List the changes it needs in
+- `vps-deploy**` is a **separate repository**. List the changes it needs in
   your outcome note and hand them to its owner; do not edit it from here.
 
 ## What to do

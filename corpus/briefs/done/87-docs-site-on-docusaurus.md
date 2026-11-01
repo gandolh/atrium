@@ -8,7 +8,7 @@ Starlight to Docusaurus. `apps/docs` (`@ebook-reader/docs-site`, served at
 
 The recipe is written and verified. The `corpus-docs-site` skill
 (personal-skills v0.31.0, source in
-`~/projects/my-personal-skills/skills/corpus-docs-site/`) now scaffolds
+`my-personal-skills/skills/corpus-docs-site`) now scaffolds
 Docusaurus 3.10, and `references/migrating-from-starlight.md` beside it holds
 the file, config and content maps plus ten gotchas, each hit during a real
 port. **Read that guide first.** The files this brief tells you to copy are in
@@ -84,7 +84,7 @@ No new pages, no content rewrite.
    `static/diagrams/`.
 5. **Sync.** Use the skill's `sync-corpus.mjs` with `GITHUB_REPO` set to this
    repo's GitHub URL and
-   `OTHER_REPOS = { wzd_auth: 'https://github.com/gandolh/ward-auth' }`.
+   `OTHER_REPOS = { wzd_auth: 'https://github.com/<owner>/ward-auth' }`.
    Discovery publishes four pages that the old 19-page list left out:
    `glossary-jukebox`, `jellyfin-comparison`, `jukebox` and
    `status-history-v2`. Ask the owner which were kept back on purpose and put
@@ -110,7 +110,7 @@ No new pages, no content rewrite.
   above that is not in `DENY`. Nothing is missing.
 - `grep -c '/atrium/docs/assets/' apps/docs/dist/index.html` is non-zero, and
   `grep -rl '_astro' apps/docs/dist` finds nothing.
-- The decisions page links Ward's overview at `github.com/gandolh/ward-auth`.
+- The decisions page links Ward's overview at `github.com/<owner>/ward-auth`.
 - `npm run typecheck -w @ebook-reader/docs-site` passes.
 - Browser check, with `dist/` served at `/atrium/docs/` by a plain static
   server (not `docusaurus serve`):
@@ -174,7 +174,7 @@ check to `assets/` first.
 - `grep -c '/atrium/docs/assets/' dist/index.html` is 1, and
   `grep -rl '_astro' dist` finds nothing.
 - The decisions page links Ward's overview at
-  `github.com/gandolh/ward-auth/blob/main/corpus/wiki/overview.md`.
+  `github.com/<owner>/ward-auth/blob/main/corpus/wiki/overview.md`.
 - `npm run typecheck` passes, for the docs package and the whole workspace.
 - Browser, with `dist/` and the saved Starlight `dist/` each served at
   `/atrium/docs/` by `python3 -m http.server`:

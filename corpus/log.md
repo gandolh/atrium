@@ -1803,7 +1803,7 @@ Verified headless-Playwright against both fixtures: 10/10 drag/click/tooltip che
 zero console errors; typecheck clean ×3. See
 [briefs/done/08-draggable-progress-rail.md](briefs/done/08-draggable-progress-rail.md),
 [wiki/reader.md](wiki/reader.md). Env note: the library DB rows from the old
-`/home/gandolh` checkout point at dead absolute paths (500s on file/cover) —
+`/home/<user>` checkout point at dead absolute paths (500s on file/cover) —
 pre-existing, worked around by re-uploading fixtures; filed as an open question.
 
 ## [2026-07-07] done | Brief 09 — platform password (D28, revises D2)

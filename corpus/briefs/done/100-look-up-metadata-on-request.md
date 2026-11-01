@@ -132,7 +132,7 @@ The API already calls outside services the same way for the Gutenberg catalog
 
 **What reaches the third parties** (on record, as asked): the search terms
 (the title and artist or author as searched), the ids of the covers fetched,
-the User-Agent `Atrium/0.1 ( https://github.com/gandolh/atrium )`, and the
+the User-Agent `Atrium/0.1 ( https://github.com/<owner>/atrium )`, and the
 server's IP. Not the browser's IP, its cookies, or anything about the account:
 every call goes from the API.
 

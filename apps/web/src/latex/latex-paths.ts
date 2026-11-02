@@ -2,7 +2,7 @@ import type { LatexFile } from "@ebook-reader/shared";
 
 /**
  * Project-path helpers shared by the file tree and the editor shell
- * (brief 38 chunk 8). Pure functions, no React, no network — the tree shape
+ * Pure functions, no React, no network — the tree shape
  * and the "can I open this in the source pane?" question both live here so the
  * two components cannot disagree about them.
  */

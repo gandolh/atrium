@@ -2,7 +2,7 @@ import { notePageSchema, type NotePage } from "@ebook-reader/shared";
 
 /**
  * Device copies of authored work that has not reached the server: LaTeX
- * source (brief 85) and Notes (brief 88).
+ * source and Notes.
  *
  * Both editors keep the open work only in React state, and a 401 takes the
  * editor down: the API client's handler resets the session store and

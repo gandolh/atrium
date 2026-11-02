@@ -1,6 +1,6 @@
 ---
 summary: How the Jukebox works end to end — the bot account's allowlist, atrium-owned Players in SQLite, the command long-poll, the next-Track and status rules (restart, lost voice, stale reports), and the /jukebox page. Read before touching modules/jukebox, apps/web/src/jukebox or just-a-bot's link.
-updated: 2026-10-27
+updated: 2026-11-02
 ---
 
 # Jukebox
@@ -9,7 +9,7 @@ just-a-bot plays atrium's music in Discord voice channels, and anyone signed in
 steers it from `/jukebox` or from Discord's `/jukebox` command. Terms are in
 [glossary-jukebox.md](glossary-jukebox.md). The calls are D55 (the bot's own
 account and its allowlist, amended by D58), D56 (the Playlist is the library) and D57 (atrium
-owns every Player, the bot long-polls). Built by briefs 80, 81 and 82.
+owns every Player, the bot long-polls). Built on 2026-10-08 and 2026-10-09: the `jukebox` role, the Jukebox API and the Jukebox page.
 
 ## Who may call what
 
@@ -20,7 +20,7 @@ bot signs in to it with `POST /atrium-api/auth/login`, a password sign-in with
 no browser, and sends the `atrium_session` cookie it gets back. A session
 lasts at most 30 days, and 14 without use, so the bot must sign in again rather
 than keep one cookie for good. Its password sign-ins share the lockout with
-everyone's, so the deploy needs `AUTH_TRUSTED_PROXIES` (brief 89), or anyone's
+everyone's, so the deploy needs `AUTH_TRUSTED_PROXIES` (2026-10-27), or anyone's
 wrong passwords lock the bot out too. The guard
 ([`auth.guard.ts`](../../apps/api/src/modules/auth/auth.guard.ts)) sets
 `request.jukeboxOnly` and limits that account to `/jukebox/*`, its own
@@ -42,7 +42,7 @@ The bot holds `GET /jukebox/bot/commands?after=&wait=` open (at most 20 s,
 measured live through Vite and the container on 2026-10-08). An in-process
 emitter wakes it after the commit; it holds no database handle while it
 waits. Audio never travels there: the bot fetches each Track from the library
-file route, which records no open for it (brief 97), so the songs it plays do
+file route, which records no open for it (2026-10-27), so the songs it plays do
 not move up the home grid's "recently opened".
 
 ## The rules that are easy to get wrong
@@ -59,24 +59,24 @@ not move up the home grid's "recently opened".
   Leave and the end of the Playlist set idle without a new `playId`, so a
   report the bot sent before it saw the `stop` must not start the play again.
   No voice channel on the current play **in two reports running** means lost
-  voice: idle. One such report is a voice reconnect (brief 94).
-- **An idle report for the current play waits for the advance** (brief 94).
+  voice: idle. One such report is a voice reconnect (2026-10-27).
+- **An idle report for the current play waits for the advance** (2026-10-27).
   The bot goes idle at a Track's end before it asks `advance`, so the report
   only stamps `idle_reported_at` and the Track stays current. With no
   `advance` within 5 s (`IDLE_REPORT_GRACE_MS`) the Player goes idle the next
   time anything reads or changes it, the page's listing included.
 - **A report for an older play** changes only voice and liveness. The bot may
   not have reached the `join` and `play` atrium just queued.
-- **A control that would start a song needs a voice channel** (brief 96):
+- **A control that would start a song needs a voice channel** (2026-10-27):
   `play`, `resume`, `next`, `previous` and `playTrack` answer 409
   `NOT_IN_VOICE` while the Player has none. `join` sets it at once, so Join
   then Play works before the bot reports the channel.
-- **Five failed songs in a row stop the Player** (brief 95). Each
+- **Five failed songs in a row stop the Player** (2026-10-27). Each
   `advance(error)` counts, an `ended` one or going idle resets the count, and
   the fifth goes idle with a `failure` ("5 songs in a row would not play, the
   last …") that the next play clears. Without it the bot and atrium looped
   through the library as fast as HTTP allows when the media was missing.
-- **Deleting a Track** goes through `deleteTrack` (brief 92), in the same
+- **Deleting a Track** goes through `deleteTrack` (2026-10-27), in the same
   transaction as the row: a Player's cursor on it moves to the Track before
   it, a playing current Track advances as if it had ended (the bot gets `play`,
   or `stop` at the end), and a paused one stops. The foreign keys alone would
@@ -97,9 +97,9 @@ the progress bar moves on from `positionMs` at `positionAt` between polls.
 Offline, the transport and voice controls are disabled and Queue edits still
 work. Out of a voice channel, Previous, Play and Next are disabled and a line
 says to pick a channel and press Join. A Player's `failure` shows under the title as "Playback failed: …"
-(brief 95; `failure` is the one field the Player gained since brief 81, and
+(the failure budget of 2026-10-27; `failure` is the one field the Player gained since the Jukebox API (2026-10-08), and
 just-a-bot's restated shapes do not list it yet). The Playlist is the library query filtered to `audio` and sorted with
 `comparePlaylistOrder`; upload there is `UploadZone` with `audioOnly`, and
 delete is the library delete behind a two-step confirm. Music tiles on the home
 grid get "Add to Discord queue" in their More actions menu, Base UI's Menu since
-brief 98, so it works from the keyboard. The Dock stays local playback.
+the tile-menu fix (2026-10-27), so it works from the keyboard. The Dock stays local playback.

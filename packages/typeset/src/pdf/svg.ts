@@ -3,9 +3,9 @@ import { error, hasErrors, unsupported } from "../diagnostics.ts";
 import { formatNumber } from "./numbers.ts";
 
 /**
- * SVG → PDF content-stream operators (brief 40, chunk 40.1).
+ * SVG → PDF content-stream operators.
  *
- * **What this is for.** Brief 40 sets mathematics by handing the run to MathJax
+ * **What this is for.** The math work sets mathematics by handing the run to MathJax
  * and converting its SVG output ourselves, rather than reimplementing TeX's
  * mlist layout. This file is that conversion, and nothing else: it knows about
  * paths, rectangles, transforms and a viewBox. It knows nothing about TeX,
@@ -21,7 +21,7 @@ import { formatNumber } from "./numbers.ts";
  * absolute; transforms are only `translate`, `scale` and `matrix`, sometimes
  * several in one list; and there is **no `<use>` and no `<defs>`** — that is
  * what `fontCache: "none"` buys, and it is why this file resolves no references
- * (D41, brief 40's settled calls §2).
+ * (D41, the math work's settled calls §2).
  *
  * The parser nevertheless implements the *whole* path grammar except arcs,
  * because relative commands, `H`/`V`, `S`, `Q` and `T` cost about eighty lines
@@ -1088,7 +1088,7 @@ function walk(element: SvgElement, ctm: SvgMatrix, inherited: Paint, state: Walk
   const name = element.name;
 
   if (name === "use") {
-    // The guard brief 40's settled calls (§2) asked for by name. `fontCache:
+    // The guard the math work's settled calls (§2) asked for by name. `fontCache:
     // "none"` inlines every glyph outline, which is what makes this file's job
     // small; a `<use>` means that stopped being true and that every glyph in
     // the document is one silent skip away from disappearing.

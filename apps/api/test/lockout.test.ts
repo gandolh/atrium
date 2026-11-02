@@ -2,7 +2,7 @@ import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 89. The library reads AUTH_TRUSTED_PROXIES when the guard registers,
+// The library reads AUTH_TRUSTED_PROXIES when the guard registers,
 // which is inside buildTestApp, so it is set first. This file is its own
 // process, so no other test sees it.
 process.env.AUTH_TRUSTED_PROXIES = "172.16.0.0/12";

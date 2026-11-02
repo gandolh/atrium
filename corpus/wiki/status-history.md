@@ -1,6 +1,6 @@
 ---
-summary: Archive of Atrium's most recent shipped phases — briefs 39–52, 2026-08-29 to 2026-08-30 (the engine's math, the worker thread, the Knex move) — what each run delivered, fixed and verified. Split out of status.md, which keeps the current snapshot.
-updated: 2026-10-03
+summary: Archive of Atrium's most recent shipped phases — 2026-08-29 to 2026-08-30 (the engine's math, the worker thread, the Knex move) — what each run delivered, fixed and verified. Split out of status.md, which keeps the current snapshot.
+updated: 2026-11-02
 ---
 
 # Status history
@@ -14,7 +14,7 @@ the time.
 
 ---
 
-**2026-08-30 —** ✅ **Brief 52 shipped — `apps/api` is modular and runs
+**2026-08-30 —** ✅ **The Knex layering (2026-08-30) shipped — `apps/api` is modular and runs
 on Knex.** 18 flat files became six domain modules, each controller / service /
 model, with `src/database/` (Knex instance, one idempotent baseline migration,
 boot tasks) and `src/common/`. The 2,210-line `db.ts` is gone, and the schema no
@@ -39,8 +39,8 @@ guards confirmed under six-way concurrency; clean SIGTERM. Typecheck + build
 green, 647/647 tests pass. **`apps/api` still has no automated tests** — now the
 largest gap in the repo, and much cheaper to close than it was.
 
-**Earlier (2026-08-29):** ✅ **Briefs 40 and 43 shipped — the brief backlog is
-empty.** Every brief 01–44 is now in `briefs/done/` or `superseded/`.
+**Earlier (2026-08-29):** ✅ **The math work and coverless tiles shipped — the brief backlog is
+empty.** Every the scaffold (2026-07-02)–44 is now in `briefs/done/` or `superseded/`.
 
 **40 — the engine sets mathematics.** Inline math on the text baseline, displays
 centred with numbers at the margin, `\ref` into the existing reference pass,
@@ -75,16 +75,16 @@ letterform and the ground is untouched.
 **Both verification gaps were then closed in a browser, and each caught a defect
 nothing else could have.**
 
-**Brief 40 shipped an engine the app could not use.** Every engine test passed
+**The math work (2026-08-29) shipped an engine the app could not use.** Every engine test passed
 and the rasterised PDF looked right, yet the preview reported *"8 errors — math
-typesetting is brief 40, a separate future brief"*: `apps/api` imports the
+typesetting is the math work (2026-08-29), a separate future brief"*: `apps/api` imports the
 **built** package and `dist/` was a day stale, and `latex-worker.ts` never
 injected the renderer at all. **The brief's own "do not touch `apps/api`" made
-its headline acceptance unreachable** — brief 38 needed no change to show new
+its headline acceptance unreachable** — the LaTeX editor (2026-08-27) needed no change to show new
 *diagnostics*, which is not the same as rendering. Fixed; measured cost
 prose-only 867 ms, math 996 ms.
 
-**Brief 43's initial was rendering behind the tile.** 18 correctly-hashed spans
+**Coverless tiles's initial was rendering behind the tile.** 18 correctly-hashed spans
 existed at full size with computed visibility `true`, and were invisible in
 every theme: `-z-10` put the letter behind the *ancestor's* tinted ground rather
 than behind its own siblings. Fixed, then verified on a seeded 18-item grid in
@@ -92,7 +92,7 @@ light and dark.
 
 **An incident, no data lost:** resuming after a quota interruption, the
 scratchpad holding the storage-root redirects had been wiped, so the dev servers
-booted against the **real** library and applied briefs 34 and 41's pending
+booted against the **real** library and applied the convert work and the storage-paths work's pending
 migrations. They were due and had been tested against a copy, and everything
 survived — 5 books, 9 files, 7 thumbnails, all user data. But it was
 unintentional, and the lesson is that **a redirect sourced from a file is
@@ -109,10 +109,10 @@ environment's body is never read in math mode. Still refused by design:
 `\mathsf`, `\mathtt`, `\mathfrak`, `smallmatrix`, `multline`, `alignat`,
 `eqnarray` — D41's accepted cost, each a one-line widening.
 
-**Next:** [brief 45](../briefs/done/45-profile-delete-cancels-compiles.md)
+**Next:** the compile-cancel fix (2026-08-30)
 (profile delete must cancel the compiles it orphans — it can wedge an account's
-slot) and [brief 46](../briefs/done/46-compile-status-write-failure.md) (a
-swallowed status write can wedge until restart). Both promoted from brief 44's
+slot) and the compile-status work (2026-08-30) (a
+swallowed status write can wedge until restart). Both promoted from the compile worker's
 review, and both re-confirmed unbuilt in the source on 2026-08-29. Then **47**
 (bibliography label width), **48** (orphan-thumbnail reaper) and **49–51**
 (notes: export, folders, ink tools).
@@ -124,7 +124,7 @@ deleted, five new briefs (47–51). See [../log.md](../log.md).
 
 ---
 
-**2026-08-29 —** ✅ **Briefs 44, 42 and 39 shipped** — one backlog run,
+**2026-08-29 —** ✅ **The compile worker, video covers and the figures, tables and bibliography work shipped** — one backlog run,
 built on branch `briefs-44-42-39`.
 
 **44 — the engine runs on a `worker_thread`, and cancel is real.** A compile no
@@ -137,7 +137,7 @@ compile mid-engine instead of waiting out `LATEX_TIMEOUT_MS`. 3 finders, 3
 Important, all fixed.
 
 **42 — video has real covers, decoded in the browser (D40).** `<video>` → seek →
-`drawImage` → `toBlob`, no ffmpeg, so brief 23's declined binary stands. Capture
+`drawImage` → `toBlob`, no ffmpeg, so the media library's declined binary stands. Capture
 at upload (3 candidate frames, highest luminance variance — one fixed seek hits
 a black fade-in too often) *and* as a **backfill on first playback**, which is
 what covers the existing library with no re-upload. Native aspect at a 640
@@ -151,7 +151,7 @@ measured columns and rules, and a `.bib` file becoming numbered citations.
 the load-bearing check, because a page-builder change that silently reflows
 plain prose is the failure mode they exist to catch.
 
-**Brief 39's review broke the pattern this project keeps seeing, and that is
+**The figures, tables and bibliography work's review broke the pattern this project keeps seeing, and that is
 the interesting part.** For five builds running, every serious defect had
 spanned chunk boundaries. This one lay *inside* a single owned file: a `tabular`
 row that stops short of the last column drew the table's right-hand border
@@ -162,14 +162,14 @@ anything to report. The pre-existing test asserted the case *"stays quiet"*,
 which it did, while rendering wrongly. **Geometry needs assertions on
 coordinates, not on diagnostics.** Fixed, with a test that fails without the fix.
 
-**Not verified by eye:** brief 39's "check a paper-shaped document in the
+**Not verified by eye:** the figures, tables and bibliography work's "check a paper-shaped document in the
 preview" acceptance criterion. No browser run this session; the float fixture
 and the `floats.txt` golden cover the geometry programmatically.
 
-**Open for the owner:** brief 40 (math) needs a **34.3 MB** `mathjax-full@3.2.2`
+**Open for the owner:** the math work (2026-08-29) (math) needs a **34.3 MB** `mathjax-full@3.2.2`
 dependency — Apache-2.0, server-side only, so no browser payload, but a large
 addition to a package that has shipped with `pdf-lib` alone. **Not added,
-awaiting a yes.** Brief 43 (coverless tiles) is held by its own design until
-there is a real count of how many coverless videos survive brief 42's backfill.
+awaiting a yes.** Coverless tiles (2026-08-29) (coverless tiles) is held by its own design until
+there is a real count of how many coverless videos survive video covers's backfill.
 
-Older entries, from 2026-08-27 back to brief 34, are in [status-history-v2.md](status-history-v2.md); the v1 era is in [status-history-v1.md](status-history-v1.md).
+Older entries, from 2026-08-27 back to the convert work (2026-08-26), are in [status-history-v2.md](status-history-v2.md); the v1 era is in [status-history-v1.md](status-history-v1.md).

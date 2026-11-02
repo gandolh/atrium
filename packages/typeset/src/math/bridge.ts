@@ -89,13 +89,13 @@ const DROPPED_PACKAGES = ["noundefined", "require", "autoload"] as const;
  * `\to\gets\longrightarrow\hookrightarrow` comes back as seven children.
  * Three reasons that is wrong here, any one of which would be enough:
  *
- * - **Brief 40 puts line breaking inside math explicitly out of scope.** A
+ * - **The math work puts line breaking inside math explicitly out of scope.** A
  *   display equation too wide for the text block is meant to produce a
  *   diagnostic so the author can break it themselves.
  * - **Atrium already breaks lines**, with Knuth–Plass over its own boxes and
  *   glue. A second breaker upstream, working to a width this engine never told
  *   it, would fight the first one.
- * - **A run has to be one box.** Brief 40's overrun check measures a rendered
+ * - **A run has to be one box.** The math work's overrun check measures a rendered
  *   display against the text width; pre-broken pieces have no such width left
  *   to measure, and chunk 40.1's emitter takes one SVG.
  *
@@ -117,7 +117,7 @@ const SVG_OPTIONS = { fontCache: "none", linebreaks: { inline: false } } as cons
  * against, and it cannot be closed by dropping a package: the trigger is an
  * ordinary in-subset glyph. Two things close it instead.
  *
- * 1. **This warm-up.** One representative glyph per range brief 40's In list can
+ * 1. **This warm-up.** One representative glyph per range the declared scope can
  *    reach, rendered through the *promise* API at construction time — where
  *    async is allowed and a caller is already awaiting. Ranges load whole, so
  *    one `\mathbb{R}` brings in every blackboard letter. After it, `render()` is
@@ -212,7 +212,7 @@ export async function createMathRenderer(): Promise<MathRenderer> {
         return { run: null, diagnostics: texErrors.map((message) => classifyTexError(message, at)) };
       }
 
-      // 2. The subset gate (D41). MathJax can set more than brief 40 promises;
+      // 2. The subset gate (D41). MathJax can set more than the math work promises;
       //    anything outside the In list is refused here even though the SVG
       //    below would have come out clean.
       const gated = checkMathSubset(mathml, at);

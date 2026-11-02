@@ -7,7 +7,7 @@ import {
 import { fetchJson } from "./lookup-http.js";
 
 /**
- * The Open Library client (brief 100): a work search, mapped onto the
+ * The Open Library client: a work search, mapped onto the
  * library's fields, and the covers service URL for a match's cover.
  *
  * Open Library's search carries no series, so a book candidate never offers

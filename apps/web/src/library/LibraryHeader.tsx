@@ -6,11 +6,11 @@ import type { MediaKind } from "@ebook-reader/shared";
  * + theme toggle) lives in `components/AppHeader.tsx`; what lives here is the
  * home's own chrome: the **kind filter chips** and the storage caption.
  *
- * Brief 28 (D33 move 1) replaced this file's Shelves⇄Stacks `ViewToggle` — and
+ * The one-home layout (D33 move 1) replaced this file's Shelves⇄Stacks `ViewToggle` — and
  * with it the whole grouping UI — with `KindChips`. Media kind went from being
- * an address (`/books`, brief 25) to being a filter with a count.
+ * an address (`/books`) to being a filter with a count.
  *
- * `StorageCaption` (brief 20 item 2) also lives here: the home passes it into
+ * `StorageCaption` also lives here: the home passes it into
  * `AppHeader`'s caption slot.
  */
 
@@ -55,7 +55,7 @@ export function KindChips({
             to="/"
             // A function updater (not a static object) so switching kind
             // preserves whatever else is in the search state — chiefly `?q`
-            // (brief 30): a chip click must never silently drop the active
+            //: a chip click must never silently drop the active
             // library-wide search.
             search={(prev) => ({ ...prev, kind: choice.kind })}
             // Without this every chip points at `/`, so TanStack's path-only
@@ -80,7 +80,7 @@ export function KindChips({
 }
 
 /**
- * Storage-used indicator (brief 20 item 2) — a quiet caption, not a widget.
+ * Storage-used indicator — a quiet caption, not a widget.
  * Renders nothing until there's something to say: no downloads, or no
  * `storage.estimate()` support, both mean "nothing to report" rather than an
  * error state.

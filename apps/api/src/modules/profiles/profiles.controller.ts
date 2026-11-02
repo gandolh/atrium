@@ -19,7 +19,7 @@ import {
 } from "./profiles.service.js";
 
 /**
- * HTTP for profiles (brief 35 step 4, D35). Validation in, status codes out;
+ * HTTP for profiles. Validation in, status codes out;
  * every rule about what a profile *is* lives in `profiles.service.ts`.
  *
  * Every route here takes a client-supplied profile id, which makes account

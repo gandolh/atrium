@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { knex } from "../src/database/knex.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 54: the compile slot's durable half joined through `profiles.user_id`,
+// The compile slot's durable half joined through `profiles.user_id`,
 // which the Ward cutover dropped, so every compile, publish and cancel was a
 // 500 on any database past that migration. This file's database has run every
 // migration, cutover included. Typecheck cannot see a Knex column string; this

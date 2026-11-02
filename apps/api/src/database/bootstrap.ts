@@ -57,7 +57,7 @@ export async function runMigrations(): Promise<void> {
 }
 
 /**
- * Give one account its `Default` profile if it has none (brief 35 decision 2).
+ * Give one account its `Default` profile if it has none.
  *
  * ## Why this is lazy, and not a boot sweep
  *
@@ -119,13 +119,13 @@ export async function reapInterruptedConversions(): Promise<number> {
 /**
  * Flip every LaTeX project left in `compile_status = 'running'` to `failed`,
  * the exact counterpart of `reapInterruptedConversions` and for the exact same
- * reason (brief 34 decision 7, carried into brief 38 step 3).
+ * reason.
  *
  * A compile cannot survive the process. The engine is in-process, so its work
  * died with the old process and the in-memory single-flight slot went with it —
  * but the row did not. A project left `running` would poll forever AND, because
  * the single-flight guard's durable half is this column, hold the one compile
- * slot closed for every project on the account. That is brief 34's Critical
+ * slot closed for every project on the account. That is the convert work's Critical
  * verbatim: a claimed slot nobody can release wedges compilation app-wide.
  *
  * No error text to write: `latex_projects` has no error column, because the log
@@ -189,7 +189,7 @@ export interface BootLog {
 }
 
 /**
- * One warning per account the boot migrated (brief 90), so the first deploy of
+ * One warning per account the boot migrated, so the first deploy of
  * D58 says who now has an account with no password and how they get in.
  *
  * A migrated account is `user-<8 characters of the subject>` with no password,
@@ -218,11 +218,11 @@ export function logMigratedAccounts(
 
 /**
  * Stop before migrations create a new database beside a library that already
- * has files (brief 53).
+ * has files.
  *
  * No `library.db` while the uploads or thumbnails directory holds entries is
  * never a normal first boot. It is a storage root resolving somewhere
- * unintended, as brief 53's anchors did, or a test that redirected the database
+ * unintended, as the storage-roots fix's anchors did, or a test that redirected the database
  * but not the files, the shape of the 2026-08-25 incident. Carrying on would
  * serve an empty library over the real files and write new uploads next to
  * them. A genuinely empty first boot (no database, empty or absent

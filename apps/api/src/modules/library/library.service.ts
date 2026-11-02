@@ -64,7 +64,7 @@ export type SetCoverResult =
  * then read back for extraction. An over-cap upload is unlinked before it can
  * become a row — a row whose file was deleted would be a card that 404s.
  *
- * Nothing is left behind on failure (brief 58). The body streams to
+ * Nothing is left behind on failure. The body streams to
  * `<final>.uploading` and is renamed only once complete and within the cap, so
  * a client that drops mid-upload or a full disk leaves just that name, which
  * the catch below removes (and the boot sweep reclaims if the process died
@@ -135,11 +135,11 @@ export async function uploadBook(
       // Stored as a JSON array; never null on insert so it isn't mistaken for a
       // pre-column row by the metadata backfill.
       subjects: JSON.stringify(meta.subjects),
-      // Uploads are the default provenance (brief 22); imports set 'gutenberg'.
+      // Uploads are the default provenance; imports set 'gutenberg'.
       source: "upload",
       source_id: null,
       // Media kind is derived from the format; duration comes from extraction
-      // (null for books and unknown-duration media) — brief 23.
+      // (null for books and unknown-duration media).
       kind: kindForFormat(format),
       duration_seconds: meta.durationSeconds,
     };
@@ -165,7 +165,7 @@ export async function uploadBook(
  * twin of a PDF for a week left the card sitting at 0% and never surfaced it in
  * the Continue strip, which needs `progress > 0 && progress < 1`. The pair's
  * identity is already resolved by whichever row was read more recently (that is
- * how brief 34 step 7 picks the format to reopen), so the same comparison
+ * how the convert work's spec picks the format to reopen), so the same comparison
  * decides which position the card shows. Costs nothing: both rows are already
  * in the map.
  */
@@ -200,7 +200,7 @@ export async function getBookForProfile(
 
 /**
  * Store a client-supplied image as this item's cover, re-encoded server-side
- * (brief 42, D40).
+ * (D40).
  *
  * **Client bytes are never stored as-is.** They are decoded and re-encoded by
  * `toVideoThumbnail`, the same sharp path the extractor uses, so this is not a
@@ -247,11 +247,11 @@ export async function setBookCover(row: BookRow, bytes: Buffer): Promise<SetCove
     throw err;
   }
   // Nothing is recorded in the DB: `hasCover` is a stat of the path we just
-  // wrote (brief 41), so the write IS the state change.
+  // wrote, so the write IS the state change.
   return { ok: true };
 }
 
-// --- Metadata (brief 100) ----------------------------------------------------
+// --- Metadata ----------------------------------------------------
 
 /** The fields a person can set on an item; each present one is assigned outright. */
 export interface MetadataUpdate {
@@ -262,7 +262,7 @@ export interface MetadataUpdate {
 }
 
 /**
- * Set an item's title, author, series and series index (brief 100's Look up),
+ * Set an item's title, author, series and series index (the metadata lookup's Look up),
  * leaving every field absent from `update` as it was.
  *
  * Written to BOTH rows of a converted pair (D34). A conversion copies its
@@ -281,7 +281,7 @@ export async function updateBookMetadataFields(row: BookRow, update: MetadataUpd
   await setBookMetadata(ids, fields);
 }
 
-// --- Convert (D34, brief 34) -------------------------------------------------
+// --- Convert (D34) -------------------------------------------------
 
 /**
  * Start a conversion, optionally forcing over an existing one.
@@ -340,7 +340,7 @@ export async function cancelOrDeleteConversion(id: string): Promise<CancelConver
  * artifacts, and whatever its convert link leaves dangling.
  *
  * Shared with `DELETE /library/:id/versions/:versionId` in the latex module,
- * which deletes the library entry when its LAST version goes (brief 38 step 7 —
+ * which deletes the library entry when its LAST version goes (the LaTeX editor's spec —
  * an entry with no versions has nothing to show). One code path rather than two
  * that can drift: every rule below was learned the hard way, and a second copy
  * would relearn them.
@@ -351,7 +351,7 @@ export async function deleteBookWithArtifacts(
 ): Promise<void> {
   const id = row.id;
 
-  // Brief 38 / D39: `document_versions.book_id` is ON DELETE CASCADE, so the
+  // The LaTeX editor / D39: `document_versions.book_id` is ON DELETE CASCADE, so the
   // rows go on their own — and SQLite cascades ROWS, NEVER FILES. After
   // `deleteBook` there is nothing left that knows these version ids, and the
   // per-version PDFs and zips would be unreachable bytes forever. Enumerate
@@ -382,7 +382,7 @@ export async function deleteBookWithArtifacts(
   }
 
   // A Track a Player is playing or continuing from must be let go of first, in
-  // the same transaction as the row (brief 92): the foreign keys alone would
+  // the same transaction as the row: the foreign keys alone would
   // null the cursor, and a null cursor restarts the Playlist from its top.
   if (row.kind === "audio") {
     await deleteTrack(id, (trx) => deleteBook(id, trx));

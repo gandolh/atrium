@@ -31,7 +31,7 @@ import { captureAndUploadVideoCover } from "./video-cover";
  * query keyed by sort; upload/delete are mutations that invalidate it so the
  * grid refreshes.
  *
- * Brief 20 adds the offline data layer on top: `useLibraryList` (offline-aware
+ * Offline reading adds the offline data layer on top: `useLibraryList` (offline-aware
  * list with a cached fallback + `isOffline` signal) and `useOfflineDownload`
  * (per-book download/remove + storage usage). The original `useLibrary` /
  * `useUploadBook` / `useDeleteBook` shapes are unchanged so existing callers
@@ -46,7 +46,7 @@ const EMPTY_BOOKS: LibraryBook[] = [];
 const EMPTY_SUMMARIES: OfflineBookSummary[] = [];
 
 /**
- * Library query keys carry the active profile (brief 35 step 7). The list rows
+ * Library query keys carry the active profile. The list rows
  * are shared across profiles, but each row's `progress` and `locator` are that
  * profile's (D31 as revised by D35) — so a cached list IS profile data, and a
  * key without an identity in it can serve one person's Continue row to another.
@@ -75,7 +75,7 @@ const bookKey = (id: string) => ["library", "book", id] as const;
 /**
  * Query key for the set of downloaded books (metadata only). The DOWNLOADS are
  * device-scoped (decision 7) but each row's `progress`/`locator` is composed
- * from the active profile's progress record (brief 35 fix), so the cached list
+ * from the active profile's progress record (the profiles work fix), so the cached list
  * IS profile data — same reasoning as `libraryKey` above.
  */
 const offlineBooksKey = (profileId: string | null) => ["offline", "books", profileId] as const;
@@ -115,7 +115,7 @@ export interface UploadQueueProgress {
 }
 
 /**
- * Upload several files **one after another** (brief 70). An album is a dozen
+ * Upload several files **one after another** An album is a dozen
  * MP3s, and the drop used to add the first and silently discard the rest.
  *
  * Sequential on purpose: the API has one database connection (D47) and
@@ -167,7 +167,7 @@ export function useUploadQueue() {
 }
 
 /**
- * Upload-time video cover capture (brief 42, D40 item 1). Fires **here** and
+ * Upload-time video cover capture (D40 item 1). Fires **here** and
  * not in `UploadZone` because this is the one place that has both halves at
  * once: the local `File` and the created row's id, at the exact moment the
  * upload POST resolved. (`UploadZone` only ever hands a `File` upward — it
@@ -281,7 +281,7 @@ export function useCancelConvert() {
   });
 }
 
-// --- Document versions (brief 38 step 7 — the reader's version picker) -----
+// --- Document versions -----
 
 /**
  * Query key for one book's version list. NOT profile-scoped like `libraryKey`
@@ -308,7 +308,7 @@ export function useBookVersions(bookId: string | undefined, enabled: boolean) {
 }
 
 /**
- * Delete one version (brief 38 step 7, decision 11). Invalidates this book's
+ * Delete one version. Invalidates this book's
  * version list so the picker catches up. Deliberately does NOT invalidate the
  * broad `["library"]` prefix itself — deleting a version that was NOT the
  * book's last one changes nothing about the gallery card; the caller (the
@@ -338,7 +338,7 @@ function useOfflineBooksQuery() {
     gcTime: Infinity,
     // IndexedDB, not the network. The default mode pauses a query while the
     // browser reports offline, which is exactly when this one is needed: a tab
-    // that went offline showed an empty library (brief 77).
+    // that went offline showed an empty library.
     networkMode: "always",
   });
 }

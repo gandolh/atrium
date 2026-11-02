@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from "react";
 
 /**
- * Error boundary for the code-split readers (brief 15 loads PdfReader/EpubReader
+ * Error boundary for the code-split readers (the reader code-split loads PdfReader/EpubReader
  * via `React.lazy`). A failed chunk download — a stale deploy whose hashed chunk
  * no longer exists, or a flaky network — throws while the lazy component
  * suspends, which without a boundary crashes the whole app. This catches it and

@@ -6,7 +6,7 @@ import { initDatabase } from "../src/database/bootstrap.js";
 import { closeDatabase, knex } from "../src/database/knex.js";
 import { SESSION_COOKIE } from "../src/modules/auth/auth.guard.js";
 
-// Brief 73: Fastify's default answered a 500 with the error's message, which
+// Fastify's default answered a 500 with the error's message, which
 // for a Knex/SQLite error is the whole SQL statement with its bound values.
 const SQL_MESSAGE =
   "select `lp`.* from `latex_projects` as `lp` where `p`.`user_id` = 'subject-owner' - no such column: p.user_id";

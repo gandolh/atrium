@@ -5,7 +5,7 @@ import { getProfile } from "../src/modules/profiles/profiles.model.js";
 import { writePreferences } from "../src/modules/profiles/profiles.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 68: two read-then-write paths the Knex move left racy (D47's bug
+// Two read-then-write paths the Knex move left racy (D47's bug
 // class). The races call the service functions together, as the controller
 // does, because through `app.inject` the guard's own queries stagger two
 // requests enough to hide the overlap; two devices give no such guarantee.

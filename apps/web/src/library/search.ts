@@ -3,7 +3,7 @@ import type { LibraryBook } from "@ebook-reader/shared";
 import { groupValueOf } from "./grouping";
 
 /**
- * Cross-library search (brief 30): a plain, client-side match over the
+ * Cross-library search: a plain, client-side match over the
  * already-loaded library list — closes the fault that search only worked
  * in-book. No new endpoint (client-side over the loaded list, per the grilled
  * decision), so this also works offline against the cached snapshot for free:

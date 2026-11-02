@@ -1,8 +1,8 @@
 import { knex } from "../../database/knex.js";
 
 /**
- * Data access for `notes` — per-profile paged notebooks (brief 26, rescoped by
- * brief 35). Folders are the sibling model, `note-folders.model.ts`; the one
+ * Data access for `notes` — per-profile paged notebooks (rescoped by
+ * the profiles work). Folders are the sibling model, `note-folders.model.ts`; the one
  * operation that spans both (`reassignNotes`) lives there, because it is the
  * folders' RESTRICT constraint that forces the two to move together.
  *
@@ -14,27 +14,27 @@ import { knex } from "../../database/knex.js";
 /** A raw notes row; `data` is JSON-encoded `NotePage[]`. */
 export interface NoteRow {
   id: string;
-  /** Profile-scoped since brief 35 — a notebook belongs to a person, not a household. */
+  /** Profile-scoped since the profiles work — a notebook belongs to a person, not a household. */
   profile_id: string;
   title: string;
   data: string;
   created_at: string;
   updated_at: string;
   /**
-   * Which folder the note is filed in, or NULL for the root (brief 50).
+   * Which folder the note is filed in, or NULL for the root.
    * Nullable is the migration's safety property — see the baseline migration's
    * `addNoteFolderColumn`.
    */
   folder_id: string | null;
 }
 
-/** What the notes list needs of a row: never the ink (brief 66). */
+/** What the notes list needs of a row: never the ink. */
 export type NoteSummaryRow = Pick<NoteRow, "id" | "title" | "updated_at" | "folder_id"> & {
   page_count: number;
 };
 
 /**
- * The notes list, newest first, **without `data`** (brief 66). `data` is the
+ * The notes list, newest first, **without `data`** `data` is the
  * whole notebook's ink, and the list used to move every notebook through the
  * one database connection (D47) and `JSON.parse` it on the event loop only to
  * count pages. The count is taken in SQL instead, matching `parsePages`

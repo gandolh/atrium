@@ -17,8 +17,8 @@ import {
 } from "./use-notes";
 
 /**
- * `/notes` list (brief 26; restyled onto Reading Room in brief 33; folders in
- * brief 50) — the per-profile notes index. Notes is not a media chip (D33g: a
+ * `/notes` list (restyled onto Reading Room in the Notes destination; folders in
+ * note folders) — the per-profile notes index. Notes is not a media chip (D33g: a
  * notebook is *authored*, not *collected*), so unlike the library's tinted tile
  * grid this renders as a single left-aligned column of rows — title, page
  * count, relative date — closer to the reader's contents list than to a cover
@@ -745,7 +745,7 @@ function readCollapsed(profileId: string | null): ReadonlySet<string> {
  * kept durable here because a notes tree is navigated across sessions rather
  * than within one editor sitting.
  *
- * `localStorage` and not the server on purpose (brief 50 rule 7): which
+ * `localStorage` and not the server on purpose (note folders rule 7): which
  * branches one person has folded shut on one device is a per-viewer
  * convenience, not shared state, and it must never be something a failed write
  * can break the page over — hence the try/catch on both sides.

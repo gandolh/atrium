@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ToolbarButton } from "../chrome";
 
 /**
- * EPUB-specific toolbar controls (brief 07), split into the toolbar's two
+ * EPUB-specific toolbar controls, split into the toolbar's two
  * semantic groups (2026-07-16 UI review, track C — the bar reads as
  * *navigation | view | position* instead of Home alone in a corner):
  *

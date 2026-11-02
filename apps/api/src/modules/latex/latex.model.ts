@@ -3,7 +3,7 @@ import type { CompileStatus } from "@ebook-reader/shared";
 import { knex } from "../../database/knex.js";
 
 /**
- * Data access for `latex_projects` and `document_versions` (brief 38) — the
+ * Data access for `latex_projects` and `document_versions` — the
  * **draft** and the **published document**, which are different things in
  * different places and are severable in both directions (decision 11).
  *
@@ -14,7 +14,7 @@ import { knex } from "../../database/knex.js";
  */
 
 /**
- * A **LaTeX project** — the *draft* half of brief 38 (decisions 1, 2, 8, 11).
+ * A **LaTeX project** — the *draft* half of the LaTeX editor.
  *
  * A draft lives only in `/latex` and is NEVER a `books` row, so it never
  * reaches the media gallery, search, chips or counts — those are all derived
@@ -42,7 +42,7 @@ export interface LatexProjectRow {
   entrypoint: string;
   /**
    * Where this project sits in the compile machine (`COMPILE_STATUSES`).
-   * Mirrors `convert_status` deliberately — the compile job IS brief 34's job
+   * Mirrors `convert_status` deliberately — the compile job IS the convert work's job
    * runner with a much shorter ceiling, so it has the same outcomes.
    */
   compile_status: CompileStatus;
@@ -58,7 +58,7 @@ export interface LatexProjectRow {
 }
 
 /**
- * One published **version** of a document (brief 38 decisions 8 and 11).
+ * One published **version** of a document.
  *
  * Pressing publish ten times gives ten of these rows on ONE `books` card, never
  * ten cards. `version_no` is 1-based and dense per book (`appendDocumentVersion`
@@ -67,7 +67,7 @@ export interface LatexProjectRow {
  *
  * NO PATH COLUMNS, deliberately (D39): the version's PDF and its project zip
  * are derived from `id` by `paths.ts`, exactly as a book's file is derived from
- * its own id. Brief 41 dropped `books.file_path` / `books.cover_path` for being
+ * its own id. The storage-paths work dropped `books.file_path` / `books.cover_path` for being
  * a stale cache of a pure function; storing them here would reintroduce that on
  * its first day.
  */
@@ -171,12 +171,12 @@ export async function deleteLatexProject(profileId: string, id: string): Promise
 
 /**
  * The compile currently in flight on this **account**, or undefined. The
- * durable half of the single-flight guard (brief 38 step 3, mirroring D34
+ * durable half of the single-flight guard (the LaTeX editor's spec, mirroring D34
  * decision 6): one compile at a time, a refusal rather than a queue.
  *
  * Joined through `profiles.subject` (the account: the local user's id since
  * D58, the Ward subject under D53; it was `user_id` before the cutover, and
- * this query kept the dropped name until brief 54)
+ * this query kept the dropped name until the compile-slot fix)
  * because the slot is per account, not per profile —
  * a household sharing one machine shares the CPU the engine runs on. Oldest
  * first so a refusal names the compile that has been running longest.

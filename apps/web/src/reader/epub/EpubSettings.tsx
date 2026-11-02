@@ -22,7 +22,7 @@ const FALLBACK_UI_STACK = "'Archivo', system-ui, sans-serif";
 /**
  * The reading pane's two-way face toggle (design.md "one rule decides every
  * type choice": Newsreader wrote it, Archivo says it). Replaces the old
- * serif/sans/mono family list — brief 32.
+ * serif/sans/mono family list.
  */
 export const FONT_FACES: { label: string; value: FontFace }[] = [
   { label: "Newsreader", value: "reading" },

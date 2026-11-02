@@ -14,7 +14,7 @@ import type { Block, CitationInline, LatexDocument, ReferenceInline } from "./mo
 import { DEFAULT_TEXT_STYLE, UNRESOLVED_REFERENCE } from "./model.ts";
 
 /**
- * The document layer's entry point (brief 37, chunk 6): a LaTeX project in,
+ * The document layer's entry point: a LaTeX project in,
  * a document model out.
  *
  * The pipeline is parse → resolve `\input` → expand macros → split preamble
@@ -330,7 +330,7 @@ function resolveReferences(st: BuildState): void {
 }
 
 /**
- * The bibliography half of pass 2 (brief 39). Runs right after
+ * The bibliography half of pass 2. Runs right after
  * `resolveReferences` and for the same reason: every key in the document is
  * known once the whole thing has been walked, and neither answer needs layout.
  *
@@ -338,7 +338,7 @@ function resolveReferences(st: BuildState): void {
  * a numeric citation prints the entry's position in that list — the order is
  * the answer, so it has to exist first.
  *
- * Both halves are seams `doc/bib.ts` owns (chunk 39.5); this function is only
+ * Both halves are seams `doc/bib.ts` owns; this function is only
  * the order they run in and where their inputs come from.
  */
 function resolveBibliography(files: SourceFiles, st: BuildState, budget: Budget): void {

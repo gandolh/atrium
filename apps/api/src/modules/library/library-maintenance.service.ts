@@ -13,7 +13,7 @@ import { listBooks, listBooksNeedingMetadata, updateBookMetadata } from "./libra
  */
 
 /**
- * One-time metadata backfill (brief 21). Rows added before the series/subjects
+ * One-time metadata backfill. Rows added before the series/subjects
  * columns existed have `subjects IS NULL`; re-run extraction against each stored
  * file and persist the new fields. Best-effort and idempotent:
  *
@@ -87,7 +87,7 @@ export interface OrphanThumbnailSweepOverrides {
 
 /**
  * Delete thumbnails in `THUMBNAILS_DIR` that no live `books` row can claim
- * (brief 48), then log what happened. Returns the number of files deleted.
+ *, then log what happened. Returns the number of files deleted.
  *
  * This is the file→row direction, and it is the one that survives. D39 deleted
  * `reconcileMissingCovers`, which handled row→file; that state stopped being

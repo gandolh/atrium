@@ -8,7 +8,7 @@ import { SettingsPopover } from "./SettingsPopover";
 import { ToolbarButton } from "./ReaderToolbar";
 
 /**
- * The reader's convert status button + format switch (brief 34 step 6, D34).
+ * The reader's convert status button + format switch.
  * ONE component owns the whole state machine — `none → running → ready|poor`,
  * with `failed` a dead end that only a retry escapes — because decision 9's
  * polling rule ("poll iff the fetched row currently reads `running`") only
@@ -160,7 +160,7 @@ function SourceBookControl({ book }: { book: LibraryBook }) {
   const current = live.data ?? book;
   const targetFormat = convertTargetForFormat(current.format);
 
-  // The "looks scanned" note shows "on first use" (brief 34 step 6) and must
+  // The "looks scanned" note shows "on first use" and must
   // not retract mid-session when the trigger marks it seen. It LATCHES rather
   // than being computed once at mount: the status arrives by polling, so the
   // most ordinary way to reach `poor` is to start a conversion and wait for it

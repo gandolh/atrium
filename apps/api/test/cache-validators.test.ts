@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { coverPathFor } from "../src/common/paths.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 62: the newest file's ETag was the book id, and a published document's
+// The newest file's ETag was the book id, and a published document's
 // newest bytes are copied OVER the same path on every publish, so a browser
 // revalidating after a re-publish got a 304 and showed v1 labelled as v2. Covers
 // were `public, immutable` for a year under a URL that never changed, though a

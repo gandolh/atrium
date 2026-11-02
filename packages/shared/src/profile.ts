@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Profile contract (brief 35, D35) — a **profile** is a person in the household;
+ * Profile contract (D35) — a **profile** is a person in the household;
  * an **account** is the household itself. The account is the security boundary
  * (D30's scrypt + opaque sessions); a profile is an *identity* boundary only,
  * because switching is free (no password, no PIN). Anything here is therefore
@@ -26,7 +26,7 @@ export const profileColorSchema = z.enum(PROFILE_COLORS);
 export type ProfileColor = z.infer<typeof profileColorSchema>;
 
 /**
- * Netflix's number (brief 35 decision 8), chosen so the picker stays one row.
+ * Netflix's number, chosen so the picker stays one row.
  * Exported from the contract rather than the route so the API's 400 and the
  * web's "Add profile" affordance can never disagree about the limit.
  */
@@ -83,7 +83,7 @@ export const fontSettingsSchema = z
   .object({
     /** Font size in px. */
     size: z.number().positive().optional(),
-    /** `"reading"` is Newsreader, `"ui"` is Archivo (brief 32). */
+    /** `"reading"` is Newsreader, `"ui"` is Archivo. */
     family: z.enum(["reading", "ui"]).optional(),
     /** Line spacing multiplier, e.g. 1.78. */
     lineSpacing: z.number().positive().optional(),
@@ -94,7 +94,7 @@ export const fontSettingsSchema = z
 export type FontSettingsPreference = z.infer<typeof fontSettingsSchema>;
 
 /**
- * The `profiles.preferences` JSON blob (brief 35 step 8, revising D9 for
+ * The `profiles.preferences` JSON blob (the profiles work's spec, revising D9 for
  * preferences only): theme, font settings, page mode and TOC sidebar, stored
  * server-side so they follow a person to another device.
  *

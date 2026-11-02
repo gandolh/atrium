@@ -65,7 +65,7 @@ const EPUB_FONT_FACE_RULES = {
 };
 
 /**
- * Applies the active theme + font settings to the epub.js `rendition` (brief 07
+ * Applies the active theme + font settings to the epub.js `rendition` (the EPUB reader
  * step 2). Unlike the fixed-layout PDF (which can only invert), EPUB is
  * reflowable, so real theming works: we recolor the text via themed CSS rules
  * injected into each rendered section, and re-typeset via `themes.fontSize`,
@@ -187,7 +187,7 @@ export function useEpubTheme(rendition: Rendition | null) {
   // Tracks which rendition has had its initial settings applied, so the
   // re-render nudge below only runs for *changes*, not the first application.
   const appliedRef = useRef<Rendition | null>(null);
-  // The reader's place, kept across setting changes (briefs 83 and 84). Read
+  // The reader's place, kept across setting changes. Read
   // BEFORE the new settings reach the rendition: once a font size lands,
   // epub.js reflows under the same scroll offset, and the start of "the current
   // page" is then different text (A+ reads earlier text, A- later).
@@ -305,7 +305,7 @@ function startCfi(rendition: Rendition): string | null {
  * and Prejudice at 390 px: 44,506 px wide when `display()` resolved, 63,954 px
  * about 180 ms later). The anchor word sat at x=20372 in that early layout and
  * at x=19837 in the final one, one 374 px page apart, so every theme change
- * from that page moved the reader from page 55 to 56 (brief 83). So wait for
+ * from that page moved the reader from page 55 to 56. So wait for
  * the fonts and for the strip to stop changing, then display `cfi` again. That
  * second call finds the section already rendered and only scrolls, which is
  * exact.

@@ -36,16 +36,16 @@ import {
  * music (MP3), and video (MP4/WebM) — by ext/MIME (D13) before handing the
  * files up; the parent does the actual upload.
  *
- * **Every file, not the first** (brief 70). Music arrives as albums, and a
+ * **Every file, not the first** Music arrives as albums, and a
  * drop or pick of twelve files used to add one and discard eleven without a
  * word. All three entry points now hand up every valid file, in order, and
  * each file is validated on its own: the invalid ones are named with the
  * reason, and they never block the rest.
  *
- * `disabled` (offline, brief 20 item 4) mutes the hero zone / suppresses the
+ * `disabled` (offline, offline reading's spec) mutes the hero zone / suppresses the
  * overlay — upload is an online-only action.
  *
- * **Video cover capture (brief 42) is NOT here**, despite that brief naming
+ * **Video cover capture is NOT here**, despite that brief naming
  * this file: this component only hands a `File` up and never learns the created
  * row's id, and the hero instance unmounts as soon as the library stops being
  * empty. The capture therefore lives at the seam that has the id, the `File`
@@ -66,7 +66,7 @@ const ACCEPT = [
   ...WEBM_MIME_TYPES,
 ].join(",");
 
-/** `audioOnly` (the Jukebox, brief 82): MP3 and nothing else. */
+/** `audioOnly` (the Jukebox): MP3 and nothing else. */
 const ACCEPT_AUDIO = [...MP3_EXTENSIONS, ...MP3_MIME_TYPES].join(",");
 
 const INVALID_TYPE_MESSAGE =

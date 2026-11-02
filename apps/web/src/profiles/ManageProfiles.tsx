@@ -9,7 +9,7 @@ import { PROFILE_COLOR_LABEL, profileTintClass, suggestProfileColor } from "../l
 import { noteCountFrom, profileErrorMessage } from "./profile-errors";
 
 /**
- * `/profiles` (brief 35 Part C) — create / rename / recolour / delete, capped
+ * `/profiles` (the profiles work Part C) — create / rename / recolour / delete, capped
  * at `MAX_PROFILES_PER_ACCOUNT`. Shares the app shell (`AppHeader`) like
  * `/notes`, so the wordmark, search-less nav and theme control stay put; this
  * is a settings surface, not a media destination, so it gets the same plain

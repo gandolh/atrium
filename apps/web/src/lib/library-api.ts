@@ -57,7 +57,7 @@ export async function fetchBookById(id: string): Promise<LibraryBook> {
  * but **no call site in this app passes it**: forcing DELETEs the existing
  * conversion first and only THEN attempts to start a new one, and if a
  * different book is mid-conversion that second step is refused — leaving the
- * forced book with nothing until retried (brief 34's documented edge case).
+ * forced book with nothing until retried (the convert work's documented edge case).
  * `ConvertControl` never exposes a force-based "convert again" action, which
  * is what keeps that race from ever happening here. Kept as a param only for
  * fidelity to the route contract, should a future surface need it (and handle
@@ -92,14 +92,14 @@ export async function cancelConvert(id: string): Promise<void> {
  * `PATCH /library/:id/progress` — persist the current profile's progress
  * (0..1) and, when known, their exact resume `locator` (page number / CFI).
  *
- * `profileId` (brief 35 step 7) is for the offline-queue flush ONLY: it names
+ * `profileId` is for the offline-queue flush ONLY: it names
  * the profile that recorded the position, overriding the server's normal
  * session-resolved profile. Omit it (as every live call site does) and the
  * server writes to whoever the session says is active right now — correct
  * for a write that's happening as it's made.
  */
 /**
- * `versionId` (brief 38, added 2026-08-27) — which published **version** the
+ * `versionId` (added 2026-08-27) — which published **version** the
  * `locator` was measured in. Omitted (the default, and every call site outside
  * the reader) leaves the stored one untouched, exactly like an omitted
  * `locator` — the server COALESCEs both, so they only ever move together (see
@@ -120,7 +120,7 @@ export async function updateProgress(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ progress, locator: locator ?? null, profileId, versionId }),
-    // The page-exit write (brief 57): lets the browser finish the request after
+    // The page-exit write: lets the browser finish the request after
     // the page is gone. The body is a few dozen bytes, far under keepalive's
     // 64 KiB budget.
     keepalive: options?.keepalive,
@@ -128,7 +128,7 @@ export async function updateProgress(
 }
 
 /**
- * `GET /library/:id/versions` — the version picker's data (brief 38 step 7).
+ * `GET /library/:id/versions` — the version picker's data.
  * `[]` for an ordinary upload (never versioned) — the caller shows no picker
  * at all below two entries. `currentVersionId` is this profile's own
  * `reading_progress.version_id`: the version whose `locator` is on file, or
@@ -176,7 +176,7 @@ export function coverUrl(id: string, coverVersion: number | null): string {
   const url = apiUrl(`/library/${id}/cover`);
   // The cover's version (its mtime, from the listing) is the cache key: the
   // server caches a versioned cover for a year, so a replaced or regenerated
-  // cover must arrive under a new URL (brief 62).
+  // cover must arrive under a new URL.
   // Loose on purpose: a book snapshot stored offline before the field existed
   // carries `undefined`, which must mean "unversioned", not `?v=undefined`.
   if (coverVersion != null) url.searchParams.set("v", String(coverVersion));
@@ -185,7 +185,7 @@ export function coverUrl(id: string, coverVersion: number | null): string {
 
 /**
  * `POST /library/:id/cover` — set an item's cover from a client-supplied image
- * (brief 42, D40). The one cover the server cannot extract itself is video's,
+ * (D40). The one cover the server cannot extract itself is video's,
  * so the browser decodes a frame and posts it (see `video-cover.ts`).
  *
  * The server re-encodes the bytes through sharp and stores THAT — our bytes are
@@ -210,7 +210,7 @@ export async function uploadCover(id: string, image: Blob): Promise<void> {
  * Fetch a stored book's original bytes as a `File` so the existing readers
  * (which consume an in-memory `File` from Zustand) can render it unchanged.
  *
- * Streams the body and reports download progress as a 0–1 fraction (brief 10).
+ * Streams the body and reports download progress as a 0–1 fraction.
  * The server streams without Content-Length, so the library row's `sizeBytes`
  * is the total; `null` means indeterminate (streaming unavailable). Completion
  * always reports exactly 1.

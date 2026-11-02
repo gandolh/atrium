@@ -13,7 +13,7 @@ import { CATALOG_LANGUAGES, CATALOG_TOPICS, DEFAULT_CATALOG_LANGUAGE } from "../
 const routeApi = getRouteApi("/discover");
 
 /**
- * `/discover` — browse and import books from Project Gutenberg (brief 22,
+ * `/discover` — browse and import books from Project Gutenberg (the Gutenberg discover page,
  * chunk 22b). A **utility surface** (wiki/design.md D27, design principle 5):
  * plain and efficient, no hero, no decoration — the polish budget stays on
  * the reader.

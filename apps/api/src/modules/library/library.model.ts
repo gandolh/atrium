@@ -84,14 +84,14 @@ export async function touchOpened(id: string, now: string): Promise<void> {
   await knex("books").where({ id }).update({ last_opened_at: now });
 }
 
-/** `db` is a transaction's handle when the delete is part of one (the Jukebox's, brief 92). */
+/** `db` is a transaction's handle when the delete is part of one (the Jukebox's). */
 export async function deleteBook(id: string, db: Knex = knex): Promise<void> {
   await db("books").where({ id }).delete();
 }
 
 /**
  * Books whose metadata predates the series/subjects columns (`subjects IS
- * NULL`), for the one-time startup backfill (brief 21).
+ * NULL`), for the one-time startup backfill.
  *
  * Unfiltered by `NOT_CONVERTED` on purpose: a converted book still wants
  * correct metadata, and a backfill is maintenance, not a user-facing list. (In
@@ -131,7 +131,7 @@ export async function updateBookMetadata(
 }
 
 /**
- * Write the metadata a person chose (brief 100's Look up), to every row in
+ * Write the metadata a person chose (the metadata lookup's Look up), to every row in
  * `ids` at once. Unlike `updateBookMetadata` above, which only fills a missing
  * author, each field present in `fields` is assigned outright: the person
  * asked for exactly this value. A field absent from `fields` is not touched.
@@ -145,7 +145,7 @@ export async function setBookMetadata(
 }
 
 /**
- * Re-point a published document's card at its newest version (brief 38).
+ * Re-point a published document's card at its newest version.
  *
  * Unlike `updateBookMetadata` above, `title` is assigned outright rather than
  * COALESCEd: renaming the draft is how a person renames the published thing, so
@@ -161,7 +161,7 @@ export async function updatePublishedBook(
   await knex("books").where({ id }).update({ title, size_bytes: sizeBytes });
 }
 
-// --- Convert: linked source/converted books (brief 34, D34) ------------------
+// --- Convert: linked source/converted books (D34) ------------------
 
 /**
  * The **converted book** made from `sourceBookId`, or undefined when none
@@ -197,7 +197,7 @@ export async function getLinkedBook(row: BookRow): Promise<BookRow | undefined> 
  *
  * Title, author, series and subjects are copied from the source so the pair
  * reads as one book, and `kind` is derived from the target format like any
- * upload. The source's cover is **reused, not re-extracted** — brief 34 keeps
+ * upload. The source's cover is **reused, not re-extracted** — the convert work keeps
  * `extract.service.ts` out of this path entirely. That sharing is not recorded
  * by copying a path: `coverPathFor` derives it from `converted_from ?? id`, so
  * the conversion resolves to the source's thumbnail without this row storing

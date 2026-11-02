@@ -5,7 +5,7 @@ import { compile, createLatinModernProvider } from "../src/index.ts";
 import { loadLatinModernBytes } from "../node/fonts.ts";
 
 /**
- * Brief 39, chunk 39.6: a diagnostic fixture for **every** item on brief 39's
+ * The figures, tables and bibliography work's spec: a diagnostic fixture for **every** item on the figures, tables and bibliography work's
  * "Out" list (verbatim: `longtable`, `tabularx`, `booktabs`, `multirow`,
  * `subfigure`/`subcaption`, wrapped text around floats (`wrapfigure`),
  * `\rotatebox`, EPS/PDF/SVG graphics, BibLaTeX/`biber` syntax, author-year and
@@ -42,12 +42,12 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
  * environment — which made every one of them `undefined-command` /
  * `undefined-environment`. That code means "no such thing exists," which is a
  * false statement about real, widely-used LaTeX (`graphicx`'s `\rotatebox`,
- * the `multirow` and `booktabs` packages, `subcaption`) that brief 39 lists as
+ * the `multirow` and `booktabs` packages, `subcaption`) that the figures, tables and bibliography work lists as
  * a construct Atrium chose not to implement — the exact meaning of
  * `unsupported`, and exactly how `wrapfigure`/`tabularx`/`longtable` already
  * report. `macro/builtins.ts` gained one row per command (not per package —
  * an author writes `\toprule`, never `\booktabs`) marking them `unsupported`,
- * with a `detail` that says *why brief 39 stops here*, never "not yet."
+ * with a `detail` that says *why the figures, tables and bibliography work stops here*, never "not yet."
  */
 
 const fonts = createLatinModernProvider(loadLatinModernBytes());
@@ -158,10 +158,10 @@ test("\\rotatebox reports `unsupported`, naming graphicx", () => {
  * BibLaTeX documents opt in with `\usepackage{biblatex}` before ever writing
  * `\addbibresource` or `\printbibliography` — this engine's numeric style is
  * built on the older `\bibliography`/`\bibliographystyle` interface
- * (chunk 39.5), so the load itself is where biblatex syntax is refused. This
+ *, so the load itself is where biblatex syntax is refused. This
  * goes through the same general "package not in the accepted five" path
  * `unsupported.test.ts` already exercises with `tikz`; what this fixture adds
- * is the specific name brief 39's Out list requires a fixture for.
+ * is the specific name the declared Out list requires a fixture for.
  */
 test("\\usepackage{biblatex} reports `unsupported`, naming biblatex", () => {
   const result = compileSource(

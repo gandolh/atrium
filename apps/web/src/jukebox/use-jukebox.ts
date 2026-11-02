@@ -15,7 +15,7 @@ import {
 } from "./jukebox-api";
 
 /**
- * Data for the Jukebox (brief 82; D56, D57). Atrium owns every Player and the
+ * Data for the Jukebox (D56, D57). Atrium owns every Player and the
  * page polls it: the bot is steered by commands atrium queues, so what this
  * page shows is atrium's view, not a stream from Discord.
  *

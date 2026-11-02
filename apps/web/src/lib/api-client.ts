@@ -5,7 +5,7 @@
  * the API share an origin.
  *
  * This is plumbing only: the `POST /convert` call (with TanStack Query's
- * `useMutation`) lands in brief 05. `apiFetch` is the shared low-level
+ * `useMutation`) lands in the uploader. `apiFetch` is the shared low-level
  * wrapper future calls build on.
  *
  * ## This module carries no token
@@ -27,7 +27,7 @@
  * cookies on a same-origin request by default. The flag only matters if
  * `VITE_API_URL` ever points at another origin, and there it is not enough on
  * its own. The browser also wants `Access-Control-Allow-Credentials` from the
- * API, and atrium sends no CORS headers at all (brief 65), so it refuses every
+ * API, and atrium sends no CORS headers at all, so it refuses every
  * response. That is why development proxies the API instead of going
  * cross-origin (D54).
  */
@@ -51,7 +51,7 @@ export class ApiError extends Error {
   readonly status: number;
   /**
    * The failed response's parsed JSON body, when it had one — e.g. the
-   * profile routes' `{ error: "PROFILE_HAS_NOTES", noteCount: 2 }` (brief 35).
+   * profile routes' `{ error: "PROFILE_HAS_NOTES", noteCount: 2 }`.
    * Undefined for a non-JSON or empty body (a 204, a proxy's HTML error page,
    * etc.); callers must not assume it's present, only that when it IS, its
    * shape matches whatever that endpoint documents for that status.

@@ -11,7 +11,7 @@ import {
 import { apiFetch } from "../lib/api-client";
 
 /**
- * Notes API calls (brief 26). Thin wrappers over the Fastify `/notes` routes;
+ * Notes API calls. Thin wrappers over the Fastify `/notes` routes;
  * responses validate against the shared Zod contract so the client can't drift
  * (D11). Auth rides on `apiFetch` (bearer token).
  */
@@ -52,7 +52,7 @@ export async function deleteNote(id: string): Promise<void> {
 }
 
 /**
- * Fetch the whole note as a PDF (brief 49). The server renders it (`apps/api`
+ * Fetch the whole note as a PDF. The server renders it (`apps/api`
  * has pdf-lib; the browser deliberately carries no PDF writer), so this is
  * only a transfer — but it still has to go through `apiFetch` rather than a
  * plain link or `window.open`, because auth here is a bearer token and a
@@ -64,7 +64,7 @@ export async function fetchNotePdf(id: string): Promise<Blob> {
 }
 
 /* -------------------------------------------------------------------------
- * Note folders (brief 50). Same thin-wrapper shape as the note calls above;
+ * Note folders. Same thin-wrapper shape as the note calls above;
  * responses validate against the shared contract. Mounted at `/note-folders`
  * rather than `/notes/folders` — see the comment on the routes in the API.
  * ---------------------------------------------------------------------- */

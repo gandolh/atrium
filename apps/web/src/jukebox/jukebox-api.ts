@@ -9,7 +9,7 @@ import {
 import { apiFetch } from "../lib/api-client";
 
 /**
- * The Jukebox routes a person calls (brief 81). Every write answers with the
+ * The Jukebox routes a person calls. Every write answers with the
  * whole `Player`, so the page replaces its copy rather than refetching. The
  * `/jukebox/bot/*` routes are the bot's alone and never called from here.
  */

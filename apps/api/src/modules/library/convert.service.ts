@@ -19,7 +19,7 @@ import {
 import type { BookRow } from "./library.types.js";
 
 /**
- * The convert job runner (brief 34, D34) — the async half of **Convert**.
+ * The convert job runner (D34) — the async half of **Convert**.
  *
  * A job is an `ebook-convert` child that outlives the request that asked for
  * it. The HTTP call decides and returns in microseconds; the child then runs
@@ -104,7 +104,7 @@ export function inProgressPath(sourceBookId: string, format: FileType): string {
 }
 
 /**
- * The suffix an upload streams under until it is complete (brief 58):
+ * The suffix an upload streams under until it is complete:
  * `<uuid>.<ext>.uploading`, renamed to `filePathFor(id, format)` once the whole
  * body is on disk. A final-named file therefore always means a finished write,
  * and a name with this suffix only ever means one that never finished.
@@ -181,7 +181,7 @@ const jobs = new Map<string, ConvertJob>();
 type StatusWrite = { kind: "status"; status: ConvertStatus; error: string | null } | { kind: "reset" };
 
 /**
- * Terminal writes that threw, parked for replay (brief 67, brief 46's fix on
+ * Terminal writes that threw, parked for replay (the compile-status fix on
  * the conversion side).
  *
  * A job's last act is to move its source row off `running`. If that write
@@ -191,7 +191,7 @@ type StatusWrite = { kind: "status"; status: ConvertStatus; error: string | null
  * in the install, because the slot is install-wide (D34). Cancel cannot rescue
  * it either: it finds no in-process job. Before this, only a restart cleared it.
  *
- * The recovery ruling is brief 46's, and its reasons carry over unchanged:
+ * The recovery ruling is the compile-status work's, and its reasons carry over unchanged:
  * - **Not a periodic reap.** `reapInterruptedConversions` flips every
  *   `running` row to `failed`, which is safe only at boot, before any job can
  *   be live.
@@ -306,7 +306,7 @@ export type StartConvertResult =
  */
 export async function startConvert(source: BookRow): Promise<StartConvertResult> {
   // Before anything reads the slot: a parked terminal write from an earlier
-  // job may be all that is holding it (brief 67).
+  // job may be all that is holding it.
   await flushPendingStatusWrites();
 
   if (source.converted_from !== null) {
@@ -430,7 +430,7 @@ export async function cancelConvert(sourceBookId: string): Promise<boolean> {
   const job = jobs.get(sourceBookId);
   if (!job) {
     // Nothing runs here, but a row may still say `running` because a job's
-    // terminal write was parked. Clear that before answering (brief 67).
+    // terminal write was parked. Clear that before answering.
     await flushPendingStatusWrites();
     return false;
   }
@@ -604,7 +604,7 @@ function failureMessage(stderr: string): string {
   return `${base} ${detail.length > 160 ? `${detail.slice(0, 157)}…` : detail}`;
 }
 
-// --- The quality gate (brief 34 step 5) --------------------------------------
+// --- The quality gate --------------------------------------
 
 /**
  * Below this many characters of extracted text per source page, a PDF→EPUB

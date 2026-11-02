@@ -2,7 +2,7 @@
  * The layout stage: box-and-glue lists in, packed lines out.
  *
  * One import for everything the stages above need. `model.ts` is the shared
- * vocabulary (chunk 1), `page.ts` the positioned output the page builder
+ * vocabulary, `page.ts` the positioned output the page builder
  * produces; the rest of this barrel is line breaking and glue setting.
  */
 
@@ -65,8 +65,8 @@ export { buildVerticalList, createLayoutContext, floatMarker, footnoteMarker } f
 export type { LayoutContext, PreparedFootnote } from "./vlist.ts";
 
 /**
- * Brief 39's two layout seams. `float.ts` (chunk 39.4) queues and places floats;
- * `table.ts` (chunk 39.3) measures a `tabular`'s columns and sets its grid. Both
+ * The figures, tables and bibliography work's two layout seams. `float.ts` queues and places floats;
+ * `table.ts` measures a `tabular`'s columns and sets its grid. Both
  * are stubs today, and both are exported so a chunk can drive one directly from
  * a test without going through a whole compile.
  */
@@ -86,7 +86,7 @@ export type {
   PlacedRule,
 } from "./page.ts";
 
-/** Mathematics placement (chunk 40.4): `ex` to points, the baseline, the display skips. */
+/** Mathematics placement: `ex` to points, the baseline, the display skips. */
 export { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, exHeight, setDisplayMath, setMathRun } from "./math.ts";
 export type { DisplayMathContext, MathContext, SetDisplay } from "./math.ts";
 

@@ -1,11 +1,11 @@
 ---
 summary: How Atrium's engine sets mathematics — MathJax v4 SVG, the SVG-to-PDF emitter, the subset gate, and the three MathJax behaviours that had to be switched off (one of them a purity hole).
-updated: 2026-08-29
+updated: 2026-11-02
 ---
 
 # Mathematics in the typesetting engine
 
-Brief 40, decision **D41**. Read [typeset.md](typeset.md) first — the scope
+The math work (2026-08-29), decision **D41**. Read [typeset.md](typeset.md) first — the scope
 line, the loud-failure contract and the no-I/O purity all apply unchanged here
 and are not restated.
 
@@ -35,7 +35,7 @@ corpus so a missed range is a red test, not a retry inside a compile.
 **The subset is gated on the MathML, never on the TeX source** — macros expand,
 so the source does not say what was used. Proof: a `\newcommand` hiding
 `\begin{cases}` is still refused, naming `cases`. The gate is literal about
-brief 40's In list, so `\displaystyle`, `\boldsymbol` and friends are refused
+the declared scope, so `\displaystyle`, `\boldsymbol` and friends are refused
 despite rendering — D41's accepted cost, each a one-line widening.
 
 **Known gap:** per-line numbering in a multi-line display. `\begin{align}` goes

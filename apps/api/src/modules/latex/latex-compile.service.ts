@@ -21,7 +21,7 @@ import { getRunningLatexCompile, setLatexCompileStatus, touchLatexProject, type 
 import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js";
 
 /**
- * The LaTeX compile job (brief 38 step 3, rehosted by brief 44) — brief 34's
+ * The LaTeX compile job — the convert work's
  * job runner with the child process taken out and a worker thread put back.
  *
  * `packages/typeset` is a **pure synchronous function** (D38): bytes in, PDF
@@ -29,13 +29,13 @@ import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js"
  * half the engine deliberately does not have — it reads the project's working
  * tree off disk into an in-memory file map, runs `compile()` **on a worker
  * thread** (`latex-worker.ts`), and writes the PDF, the log and the diagnostics
- * back out as artifacts. Everything dangerous that brief 36 needed a sandbox
- * for is simply absent: there is no shell to escape and no path a document can
+ * back out as artifacts. Everything dangerous that the superseded plan to run Tectonic needed a
+ * sandbox for is simply absent: there is no shell to escape and no path a document can
  * name.
  *
- * The worker is what brief 44 added, and it changes how this module *hosts* the
+ * The worker is what the compile worker added, and it changes how this module *hosts* the
  * engine — not the engine, and not one line of this module's exported contract.
- * It buys two things brief 38 could not have: the API's event loop stays free
+ * It buys two things the LaTeX editor could not have: the API's event loop stays free
  * while a document is typeset (D36 — a compile on the laptop no longer freezes
  * the reader on the phone), and a cancel arriving *while the engine runs* can
  * now be both delivered and honoured.
@@ -43,8 +43,8 @@ import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js"
  * Four things here are not obvious and are explained where they happen:
  *
  * 1. **The slot-release discipline** (`runCompile`'s `finally`,
- *    `runEngineInWorker`'s exit handling, and `cancelLatexCompile`). Brief 34
- *    and brief 38 each shipped a Critical exactly here, and a thread adds five
+ *    `runEngineInWorker`'s exit handling, and `cancelLatexCompile`). The convert work
+ *    and the LaTeX editor each shipped a Critical exactly here, and a thread adds five
  *    new ways for a job to end.
  * 2. **The two-layer timeout**, now stated in three places from one number:
  *    `createCompileSignal` covers the queued window, `createWorkerSignal` in
@@ -89,7 +89,7 @@ export function latexBuildDirFor(projectId: string): string {
  * The draft's compiled PDF — what `GET /latex/:id/pdf` streams.
  *
  * Written **only on a successful compile**, and deliberately never deleted on a
- * failing one: brief 38 step 10 requires the editor to keep showing the last
+ * failing one: the LaTeX editor's spec requires the editor to keep showing the last
  * good PDF beside the new errors rather than blanking the preview pane. A
  * failed compile therefore leaves a PDF that is *stale but readable*, which is
  * the useful state; `diagnostics.json` next to it is what says the last attempt
@@ -451,7 +451,7 @@ interface CompileJob {
  */
 const jobs = new Map<string, CompileJob>();
 
-// --- When the durable half cannot be written (brief 46) ----------------------
+// --- When the durable half cannot be written ----------------------
 
 /**
  * `projectId → the terminal status that could not be written`.
@@ -472,7 +472,7 @@ const jobs = new Map<string, CompileJob>();
  * than from *why*. `setLatexCompileStatus` now returns `false` for the benign
  * one and throws for the real one, and this map is where the real one is parked.
  *
- * **The recovery ruling (brief 46 item 3) is: retry, deferred.** Not a periodic
+ * **The recovery ruling is: retry, deferred.** Not a periodic
  * reap — `reapInterruptedLatexCompiles` flips *every* `running` row to `failed`,
  * which is safe only at import, when nothing is running; on a timer it would
  * shoot live compiles in the head. Not "leave it to restart", because that is
@@ -527,11 +527,11 @@ function sqliteErrorCode(cause: unknown): string | null {
  * state because the alternative — deleting the map entry only after the write —
  * reopens the far worse failure the ordering exists to prevent: a database
  * write that throws would then leave the in-process slot claimed forever, which
- * is brief 34's Critical and wedges the account until a restart. A spurious
+ * is the convert work's Critical and wedges the account until a restart. A spurious
  * retry-able refusal is the cheaper end of that trade.
  *
  * - **Zero rows matched** → silent, and correct. The project was deleted
- *   mid-compile (brief 45); a row that does not exist cannot hold a slot.
+ *   mid-compile; a row that does not exist cannot hold a slot.
  * - **The write threw** → reported loudly and parked in `pendingStatusWrites`
  *   for the next `startLatexCompile` to replay. See that map for why the retry
  *   is deferred rather than immediate.
@@ -629,7 +629,7 @@ export async function startLatexCompile(
   project: LatexProjectRow,
   subject: string,
 ): Promise<StartLatexCompileResult> {
-  // Before anything READS the durable half, finish writing it (brief 46). A
+  // Before anything READS the durable half, finish writing it. A
   // status write that failed earlier left some row on `running` with nothing
   // running, and the guard below cannot tell that row from a live compile — so
   // it would answer 409 for a compile that ended long ago. A no-op in the
@@ -722,7 +722,7 @@ export async function startLatexCompile(
   } catch (cause) {
     // `setLatexCompileStatus` is a database write, and `SQLITE_FULL` is
     // entirely plausible for a feature whose whole job is writing PDFs, zips
-    // and covers. This is brief 34's Critical in the in-memory half: a claimed
+    // and covers. This is the convert work's Critical in the in-memory half: a claimed
     // slot that is never released.
     //
     // The job is already scheduled, so the slot is NOT released by deleting the
@@ -740,21 +740,21 @@ export async function startLatexCompile(
 }
 
 /**
- * The prose a 409 carries. Brief 38 wrote it without "…or cancel it" because a
+ * The prose a 409 carries. The LaTeX editor wrote it without "…or cancel it" because a
  * cancel could not then be delivered at all: `compile()` held the event loop, so
  * the request could not even be READ while the engine ran, and offering an
  * action the user cannot reach is worse than offering nothing.
  *
- * Brief 44 supplied both missing halves — the engine runs on a worker thread and
+ * The compile worker supplied both missing halves — the engine runs on a worker thread and
  * `cancelLatexCompile` really terminates it, and `POST /latex/:id/cancel` is the
  * route that reaches it — so the offer is honest again and is restored here.
- * Brief 38's rule is not repealed, only satisfied; the two branches below exist
+ * The LaTeX editor's rule is not repealed, only satisfied; the two branches below exist
  * because it still binds.
  *
  * ## What the wording has to keep straight
  *
  * **1. Cancelling does not free a *per-project* slot.** The limit is one compile
- * per ACCOUNT, across every profile on it (D35), and brief 44 did not touch it —
+ * per ACCOUNT, across every profile on it (D35), and the compile worker did not touch it —
  * only *one* compile can run whatever the user cancels. Hence "on your account",
  * never "for this project": a sentence that implied a per-project slot would
  * make the next 409 look like a bug.
@@ -767,8 +767,8 @@ export async function startLatexCompile(
  *
  * **3. A compile on a sibling profile cannot be cancelled from here at all.**
  * `POST /latex/:id/cancel` resolves `:id` against the caller's OWN profile and
- * answers 404 otherwise (brief 35), so for that case there is no reachable
- * cancel and the last branch offers none. That is brief 38's rule doing its job
+ * answers 404 otherwise, so for that case there is no reachable
+ * cancel and the last branch offers none. That is the LaTeX editor's rule doing its job
  * rather than being overruled.
  */
 function busyMessage(running: LatexProjectRow, requested: LatexProjectRow): string {
@@ -789,7 +789,7 @@ function busyMessage(running: LatexProjectRow, requested: LatexProjectRow): stri
  *
  * It used to carry more weight than that: `compile()` ran on this thread, so
  * this was the *only* window in which a `cancelLatexCompile` could be delivered
- * at all. Since brief 44 the engine runs elsewhere and this thread stays free
+ * at all. Since the compile worker the engine runs elsewhere and this thread stays free
  * for the whole compile, so a cancel is deliverable throughout — see
  * `cancelLatexCompile`.
  */
@@ -805,7 +805,7 @@ function scheduleCompile(job: CompileJob): Promise<LatexCompileResult> {
  * Cancel the compile running for `projectId`. True when a live job was told to
  * stop, false when nothing was running here.
  *
- * **Export this and call it from the delete path.** Brief 34 shipped a Critical
+ * **Export this and call it from the delete path.** The convert work shipped a Critical
  * exactly here: deleting a book never cancelled its running conversion, so a
  * slot stayed held for a row that no longer existed and wedged conversion
  * app-wide. Deleting a LaTeX project must call this *before* removing the row
@@ -813,7 +813,7 @@ function scheduleCompile(job: CompileJob): Promise<LatexCompileResult> {
  * it (so the durable slot vanishes silently) while this module's job map keeps
  * refusing every other compile on the account.
  *
- * **What "cancel" does, and what it did before brief 44.** It used to be
+ * **What "cancel" does, and what it did before the compile worker.** It used to be
  * cooperative only: the engine ran on this thread and observed the flag by
  * polling `signal.aborted` between steps, so a cancel arriving *while*
  * `compile()` ran could not even be delivered — the process was not reading
@@ -875,7 +875,7 @@ export function cancelLatexCompile(projectId: string): boolean {
  * attempts, only in "has the job finished". So the delete waits for the
  * promise.
  *
- * That wait is bounded, and since brief 44 it is bounded by something better
+ * That wait is bounded, and since the compile worker it is bounded by something better
  * than luck. A queued job aborts at its very next check. A job whose engine is
  * already running has its thread **terminated** by `cancelLatexCompile`, and
  * `runEngineInWorker` settles on the resulting `exit` event — which the event
@@ -974,7 +974,7 @@ export function runningLatexCompileInProcess(subject: string): LatexProjectRow |
  *    used to conflate: `setLatexCompileStatus` on a project deleted mid-compile
  *    is a harmless zero-row UPDATE and stays silent, while a database that
  *    refuses the write is retried, reported, and queued for the next compile
- *    attempt to replay (brief 46; see `pendingStatusWrites`);
+ *    attempt to replay (see `pendingStatusWrites`);
  *  - and the one path code cannot cover — the process dying — is covered by
  *    `reapInterruptedLatexCompiles()` in `db.ts`, which runs at import.
  *
@@ -1117,7 +1117,7 @@ async function compileAndPersist(job: CompileJob): Promise<LatexCompileResult> {
   // it. What is left after that is the interior of `writeAtomic` itself, and a
   // cancel that lands there genuinely arrived after the compile was finished
   // and its output committed; un-writing it would destroy the last good PDF,
-  // which brief 38 step 10 exists to preserve.
+  // which the LaTeX editor's spec exists to preserve.
   //
   // ### Why `stopReason` is in the condition
   //
@@ -1167,7 +1167,7 @@ interface EngineStats {
  * The distinction between the first two is not cosmetic. `compile.log` and
  * `diagnostics.json` are read precisely to find out what happened, and a wall
  * clock that claimed a person pressed Cancel would be a lie in the one file
- * somebody consults to check. Brief 38 kept `cancelled` and `timedOut` apart on
+ * somebody consults to check. The LaTeX editor kept `cancelled` and `timedOut` apart on
  * the signal for exactly this reason, and a kill has to preserve it — more so,
  * in fact: once a stop is a `terminate()` the engine is not running any more and
  * cannot report anything at all, so this value is the *only* surviving account
@@ -1262,7 +1262,7 @@ interface EngineOutcome {
  *     design has to fall back to a cooperative stop — which is exactly the
  *     mechanism that does not work here, because the engine is synchronous and
  *     a killed-mid-step compile is the case the kill exists for. Cancellation
- *     being *real* is the whole point of brief 44; a design that gives it up to
+ *     being *real* is the whole point of the compile worker; a design that gives it up to
  *     save 5ms has bought nothing.
  *  2. **A fresh thread starts from a clean heap.** The engine holds a whole
  *     document's boxes and glue while it works. One compile per heap means a

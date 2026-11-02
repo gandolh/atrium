@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { updateProgress } from "../lib/library-api";
 
 /**
- * Per-user resume for the audio/video players (brief 23, D31 parity). Wires a
+ * Per-user resume for the audio/video players (D31 parity). Wires a
  * native `<audio>`/`<video>` element to the SAME progress-PATCH mechanism the
  * readers use — `updateProgress` (`PATCH /library/:id/progress`) — on the
  * player's own cadence:

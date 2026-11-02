@@ -21,7 +21,7 @@ import {
 } from "./latex-api";
 
 /**
- * React Query hooks for LaTeX projects (brief 38 chunk 7). Mirrors
+ * React Query hooks for LaTeX projects. Mirrors
  * `notes/use-notes.ts`'s shape exactly: one list query + mutations that
  * invalidate it, keys carrying the active profile.
  *
@@ -97,7 +97,7 @@ export function useUpdateLatexProject(id: string) {
     mutationFn: (fields: { title?: string; entrypoint?: string }) => updateLatexProject(id, fields),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: latexProjectsKey(profileId) });
-      // The SINGLE project too (brief 38 chunk 8): the editor reads
+      // The SINGLE project too: the editor reads
       // `entrypoint` off it to mark the main file in the tree, so without this
       // "make this the main file" succeeds on the server and the badge never
       // moves. Safe for a title change as well — the editor seeds its title
@@ -116,7 +116,7 @@ export function useDeleteLatexProject() {
   });
 }
 
-// --- Files (brief 38 chunk 8) ------------------------------------------------
+// --- Files ------------------------------------------------
 
 /**
  * File keys carry the profile for the same reason the project keys above do —
@@ -255,7 +255,7 @@ export function useDeleteLatexFile(projectId: string) {
   });
 }
 
-// --- Compile, PDF and log (brief 38 chunk 9) ---------------------------------
+// --- Compile, PDF and log ---------------------------------
 
 const latexLogKey = (profileId: string | null, projectId: string | undefined) =>
   ["latex-log", profileId, projectId] as const;
@@ -325,7 +325,7 @@ export function useCompileLatexProject(projectId: string) {
 }
 
 /**
- * Cancel the compile running on this project (brief 44, the last chunk — the
+ * Cancel the compile running on this project (the last chunk — the
  * cancel affordance in `CompileButton`). On success (`cancelled` true OR
  * false — both are the same "nothing is running here now" outcome, see
  * `cancelLatexProject`), the log, the project and the projects list are all
@@ -357,7 +357,7 @@ export function useCancelLatexProject(projectId: string) {
   });
 }
 
-// --- Publish (brief 38 chunk 10) ---------------------------------------------
+// --- Publish ---------------------------------------------
 
 /**
  * Publish the project (decision 8: one library entry, many versions). On

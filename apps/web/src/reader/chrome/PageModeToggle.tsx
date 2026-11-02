@@ -2,7 +2,7 @@ import { useReaderStore } from "../../store/reader-store";
 import { ToolbarButton } from "./ReaderToolbar";
 
 /**
- * Reading-mode toggle for the bottom bar's format-adaptive cluster (chunk 11).
+ * Reading-mode toggle for the bottom bar's format-adaptive cluster.
  * Flips the active reader between "paged" (one page/screen per view) and
  * "scroll" (continuous vertical scroll), reading + writing the durable
  * `pageMode` preference in the store. Format-agnostic: each reader interprets

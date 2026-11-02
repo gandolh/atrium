@@ -18,12 +18,12 @@ const REPEAT_LABEL: Record<RepeatMode, string> = {
 const STATE_LABEL = { idle: "Stopped", playing: "Playing", paused: "Paused" } as const;
 
 /**
- * Now playing, the transport and the voice channel for one Player (brief 82).
+ * Now playing, the transport and the voice channel for one Player.
  * Every control is a request to atrium, which queues a command for the bot
  * (D57), so nothing here plays a sound in this browser. That is the Dock's job.
  * While the bot is offline every control is disabled: nothing would act on it.
  * Out of a voice channel, the controls that would start a song are disabled
- * too, and a line above the voice row says to join one (brief 96): atrium
+ * too, and a line above the voice row says to join one: atrium
  * refuses them.
  */
 export function NowPlaying({
@@ -62,7 +62,7 @@ export function NowPlaying({
           {track && (
             <p className="truncate font-ui text-sm text-ink-variant">{trackByline(track.artist, track.album)}</p>
           )}
-          {/* Atrium stopped after songs kept failing (brief 95); the next play clears it. */}
+          {/* Atrium stopped after songs kept failing; the next play clears it. */}
           {player.failure && (
             <p role="status" className="font-ui text-sm text-danger">
               Playback failed: {player.failure} Check that the songs’ files are still there, then press Play.

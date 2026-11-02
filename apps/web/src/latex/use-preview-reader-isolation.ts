@@ -7,7 +7,7 @@ import { useReaderStore } from "../store/reader-store";
  *
  * ## The trap
  * `LatexPreviewPane` mounts a SECOND `<PdfReader>` — the same component the
- * `/read` reader uses, reused byte-for-byte on purpose (brief 38: if
+ * `/read` reader uses, reused byte-for-byte on purpose (if
  * `PdfReader` looks like it needs changing, the design is wrong). `PdfReader`
  * does not take its position as a prop: it reads and writes the module-level
  * `useReaderStore` singleton directly (`setCurrentLocation`,
@@ -23,7 +23,7 @@ import { useReaderStore } from "../store/reader-store";
  * and schedules a PATCH 1200ms out. If the real file download takes longer than
  * that debounce — routine for a large PDF on a slow link — the corrupt PATCH
  * lands first and overwrites book `abc`'s stored locator and progress with a
- * page number from a LaTeX draft. This is the same shape as the brief 35 bug
+ * page number from a LaTeX draft. This is the same shape as the the profiles work bug
  * where a profile switch left the reader loaded and wrote one profile's page
  * into another's row.
  *

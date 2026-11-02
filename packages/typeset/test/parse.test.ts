@@ -4,7 +4,7 @@ import { parseLatex } from "../src/parse/index.ts";
 import type { CommandNode, EnvironmentNode, GroupNode, LatexNode, MathNode } from "../src/parse/index.ts";
 
 /**
- * Structural coverage for the parse layer (brief 37, chunk 3): every node
+ * Structural coverage for the parse layer: every node
  * kind the acceptance criteria names, mapped from `@unified-latex`'s tree
  * onto ours. Position accuracy has its own file (`parse-positions.test.ts`);
  * malformed input has its own (`parse-malformed.test.ts`). This file is about

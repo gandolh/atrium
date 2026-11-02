@@ -1,13 +1,13 @@
 ---
 summary: The typesetting engine — Atrium's own TypeScript LaTeX-subset compiler. Pipeline, what it sets (prose, floats, images, tables, bibliography), the scope line, the loud-failure contract, and why it performs no I/O.
-updated: 2026-08-29
+updated: 2026-11-02
 ---
 
 # The typesetting engine
 
 `packages/typeset` turns a **subset** of LaTeX into a PDF. It is ours, and it is
-not TeX. Built by brief 37 and extended by brief 39 (figures, tables,
-bibliography) and brief 40 (mathematics). See **D38** for why the engine exists
+not TeX. Built by the engine foundation (2026-08-26) and extended by the figures, tables and bibliography work (2026-08-29) (figures, tables,
+bibliography) and the math work (2026-08-29) (mathematics). See **D38** for why the engine exists
 at all, and **D41** for how math is done.
 
 ## The scope line: syntax, not semantics
@@ -20,7 +20,7 @@ a macro-expansion machine that must then execute the kernel. Measured
 
 We do not do that. We accept LaTeX-*shaped* documents and implement the commands
 ourselves. **This is only defensible because the owner has nothing to import**
-(brief 38 decision 4). If a legacy `.tex` corpus ever appears, D38 is the first
+(the LaTeX editor's spec). If a legacy `.tex` corpus ever appears, D38 is the first
 thing to revisit.
 
 ## The loud-failure contract — the spine
@@ -54,7 +54,7 @@ even typecheck there.
 cannot execute because no shell escape is written; `\input{/etc/passwd}` cannot
 read anything because `\input` resolves against `files` or becomes a
 `missing-file` diagnostic. Path confinement and symlink escape are not engine
-concerns — they exist only where brief 38 accepts *uploads*.
+concerns — they exist only where the LaTeX editor (2026-08-27) accepts *uploads*.
 
 What replaces a wall-clock timeout is a **deterministic step budget**:
 reproducible where a timer is not, so "this compile was stopped" is testable.
@@ -105,14 +105,16 @@ reference's width. The loop runs to a **fixed point**, capped at three — LaTeX
 
 ## What the engine sets
 
+The full In and Out lists, construct by construct, are [typeset-scope.md](typeset-scope.md).
+
 | Construct | State | Notes |
 |---|---|---|
-| Prose, sections, ToC, lists, footnotes, `\ref`, `\newcommand`, verbatim | brief 37 | |
-| **Figures and tables** (`figure`/`table`, `[htbp]`, `\caption`, `\listoffigures`/`\listoftables`) | brief 39 | A float that can never be placed is a **diagnostic**; nothing is dropped |
-| **`\includegraphics`** — PNG and JPEG | brief 39 | `width=`/`height=`/`scale=`, `\textwidth`-relative. Format from the **signature**, never the extension |
-| **`tabular`** — `l c r`, `p{}`, `\|` rules, `\hline`, `\cline`, `\multicolumn` | brief 39 | Columns measured in a first pass, set in a second |
-| **Bibliography** — `.bib` parser, one numeric style, `\cite` | brief 39 | An unknown key is a diagnostic **and** prints `[?]` |
-| **Mathematics** — inline and display, `align`/`gather`/`split`, matrices, growing delimiters, the symbol coverage | brief 40 | MathJax v4 SVG, **gated to the declared subset** (D41) |
+| Prose, sections, ToC, lists, footnotes, `\ref`, `\newcommand`, verbatim | the engine foundation (2026-08-26) | |
+| **Figures and tables** (`figure`/`table`, `[htbp]`, `\caption`, `\listoffigures`/`\listoftables`) | the figures, tables and bibliography work (2026-08-29) | A float that can never be placed is a **diagnostic**; nothing is dropped |
+| **`\includegraphics`** — PNG and JPEG | the figures, tables and bibliography work (2026-08-29) | `width=`/`height=`/`scale=`, `\textwidth`-relative. Format from the **signature**, never the extension |
+| **`tabular`** — `l c r`, `p{}`, `\|` rules, `\hline`, `\cline`, `\multicolumn` | the figures, tables and bibliography work (2026-08-29) | Columns measured in a first pass, set in a second |
+| **Bibliography** — `.bib` parser, one numeric style, `\cite` | the figures, tables and bibliography work (2026-08-29) | An unknown key is a diagnostic **and** prints `[?]` |
+| **Mathematics** — inline and display, `align`/`gather`/`split`, matrices, growing delimiters, the symbol coverage | the math work (2026-08-29) | MathJax v4 SVG, **gated to the declared subset** (D41) |
 
 **Images embed verbatim wherever they can.** PDF's `/Predictor 15` *is* PNG's
 per-scanline filtering and a `/DCTDecode` stream *is* a JPEG datastream, so PNG
@@ -130,7 +132,7 @@ see beats one that is nowhere. But a float asking for `[h]` and nothing else
 that does not fit is an *error*: moving it would put it where the source
 forbade.
 
-**Brief 39's Out items report `unsupported`, not `undefined-command`.**
+**the declared Out list report `unsupported`, not `undefined-command`.**
 `\rotatebox`, `\multirow`, booktabs' rules and `subfigure`/`subcaption` are
 real LaTeX we declined — telling an author no such command exists is false.
 `builtins.ts` carries them as `unsupported` rows with a `detail` saying why,
@@ -138,7 +140,7 @@ matching how `wrapfigure`/`tabularx`/`longtable` were already handled.
 
 ## Mathematics
 
-Brief 40, decision **D41**: MathJax v4 SVG, our own SVG→PDF emitter, and the
+The math work (2026-08-29), decision **D41**: MathJax v4 SVG, our own SVG→PDF emitter, and the
 subset gated on the MathML. It has its own page — [typeset-math.md](typeset-math.md).
 
 ## A convention that will bite you
@@ -151,7 +153,7 @@ uses `.js` — do not "fix" one to match the other.
 
 ## Testing
 
-Brief 37 brought the repo's **first test suite** (`node --test`, no framework —
+The engine foundation (2026-08-26) brought the repo's **first test suite** (`node --test`, no framework —
 Node runs the TypeScript directly). Goldens record a **layout dump** — each
 box's content, x, y, width, font — never PDF bytes, which are not reproducible.
 Rounded to 3 decimals: far below what a reader can see, far above float noise,
@@ -169,8 +171,8 @@ accordingly on 39 and 40.
 **Two later findings broke the pattern, and both were diagnostic-free wrong
 pictures** — the failure mode the loud-failure contract cannot catch by
 construction, because nothing was unimplemented and so nothing had anything to
-report. Brief 39: a `tabular` row stopping short of the last column drew the
-table's right border partway across the grid. Brief 40: math reached a finished
+report. The figures, tables and bibliography work (2026-08-29): a `tabular` row stopping short of the last column drew the
+table's right border partway across the grid. The math work (2026-08-29): math reached a finished
 PDF as blank space, because a switch over a grown union had no exhaustiveness
 check. **Geometry needs assertions on coordinates, and every dispatcher over a
 union needs a `never` guard** — both now have one.

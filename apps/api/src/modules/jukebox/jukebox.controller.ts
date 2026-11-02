@@ -27,7 +27,7 @@ import {
 } from "./jukebox.service.js";
 
 /**
- * HTTP for the Jukebox (brief 81; D55, D56, D57). Validation in, status codes
+ * HTTP for the Jukebox (D55, D56, D57). Validation in, status codes
  * out; the next-Track rules live in `jukebox.service.ts`. Errors are
  * `{error: "CODE"}`, as the guard answers them.
  *

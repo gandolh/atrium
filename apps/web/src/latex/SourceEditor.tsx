@@ -31,10 +31,10 @@ import type { Theme } from "../store/reader-store";
 import { atriumSourceTheme } from "./source-theme";
 
 /**
- * The CodeMirror 6 source pane (brief 38 chunk 8).
+ * The CodeMirror 6 source pane.
  *
  * **This module is the lazy chunk.** It is the ONLY place `@codemirror/*` is
- * imported, and `LatexEditor` reaches it through `React.lazy` — brief 15's
+ * imported, and `LatexEditor` reaches it through `React.lazy` — the reader code-split's
  * code-splitting precedent, for the same reason: the LaTeX editor is one
  * destination out of many, and nobody opening the library should download an
  * editor. (Monaco was considered and rejected: roughly ten times the entry
@@ -48,7 +48,7 @@ import { atriumSourceTheme } from "./source-theme";
  * pay for.
  */
 
-/** A request to put the caret on a line, from the diagnostics panel (chunk 9). */
+/** A request to put the caret on a line, from the diagnostics panel. */
 export interface RevealTarget {
   /** Project-relative path. Ignored unless it matches the open document. */
   file: string;

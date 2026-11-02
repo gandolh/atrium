@@ -4,10 +4,10 @@ import type { LibraryBook, LibraryGroup } from "@ebook-reader/shared";
  * Library **metadata accessors** over the backfilled `author` / `series` /
  * `subjects` columns.
  *
- * Brief 28 (D33h) removed the grouping *UI* — Shelves ⇄ Stacks, the fanned
+ * The one-home layout (D33h) removed the grouping *UI* — Shelves ⇄ Stacks, the fanned
  * stack index and the `?g` drill-in are gone, and the home is one flat grid
  * filtered by kind. This module deliberately **survives** the deletion: the
- * columns stay populated, and brief 30 reuses these accessors to build search
+ * columns stay populated, and cross-library search reuses these accessors to build search
  * facets over the same values the shelves used to bucket by. Nothing renders
  * them today, so treat them as a library, not as dead code.
  *
@@ -44,7 +44,7 @@ export const UNKNOWN_GROUP = "Unknown";
 
 /**
  * The first non-empty value of one metadata field for a book, or null when it
- * has none. Exported for brief 30: this is the single definition of "what value
+ * has none. Exported for cross-library search: this is the single definition of "what value
  * does this book have for author / series / subject", so search facets and the
  * bucketing below can never disagree.
  */
@@ -77,7 +77,7 @@ export function groupBooks(books: LibraryBook[], groupBy: LibraryGroup): BookGro
   // "science fiction " land in the same bucket; the bucket keeps the
   // first-encountered original spelling as its display label. `key` is the
   // stable identity a caller can round-trip through a URL or a facet id (it was
-  // the `?g` drill-in param before brief 28 removed the grouping UI).
+  // the `?g` drill-in param before the one-home layout removed the grouping UI).
   const byKey = new Map<string, { label: string; books: LibraryBook[] }>();
   for (const book of books) {
     const raw = groupValueOf(book, groupBy);

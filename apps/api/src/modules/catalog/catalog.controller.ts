@@ -5,7 +5,7 @@ import { importGutenbergBook, searchCatalog } from "./catalog.service.js";
 import { UPSTREAM_ERROR } from "./gutendex.service.js";
 
 /**
- * Catalog (Project Gutenberg) HTTP — brief 22.
+ * Catalog (Project Gutenberg) HTTP.
  *
  * - `GET /catalog/gutenberg` proxies the public Gutendex `/books` endpoint
  *   (search / topic / language / page, popular by default).

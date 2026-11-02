@@ -10,7 +10,7 @@ import {
 import { ApiError, apiFetch, apiUrl } from "./api-client";
 
 /**
- * Metadata lookup calls (brief 100, D59). The browser only ever talks to the
+ * Metadata lookup calls (D59). The browser only ever talks to the
  * API: the search, the apply and the candidates' thumbnails all go through it,
  * so MusicBrainz and Open Library see the server, never the person.
  */

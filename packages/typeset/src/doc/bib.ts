@@ -18,7 +18,7 @@ import { DEFAULT_TEXT_STYLE, UNRESOLVED_CITATION, cloneStyle } from "./model.ts"
 
 /**
  * **Chunk 39.5**: `.bib` parsing, citation resolution, and the one built-in
- * style (numeric; author-year is deferred by brief 39).
+ * style (numeric; author-year is deferred by the figures, tables and bibliography work).
  *
  * Chunk 39.1 parsed every citing construct into a `CitationInline` (carrying
  * raw keys) or a `BibliographyBlock` (carrying `.bib` file names, the style,
@@ -33,7 +33,7 @@ import { DEFAULT_TEXT_STYLE, UNRESOLVED_CITATION, cloneStyle } from "./model.ts"
  * - `resolveCitations`, which assigns those numbers to every `\cite` site.
  *
  * **The numbering order.** Real BibTeX's `plain.bst` sorts alphabetically by
- * author; brief 39 explicitly defers author-year styles and asks for
+ * author; the figures, tables and bibliography work explicitly defers author-year styles and asks for
  * "numeric" only. What this file implements under the name the document
  * writes (`\bibliographystyle{plain}` — `IMPLEMENTED_BIB_STYLE`) is therefore
  * closer to real BibTeX's `unsrt.bst`: entries are numbered in the order they
@@ -86,7 +86,7 @@ export interface BibContext {
   file: string;
 }
 
-/** The one style brief 39 implements. Everything else is a diagnostic naming it. */
+/** The one style the figures, tables and bibliography work implements. Everything else is a diagnostic naming it. */
 export const IMPLEMENTED_BIB_STYLE = "plain";
 
 // --- a resolved citation: what a key is worth once its list is built -------
@@ -153,7 +153,7 @@ function formatBibfile(
     // Already a `syntax` error from `applyBibliographyCommand` (no argument at
     // all) — this is not a *second* report of the same fact, it is the fact
     // that there is now nothing this seam can do about it either, phrased the
-    // way brief 37's `unsupported.test.ts` inventory expects a bare
+    // way the engine foundation's `unsupported.test.ts` inventory expects a bare
     // `\bibliography` to read (verified against that suite directly).
     ctx.diagnostics.push(
       error(
@@ -304,7 +304,7 @@ function referenceList(items: readonly ReferenceItem[], at: SourceRef): ListBloc
  * was cited" rule (see `formatBibfile`'s doc comment).
  *
  * Every `\cite`/`\citep`/`\citet`/`\nocite` is walked in document order
- * (`ctx.citations`, brief 37's second-pass order); the first time a key
+ * (`ctx.citations`, the engine foundation's second-pass order); the first time a key
  * belonging to *this* block's entries is named, it takes the next number.
  * `\nocite{*}` expands to every entry this block defines, in the order the
  * `.bib` (or `thebibliography`) itself gave them — `order`.
@@ -457,7 +457,7 @@ interface Piece {
 
 /**
  * What to print for an entry, by type. Not `plain.bst`'s exact punctuation —
- * nothing in brief 39's acceptance pins byte-for-byte reference formatting,
+ * nothing in the figures, tables and bibliography work's acceptance pins byte-for-byte reference formatting,
  * only that the four entry types are covered — but a reasonable, deterministic
  * reading of each type's own fields, degrading gracefully as fields go
  * missing rather than producing ragged punctuation or crashing.
@@ -533,7 +533,7 @@ function entryParagraph(entry: BibEntry): Block[] {
 
 // --- the .bib parser ---------------------------------------------------------
 
-/** Entry types brief 39 actually formats. Anything else still parses — see `entryPieces`'s default case. */
+/** Entry types the figures, tables and bibliography work actually formats. Anything else still parses — see `entryPieces`'s default case. */
 const KNOWN_TYPES: ReadonlySet<string> = new Set(["article", "book", "inproceedings", "misc"]);
 
 interface BibEntry {
@@ -582,7 +582,7 @@ function builtinStrings(): Map<string, string> {
  * `.bib` (files named together in one `\bibliography{a,b}` are one pool).
  * Real BibTeX resolves this transitively when style files ask for it
  * (`min-crossrefs`); one level is what a hand-formatted numeric list needs
- * and is what brief 39 asks for ("cross-references", not "transitive
+ * and is what the figures, tables and bibliography work asks for ("cross-references", not "transitive
  * cross-reference chains").
  */
 function resolveCrossrefs(entries: ReadonlyMap<string, BibEntry>, diagnostics: Diagnostic[]): void {
@@ -941,7 +941,7 @@ function parseEntry(
 
   if (!KNOWN_TYPES.has(type)) {
     // Still parsed and still printed (via `entryPieces`'s generic fallback) —
-    // brief 39 lists this as an "Out" shape that must produce a diagnostic,
+    // the figures, tables and bibliography work lists this as an "Out" shape that must produce a diagnostic,
     // not one that must vanish from the reference list. A reader who cited it
     // still gets a number and a reasonable line; the diagnostic says why it
     // is not formatted the way an `article`/`book`/`inproceedings`/`misc`

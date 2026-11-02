@@ -26,7 +26,7 @@ import type {
 import { loadLatinModernBytes } from "../node/fonts.ts";
 
 /**
- * Brief 39, chunk 39.2: `\includegraphics` puts a real PNG or JPEG into the PDF
+ * The figures, tables and bibliography work's spec: `\includegraphics` puts a real PNG or JPEG into the PDF
  * at the right size, and every way that can go wrong is a diagnostic naming the
  * file rather than a crash.
  *
@@ -44,7 +44,7 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
  *    valid and byte-identical between two runs.
  *
  * There is no golden dump here on purpose: `test/harness.ts`'s dump format has
- * no line for a placed image (it belongs to brief 37 and predates this chunk),
+ * no line for a placed image (it belongs to the engine foundation and predates this chunk),
  * and asserting on `Page.items` directly says more about a figure's geometry
  * than a transcript would.
  */
@@ -312,7 +312,7 @@ test("an empty file is a diagnostic, not a zero-by-zero image", () => {
 });
 
 /**
- * Brief 39's Out list, each recognised by signature so the diagnostic can name
+ * The declared Out list, each recognised by signature so the diagnostic can name
  * the format. "This engine does not implement EPS" is an answer; "no such file"
  * and a blank space are not.
  */
@@ -809,7 +809,7 @@ test("the PDF a reader gets is valid, and its images are in the page's resources
 // ---------------------------------------------------------------------------
 
 /**
- * The same requirement brief 37 put on emission, now with images in the file:
+ * The same requirement the engine foundation put on emission, now with images in the file:
  * two compiles of the same project produce byte-identical output. Without it no
  * test can assert on bytes at all.
  */

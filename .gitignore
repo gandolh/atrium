@@ -45,6 +45,6 @@ testing_files/
 apps/api/data/
 apps/api/library/
 apps/api/images/
-# LaTeX drafts and published version artifacts (brief 38) — same rule
+# LaTeX drafts and published version artifacts — same rule
 apps/api/latex/
 apps/api/versions/

@@ -8,7 +8,7 @@ import { closeDatabase, knex } from "../src/database/knex.js";
 import { migrationSource } from "../src/database/migrations/index.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 60: the Ward cutover dropped `profiles` with foreign keys off, so no
+// The Ward cutover dropped `profiles` with foreign keys off, so no
 // ON DELETE fired and every profile-scoped row survived as an orphan. The prune
 // migration deletes them. This file's database starts PRE-cutover, with one
 // household's data in it, and is walked forward one migration at a time.

@@ -8,7 +8,7 @@ import { useReaderStore } from "../../store/reader-store";
  * globals.css switch on that attribute, so both readers get themed chrome for
  * free. Defaults to `document.documentElement` so the whole reader view themes.
  *
- * PDF note (brief 06): real theming can't recolor a fixed-layout PDF canvas, so
+ * PDF note: real theming can't recolor a fixed-layout PDF canvas, so
  * PDF uses an "invert colors" hack for its dark mode instead (see the PDF
  * reader). This hook still runs so the *chrome* around the PDF is themed.
  */

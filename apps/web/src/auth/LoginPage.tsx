@@ -141,10 +141,10 @@ export function LoginPage() {
 }
 
 /**
- * Reading what is already on the device without signing in (brief 77): the
+ * Reading what is already on the device without signing in: the
  * library falls back to its downloads when its fetch fails. Offered only when
  * there is something downloaded. Any profile's downloads, because the shelf is
- * device-scoped (brief 20) and nobody has said who is reading yet.
+ * device-scoped and nobody has said who is reading yet.
  */
 function DownloadedBooks() {
   const navigate = useNavigate();

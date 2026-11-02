@@ -17,7 +17,7 @@ import { coverArtArchiveUrl, searchMusicBrainz, searchWords } from "./musicbrain
 import { openLibraryCoverUrl, searchOpenLibrary } from "./openlibrary.service.js";
 
 /**
- * Metadata lookup rules (brief 100, D59): search the right source for one
+ * Metadata lookup rules (D59): search the right source for one
  * item, write back the fields a person kept, and serve the candidates'
  * thumbnails. Only ever on request — nothing here runs on upload, and nothing
  * calls it but the routes in `lookup.controller.ts`.

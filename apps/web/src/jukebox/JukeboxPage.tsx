@@ -23,7 +23,7 @@ import {
 } from "./use-jukebox";
 
 /**
- * `/jukebox` (brief 82; D56, D57): a remote for the Discord bot, "like VLC or
+ * `/jukebox` (D56, D57): a remote for the Discord bot, "like VLC or
  * Winamp". Anyone signed in, on any profile, steers the same Players. Atrium
  * owns each Player and this page polls it every 1.5 s; every button is a
  * request to atrium, which queues a command for the bot. Nothing plays in this

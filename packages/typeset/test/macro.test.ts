@@ -7,7 +7,7 @@ import type { Diagnostic } from "../src/diagnostics.ts";
 import type { LatexNode } from "../src/parse/index.ts";
 
 /**
- * The `\newcommand` expander (brief 37, chunk 6).
+ * The `\newcommand` expander.
  *
  * These test the *mechanic* the parser forces on us — a user macro arrives
  * with `args: []` and its arguments as siblings — rather than going through
@@ -72,7 +72,7 @@ function codes(diagnostics: readonly Diagnostic[]): string[] {
 
 test("a macro with no arguments expands to its body", () => {
   // `\hi` is a control word, so the tokenizer gobbles the space between it
-  // and "b" before expansion ever sees it (chunk 8) — the classic "\TeX is
+  // and "b" before expansion ever sees it — the classic "\TeX is
   // great" gotcha. The space before `\hi` is untouched (it follows "a", not
   // a control word), so the result is "a hello" immediately followed by "b".
   const { text, diagnostics } = expand("\\newcommand{\\hi}{hello}a \\hi b");
@@ -160,7 +160,7 @@ test("recursion that terminates is fine — depth is not the limit, steps are", 
 
 test("\\renewcommand replaces an existing definition", () => {
   // `\v` is a control word, so the space between `\v` and `\renewcommand` is
-  // gobbled at the tokenizer level (chunk 8) before expansion ever runs —
+  // gobbled at the tokenizer level before expansion ever runs —
   // the first `\v` (still "one") and the redefinition end up with nothing
   // between them, and the second `\v` ("two") is glued straight on.
   const { text } = expand("\\newcommand{\\v}{one}\\v \\renewcommand{\\v}{two}\\v");

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
 /**
- * The compile button (brief 38 chunk 9), mounted at the end of the editor's
- * header row. Brief 44's last chunk turned it into a compile/cancel toggle —
+ * The compile button, mounted at the end of the editor's
+ * header row. The compile worker's last chunk turned it into a compile/cancel toggle —
  * see "Replace, not beside" below.
  *
  * **Compile is explicit, never on keystroke.** This component is the ONLY

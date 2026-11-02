@@ -1,5 +1,5 @@
 /**
- * Library-page offline banner (brief 20 item 4, rendering side) — shown when
+ * Library-page offline banner — shown when
  * `useLibraryList().isOffline` is true: the live `GET /library` fetch failed
  * and the grid below is rendering the downloaded books' cached snapshots
  * instead. Quiet single line, no dismiss (it persists until the next

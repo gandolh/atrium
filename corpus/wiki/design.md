@@ -1,6 +1,6 @@
 ---
 summary: The enforced "Reading Room" visual language (D33) — warm neutrals, four kind tints, the Newsreader/Archivo type split, motion rules, and the frontend conformance checklist. Replaces Quiet Paper.
-updated: 2026-08-29
+updated: 2026-11-02
 ---
 
 # Design — "Reading Room"
@@ -60,7 +60,7 @@ fills a button. The solid button is ink, not colour.
 | `tint-video` | `#e4ebf1` | `#171f28` | Video |
 | `tint-note` | `#e4eee7` | `#16221b` | Notes |
 
-**Coverless tiles (D42, brief 43).** A tile with no cover art — a video that
+**Coverless tiles (D42, coverless tiles of 2026-08-29).** A tile with no cover art — a video that
 won't decode, a track never played — carries a **large title initial** in
 Newsreader, very low contrast, bleeding past an edge behind the kind glyph and
 title. Its **size and corner vary** by a deterministic hash of the *title* (so
@@ -106,9 +106,9 @@ Inter all retire.
 | `label-caps` | **Archivo** | 10 / 1.6, `.15em` | 600 | Chips, eyebrows (uppercase) |
 | `numeric` | **Archivo** | inherits | 500 | **`tabular-nums` always** |
 | `code` | **platform monospace** | inherits | 400 | LaTeX source pane, and nothing else |
-| `tile-initial` | **Newsreader** | 72 / 96 / 128, 1, no tracking override | 500 | Coverless tile's decorative title-initial watermark (D42, brief 43) — `aria-hidden`, `text-ink/10`; the three sizes are two of its six hashed variants' axes |
+| `tile-initial` | **Newsreader** | 72 / 96 / 128, 1, no tracking override | 500 | Coverless tile's decorative title-initial watermark (D42, coverless tiles of 2026-08-29) — `aria-hidden`, `text-ink/10`; the three sizes are two of its six hashed variants' axes |
 
-**The one exception to the two-family rule** (added 2026-08-27, brief 38). The
+**The one exception to the two-family rule** (added 2026-08-27. The
 LaTeX editor's source pane sets in `--font-code`: the *platform's own* monospace
 stack, not a third brand face — nothing is downloaded and the payload argument
 below is untouched. It exists because source is the one text in Atrium where
@@ -150,7 +150,7 @@ shadow only on cards and the Aa panel. Modals keep the `12px` backdrop blur.
 - **Tiles:** `tint-*` ground by kind, 1px `line-soft`, 4px radius, artwork at
   2px. Book 2:3, music 1:1, **video 4:3** — the tile's box; stored video art is
   letterboxed inside it (`object-contain`), because a frame grabbed from a video
-  keeps that video's own aspect (D40, brief 42: `fit: "inside"` at a 640 bound,
+  keeps that video's own aspect (D40, video covers of 2026-08-28: `fit: "inside"` at a 640 bound,
   never cropped). The Continue strip's video thumb stays 16:9. **Coverless**
   tiles keep the flat kind ground and add the D42 title-initial watermark
   above — foreground only, ground untouched.

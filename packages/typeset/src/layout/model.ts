@@ -158,7 +158,7 @@ export interface RuleNode {
 }
 
 /**
- * A decoded picture, placed at a size — `\includegraphics` (brief 39).
+ * A decoded picture, placed at a size — `\includegraphics`.
  *
  * It is a *horizontal* node and not a vertical one because that is what LaTeX
  * makes of a graphic: it sits in a paragraph, takes part in line breaking like
@@ -187,13 +187,13 @@ export interface ImageNode {
 
 /**
  * One set formula — `$x^2$` or a whole display — as a rigid horizontal node
- * (brief 40, chunk 40.4).
+ *.
  *
  * **It is a box, not a sub-list.** Everything inside a formula was laid out by
  * MathJax and arrives as self-contained vector; the engine's own box-and-glue
  * model stops at the outside of it. So this node takes part in line breaking
  * exactly as a very wide unbreakable word does, and the page builder positions
- * it exactly as it positions an image — which is what brief 40 means by "a math
+ * it exactly as it positions an image — which is what the math work means by "a math
  * run is a box to the page builder".
  *
  * **`width`/`height`/`depth` are points on the page, and `depth` is the one
@@ -201,7 +201,7 @@ export interface ImageNode {
  * run sits on (`MathGeometry`); an `ex` is a property of the *surrounding text
  * font at the surrounding size*, so the multiplication happens in
  * `layout/math.ts`, which is the first place that knows both. Getting it wrong
- * is the failure brief 40 singles out: inline math a point or two off the
+ * is the failure the math work singles out: inline math a point or two off the
  * baseline looks subtly wrong down a whole paragraph.
  *
  * `picture` is parsed rather than a string because parsing can fail, and a

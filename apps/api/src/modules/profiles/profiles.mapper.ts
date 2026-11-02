@@ -23,7 +23,7 @@ export function toProfile(row: ProfileRow): Profile {
  * outside the app would otherwise make every future PATCH a permanent 500 with
  * no way to write over it. Unknown *keys* are not corruption —
  * `preferencesSchema` is `.passthrough()`, so they survive this and the merge
- * in the service (brief 35 step 8).
+ * in the service.
  */
 export function storedPreferences(raw: string | null): Preferences {
   if (!raw) return {};

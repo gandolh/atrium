@@ -1,14 +1,15 @@
 import { z } from "zod";
 
 /**
- * Jukebox contract (brief 81; D55, D56, D57). The Discord bot (just-a-bot)
+ * Jukebox contract (D55, D56, D57). The Discord bot (just-a-bot)
  * plays atrium's music, and atrium owns every Player: the voice channel, the
  * Track playing, the Queue, shuffle and repeat. People steer a Player from the
- * Jukebox page (brief 82) and from Discord's `/jukebox` command, and both go
+ * Jukebox page and from Discord's `/jukebox` command, and both go
  * through these routes, so a Player has exactly one writer.
  *
- * just-a-bot briefs 25 to 27 restate these shapes. Change one only with a note
- * in all four briefs. Vocabulary: corpus/wiki/glossary-jukebox.md.
+ * just-a-bot's Jukebox restates these shapes (its
+ * `bots/discord/src/jukebox/types.ts`). Change one only with the matching
+ * change there. Vocabulary: corpus/wiki/glossary-jukebox.md.
  */
 
 /** A Discord snowflake: a guild or a channel id. */
@@ -26,7 +27,7 @@ export const UPCOMING_LENGTH = 2;
 
 /**
  * The bot's `error` advances in a row after which a Player stops trying and
- * goes idle with a `failure` (brief 95). An `ended` advance resets the count.
+ * goes idle with a `failure`. An `ended` advance resets the count.
  */
 export const JUKEBOX_FAILURE_BUDGET = 5;
 
@@ -79,7 +80,7 @@ export type RepeatMode = z.infer<typeof repeatModeSchema>;
  * bot measured at `positionAt`. `upcoming` is the next `UPCOMING_LENGTH`
  * Tracks: the Queue first, then the Playlist. `failure` says why playback
  * gave up after `JUKEBOX_FAILURE_BUDGET` songs in a row would not play
- * (brief 95); null otherwise, and the next play clears it.
+ *; null otherwise, and the next play clears it.
  */
 export const playerSchema = z.object({
   guildId: discordIdSchema,

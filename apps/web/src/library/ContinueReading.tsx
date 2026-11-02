@@ -21,7 +21,7 @@ const MAX_ESTIMATED_MINUTES = 20 * 60;
 /**
  * The "Continue" resume strip — the first thing a returning user sees
  * (library home hierarchy fix: for an established library the primary job is
- * *resume the last thing you were in*, not upload). Brief 29 reworks the
+ * *resume the last thing you were in*, not upload). The tiles and Continue row reworks the
  * former single hero card into a **three-up strip**: up to
  * {@link RESUME_LIMIT} most-recently-opened, unfinished items, each showing
  * artwork, title, source, **time remaining** (not percent — D33 grilled
@@ -65,7 +65,7 @@ function ResumeCard({
   const kind = book.kind ?? "book";
   const pct = Math.round(book.progress * 100);
   const remaining = formatTimeRemaining(book);
-  // Thumb matches the item's card shape (brief 25): square art for music,
+  // Thumb matches the item's card shape: square art for music,
   // 16:9 for video, 2:3 for a book.
   const thumbAspect = kind === "audio" ? "aspect-square" : kind === "video" ? "aspect-video" : "aspect-[2/3]";
 

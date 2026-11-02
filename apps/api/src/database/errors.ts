@@ -38,7 +38,7 @@ export function isUniqueViolation(err: unknown): boolean {
 
 /**
  * True for an `ON DELETE RESTRICT` violation — in practice `notes.profile_id`
- * or `note_folders.profile_id` (brief 35 decision 3).
+ * or `note_folders.profile_id`.
  *
  * Matches BOTH constraint codes on purpose. SQLite implements RESTRICT with an
  * implicit trigger, so a RESTRICT violation surfaces as

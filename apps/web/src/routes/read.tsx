@@ -27,7 +27,7 @@ const routeApi = getRouteApi("/read");
 const PdfReader = lazy(() => import("../reader/pdf").then((m) => ({ default: m.PdfReader })));
 const EpubReader = lazy(() => import("../reader/epub").then((m) => ({ default: m.EpubReader })));
 
-// The media players (brief 23) are code-split exactly like the readers above, so
+// The media players are code-split exactly like the readers above, so
 // the book-reading path never downloads player code and vice versa.
 const AudioPlayer = lazy(() => import("../player/AudioPlayer").then((m) => ({ default: m.AudioPlayer })));
 const VideoPlayer = lazy(() => import("../player/VideoPlayer").then((m) => ({ default: m.VideoPlayer })));
@@ -35,7 +35,7 @@ const VideoPlayer = lazy(() => import("../player/VideoPlayer").then((m) => ({ de
 /**
  * `/read` — the reader/player view. Branches on the media `kind` derived from
  * the format (`kindForFormat`): pdf/epub open the book readers below (unchanged),
- * mp3 opens the AudioPlayer, mp4/webm the VideoPlayer (brief 23). Split into
+ * mp3 opens the AudioPlayer, mp4/webm the VideoPlayer. Split into
  * child components so each path calls its own hooks (the book path hydrates an
  * in-memory `File`; the media path only resolves the row and streams from the
  * file URL) without violating the rules of hooks.
@@ -62,7 +62,7 @@ export function Read() {
 }
 
 /**
- * `true` when `a` is a strictly more recent ISO timestamp than `b` (brief 34
+ * `true` when `a` is a strictly more recent ISO timestamp than `b` (the convert work
  * decision 11: "newest wins, null means never opened"). Both are
  * `reading_progress.updated_at` values, which are always written by the same
  * server clock as `new Date().toISOString()`, so lexical comparison is exactly
@@ -83,7 +83,7 @@ function isNewer(a: string | null, b: string | null): boolean {
  * library" state (the book itself is persisted server-side per D24 — reopen it
  * from the library home).
  *
- * Format routing: this brief (06) implements PDF. EPUB lands in brief 07, which
+ * Format routing: this brief (06) implements PDF. EPUB lands in the EPUB reader, which
  * mounts its renderer here and REUSES the shared chrome (apps/web/src/reader/
  * chrome). The `format` search param stays the type-safe seam; the actual file
  * comes from the store.
@@ -94,7 +94,7 @@ function BookReader() {
   const loadedFormat = useReaderStore((s) => s.loadedFormat);
   const loadedBookId = useReaderStore((s) => s.loadedBookId);
 
-  // Brief 34 step 7: which of a convert pair's two rows to actually hydrate.
+  // The convert work's spec: which of a convert pair's two rows to actually hydrate.
   // The requested `book` is always a SOURCE id (only source rows ever appear
   // in the grid, D34), so its own row — and `lastReadAt` — comes straight off
   // the same list cache the library home and `useHydrateBook` itself already
@@ -146,7 +146,7 @@ function BookReader() {
     // against.
     //
     // Unless the list has failed, or is paused because the browser went
-    // offline: the device is offline, or Ward is down (brief 77). Waiting then
+    // offline: the device is offline, or Ward is down. Waiting then
     // meant waiting forever, and a downloaded book sat on the opening screen.
     // Open the requested id, which is the id a download is stored under; a
     // partner read more recently cannot be known without the server, and
@@ -183,7 +183,7 @@ function BookReader() {
     return winner;
   }, [book, libraryQuery.data, libraryQuery.isError, libraryQuery.isPaused, partnerId, partnerRowQuery.data, sourceRow, loadedBookId]);
 
-  // Cover-card clicks navigate here immediately (brief 10); this hook is the
+  // Cover-card clicks navigate here immediately; this hook is the
   // single download path for both that and refresh / direct visits (D24).
   // Hydrates `resolvedBookId`, NOT the raw `book` param — see above. When the
   // two differ the store's `loadedFormat`/`loadedBookId` (set together by
@@ -191,7 +191,7 @@ function BookReader() {
   // nothing downstream needs to know a substitution happened.
   const hydrate = useHydrateBook(resolvedBookId);
 
-  // Brief 34 step 7: touch the opened row's `updated_at` so the format choice
+  // The convert work's spec: touch the opened row's `updated_at` so the format choice
   // sticks even if the reader closes without reading a page — otherwise
   // switching format and reading nothing would leave the just-opened row's
   // `lastReadAt` untouched, and the NEXT open would resolve straight back to
@@ -202,7 +202,7 @@ function BookReader() {
   // on every render, and it never fires for a book with no convert pair at
   // all (nothing to keep "sticky" there).
   //
-  // **The values come from the row's own record, fetched fresh** (brief 75),
+  // **The values come from the row's own record, fetched fresh**,
   // never from `hydrate.book`. That is the library LIST's row, and the list
   // merges a converted pair into one card carrying whichever twin was read
   // more recently: after reading the EPUB, the PDF's list row holds the EPUB's
@@ -281,11 +281,11 @@ function BookReader() {
     />
   );
 
-  // Brief 34 (D34, decision 10): the convert trigger and format switch live in
+  // The convert work (D34): the convert trigger and format switch live in
   // the READER and nowhere else. The resolved row is handed down as DATA rather
   // than as a rendered node — building the element here would pull the reader
   // chrome ConvertControl imports into the ENTRY chunk (measured: +41 kB gzip),
-  // undoing brief 15's code-splitting. The readers are already lazy, so letting
+  // undoing the reader code-split's code-splitting. The readers are already lazy, so letting
   // each import ConvertControl itself keeps it in the reader chunk where it
   // belongs. Neither reader gains any convert logic, and no second fetch is
   // needed for a row this route already holds.
@@ -294,7 +294,7 @@ function BookReader() {
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
         <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
           <PdfReader file={file} book={hydrate.book} />
-          {/* Brief 38 step 7: reader chrome, mounted here rather than inside
+          {/* The LaTeX editor's spec: reader chrome, mounted here rather than inside
               `PdfReader` — that file stays byte-for-byte unmodified (see its
               own doc comment). `PdfReader` already fills the true viewport, so
               this floats as a plain `fixed` sibling; versions are PDF-only
@@ -306,7 +306,7 @@ function BookReader() {
   }
 
   if (effectiveFormat === "epub") {
-    // Brief 07: the EPUB reader (react-reader) reuses this brief's shared chrome.
+    // The EPUB reader (react-reader) reuses this brief's shared chrome.
     return (
       <ReaderChunkErrorBoundary fallback={chunkErrorFallback}>
         <Suspense fallback={<OpeningState book={hydrate.book} bookId={book} progress={null} />}>
@@ -320,7 +320,7 @@ function BookReader() {
 }
 
 /**
- * The media (audio/video) playback view (brief 23). Unlike the book path it
+ * The media (audio/video) playback view. Unlike the book path it
  * never hydrates an in-memory `File`: `useHydrateBook` (kind-aware) resolves the
  * library ROW only, and the lazily-loaded player streams from the authenticated
  * file URL. Resume + progress-PATCH live in the player via `useMediaProgress`.
@@ -382,7 +382,7 @@ function NoFileState({ format, notFound }: { format: string | null; notFound?: b
 }
 
 /**
- * The opening screen (brief 10): shown from the instant a cover is clicked
+ * The opening screen: shown from the instant a cover is clicked
  * until the file is in memory. Cover + title identify what's opening; a
  * determinate accent bar tracks the download (the transfer is the wait — a
  * 24MB EPUB on a slow link is tens of seconds). Indeterminate → pulsing bar.
@@ -459,7 +459,7 @@ function OpeningErrorState({
         </div>
         <div className="flex items-center gap-3">
           {/* design.md "accent means state only, never a button fill": this
-              was accent-filled (a brief 27 conformance gap) — ink-filled
+              was accent-filled (a Reading Room conformance gap) — ink-filled
               primary, matching the system's one solid-button style. */}
           <button
             type="button"
@@ -487,12 +487,12 @@ function OpeningErrorState({
  *
  * This is the READER-side landing target for the cover → reader shared-layout
  * transition (design.md "Motion": "Cover expands into the page", 420ms —
- * brief 32 step 5). It's the first thing this route paints — the tile flips
+ * the reader's Reading Room pass's spec). It's the first thing this route paints — the tile flips
  * to `/read` instantly (wiki/reader.md "Opening from library home") and the
  * actual PDF/EPUB bytes can take tens of seconds to land, so the morph has to
  * resolve HERE, not at the eventual `PdfReader`/`EpubReader` mount. The
  * matching `motion.div layoutId` on the library side (`library/CoverCard.tsx`,
- * brief 29 — see this brief's handoff) is what makes the FLIP fire; without
+ * the tiles and Continue row — see this brief's handoff) is what makes the FLIP fire; without
  * it this is just an ordinary div and the navigation looks exactly as it does
  * today.
  *
@@ -520,7 +520,7 @@ function BookCoverTile({
   // separate reasons that happen to want the same order. First, the row
   // hasn't resolved yet on the very first commit, which is exactly when the
   // library row may still be a cache miss: the morph has to be wired then,
-  // from the URL alone. Second, since brief 34 step 7 `hydrate.book` can
+  // from the URL alone. Second, since the convert work's spec `hydrate.book` can
   // resolve to a CONVERTED book that the reader silently opened instead of
   // the clicked one (decision 11) — but the library grid only ever hands out
   // a `layoutId` for the SOURCE row (converted rows are hidden from it), so

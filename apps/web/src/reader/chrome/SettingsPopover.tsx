@@ -8,8 +8,8 @@ import { useChromeHold } from "./use-auto-hide-chrome";
  * Popover/Dialog + Slider"). A Base UI Popover anchored to a toolbar trigger.
  *
  * Format-agnostic shell: the *contents* are supplied by the caller as
- * `children`, so PDF passes zoom/fit + invert controls (brief 06) and EPUB
- * passes font size/family/spacing/margin + theme controls (brief 07). This is
+ * `children`, so PDF passes zoom/fit + invert controls and EPUB
+ * passes font size/family/spacing/margin + theme controls. This is
  * one half of the format-adaptive seam (the other half is `ReaderToolbar`'s
  * `formatControls` slot).
  */

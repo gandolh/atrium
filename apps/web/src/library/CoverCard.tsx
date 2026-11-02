@@ -12,7 +12,7 @@ import { CoverFallback } from "./CoverFallback";
 import { LookupDialog } from "./LookupDialog";
 import { OfflineToggle } from "./OfflineToggle";
 
-/** Per-book offline download affordance (brief 20 item 2, rendering side). */
+/** Per-book offline download affordance. */
 export interface CoverOfflineProps {
   state: OfflineDownloadStatus;
   progress: number | null | undefined;
@@ -23,7 +23,7 @@ export interface CoverOfflineProps {
 }
 
 /**
- * "Add to Discord queue" (brief 82): the Jukebox's Players a music tile can
+ * "Add to Discord queue": the Jukebox's Players a music tile can
  * queue on, and the write. Shown for `audio` only, and hidden with no Players.
  */
 export interface CoverDiscordProps {
@@ -45,7 +45,7 @@ const TINT_CLASS: Record<MediaKind, string> = {
 
 /**
  * A single book in the library gallery (wiki/design.md "Components" → Tiles).
- * Brief 29 rework: the whole card is now a tinted tile — `bg-tint-{kind}`
+ * The tiles and Continue row rework: the whole card is now a tinted tile — `bg-tint-{kind}`
  * ground, 1px `line-soft`, 4px radius — with the artwork inset at 2px radius.
  * The tint (plus the format line below the title) carries the kind signal
  * now, so the old top-right EPUB/MUSIC/VIDEO corner badge is gone; see the
@@ -53,27 +53,27 @@ const TINT_CLASS: Record<MediaKind, string> = {
  * reads by kind). The duration caption (bottom-left, audio/video) stays — it
  * reports a fact (length), it doesn't badge the kind.
  *
- * Brief 20 adds the offline toggle top-left (`offline`, omitted entirely when
+ * Offline reading adds the offline toggle top-left (`offline`, omitted entirely when
  * IndexedDB isn't supported) and gates the "Remove" library action behind
  * `deleteDisabled` while offline (removing is an API call, not a local op).
  *
- * Brief 23c renders per `book.kind` inside the media box: `audio` centers the
+ * It renders per `book.kind` inside the media box: `audio` centers the
  * (optional) square embedded-art image, or the typographic fallback when
  * absent; `video` centers its own (optional) stored cover, letterboxed inside
- * its 4:3 box instead of cropped (brief 42/D40 — see `CoverArt`), or the
+ * its 4:3 box instead of cropped (video covers/D40 — see `CoverArt`), or the
  * typographic fallback when absent; both add a duration caption. The offline
- * toggle is book-only — media is excluded from offline v1 (brief 23's grilled
+ * toggle is book-only — media is excluded from offline v1 (the media library's grilled
  * decision), so it's simply not rendered for `kind !== "book"` regardless of
  * what the caller passed.
  *
- * Brief 32's cover → reader shared-layout transition lands here: the media
+ * The reader's Reading Room pass's cover → reader shared-layout transition lands here: the media
  * box carries `layoutId={coverLayoutId(book.id)}` for books so it FLIPs into
  * the reader's opening-screen tile (`routes/read.tsx`'s `BookCoverTile`)
  * instead of the navigation just cutting. Audio/video open into `MediaRoute`
  * instead, which has no matching element, so those kinds get no `layoutId`
  * (round 2 fix — dead wiring shouldn't ship).
  *
- * Brief 100 adds **Look up…** to the tile menu for music and books (D59): it
+ * The metadata lookup adds **Look up…** to the tile menu for music and books (D59): it
  * opens `LookupDialog`, which asks MusicBrainz or Open Library through the
  * API. Video has no source, so no item. Like Remove it is an API call, so
  * `lookupDisabled` gates it while offline.
@@ -117,7 +117,7 @@ export function CoverCard({
   const durationLabel = book.durationSeconds != null ? formatTime(book.durationSeconds) : null;
   const expandTransition = useMotionTransition("expand");
 
-  // Mixed-row baseline fix (flagged by brief 28, resolved here): a bare 2:3 /
+  // Mixed-row baseline fix (flagged by the one-home layout, resolved here): a bare 2:3 /
   // 1:1 / 16:9 mix means three different tile heights in the same row once
   // video spans two grid columns. Rather than force every kind into one
   // shape, the OUTER media box gets a fixed aspect per column-span instead:
@@ -150,7 +150,7 @@ export function CoverCard({
           aria-label={`Open ${book.title}`}
           className="absolute inset-0 text-left focus-visible:outline-2 focus-visible:outline-accent"
         >
-          {/* The shared-layout target for the cover → reader morph (brief 32) —
+          {/* The shared-layout target for the cover → reader morph —
               matched on the reader side by the identical `coverLayoutId`. Book-
               only: audio/video open into `MediaRoute`, which has no matching
               element, so a `layoutId` there would never pair with anything —
@@ -183,7 +183,7 @@ export function CoverCard({
           )}
         </button>
 
-        {/* Offline downloads are books-only for v1 (brief 23's grilled
+        {/* Offline downloads are books-only for v1 (the media library's grilled
             decision) — the toggle is simply omitted for media, regardless of
             what the caller passed. */}
         {offline && kind === "book" && (
@@ -223,7 +223,7 @@ export function CoverCard({
         </div>
 
         {/* Per-card overflow → delete (design.md: quiet, appears on hover/focus).
-            Base UI's Menu (D22, brief 98), so it works from the keyboard: Enter,
+            Base UI's Menu (D22), so it works from the keyboard: Enter,
             Space or ArrowDown on the trigger opens it on the first item, the
             arrows move, Enter or Space runs an item, Esc closes and returns to
             the trigger. Not modal, so a click outside still reaches the page. */}
@@ -238,7 +238,7 @@ export function CoverCard({
           <Menu.Portal>
             <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-50">
               <Menu.Popup className="w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised font-ui shadow-lift outline-none">
-                {/* Brief 100: the on-request lookup, music and books only. */}
+                {/* The metadata lookup: the on-request lookup, music and books only. */}
                 {lookupSource && (
                   <Menu.Item
                     disabled={lookupDisabled}
@@ -254,7 +254,7 @@ export function CoverCard({
                     {lookupDisabled ? "Look up (requires connection)" : "Look up…"}
                   </Menu.Item>
                 )}
-                {/* Brief 82: queue a song on the Discord bot. One Player is one
+                {/* The Jukebox page: queue a song on the Discord bot. One Player is one
                     item; several are listed by guild name under a caption. */}
                 {discordPlayers.length === 1 && (
                   <Menu.Item
@@ -322,7 +322,7 @@ export function CoverCard({
  * cropped (mp3 art is 400×400; distorting or cropping it would fight the
  * "no distortion" rule) — or the typographic fallback when absent; `video`
  * shows its stored cover the same way, centered and letterboxed inside its
- * 4:3 box (brief 42/D40): a stored frame's native aspect is arbitrary (a
+ * 4:3 box (video covers/D40): a stored frame's native aspect is arbitrary (a
  * portrait poster, a 16:9 frame, ...) and the server-side geometry
  * (`toVideoThumbnail`, extract.ts) shrinks to fit rather than cropping, so the
  * card must not force it to fill 4:3 either — or the typographic fallback
@@ -340,7 +340,7 @@ export function CoverArt({
   onImgError: () => void;
 }) {
   const kind = book.kind ?? "book";
-  // `hasCover` is a disk check (brief 41) — true for any kind once a cover
+  // `hasCover` is a disk check — true for any kind once a cover
   // file exists at its derived path. Video is no longer excluded (brief
   // 42/D40): a stored video cover (today, a tagged file's embedded art;
   // later, an upload/playback capture) renders like any other kind's.

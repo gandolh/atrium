@@ -7,7 +7,7 @@ import {
 import { RateGate, fetchJson } from "./lookup-http.js";
 
 /**
- * The MusicBrainz client (brief 100): a recording search, mapped onto the
+ * The MusicBrainz client: a recording search, mapped onto the
  * library's fields, and the Cover Art Archive URL for a match's cover.
  *
  * MusicBrainz asks for at most one request a second from a client; every

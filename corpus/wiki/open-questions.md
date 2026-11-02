@@ -1,6 +1,6 @@
 ---
 summary: The genuinely unresolved threads only — each deleted the moment it's answered (history lives in status.md + log.md). Nothing open as of 2026-10-28: the Jellyfin study's four questions are D59.
-updated: 2026-10-28
+updated: 2026-11-02
 ---
 
 # Open Questions
@@ -25,8 +25,8 @@ D34, stands in for them.
 **All three long-running threads were grilled with the owner on 2026-08-27 and
 are now decisions, not questions** — see **D39** and **D40** in
 [decisions.md](decisions.md), specified as
-[brief 41](../briefs/done/41-storage-paths.md) and
-[brief 42](../briefs/done/42-video-covers.md):
+the storage-paths work (2026-08-27) and
+video covers (2026-08-28):
 
 - ~~**One concept, two names: `progress` vs `fraction`.**~~ Closed 2026-08-27 →
   renamed in the offline store at IndexedDB v5 (D39). The corpus had this
@@ -39,7 +39,7 @@ are now decisions, not questions** — see **D39** and **D40** in
 - ~~**Library file paths are not sandboxable for testing.**~~ Closed
   2026-08-27 → all three storage roots become env overrides, so a scratch
   database and scratch files finally move together (D39). This is the thread
-  that **cost a real book** on 2026-08-25. Brief 41 shipped, so the roots are
+  that **cost a real book** on 2026-08-25. The storage-paths work (2026-08-27) shipped, so the roots are
   redirectable now — but the practice stands regardless, because a control only
   helps when it is used: redirect **every** root at a scratch base together, and
   to test a destructive path upload a throwaway fixture and act on that, never on
@@ -49,17 +49,17 @@ are now decisions, not questions** — see **D39** and **D40** in
 
 **No data was lost, and the cause is worth more than the outcome.**
 
-Verifying briefs 40 and 43 in a browser needs the app running, so all five
+Verifying the math work and coverless tiles in a browser needs the app running, so all five
 storage roots were redirected at a scratch base — the control D39 created — and
 written to a `env.sh` in the session scratchpad. The session was then
 interrupted by a quota limit. **On resuming, the scratchpad had been wiped**, so
 `. env.sh` failed, the `export`s never ran, and the dev servers started with
 their *default* roots: the real database, the real files, the real thumbnails.
 
-That boot applied briefs 34 and 41's pending migrations to the real library.
+That boot applied the convert work and the storage-paths work's pending migrations to the real library.
 Those migrations were already designed to run on the owner's next boot and had
 been tested end to end against a copy (see
-[brief 41](../briefs/done/41-storage-paths.md)), and they converged exactly as
+the storage-paths work (2026-08-27)), and they converged exactly as
 predicted: **5 books, 9 files, 7 thumbnails, 3 users, 4 profiles, 9 progress
 rows and 2 notes all intact**, `converted_from` added and `file_path` dropped.
 So the damage was nil and the migration was arguably due — but it was

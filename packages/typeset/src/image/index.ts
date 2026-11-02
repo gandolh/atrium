@@ -74,7 +74,7 @@ import type { HBox, ImageNode } from "../layout/model.ts";
 /** The project as `compile()` received it: project-relative path → raw bytes. */
 export type ImageFiles = Readonly<Record<string, Uint8Array>>;
 
-/** The formats brief 39 implements. Anything else is a diagnostic naming it. */
+/** The formats the figures, tables and bibliography work implements. Anything else is a diagnostic naming it. */
 export type ImageFormat = "png" | "jpeg";
 
 /**

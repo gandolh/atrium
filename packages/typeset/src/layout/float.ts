@@ -39,7 +39,7 @@ import { glue } from "./model.ts";
  * float needs no new node kind in `layout/model.ts`, and a document with no
  * floats takes byte-for-byte the path it took before this chunk existed.
  *
- * **The one thing a float may never be is quiet.** Brief 39 names it and D38's
+ * **The one thing a float may never be is quiet.** The figures, tables and bibliography work names it and D38's
  * failure contract demands it: a float that cannot be placed is a diagnostic,
  * reported at the float's own `loc`, never a page that silently comes up one
  * figure short. See `page.ts`'s end-of-document sweep for the other half.

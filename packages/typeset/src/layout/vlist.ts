@@ -106,7 +106,7 @@ export interface LayoutContext {
    * Floats discovered while building, keyed by the marker that rides in the
    * vertical list where the author wrote them — the same mechanism as
    * `footnotes` above, which is why deferring a float needs no new node kind.
-   * `layout/page.ts` (chunk 39.4) is what reads this.
+   * `layout/page.ts` is what reads this.
    */
   floats: Map<string, PreparedFloat>;
   /**
@@ -313,7 +313,7 @@ function pushBox(col: Column, box: HBox | VBox, baselineSkip: number, left: numb
   const prefix = col.pendingPrefix;
   col.pendingPrefix = null;
 
-  // `HBox | VBox` because a `tabular` (chunk 39.3) and a float (chunk 39.4) are
+  // `HBox | VBox` because a `tabular` and a float are
   // vertical boxes appended exactly as a set line is; every field read below is
   // common to both, and `hpack` already takes either as horizontal material.
   let placed: HBox | VBox = box;
@@ -502,7 +502,7 @@ function inlinesToHList(inlines: readonly Inline[], ctx: LayoutContext, opts: In
         break;
       default: {
         /*
-         * **The reason chunk 40.4 exists.** Brief 40's chunk 40.3 added `math`
+         * **The reason chunk 40.4 exists.** The math work's spec added `math`
          * to the `Inline` union and this switch grew no arm for it — and
          * because the switch is a statement whose arms return nothing, TypeScript
          * had nothing to complain about. Every `$x^2$` in every document then
@@ -541,7 +541,7 @@ function appendImage(out: HList, image: ImageInline, ctx: LayoutContext, opts: I
  * `$…$`, set and dropped into the horizontal list — the same shape as an image
  * and for the same reason: a formula is one rigid, unbreakable box that takes
  * part in line breaking like a very wide word (line breaking *inside* math is
- * explicitly Out, brief 40).
+ * explicitly Out).
  *
  * **The `ex` is taken from the run's own surrounding face**, resolved here at
  * `opts.size`. That is the detail the whole placement turns on: MathJax reports
@@ -1471,10 +1471,10 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
   return { number: note.number, list: col.list, height: measureNodes(col.list, "v").natural, loc: note.loc };
 }
 
-// --- brief 39: floats, tables, images, bibliography ------------------------
+// --- the figures, tables and bibliography work: floats, tables, images, bibliography ------------------------
 
 /*
- * The vertical list's side of brief 39's syntax half (chunk 39.1). Each of the
+ * The vertical list's side of the figures, tables and bibliography work's syntax half. Each of the
  * three capabilities below is a *seam*: this file works out what the material
  * is, how wide it may be and which faces are in force, then hands that to the
  * file whose chunk owns the capability. None of them can be filled in from
@@ -1483,7 +1483,7 @@ function prepareFootnote(note: FootnoteInline, ctx: LayoutContext): PreparedFoot
  * between this file and `float.ts`/`table.ts` would be a real cycle.
  */
 
-/** Everything `layout/float.ts` (chunk 39.4) needs, including this file's own setters. */
+/** Everything `layout/float.ts` needs, including this file's own setters. */
 function floatContext(ctx: LayoutContext, env: BlockEnv): FloatContext {
   return {
     design: ctx.design,
@@ -1509,7 +1509,7 @@ function floatContext(ctx: LayoutContext, env: BlockEnv): FloatContext {
   };
 }
 
-/** Everything `layout/table.ts` (chunk 39.3) needs, including this file's own setters. */
+/** Everything `layout/table.ts` needs, including this file's own setters. */
 function tableContext(ctx: LayoutContext, env: BlockEnv): TableContext {
   return {
     design: ctx.design,
@@ -1566,7 +1566,7 @@ function displayMathContext(ctx: LayoutContext, face: TextFace, env: BlockEnv): 
   };
 }
 
-/** Everything `src/image/` (chunk 39.2) needs to place one graphic. */
+/** Everything `src/image/` needs to place one graphic. */
 function imageContext(ctx: LayoutContext, size: number, measure: number): ImageContext {
   return {
     design: ctx.design,
@@ -1661,12 +1661,12 @@ function layoutDisplayMath(block: DisplayMathBlock, col: Column, ctx: LayoutCont
 
 /**
  * The reference list. `BibliographyBlock.content` is ordinary blocks, produced
- * by `doc/bib.ts` (chunk 39.5) — so there is no bibliography *content* layout
+ * by `doc/bib.ts` — so there is no bibliography *content* layout
  * here at all, by design: a numbered reference list is paragraphs with a
  * hanging label, and this file already sets those through the ordinary `list`
  * arm (`referenceList` in `doc/bib.ts` hands back an `enumerate`).
  *
- * What *is* this function's job (brief 47): the label column's width.
+ * What *is* this function's job: the label column's width.
  * `\begin{thebibliography}{widestLabel}`'s argument is the widest label real
  * LaTeX will print, and `\thebibliography`'s own definition
  * (`\settowidth\labelwidth{\@biblabel{#1}}`) sizes `\labelwidth` — and so

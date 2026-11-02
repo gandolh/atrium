@@ -3,7 +3,7 @@ import { MOTION_MS } from "../../lib/motion";
 /**
  * Running orientation header — the top row of BOTH readers' 3-row grid
  * (wiki/reader.md: "orientation lives at the edges"). Extracted from the EPUB
- * reader (chunk 14) so PDF and EPUB present the SAME frame: same treatment,
+ * reader so PDF and EPUB present the SAME frame: same treatment,
  * same fade, so only the page content differs.
  *
  * In-flow (not overlaid): it keeps its grid row so the content column never

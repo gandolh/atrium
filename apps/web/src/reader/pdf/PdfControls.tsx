@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ToolbarButton } from "../chrome";
 
 /**
- * PDF-specific toolbar controls (brief 06), split into the toolbar's two
+ * PDF-specific toolbar controls, split into the toolbar's two
  * semantic groups (2026-07-16 UI review, track C — the bar reads as
  * *navigation | view | position* instead of Home alone in a corner):
  *
@@ -25,7 +25,7 @@ export function PdfNavControls({
   /** Only render the TOC button when the PDF has an outline (open-question resolution). */
   hasToc: boolean;
   onOpenToc: () => void;
-  /** Open the shared in-book search panel (brief 07, additive). */
+  /** Open the shared in-book search panel (additive). */
   onOpenSearch: () => void;
 }) {
   return (

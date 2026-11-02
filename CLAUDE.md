@@ -25,6 +25,14 @@ corpus/
 ## Conventions (load-bearing)
 
 - **Brief numbers are stable** — never renumber when a brief moves dirs.
+  Briefs run in number order; `corpus/wiki/status.md` doesn't list them.
+- **Numbering restarted at 01 on 2026-11-02.** The hundred briefs before that
+  were folded into the wiki and deleted; the last commit holding them is
+  `cd7925f` (`corpus/log.md`, "Briefs reset").
+- **Code comments and test titles don't cite brief numbers** ("brief 38",
+  "(brief 40)"), atrium's, Ward's or just-a-bot's. Say what the code does and
+  why, or give the date; the history belongs in `corpus/log.md`. The typesetting
+  engine's scope is [`corpus/wiki/typeset-scope.md`](corpus/wiki/typeset-scope.md).
 - **Every wiki page carries `summary:` + `updated:` frontmatter.** `summary:` is
   the retrieval signal — written for an agent deciding whether to open the page,
   not as a title. `corpus/index.md`'s wiki catalog is **generated** from those summaries
@@ -32,7 +40,7 @@ corpus/
 - **Retrieval budget (a rule, not advice):** read `corpus/index.md`, triage on the
   summaries, then open **at most 2–3 wiki pages**. Needing more is a signal a
   page is straddling topics and must split. Never read `corpus/briefs/`
-  wholesale — `corpus/wiki/status.md` holds each brief's state in one line.
+  wholesale — `corpus/wiki/status.md` holds a dated line per area.
 - **One work queue: `corpus/briefs/`. There is no `todos/`** — it was merged into
   `briefs/todo/` on 2026-08-29 and must not be recreated (the corpus-flow skill
   will otherwise bootstrap it back). Capture and spec are the same act here: a new
@@ -75,8 +83,7 @@ corpus/
 
 **Atrium** — a personal **media gallery** with **per-person profiles** inside
 accounts and a **shared persistent library**: books (PDF/EPUB), music (MP3)
-and video (MP4/WebM), plus a **Notes** tab of per-profile paged notebooks (D32,
-briefs 24–26).
+and video (MP4/WebM), plus a **Notes** tab of per-profile paged notebooks (D32).
 Upload an item → it's saved (server-side SQLite) with a server-extracted cover →
 reopen from its per-kind area (`/books` `/music` `/videos` `/notes`) any time.
 Books read 100% client-side (react-pdf, react-reader/epub.js); the Fastify

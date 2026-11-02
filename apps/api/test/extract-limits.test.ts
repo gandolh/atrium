@@ -5,7 +5,7 @@ import { extractMeta } from "../src/modules/library/extract.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 import { CONTAINER, buildZip, opf, pngHeaderOnly, type EntryContent } from "./zip-builder.js";
 
-// Brief 64: EPUB extraction inflated three entries with no ceiling but the one
+// EPUB extraction inflated three entries with no ceiling but the one
 // each entry declares. A truthful zip bomb declares its size honestly, and
 // `inflateRawSync` blocks the event loop while it inflates. Each entry is now
 // refused on its declared size before anything is inflated.

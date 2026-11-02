@@ -24,7 +24,7 @@ import {
 } from "./notes.model.js";
 
 /**
- * Note and folder rules (briefs 26, 50).
+ * Note and folder rules.
  *
  * Everything here takes a `profileId` as its first argument and passes it into
  * every lookup. That is the authorisation, not a filter: a note id is
@@ -43,14 +43,14 @@ export async function listProfileNotes(profileId: string): Promise<NoteSummaryRo
   return listNotes(profileId);
 }
 
-/** How many notes a profile has. The profiles module's delete checks call this (brief 66). */
+/** How many notes a profile has. The profiles module's delete checks call this. */
 export async function countProfileNotes(profileId: string): Promise<number> {
   return countNotes(profileId);
 }
 
 /**
  * Move a profile's notes, folders with them, to another profile before it is
- * deleted (brief 35 decision 3). Here so the profiles module reaches the notes
+ * deleted. Here so the profiles module reaches the notes
  * module through its service, as api-layering.md requires.
  */
 export async function reassignProfileNotes(fromProfileId: string, toProfileId: string): Promise<number> {
@@ -174,7 +174,7 @@ export async function updateFolder(
   fields: { name?: string; parentId?: string | null },
 ): Promise<UpdateFolderResult> {
   // The check and the write are one transaction in the model: done as two
-  // awaits here, two opposite moves could both pass the check (brief 68).
+  // awaits here, two opposite moves could both pass the check.
   return updateNoteFolder(profileId, id, fields);
 }
 

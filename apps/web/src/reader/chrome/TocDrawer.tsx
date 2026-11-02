@@ -6,7 +6,7 @@ import { useChromeHold } from "./use-auto-hide-chrome";
 /**
  * A single entry in the shared table-of-contents (wiki/reader.md "Table of
  * contents drawer"). Format-agnostic: PDF derives these from the PDF outline
- * (page targets); EPUB (brief 07) derives them from the spine/nav (CFI/href
+ * (page targets); EPUB derives them from the spine/nav (CFI/href
  * targets). The `target` is opaque to the drawer — the reader supplies an
  * `onNavigate` that knows how to resolve it.
  */
@@ -24,7 +24,7 @@ export interface TocEntry {
  * reader owns open/close state (it also owns the toolbar button that toggles
  * it) and passes the flattened entries + a navigate callback.
  *
- * PDF-specific note (brief 06): the reader only renders the TOC toolbar button
+ * PDF-specific note: the reader only renders the TOC toolbar button
  * when the PDF exposes an outline; if there's no outline, `entries` is empty
  * and the reader hides the control entirely (see wiki open question resolution:
  * "PDF gets TOC only when an outline exists").

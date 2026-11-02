@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { fetchCatalog, importCatalogBook, type CatalogQuery } from "./discover-api";
 
 /**
- * TanStack Query hooks for the `/discover` catalog (brief 22b). The client
+ * TanStack Query hooks for the `/discover` catalog. The client
  * cache here layers over the server's own 15-minute TTL cache (chunk 22a) —
  * a repeat search inside a render still hits the network once, but the two
  * caches together mean a user paging back and forth rarely re-hits Gutendex.

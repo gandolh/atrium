@@ -53,7 +53,7 @@ const ESCAPED_CHARS = new Set(["%", "&", "_", "#", "$", "{", "}"]);
  * which is why `equation`/`equation*`/`align`/`align*`/`gather`/
  * `displaymath`/`math` were all reported as `undefined-environment` ("not a
  * thing at all") instead of `unsupported` ("real LaTeX, deliberately not
- * implemented — brief 40"), exactly backwards for the most common math
+ * implemented — the math work"), exactly backwards for the most common math
  * construct in LaTeX. It also meant a diagnostic's `construct` field held
  * that raw object rather than a string, breaking the shared `Diagnostic`
  * schema (`construct: z.string().optional()` in

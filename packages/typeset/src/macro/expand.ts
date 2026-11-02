@@ -6,7 +6,7 @@ import { spend } from "./budget.ts";
 import { DEFINITION_COMMANDS, FORMATTING_HOOKS, isKnownCommand } from "./builtins.ts";
 
 /**
- * `\newcommand` expansion (brief 37, chunk 6).
+ * `\newcommand` expansion.
  *
  * **The central mechanic, and why it is unusual.** The parser is stateless: it
  * only fills in `args` for commands in `@unified-latex`'s CTAN catalog, so a

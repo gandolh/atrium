@@ -1,6 +1,6 @@
 ---
 summary: The project's vocabulary — one canonical name per concept Atrium uses in a specific way, with the synonyms it displaces; the page that stops the same thing being called three names.
-updated: 2026-10-13
+updated: 2026-11-02
 ---
 
 # Glossary
@@ -21,7 +21,7 @@ media kinds. Shared across accounts and profiles; progress, notes and preference
 _Avoid_: collection, shelf, gallery, catalog
 
 **Shelves / Stacks** _(retired 2026-08-24, D33)_:
-Brief 21's two grouped-gallery arrangements; UI removed, its backfilled
+Library grouping's two grouped-gallery arrangements; UI removed, its backfilled
 author/series/subject columns now feed search and chips. Listed so the names are
 recognised in old briefs, not revived.
 
@@ -37,7 +37,7 @@ always this narrow one.
 _Avoid_: ebook, document, title, publication
 
 **Media kind**:
-One of `book` | `audio` | `video`, derived from the format at upload (brief 23).
+One of `book` | `audio` | `video`, derived from the format at upload (2026-07-16).
 The axis the areas and card shapes are cut along.
 _Avoid_: media type, content type, category
 
@@ -71,7 +71,7 @@ _Avoid_: player bar, mini player, footer, now-playing bar, Player (a Jukebox ter
 
 **Discover**:
 The `/discover` page for browsing Project Gutenberg through the API's Gutendex
-proxy and importing an EPUB into the library (brief 22).
+proxy and importing an EPUB into the library (2026-07-16).
 _Avoid_: store, search, browse, catalog (that is the shared contract module and
 the upstream data, not the page)
 
@@ -123,7 +123,7 @@ Reopening an item at its stored locator rather than at the start.
 _Avoid_: continue, restore, seek
 
 **Reading mode**:
-The paged ⇄ scroll toggle (brief 11), persisted to localStorage. Not the colour
+The paged ⇄ scroll toggle (2026-07-13), persisted to localStorage. Not the colour
 theme and not the font settings.
 _Avoid_: view mode, layout, display mode
 
@@ -134,7 +134,7 @@ _Avoid_: toolbar, controls, UI, frame
 
 **Progress rail**:
 The scrubbable bar along the reader's bottom edge (chapter ticks, hover tooltip,
-drag-to-seek; brief 08). Shared chrome — both readers mount it.
+drag-to-seek; the progress rail (2026-07-07)). Shared chrome — both readers mount it.
 _Avoid_: scrubber, slider, seek bar, progress bar (that is the cover's)
 
 ## Access
@@ -153,7 +153,7 @@ _Avoid_: login token, auth token, API key
 
 **Download**:
 An explicit, user-initiated copy of one item into IndexedDB so it reads with zero
-connectivity (brief 20). Always deliberate — nothing is downloaded automatically.
+connectivity (2026-07-16). Always deliberate — nothing is downloaded automatically.
 See [pwa.md](pwa.md).
 _Avoid_: cache, sync, save, offline mode
 

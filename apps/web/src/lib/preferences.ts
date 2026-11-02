@@ -5,7 +5,7 @@ import { fetchPreferences, updatePreferences } from "./profiles-api";
 
 /**
  * Owns the preferences blob's shape, the boot cache, and the debounced
- * server write (brief 35, D35 — revises D9 for preferences only). Consumed by
+ * server write (D35 — revises D9 for preferences only). Consumed by
  * `reader-store.ts`, which is the only other file that imports this one;
  * nothing under `reader/**`/`player/**` or any chunk-7 UI needs to know this
  * module exists — a profile switch (`useAuthStore`'s `activeProfile` changing)

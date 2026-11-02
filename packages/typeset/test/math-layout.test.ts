@@ -8,10 +8,10 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
 import { defaultDesign } from "../src/layout/design.ts";
 
 /**
- * Brief 40, chunk 40.4: placing a set formula on the page.
+ * The math work's spec: placing a set formula on the page.
  *
  * The bridge (40.2) and the emitter (40.1) each have their own suite; this one
- * is about the *seam between the engine and them* — which is where brief 40's
+ * is about the *seam between the engine and them* — which is where the math work's
  * math went missing once already, and the reason several assertions below look
  * paranoid.
  *
@@ -132,7 +132,7 @@ test("a display is centred in the text measure", () => {
 });
 
 test("inline math sits on the baseline of the line it is in, across a whole paragraph", () => {
-  // Brief 40 calls this "the detail that betrays a bad implementation", and
+  // The math work calls this "the detail that betrays a bad implementation", and
   // says to verify it on a full page of prose rather than a single line — a
   // constant offset error is invisible on one line and obvious over many.
   // A formula hangs below its baseline, so a placed item's `y` (its TOP edge)
@@ -210,7 +210,7 @@ test("a display wider than the text width is a diagnostic, not a silent overrun"
   assert.equal(overfull[0]!.severity, "warning", "an overrun is visible and fixable, so it warns rather than refusing");
   assert.match(overfull[0]!.message, /wider than/);
 
-  // Warned about, but still placed: brief 39 set the precedent that an oversized
+  // Warned about, but still placed: the figures, tables and bibliography work set the precedent that an oversized
   // box the author can see beats one that is nowhere.
   assert.equal(mathItems(result).length, 1, "an overrunning display is still set");
 });
@@ -240,7 +240,7 @@ test("a prose-only document still compiles with no renderer supplied", () => {
 test("per-line numbering in a multi-line display is reported, not quietly skipped", () => {
   // A known gap: `\begin{align}` goes to MathJax as ONE run, so the per-line
   // baselines live inside a single SVG and cannot be recovered from its
-  // container attributes. Brief 40 asks for per-line numbering, so this falls
+  // container attributes. The math work asks for per-line numbering, so this falls
   // short of the brief — and the contract that matters is that it SAYS so.
   const result = run("\\begin{align}\na &= b \\\\\nc &= d\n\\end{align}");
   const said = result.diagnostics.filter((d) => d.code === "unsupported");

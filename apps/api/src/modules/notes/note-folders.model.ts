@@ -3,7 +3,7 @@ import { knex } from "../../database/knex.js";
 
 /**
  * Data access for `note_folders` — the per-profile tree notes are filed into
- * (brief 50). A folder is a ROW with a `parent_id`, never a path string, and
+ * A folder is a ROW with a `parent_id`, never a path string, and
  * the **root is `parent_id IS NULL`**: there is no root row, so an untouched
  * profile simply has no folders.
  */
@@ -89,7 +89,7 @@ export type UpdateNoteFolderResult =
 
 /**
  * Rename and/or re-parent a folder, the cycle check and the write as **one
- * transaction** (brief 68).
+ * transaction**.
  *
  * The check used to be a separate await before the write. Two opposite moves (A
  * under B from one device, B under A from another) both passed the ancestry
@@ -129,7 +129,7 @@ export async function updateNoteFolder(
 }
 
 /**
- * Delete one folder, lifting everything it held to its parent first (brief 50
+ * Delete one folder, lifting everything it held to its parent first (note folders
  * rule 5: **deleting a folder must never delete a notebook**).
  *
  * The lift is not a courtesy — `note_folders.parent_id` carries no `ON DELETE`
@@ -160,7 +160,7 @@ export async function deleteNoteFolder(profileId: string, id: string): Promise<b
  * Hand every note and folder of one profile to another, returning the number of
  * notes moved.
  *
- * This is what brief 35 decision 3 requires before a profile can be deleted:
+ * This is what the profiles work's spec requires before a profile can be deleted:
  * notes are *authored*, so they move rather than cascade away (`ON DELETE
  * RESTRICT` on both tables makes forgetting that a loud constraint error).
  *

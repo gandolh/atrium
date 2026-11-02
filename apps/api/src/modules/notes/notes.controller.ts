@@ -28,7 +28,7 @@ import {
 } from "./notes.service.js";
 
 /**
- * HTTP for notes and note folders (briefs 26, 50). Per-profile since brief 35
+ * HTTP for notes and note folders. Per-profile since the profiles work
  * (D35, decision 3): every handler passes `request.authProfile` into the
  * service, and the app-wide guard has already 401'd anything without one, so no
  * route here does its own auth.
@@ -38,7 +38,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
   const pid = (request: FastifyRequest): string => request.authProfile!.id;
 
   /**
-   * The note body routes' size ceiling (brief 56). An autosave carries the whole
+   * The note body routes' size ceiling. An autosave carries the whole
    * notebook, so Fastify's 1 MiB default was a wall a real notebook would hit.
    * Over the cap the answer is a stable code the editor can name, not
    * Fastify's generic 413, because "this note is too large to save" is the one
@@ -74,7 +74,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
   });
 
   /**
-   * PDF export (brief 49) — all pages, vector, rendered by `note-pdf.service`.
+   * PDF export — all pages, vector, rendered by `note-pdf.service`.
    *
    * It reads the note through the profile-scoped `readNote`, exactly like
    * `GET /notes/:id` above: the profile scope is part of the lookup, not a
@@ -123,7 +123,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
   /**
    * File a note into a folder — `{"folderId": null}` lifts it back to the root.
    *
-   * Its own route rather than a field on `PATCH /notes/:id` (brief 50): that
+   * Its own route rather than a field on `PATCH /notes/:id`: that
    * route is the editor's autosave, firing many times a minute with the whole
    * page set, and a move must not be something a save can undo by racing it.
    */
@@ -137,7 +137,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
   });
 
   /* -----------------------------------------------------------------------
-   * Note folders (brief 50)
+   * Note folders
    *
    * Mounted at `/note-folders`, NOT `/notes/folders`. Fastify would in fact
    * route the static segment ahead of `/notes/:id`, but a resource whose

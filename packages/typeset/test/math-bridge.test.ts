@@ -7,7 +7,7 @@ import type { MathRenderer, MathResult } from "../src/math/index.ts";
 import type { Diagnostic, SourceRef } from "../src/index.ts";
 
 /**
- * Brief 40, chunk 40.2: the MathJax bridge and the subset gate (D41).
+ * The math work's spec: the MathJax bridge and the subset gate (D41).
  *
  * Three things are under test, and they fail in very different ways:
  *
@@ -229,7 +229,7 @@ test("the gate reads the MathML, so a macro cannot hide an out-of-subset constru
 });
 
 test("in-subset constructs render with no diagnostic at all", () => {
-  // One case per bullet of brief 40's "In" list. This is the other half of the
+  // One case per bullet of the math work's "In" list. This is the other half of the
   // gate's job: an allowlist that refuses correct input is a bug, not caution.
   const inSubset = [
     "x^2 + y_1 - z_{a}^{b}",
@@ -419,7 +419,7 @@ test("rendering is deterministic", () => {
 test("the whole symbol sweep renders synchronously — no font range loads lazily", () => {
   // The guard on `FONT_WARMUP`. MathJax v4 loads New Computer Modern in dynamic
   // ranges, and a cold `\mathbb{R}` *throws* rather than draws. `render()` is
-  // synchronous by contract, so every range brief 40's In list can reach has to
+  // synchronous by contract, so every range the declared scope can reach has to
   // be in memory before a caller ever gets the renderer.
   //
   // A range the warm-up misses shows up here as a diagnostic mentioning a load —
@@ -461,8 +461,8 @@ test("a run is always exactly one <svg> — MathJax's own line breaking is off",
   // separated by `<mjx-break>` inside one container. Measured: this expression
   // came back as seven children before `linebreaks: { inline: false }`.
   //
-  // Brief 40 puts line breaking inside math explicitly out of scope, Atrium
-  // already breaks lines with Knuth-Plass over its own boxes, and brief 40's
+  // The math work puts line breaking inside math explicitly out of scope, Atrium
+  // already breaks lines with Knuth-Plass over its own boxes, and the math work's
   // overrun check needs one unbroken width to measure against the text block.
   // A pre-broken run would quietly defeat all three.
   const wide =

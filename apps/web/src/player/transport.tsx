@@ -5,7 +5,7 @@ import { formatTime } from "./format-time";
 
 /**
  * The transport vocabulary shared by the persistent dock (`PlayerDock`) and the
- * full-surface audio view (`AudioPlayer`), brief 31. Both drive the same store,
+ * full-surface audio view (`AudioPlayer`), the player dock. Both drive the same store,
  * so they must also *look* like the same instrument — one definition of the
  * play button, the ±15s skips, the scrub track and the time readout rather than
  * two that drift.

@@ -8,8 +8,8 @@ import { migrationSource } from "../src/database/migrations/index.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 /**
- * Brief 81: the Jukebox API. The bot signs in with `{atrium: ["jukebox"]}`
- * (brief 80); a person has the default grant.
+ * The Jukebox API. The bot signs in with `{atrium: ["jukebox"]}`
+ *; a person has the default grant.
  *
  * The Playlist below is one, two, three (artist A's album X, tracks 1 and 2,
  * then artist B), plus a Track only the delete test uses, sorted last.

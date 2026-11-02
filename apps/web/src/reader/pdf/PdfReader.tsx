@@ -45,7 +45,7 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.2;
 
-// Scroll-mode windowing (chunk 11): render real <Page> canvases only for pages
+// Scroll-mode windowing: render real <Page> canvases only for pages
 // within this many pages of the one at the top of the viewport; every other
 // page is a cheap, correctly-sized placeholder div. This keeps a large PDF from
 // mounting every page's canvas at once (memory) while preserving scrollbar
@@ -61,16 +61,16 @@ const PDF_EST_PAGE_HEIGHT = 800;
 const DOCUMENT_OPTIONS = {} as const;
 
 /**
- * PDF reader (brief 06). Wraps react-pdf (PDF.js) with the shared Kindle-style
+ * PDF reader. Wraps react-pdf (PDF.js) with the shared Kindle-style
  * chrome. Loads the in-memory `File` from Zustand (`loadedFile`, handed over by
- * the uploader — brief 05). Fixed-layout: pages are navigated, zoomed, and (for
+ * the uploader). Fixed-layout: pages are navigated, zoomed, and (for
  * "dark") colour-inverted rather than reflowed.
  *
  * Wiring to Zustand: `currentLocation` (page number), `zoom`, `theme`,
  * `chromeVisible`.
  */
 /**
- * The open row (brief 34), supplied by `read.tsx` which already resolved it.
+ * The open row, supplied by `read.tsx` which already resolved it.
  * Rendered as the convert status button / format switch in the format-adaptive
  * slot below. Passed as DATA, not a node, so `ConvertControl` stays inside this
  * lazily-loaded reader chunk instead of the entry chunk.
@@ -85,7 +85,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
   const theme = useReaderStore((s) => s.theme);
   const setTheme = useReaderStore((s) => s.setTheme);
   const chromeVisible = useReaderStore((s) => s.chromeVisible);
-  // Reading mode (chunk 11): "scroll" stacks every page in one vertical scroll.
+  // Reading mode: "scroll" stacks every page in one vertical scroll.
   const pageMode = useReaderStore((s) => s.pageMode);
   const isScroll = pageMode === "scroll";
 
@@ -208,7 +208,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
     return label;
   }, [tocEntries, currentPage]);
 
-  // Chapter ticks for the scrub rail (brief 08): top-level outline entries that
+  // Chapter ticks for the scrub rail: top-level outline entries that
   // resolved to a page. Empty (tickless rail) when the PDF has no outline.
   const railTicks = useMemo<RailTick[]>(() => {
     if (!numPages) return [];
@@ -431,7 +431,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
     [goToPage],
   );
 
-  // In-book search (brief 07, additive): search-on-demand over the PDF.js text
+  // In-book search (additive): search-on-demand over the PDF.js text
   // layer. Provider is bound to the loaded document; jumping sets the page.
   const searchProvider = useMemo(
     () => (pdfDoc ? createPdfSearchProvider(pdfDoc) : null),
@@ -493,7 +493,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
   }, [pageWidth, pageAspect]);
 
   return (
-    // Same frame as the EPUB reader (chunk 14): a reading pane laid out as a
+    // Same frame as the EPUB reader: a reading pane laid out as a
     // 3-row grid — running header / content / toolbar. Wrapped in the same
     // `flex bg-reader-bg` shell so both formats share background + framing;
     // only the page content differs (fixed-layout canvas vs reflowed column).
@@ -664,7 +664,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
             </>
           }
           // The `formatControls` slot IS the format-adaptive seam — PDF fills it
-          // here; brief 07 fills it with EPUB font/theme controls (same shell).
+          // here; the EPUB reader fills it with EPUB font/theme controls (same shell).
           formatControls={
             // Append the reading-mode toggle alongside PdfViewControls in the middle
             // cluster (mirrors the EPUB reader) without editing shared PdfControls.

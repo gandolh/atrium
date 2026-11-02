@@ -17,13 +17,13 @@ import { kindForFormat, type FileType } from "@ebook-reader/shared";
  * - PDF: render page 1 to a raster via `pdf-to-img` (bundled pdfjs + canvas,
  *   no system deps), and read the doc's Info `Title` / `Author` /
  *   `Subject` + `Keywords` (subjects). No series metadata in a PDF Info dict.
- * - Media (mp3/mp4/webm, brief 23): `music-metadata` `parseBuffer`. mp3 maps
+ * - Media (mp3/mp4/webm): `music-metadata` `parseBuffer`. mp3 maps
  *   ID3 tags onto the book columns (artist→author, album→series, track→series
  *   index, genre→subjects) and normalizes embedded art to a SQUARE cover;
  *   mp4/webm yield `format.duration` plus any embedded `covr` art, normalized
- *   to its NATIVE aspect inside a 640px bound rather than cropped (brief 42).
+ *   to its NATIVE aspect inside a 640px bound rather than cropped.
  *   That is tag-embedded art only — server-side frame extraction still needs
- *   the ffmpeg binary, which stays declined (brief 23/D40); a video with no
+ *   the ffmpeg binary, which stays declined (the media library/D40); a video with no
  *   embedded art gets no cover from this path.
  *
  * Every path is best-effort: extraction never throws to the caller — a book
@@ -43,7 +43,7 @@ const VIDEO_COVER_BOUND = 640;
 const COVER_QUALITY = 78;
 
 /*
- * Ceilings on what EPUB extraction will inflate (brief 64). An EPUB is a zip,
+ * Ceilings on what EPUB extraction will inflate. An EPUB is a zip,
  * and adm-zip caps an entry's inflation only at the size the entry DECLARES,
  * which the uploader writes. That stops a lying header, not a truthful zip
  * bomb: an entry that really inflates to gigabytes, says so, and compresses to
@@ -111,14 +111,14 @@ function toSquareThumbnail(image: Buffer): Promise<Buffer | null> {
     .catch(() => null); // corrupt/unsupported art → typographic fallback in UI
 }
 
-/** Video cover geometry — native aspect, shrunk to fit a 640px bound (brief 42
+/** Video cover geometry — native aspect, shrunk to fit a 640px bound (video covers
  *  D40). Unlike audio's fixed SQUARE crop, a video frame's shape is arbitrary
  *  (a portrait poster, a 16:9 frame, ...); `CoverCard` already letterboxes
  *  artwork inside video's 4:3 box, so cropping it here to force a shape would
  *  just fight that. `fit: "inside"` shrinks to fit without cropping or
  *  upscaling.
  *
- *  Exported because `POST /library/:id/cover` (brief 42 step 3) re-encodes the
+ *  Exported because `POST /library/:id/cover` re-encodes the
  *  browser-captured frame through this exact function rather than becoming a
  *  second definition of cover geometry. That re-encode is also what makes
  *  client-supplied bytes safe to store: EXIF, anything appended past the image
@@ -449,10 +449,10 @@ const MEDIA_MIME: Partial<Record<FileType, string>> = {
  *   cover — so the artist/album grouping (grouping.ts) works on music unchanged.
  * - mp4/webm: `format.duration`, plus the first embedded picture (a tagged
  *   file's `covr` atom), normalized to its NATIVE aspect inside a 640px bound
- *   instead of cropped to a square (brief 42/D40) — title/author/etc. stay
+ *   instead of cropped to a square (video covers/D40) — title/author/etc. stay
  *   filename-derived; mp4/webm carry no equivalent of ID3's text frames here.
  *   This is tag-embedded art only: server-side frame extraction still needs
- *   the ffmpeg binary, which stays declined (brief 23) — a video with no
+ *   the ffmpeg binary, which stays declined — a video with no
  *   embedded art gets no cover from this path.
  *
  * Best-effort: a parse failure returns the filename title with everything else
@@ -479,7 +479,7 @@ async function extractMedia(
     // Only mp3 carries the ID3 text tags we map onto book columns; mp4/webm
     // keep title=filename and author/series/subjects null — but embedded
     // picture art (below) is read for BOTH, so a tagged video's `covr` atom
-    // is no longer parsed and thrown away (brief 42/D40).
+    // is no longer parsed and thrown away (video covers/D40).
     if (format === "mp3") {
       const tagTitle = common.title?.trim();
       if (tagTitle) title = tagTitle;

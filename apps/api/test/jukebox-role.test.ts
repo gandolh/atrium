@@ -8,7 +8,7 @@ import { knex } from "../src/database/knex.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 /**
- * Brief 80 (D55): an account whose only atrium role is `jukebox` is the Discord
+ * The jukebox role (D55): an account whose only atrium role is `jukebox` is the Discord
  * bot, and it reaches `/jukebox/*` plus the file and cover of `audio` items.
  * Everything else is 403 `JUKEBOX_ROLE_FORBIDDEN`, because the library has no
  * owners and a leaked bot password must not be able to delete it.
@@ -112,7 +112,7 @@ describe("the jukebox role", () => {
       assert.equal(part.rawPayload.length, 100);
     });
 
-    it("streaming a song records no open; a member's request still does (brief 97)", async () => {
+    it("streaming a song records no open; a member's request still does", async () => {
       const openedAt = async () => (await knex("books").where({ id: "song" }).first()).last_opened_at as string | null;
       const before = await openedAt();
       for (const headers of [{ cookie: bot }, { cookie: bot, range: "bytes=100-199" }]) {
@@ -143,7 +143,7 @@ describe("the jukebox role", () => {
       forbidden(await t.app.inject({ method: "GET", url: "/library/film/cover", headers: { cookie: bot } }));
     });
 
-    it("reaches /jukebox/*, which is a 404 until brief 81", async () => {
+    it("reaches /jukebox/*, which was a 404 before the Jukebox API", async () => {
       const res = await t.app.inject({ method: "GET", url: "/jukebox/anything", headers: { cookie: bot } });
       assert.equal(res.statusCode, 404);
     });

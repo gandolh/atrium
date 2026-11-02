@@ -26,7 +26,7 @@ const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src/common (or
  * `package.json` is named `@ebook-reader/api`.
  *
  * Found by name rather than by counting `..`, because counting is what broke
- * (brief 53). Brief 52 moved this file one level down, into `common/`, and every
+ * The Knex layering moved this file one level down, into `common/`, and every
  * storage root and the `.env` path silently moved one level with it: the API
  * booted on a brand-new empty database while the real library sat beside it.
  * Walking to the package works from `src` under tsx and from the built `dist`
@@ -130,7 +130,7 @@ export const MAX_UPLOAD_MB = env.MAX_UPLOAD_MB;
 export const MAX_UPLOAD_BYTES = maxUploadBytesFromMb(MAX_UPLOAD_MB);
 
 /**
- * Ceiling on a library conversion job (D34, brief 34 decision 4). Defaults to
+ * Ceiling on a library conversion job (D34, the convert work's spec). Defaults to
  * 24 hours in `.env.example`, which looks absurd until you read it as what it
  * is: a **last-resort reaper, not a UX guard**. Nobody waits at the screen for
  * a conversion — the row says `running`, the client polls, and the person goes
@@ -156,7 +156,7 @@ export const DB_PATH = resolve(DATA_DIR, "library.db");
  * Original uploaded PDF/EPUB files: `library/<id>.<ext>`.
  *
  * Every storage root (`LIBRARY_DATA_DIR`, `LIBRARY_FILES_DIR`,
- * `THUMBNAILS_DIR`, and brief 38's `LATEX_PROJECTS_DIR` /
+ * `THUMBNAILS_DIR`, and the LaTeX editor's `LATEX_PROJECTS_DIR` /
  * `DOCUMENT_VERSIONS_DIR` below) is independently overridable via env, same
  * pattern as `DATA_DIR` above. Redirect them all together to point a
  * test/deploy at a scratch storage root, so a scratch database and scratch
@@ -172,9 +172,9 @@ export const THUMBNAILS_DIR = process.env.THUMBNAILS_DIR
   : resolve(API_ROOT, "images", "thumbnails");
 
 /**
- * LaTeX project working trees (brief 38): one directory per project, at
+ * LaTeX project working trees: one directory per project, at
  * `latex/<projectId>/`, holding the `.tex` sources plus any figures and `.bib`
- * files the editor uploaded. This is the **draft** side of brief 38 — live,
+ * files the editor uploaded. This is the **draft** side of the LaTeX editor — live,
  * mutable, never shown in the gallery.
  *
  * It is also the **confinement root** every path-accepting LaTeX route checks
@@ -186,7 +186,7 @@ export const LATEX_PROJECTS_DIR = process.env.LATEX_PROJECTS_DIR
   : resolve(API_ROOT, "latex");
 
 /**
- * Published version artifacts (brief 38 step 6): the per-version PDF and the
+ * Published version artifacts: the per-version PDF and the
  * zip of the project tree that produced it, at `versions/<versionId>.pdf` and
  * `versions/<versionId>.zip`. These are **immutable** once written — a version
  * is a snapshot — which is what makes them a different root from the mutable
@@ -194,7 +194,7 @@ export const LATEX_PROJECTS_DIR = process.env.LATEX_PROJECTS_DIR
  *
  * Both new roots are env-overridable for exactly the reason D39 gives: a
  * storage root that cannot be redirected cannot be tested destructively, which
- * is how brief 34's verification run permanently destroyed one of the owner's
+ * is how the convert work's verification run permanently destroyed one of the owner's
  * books on 2026-08-25. Redirect **all five** roots together at a scratch base
  * when pointing a test or a throwaway deploy somewhere safe — a scratch
  * database next to real files is the precise shape of that accident.
@@ -233,7 +233,7 @@ function numericOverride(name: string, fallback: number, integer = false): numbe
 }
 
 /**
- * Wall-clock ceiling on a LaTeX compile route (brief 38 step 3), in ms.
+ * Wall-clock ceiling on a LaTeX compile route, in ms.
  *
  * This is the **outer backstop, not the real guard**. The typesetting engine is
  * a pure function with a deterministic step budget (D38) — that budget is what
@@ -267,7 +267,7 @@ export const LATEX_MAX_PROJECT_MB = numericOverride("LATEX_MAX_PROJECT_MB", 50);
 export const LATEX_MAX_PROJECT_BYTES = maxUploadBytesFromMb(LATEX_MAX_PROJECT_MB);
 
 /**
- * Ceiling on one note's save body, in MB (brief 56). Every autosave carries the
+ * Ceiling on one note's save body, in MB. Every autosave carries the
  * whole notebook, every page's strokes, so Fastify's 1 MiB default was a wall a
  * well-used notebook would hit at around 870 strokes, after which every save
  * failed. 16 MiB is roughly fifteen times that once points are rounded at
@@ -279,7 +279,7 @@ export const NOTE_MAX_MB = numericOverride("NOTE_MAX_MB", 16);
 export const NOTE_MAX_BYTES = Math.floor(maxUploadBytesFromMb(NOTE_MAX_MB));
 
 /**
- * Base URL of the Gutendex instance the catalog proxy talks to (brief 22).
+ * Base URL of the Gutendex instance the catalog proxy talks to.
  * Env-overridable (`GUTENDEX_BASE_URL`) for a self-hosted mirror or tests;
  * defaults to the public community instance. Not part of the required .env
  * contract — an optional deploy override, like `LIBRARY_DATA_DIR`. The trailing

@@ -21,7 +21,7 @@ import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
  * makes the app reachable from `app.inject` without a process listening on a
  * port.
  *
- * Both options are the seam (brief 63). `index.ts` opens the accounts on the
+ * Both options are the seam. `index.ts` opens the accounts on the
  * real database and builds the Ward client from the environment; a test passes
  * accounts on its scratch database and, when it needs one, a Ward client over
  * a fake `fetch`. Without `wardClient` atrium has local accounts only.
@@ -40,13 +40,13 @@ export async function buildApp(options: {
   const app = Fastify({ logger: true });
 
   /**
-   * One app-wide error handler (brief 73). Set before anything is registered,
+   * One app-wide error handler. Set before anything is registered,
    * so every route's handler, and every route-level `errorHandler` that passes
    * an error on with `reply.send(error)`, ends here.
    *
    * Fastify's default answers a 500 with the error's own `message`, and for a
    * Knex/SQLite error that is the **full SQL statement with its bound values**
-   * (brief 54's regression run received one, Ward subject included). A server
+   * (the compile-slot fix's regression run received one, Ward subject included). A server
    * error tells the client only that it happened; the real error goes to the
    * log with the request id. A 4xx raised by Fastify itself (bad JSON, a body
    * too large, an unsupported media type) describes the request, so it keeps
@@ -66,7 +66,7 @@ export async function buildApp(options: {
   // Atrium's rule that no route does its own auth survives the move.
   await registerAuthGuard(app, { accounts: options.accounts, wardClient: options.wardClient });
 
-  // No CORS (brief 65). It was permissive (`origin: true`, every origin
+  // No CORS. It was permissive (`origin: true`, every origin
   // reflected) from when the web client called the API cross-origin (D14).
   // Since D54 nothing does: the deploy and development both serve the API on
   // the page's own origin, so a browser needs no CORS header to read it, and

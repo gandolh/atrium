@@ -8,7 +8,7 @@ import {
 import { apiFetch } from "../lib/api-client";
 
 /**
- * Catalog API calls (brief 22b). Thin wrappers over the Fastify catalog
+ * Catalog API calls. Thin wrappers over the Fastify catalog
  * routes from the (already-built) chunk 22a backend; responses are validated
  * against the shared Zod contract, same pattern as `lib/library-api.ts`.
  */

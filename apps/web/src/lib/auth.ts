@@ -22,7 +22,7 @@ import { discardOtherAccounts } from "./unsaved-stash";
  * a preference and not a credential: losing it costs somebody one tap on the
  * picker.
  *
- * Brief 35 put the **active profile** in this same store rather than a sibling
+ * The profiles work put the **active profile** in this same store rather than a sibling
  * one, and that still holds: signing out has to drop the session state and the
  * profile in one atomic reset, because a device that signed in as a different
  * account while keeping the previous account's profile id would read the wrong
@@ -207,7 +207,7 @@ interface AuthState {
   checkStatus: () => Promise<void>;
   /**
    * Leave the login page for the app without a session, so a device with
-   * downloaded books can read them while it cannot sign in (brief 77). The
+   * downloaded books can read them while it cannot sign in. The
    * library falls back to those downloads on its own when its fetch fails.
    */
   continueWithoutSignIn: () => void;
@@ -304,7 +304,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       /*
        * The API is unreachable: this device is offline, or the API is down.
        * Render the app and let the library fall back to downloaded books
-       * (brief 20). The login page would fail the same way.
+       * The login page would fail the same way.
        */
       set({ status: "unlocked", error: null });
     }
@@ -344,7 +344,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // screen. Just close the gate, but record the choice: on a first visit the
       // active profile is the server's default, and tapping it IS the person's
       // choice. Without this a one-profile account met the picker on every load
-      // (brief 74).
+      //.
       writeStoredProfileId(id);
       stampActivity();
       set({ pickerRequired: false });
@@ -418,7 +418,7 @@ setOnUnauthorized(() => {
 });
 
 /**
- * Unsaved LaTeX source (brief 85) and Notes (brief 88) copied to this device
+ * Unsaved LaTeX source and Notes copied to this device
  * belong to the account that wrote them. The moment anyone else is signed in
  * here, they go, whichever page they land on, so they can never be shown to
  * them.

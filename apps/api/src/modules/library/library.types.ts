@@ -10,7 +10,7 @@ import type { BookSource, ConvertStatus, FileType, MediaKind } from "@ebook-read
  */
 
 /**
- * The convert half of a book row (brief 34, D34). Split out from `BookRow` so
+ * The convert half of a book row (D34). Split out from `BookRow` so
  * the upload/import paths can build a row without them — they all take their
  * SQL defaults, and a book nobody has converted is the overwhelming case.
  *
@@ -63,19 +63,19 @@ export interface BookRow extends BookConvertFields {
   progress: number;
   created_at: string;
   last_opened_at: string | null;
-  /** Series name, or null when the file carries none (brief 21). */
+  /** Series name, or null when the file carries none. */
   series: string | null;
-  /** Position within `series`, or null when unknown (brief 21). */
+  /** Position within `series`, or null when unknown. */
   series_index: number | null;
   /**
-   * JSON-encoded `string[]` of subject/genre tags (brief 21), or null for a row
+   * JSON-encoded `string[]` of subject/genre tags, or null for a row
    * that predates the column and hasn't been backfilled yet — the backfill uses
    * `subjects IS NULL` as its "needs re-scan" sentinel, so a scanned-but-empty
    * book stores `'[]'`, never null.
    */
   subjects: string | null;
   /**
-   * Provenance (brief 22): "upload" for user uploads, "gutenberg" for catalog
+   * Provenance: "upload" for user uploads, "gutenberg" for catalog
    * imports. Column has `DEFAULT 'upload'` so existing rows and the upload path
    * are correct without a backfill.
    */
@@ -83,7 +83,7 @@ export interface BookRow extends BookConvertFields {
   /** Upstream id within `source` (the Gutenberg id for imports), else null. */
   source_id: string | null;
   /**
-   * Media kind (brief 23), derived from `format` at upload: "book" for pdf/epub,
+   * Media kind, derived from `format` at upload: "book" for pdf/epub,
    * "audio" for mp3, "video" for mp4/webm. Column has `DEFAULT 'book'` so
    * pre-media rows migrate to books with no backfill.
    */

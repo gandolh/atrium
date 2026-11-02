@@ -123,7 +123,7 @@ function emitImage(item: PlacedImage, page: Page, resource: string, out: string[
 }
 
 /**
- * A set formula, painted as fill operators (brief 40).
+ * A set formula, painted as fill operators.
  *
  * `pdf/svg.ts` wants its target rectangle in **PDF page space** — points, y up,
  * `x`/`y` the *bottom-left* corner — and deliberately not in layout space,

@@ -5,7 +5,7 @@ import { CoverFallback } from "../library/CoverFallback";
 import { useImportBook } from "./use-catalog";
 
 /**
- * A single Gutendex search result (brief 22b). Mirrors `CoverCard`'s 2:3
+ * A single Gutendex search result. Mirrors `CoverCard`'s 2:3
  * portrait / 2px radius / typographic-fallback treatment so the catalog reads
  * as the same visual family as the library grid, plus the "In library" badge
  * and the import action this surface adds.

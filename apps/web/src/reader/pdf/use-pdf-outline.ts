@@ -4,7 +4,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { TocEntry } from "../chrome";
 
 /**
- * Builds shared `TocEntry[]` from a PDF's outline (brief 06 TOC decision:
+ * Builds shared `TocEntry[]` from a PDF's outline (the PDF reader TOC decision:
  * "PDF gets a TOC only when an outline exists"). Uses PDF.js
  * `doc.getOutline()`, then resolves each node's destination to a 1-based page
  * number so `onNavigate` can jump directly.

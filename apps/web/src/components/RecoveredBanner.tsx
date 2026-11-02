@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * The offer of a recovered device copy (`lib/unsaved-stash.ts`): the LaTeX
- * editor's (brief 85) and the Notes editor's (brief 88). A choice, not an
+ * editor's and the Notes editor's. A choice, not an
  * automatic restore: the server's version may be newer than the copy if the
  * work was edited somewhere else since. Not `role="alert"`: it appears on
  * arrival, not in the middle of typing, and its buttons are the next thing a

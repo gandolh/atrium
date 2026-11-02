@@ -79,7 +79,7 @@ import {
 import { removeProjectTree } from "./project-tree.service.js";
 
 /**
- * HTTP for `/latex` (brief 38) — project CRUD, file CRUD, binary upload,
+ * HTTP for `/latex` — project CRUD, file CRUD, binary upload,
  * compile, the PDF/log artifacts, and publishing.
  *
  * The two rules the whole feature rests on are stated in `latex.service.ts` and
@@ -186,7 +186,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    *
    * ## `cancelLatexCompile` runs FIRST, and that ordering is the point
    *
-   * Brief 34 shipped a Critical of exactly this shape and brief 38 inherits it.
+   * The convert work shipped a Critical of exactly this shape and the LaTeX editor inherits it.
    * The single-flight guard has two halves: the durable one is
    * `compile_status = 'running'` on this row, the in-process one is the job map
    * in `latex-compile.ts`. Deleting the row makes the **durable** half vanish
@@ -564,9 +564,9 @@ export function registerLatexRoutes(app: FastifyInstance): void {
   /**
    * `POST /latex/:id/cancel` — stop the compile running on this project.
    *
-   * Brief 38 shipped no such route deliberately: `compile()` ran on this thread,
+   * The LaTeX editor shipped no such route deliberately: `compile()` ran on this thread,
    * so a cancel arriving mid-typeset could not even be READ, let alone honoured.
-   * Brief 44 moved the engine onto a worker thread, which is what makes this
+   * The compile worker moved the engine onto a worker thread, which is what makes this
    * route possible — and this route is what makes `busyMessage`'s restored
    * "…or cancel it" reachable rather than a promise.
    *
@@ -581,7 +581,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * cancel that did nothing. The wait is a `terminate()` plus two small artifact
    * writes, not the remainder of the compile, so the route needs no timeout of
    * its own. No `out.pdf` is ever written on this path, so the last good preview
-   * survives the cancel (brief 38 step 10).
+   * survives the cancel.
    *
    * ## Nothing running is a 200, not a 409
    *
@@ -614,7 +614,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * is in fact still running) or cancelling a project the person never pointed
    * at. `runningProjectId` is the field `COMPILE_BUSY` already carries, so a
    * client can retry against the right project — unless that project belongs to
-   * a sibling profile, where this route answers 404 by brief 35's rule and the
+   * a sibling profile, where this route answers 404 by the profiles work's rule and the
    * message says so instead of offering a retry that cannot work, or unless its
    * row is already gone, where the field is omitted for exactly the same reason
    * (see the `!runningRow` branch in the handler).
@@ -645,7 +645,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
       // but its project cannot be addressed by any route any more — `POST
       // /latex/<it>/cancel` answers 404 at `requireProject`, because there is
       // nothing left to own. So this branch says the true thing and offers no
-      // action, which is brief 38's rule being kept rather than an exception to
+      // action, which is the LaTeX editor's rule being kept rather than an exception to
       // it: the wait is bounded by `LATEX_TIMEOUT_MS`, and sending someone to
       // cancel a project that no longer exists would send them to a 404.
       //
@@ -892,7 +892,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     // would be unreachable from the version-delete cleanup because it has no
     // versions to delete.
     // The version this publish supersedes as the newest (none on a first
-    // publish). Positions measured in it are released below (brief 78).
+    // publish). Positions measured in it are released below.
     const superseded = createdBook ? undefined : await getLatestDocumentVersion(bookId);
 
     let version: DocumentVersionRow | undefined;
@@ -925,7 +925,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
 
     // The new version is in place, so positions measured in the one it
     // superseded no longer pin it open: their readers get the newest at page 0
-    // (brief 38 decisions 9 and 10; brief 78). After the commit, never before:
+    // After the commit, never before:
     // a failed publish must not cost anybody their place.
     if (superseded) await resetProgressOnVersion(bookId, superseded.id);
 
@@ -944,7 +944,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * `GET /library/:id/versions` — the version picker's list, newest first.
    *
    * Registered here rather than in `library-routes.ts` because versions are
-   * brief 38's half of the library: an ordinary upload simply has none, and
+   * the LaTeX editor's half of the library: an ordinary upload simply has none, and
    * answers `[]`. The reader shows no picker at all below two entries.
    *
    * `currentVersionId` is this profile's stored `reading_progress.version_id` —
@@ -975,7 +975,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * 1. **The row AND its files.** SQLite deletes rows, never files; after
    *    `deleteDocumentVersion` nothing is left pointing at the PDF or the zip,
    *    so both paths are derived from the id first.
-   * 2. **Deleting the last version deletes the library entry too** (brief 38
+   * 2. **Deleting the last version deletes the library entry too** (the LaTeX editor
    *    step 7) — an entry with no versions has nothing to show. That goes
    *    through `deleteBookWithArtifacts`, the same function `DELETE /library/:id`
    *    uses, so the card's own file, cover and convert links are cleaned up by

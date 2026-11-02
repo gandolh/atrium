@@ -8,7 +8,7 @@ import type { LatexJumpTarget } from "./LatexEditor";
 import { usePublishLatexProject } from "./use-latex";
 
 /**
- * The publish dialog (brief 38 chunk 10) — the `CHUNK 10 MOUNT` point in
+ * The publish dialog — the `CHUNK 10 MOUNT` point in
  * `LatexEditor.tsx`'s header row.
  *
  * Trigger → confirm → publish. **Publishing twice never makes a second

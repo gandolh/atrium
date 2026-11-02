@@ -22,7 +22,7 @@ import { glue, kern } from "./model.ts";
  *
  * Chunk 39.1 parses a `tabular` all the way into a `TableBlock`: the cell grid
  * from `&` and `\\`, the column specification (`l c r`, `p{width}`, `|` rules),
- * `\hline`, `\cline` and `\multicolumn`. This file does the two passes brief 39
+ * `\hline`, `\cline` and `\multicolumn`. This file does the two passes the figures, tables and bibliography work
  * asks for: measure every column's width from its content, then set the rows
  * to it.
  *
@@ -272,7 +272,7 @@ interface CellPlacement {
  * `TableCell.override` — a `\multicolumn`'s own one-column spec — wins over
  * `spec.columns[i]` for everything about the cell: alignment, width and the
  * rules at both of its edges. A spanning cell's width is the columns it covers
- * *plus* the rules that would otherwise have separated them (brief 39's own
+ * *plus* the rules that would otherwise have separated them (the figures, tables and bibliography work's own
  * words for it) — those interior rules are not drawn, but the space they would
  * have taken is still there, which is exactly what real `\halign` does for a
  * `\multispan`.

@@ -4,7 +4,7 @@ import { parseLatex } from "../src/parse/index.ts";
 import type { CommandNode, EnvironmentNode, LatexNode } from "../src/parse/index.ts";
 
 /**
- * Position accuracy (brief 37, chunk 3's non-negotiable acceptance line):
+ * Position accuracy (chunk 3's non-negotiable acceptance line):
  * every node's `loc.start` must be a `SourceRef` pointing at where it
  * actually starts. `@unified-latex` already reports line/column directly
  * (not byte offsets), 1-based, matching `SourceRef`'s own contract — so the

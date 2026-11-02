@@ -32,7 +32,7 @@ Typecheck + build green, 647/647 tests pass. Real `library.db` untouched.
 
 **`apps/api` still has no automated tests** — the largest remaining gap, and now
 much cheaper to close. See
-[briefs/done/52-api-modular-layering-knex.md](briefs/done/52-api-modular-layering-knex.md).
+briefs/done/52-api-modular-layering-knex.md.
 **Uncommitted — owner controls git.**
 
 
@@ -299,8 +299,8 @@ command that starts the server and assert every one resolves inside the scratch
 base before anything starts. Recorded in
 [wiki/open-questions.md](wiki/open-questions.md).
 
-**Filed:** [brief 45](briefs/done/45-profile-delete-cancels-compiles.md) and
-[brief 46](briefs/done/46-compile-status-write-failure.md), promoted from brief
+**Filed:** brief 45 and
+brief 46, promoted from brief
 44's review — both can wedge an account's compile slot.
 
 **The pattern across this whole run, worth stating once:** three of the four
@@ -526,7 +526,7 @@ than silently repointed or left dangling; a published document's `source` is
 `latex`, not `upload`; the monospace source pane is a recorded, bounded
 exception to the two-family type rule.
 
-**Deferred deliberately, now [brief 44](briefs/done/44-compile-worker-thread.md):**
+**Deferred deliberately, now brief 44:**
 `compile()` is synchronous and blocks the API process. Fine at ~80 ms, but it
 means a cancel cannot reach a *running* compile and a compile on one device
 stalls another — which sits badly with D36's premise. Briefs 39 and 40 make
@@ -818,7 +818,7 @@ install.
 current snapshot and the briefs table, [wiki/status-history.md](wiki/status-history.md)
 takes the archive.
 
-See [briefs/done/34-convert.md](briefs/done/34-convert.md), D34, and
+See briefs/done/34-convert.md, D34, and
 [wiki/conversion.md](wiki/conversion.md) (rewritten — every claim on the old
 page was false).
 
@@ -877,7 +877,7 @@ entry" is a brief-15 number never re-taken across briefs 19–33. A build at the
 commit before this brief measures **195.76 kB**. Brief 35 itself costs +4.90 kB
 gzip, measured by building both trees rather than guessing.
 
-See [briefs/done/35-profiles.md](briefs/done/35-profiles.md), D35, and
+See briefs/done/35-profiles.md, D35, and
 [wiki/architecture.md](wiki/architecture.md).
 
 ## [2026-08-24] grill+todo | Brief 36 (LaTeX) grilled and rewritten — D36, D37
@@ -913,7 +913,7 @@ rule, so it split along D36's own line — collected vocabulary stays in
 [glossary-authoring.md](wiki/glossary-authoring.md), cross-linked. Same authority,
 two pages.
 
-Order: **35 → 34 → 36**. See [briefs/superseded/36-latex-editor.md](briefs/superseded/36-latex-editor.md).
+Order: **35 → 34 → 36**. See briefs/superseded/36-latex-editor.md.
 
 ## [2026-08-24] grill+todo | Briefs 34 + 35 grilled and rewritten; brief 36 (LaTeX) filed
 
@@ -933,7 +933,7 @@ reimplemented on top of library conversion — no capability lost. Async job wit
 **24h** ceiling, cancellable, one at a time per account, reaped to `failed` on
 restart; flat 30s polling **driven by row status, not a client flag**, which is
 what makes "start it, refresh, return hours later" behave identically. Renamed
-`34-pdf-reflow.md` → [`34-convert.md`](briefs/done/34-convert.md).
+`34-pdf-reflow.md` → `34-convert.md`.
 
 *Brief 35 — Profiles.* Owner's framing — *"an account is like a household,
 profiles are for different persons from the household, they can change freely"* —
@@ -946,7 +946,7 @@ first time. Picker returns after **24h** idle, device-side — the fix for
 `sessions` having no expiry, which would otherwise let a household tablet
 attribute everyone's reading to whoever used it last.
 
-*Brief 36 — LaTeX* ([36-latex-editor.md](briefs/superseded/36-latex-editor.md)),
+*Brief 36 — LaTeX* (36-latex-editor.md),
 **ungrilled**, filed on request. Three things fall out for free: `PdfReader`
 takes a `File`, so the preview pane needs **no changes**; brief 34's job runner
 is the compile machine; Notes established the per-profile authored-content
@@ -980,7 +980,7 @@ query keys, the offline pending-progress queue re-attributing reads after a
 switch, and globally-keyed reader prefs. Migration is the risk — SQLite cannot
 ALTER a composite PK, so `reading_progress` needs a create-copy-drop-rename
 rebuild with row-count verification. Amends D30/D31. Filed as
-[briefs/done/35-profiles.md](briefs/done/35-profiles.md).
+briefs/done/35-profiles.md.
 
 ## [2026-08-24] todo | Brief 34 filed — Convert: the same book in either format
 
@@ -1000,7 +1000,7 @@ body, no OCR), so the brief makes reflow opt-in, disposable, and quality-gated,
 with "show original" as the designed safety net rather than a convenience. Three
 decisions marked **[CONFIRM]** (async 202 + poll, per-variant locator, the
 "reflow" vs "convert" naming split). Filed as
-[briefs/done/34-convert.md](briefs/done/34-convert.md). Also corrected
+briefs/done/34-convert.md. Also corrected
 `status.md`, which still showed briefs 21/22 as todo and was missing 27–33.
 
 ## [2026-08-24] capture | Video covers todo filed — capture a frame client-side
@@ -1684,14 +1684,14 @@ npm-workspaces monorepo stood up: `@ebook-reader/{web,api,shared}`. React 19 +
 Vite 6, Fastify 5 (`tsx watch`, port 3001, `/health`), shared = zod lib. Verified:
 `npm install` clean, `npm run typecheck` passes across all three, shared resolves
 in both apps. Deferred: gitignored `shared/dist` needs a build before cold-clone
-typecheck. See [briefs/done/01-monorepo-scaffold.md](briefs/done/01-monorepo-scaffold.md).
+typecheck. See briefs/done/01-monorepo-scaffold.md.
 
 ## [2026-07-02] done | Brief 02 — shared Zod contract
 
 `packages/shared` now the source of truth: `detectFileType`, size guards,
 `convertRequestSchema` (EPUB-only), `convertErrorSchema` (`{error, code}` union).
 Legacy `SUPPORTED_FORMATS`/`Format` preserved for the apps. Typecheck passes.
-See [briefs/done/02-shared-zod-contract.md](briefs/done/02-shared-zod-contract.md).
+See briefs/done/02-shared-zod-contract.md.
 
 ## [2026-07-02] decision | Pin exact dependency versions (D21)
 
@@ -1706,7 +1706,7 @@ Validates via shared schemas, spawns `ebook-convert` with 60s timeout, streams P
 as attachment, cleans temp in `finally`. Error→HTTP mapping wired to shared
 `convertErrorSchema`. Deps pinned (`@fastify/cors 11.2.0`, `@fastify/multipart 10.0.0`),
 `fastify` pinned to 5.9.0. Verified except live conversion (Calibre absent on dev box).
-See [briefs/done/03-backend-convert-route.md](briefs/done/03-backend-convert-route.md).
+See briefs/done/03-backend-convert-route.md.
 
 ## [2026-07-02] done | Brief 04 — frontend shell
 
@@ -1714,7 +1714,7 @@ Vite+React shell: code-based TanStack Router (`/`, `/read`), Query provider,
 Zustand reader store, Tailwind v4 (theme tokens), Base UI Dialog proven, api
 client reading `VITE_API_URL`. Base UI package confirmed `@base-ui/react@1.6.0`
 (D22). All web deps pinned exact; Node pinned ≥22 / `.nvmrc` 22.23.1 (D23).
-Wave 3 complete. See [briefs/done/04-frontend-shell.md](briefs/done/04-frontend-shell.md).
+Wave 3 complete. See briefs/done/04-frontend-shell.md.
 
 ## [2026-07-02] done | Brief 05 — smart uploader + convert flow
 
@@ -1722,7 +1722,7 @@ Wave 3 complete. See [briefs/done/04-frontend-shell.md](briefs/done/04-frontend-
 EPUB → Read | Convert fork. Convert `useMutation` → Download + Go back; shared
 `convertErrorSchema` mapped to friendly messages. File handed to reader via
 additive Zustand `loadedFile`/`loadedFormat`. No deps added. Verified typecheck +
-build + live API contract. See [briefs/done/05-uploader-and-convert-flow.md](briefs/done/05-uploader-and-convert-flow.md).
+build + live API contract. See briefs/done/05-uploader-and-convert-flow.md.
 
 ## [2026-07-02] done | Brief 06 — PDF reader + shared chrome (crux)
 
@@ -1732,7 +1732,7 @@ format-adaptive toolbar seam (`formatControls`) for brief 07 to reuse. react-pdf
 exists (resolves open Q). Invert-dark for fixed layout. Deps pinned `react-pdf
 10.4.1` + `pdfjs-dist 5.4.296`. Store additive `zoom`. Verified typecheck + build
 + pdfjs Node validation; not pixel-verified (no headless browser). Wave 4 complete.
-See [briefs/done/06-pdf-reader.md](briefs/done/06-pdf-reader.md).
+See briefs/done/06-pdf-reader.md.
 
 ## [2026-07-02] done | Brief 07 — EPUB reader + shared search (final brief)
 
@@ -1745,7 +1745,7 @@ search-on-demand (resolves the last open Q). Deps pinned `react-reader 2.0.15`,
 typecheck ×3 + Vite build (599 modules). **All 7 briefs done — build complete.**
 Remaining gaps are dev-machine only: Calibre absent (live conversion untested) +
 no headless browser (readers not pixel-verified). See
-[briefs/done/07-epub-reader-and-search.md](briefs/done/07-epub-reader-and-search.md).
+briefs/done/07-epub-reader-and-search.md.
 
 ## [2026-07-02] verify+fix | Full browser test run (Playwright) + UI audit — both verification gaps closed
 
@@ -1801,7 +1801,7 @@ percent, ticks from top-level outline entries, page-number tooltip) — it previ
 had no rail at all. Scope widened from the source todo to both formats (owner call).
 Verified headless-Playwright against both fixtures: 10/10 drag/click/tooltip checks,
 zero console errors; typecheck clean ×3. See
-[briefs/done/08-draggable-progress-rail.md](briefs/done/08-draggable-progress-rail.md),
+briefs/done/08-draggable-progress-rail.md,
 [wiki/reader.md](wiki/reader.md). Env note: the library DB rows from the old
 `/home/<user>` checkout point at dead absolute paths (500s on file/cover) —
 pre-existing, worked around by re-uploading fixtures; filed as an open question.
@@ -1819,7 +1819,7 @@ sonnet review finders caught three real issues, all fixed: token redacted from
 request logs, duplicate `?token=` no longer 500s (clean 401), React Query stops
 retrying 401s. Verified end-to-end headless: 10/10 with auth on, disabled mode
 clean, zero unexpected console errors, typecheck ×3. See
-[briefs/done/09-platform-password.md](briefs/done/09-platform-password.md),
+briefs/done/09-platform-password.md,
 [wiki/decisions.md](wiki/decisions.md) D28.
 
 ## [2026-07-07] done | Brief 10 — loading feedback: instant open + download progress
@@ -1833,7 +1833,7 @@ server sends no Content-Length); `/read` shows an opening screen (cover,
 Playfair title, determinate accent bar, %) and an error state with "Try again"
 + back-to-library. Verified on a CDP-throttled network: opening screen in
 ~65ms, bar advances, error path + retry recover; typecheck ×3. See
-[briefs/done/10-loading-feedback.md](briefs/done/10-loading-feedback.md).
+briefs/done/10-loading-feedback.md.
 Out of scope: the live host's ~3s first-HTML latency (server-side). Owner
 instruction mid-brief: the VPS address never goes into git, and nothing is
 committed until they say so.
@@ -1841,16 +1841,16 @@ committed until they say so.
 ## [2026-07-13] todo | Briefs 11–14 filed — reader UX + a bug
 
 Filed four reader briefs from user requests (all in `briefs/todo/`, not started):
-[11 — paged⇄scroll mode toggle](briefs/done/11-reading-mode-toggle.md) (store
+11 — paged⇄scroll mode toggle (store
 flag + PDF multi-page render + EPUB `flow: scrolled-doc`),
-[12 — bottom-bar clustering](briefs/done/12-bottom-bar-clustering.md) (move PDF's
+12 — bottom-bar clustering (move PDF's
 settings gear out of the right cluster so PDF matches EPUB's home/actions/page
 layout; the `ReaderToolbar` shell already does justify-between),
-[13 — page-input digit bug](briefs/done/13-page-input-select-bug.md) (root cause
+13 — page-input digit bug (root cause
 found: `PageJumpInput` calls `.select()` in a `[draft]` effect, so every
 keystroke re-selects and the next digit replaces — typing "12" lands "2";
 shared control, affects PDF too), and
-[14 — PDF/EPUB visual parity](briefs/done/14-reader-visual-parity.md) (give PDF
+14 — PDF/EPUB visual parity (give PDF
 the EPUB running-header + column/background frame; must conform to design.md D27).
 
 ## [2026-07-13] maintenance | DB seeded with two user accounts
@@ -1868,14 +1868,14 @@ live CWV/traces weren't possible; measured what was: a production `vite build`
 and a code audit of the reader hot paths. Findings (measured):
 - **Entry JS = 1,418.94 kB (gzip 434 kB), one monolithic chunk** — `read.tsx`
   statically imports BOTH readers, so pdf.js + epub.js ship to every user. Vite
-  warns on the >500 kB chunk. → [brief 15](briefs/done/15-code-split-readers.md).
+  warns on the >500 kB chunk. → brief 15.
 - **pdf.worker.min = 1,046 kB** (already on-demand — fine).
 - **Fonts = 920 KB** (412 KB woff2 + 508 KB legacy woff; cyrillic/greek/vietnamese
-  subsets for an English-first app). → [brief 17](briefs/done/17-font-payload-trim.md).
+  subsets for an English-first app). → brief 17.
 - **EPUB open parses the file twice** (react-reader buffer + a throwaway `Book`
   for the off-screen page-map walk) plus `locations.generate(1000)`, eagerly on
-  every open. → [brief 16](briefs/done/16-epub-open-cost.md).
-- Filed [brief 18](briefs/done/18-live-perf-benchmark.md) to stand up the live
+  every open. → brief 16.
+- Filed brief 18 to stand up the live
   CWV/trace measurement the pass couldn't run, so 15–17 can be ranked by measured
   user time, not payload alone.
 
@@ -1952,7 +1952,7 @@ Captured `todos/group-library-by-metadata.md`
 (with inline web research: EPUB OPF `dc:subject` + `calibre:series` /
 `belongs-to-collection` series conventions; PDF Info dict is best-effort only),
 grilled the owner, and promoted it to
-[briefs/done/21-group-library-by-metadata.md](briefs/done/21-group-library-by-metadata.md).
+briefs/done/21-group-library-by-metadata.md.
 Locked in the grill: group keys author + series + subject, section-headers-only
 UX, PDFs best-effort → "Unknown" group, multi-valued fields use first value
 only. Extraction extends the native OPF parse in `extract.ts` (no Calibre
@@ -1995,7 +1995,7 @@ its full feeds are patron-gated; Internet Archive lending ruled out.
 ## [2026-07-16] todo | Brief 22 filed — Gutenberg discover page
 
 Grilled and promoted `todos/in-app-catalog-download.md`
-to [briefs/done/22-gutenberg-discover.md](briefs/done/22-gutenberg-discover.md).
+to briefs/done/22-gutenberg-discover.md.
 Locked: v1 = Project Gutenberg via the public Gutendex instance (server-side
 TTL cache, PG robot policy honored); a dedicated `/discover` page with search +
 popular landing + topic/language browse, built on the existing TanStack
@@ -2008,7 +2008,7 @@ Not started.
 
 ## [2026-07-16] todo | Brief 23 filed — media library (music + video)
 
-Grilled and filed [briefs/done/23-media-library.md](briefs/done/23-media-library.md)
+Grilled and filed briefs/done/23-media-library.md
 directly from an owner request (no source todo): the library also holds
 **mp3 audio and MP4/WebM video**, uploaded and played in-app. Locked: one
 gallery with a persisted type filter (no separate routes); browser-native
@@ -2054,7 +2054,7 @@ Videos filter persisted and applied before grouping; per-kind cards; UploadZone
 widened; offline stays books-only. Review caught 5 real bugs (incl. lost
 final-position flush and stale-format misrouting) — fixed. Live E2E with real
 CC0 media on a scratch DB; typecheck + build green. See
-[briefs/done/23-media-library.md](briefs/done/23-media-library.md).
+briefs/done/23-media-library.md.
 **Uncommitted — owner controls git.**
 
 ## [2026-09-06] change | atrium moves to Ward: all of its own auth deleted, profiles re-keyed onto subjects
@@ -2544,11 +2544,11 @@ which refused a 64 MB film.
 
 Seen while capturing README screenshots with Project Gutenberg EPUBs. Not
 fixed, and none reproduced a second time here; each brief carries code leads,
-marked as leads. [83](briefs/done/83-reader-theme-change-keeps-the-page.md):
-a theme change moved page 40 to 41. [84](briefs/done/84-reader-font-size-keeps-your-place.md):
-A+ and A- lose the place. [85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md):
+marked as leads. 83:
+a theme change moved page 40 to 41. 84:
+A+ and A- lose the place. 85:
 the 401 redirect drops unsaved LaTeX source.
-[86](briefs/done/86-page-turn-arrows-cover-text-on-phones.md): the arrows sit on
+86: the arrows sit on
 the text at 390 px. Also fixed [overview.md](wiki/overview.md) "Runs", which
 still said local dev only with Calibre on the host: it now says deployed
 behind Ward, Calibre in the container image.
@@ -2589,7 +2589,7 @@ account, since atrium no longer reads Ward's cookie.
 
 ## [2026-10-18] todo | Brief 87 filed: the docs site moves from Starlight to Docusaurus
 
-The owner's call (2026-10-18), one brief in every repo with a docs site. [87](briefs/done/87-docs-site-on-docusaurus.md) keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.
+The owner's call (2026-10-18), one brief in every repo with a docs site. 87 keeps the URLs, the base, `dist/` and both themes. Building this corpus through Docusaurus found one link into `wzd_auth` that Starlight turned into a 404; the new sync maps it to Ward's GitHub repo. Four wiki pages the old list left out need a publish-or-deny call. The deploy waits on vps-deploy brief 11.
 
 ## [2026-10-19] build | Brief 83: a theme change keeps the page
 
@@ -2598,7 +2598,7 @@ change. The repaint nudge's `rendition.clear()` builds a new section iframe,
 and epub.js placed the CFI while Newsreader was still loading, so the text
 reflowed one page back under the scroll offset. The nudge now waits for the
 iframe's fonts and displays the CFI again, read before the settings change.
-Outcome in [83](briefs/done/83-reader-theme-change-keeps-the-page.md).
+Outcome in 83.
 
 ## [2026-10-19] build | Brief 84: a font size change keeps your place
 
@@ -2608,7 +2608,7 @@ now read before the change and kept across a burst of presses and while the
 reader stays on the page it landed on, which also stops the redisplay walking
 back a few lines per press. The redisplay waits for the section's width to
 settle, not only for its fonts, which brief 83's fix had relied on. Outcome in
-[84](briefs/done/84-reader-font-size-keeps-your-place.md).
+84.
 
 ## [2026-10-19] build | Brief 85: unsaved LaTeX source survives a sign-out
 
@@ -2617,8 +2617,8 @@ editor with its unsaved buffer. Every unsaved edit is now copied to
 localStorage, keyed by account, profile, project and path, and removed when a
 save lands. After sign-in the editor offers the copy back with Restore or
 Discard. Signing in as another account deletes the copies. Outcome in
-[85](briefs/done/85-expired-ward-session-keeps-unsaved-latex.md); the same gap
-in Notes is [brief 88](briefs/done/88-expired-session-keeps-unsaved-notes.md),
+85; the same gap
+in Notes is brief 88,
 filed today. [latex.md](wiki/latex.md) has a section on it.
 
 ## [2026-10-19] build | Brief 86: the page-turn circles leave the text alone
@@ -2627,7 +2627,7 @@ At 390 px each circle covered about 29 px of the EPUB text, and the overlap
 lasts up to about 675 px because both readers set the page in the 620 px
 measure. The circles are now hidden below 740 px, where they fit outside the
 measure; phones turn by swipe and tap zones, keyboards by the arrow keys.
-Outcome in [86](briefs/done/86-page-turn-arrows-cover-text-on-phones.md);
+Outcome in 86;
 [reader.md](wiki/reader.md) notes it.
 
 ## [2026-10-19] build | Brief 87: the docs site runs on Docusaurus
@@ -2638,7 +2638,7 @@ owner chose to publish the four the old list left out (Jukebox, its glossary,
 the Jellyfin comparison, the 2026-08-26/27 status archive). The one link into
 `wzd_auth` now goes to Ward's GitHub repo. Not deployed: vps-deploy brief 11
 switches the docs stack's check to `assets/` first. Outcome in
-[87](briefs/done/87-docs-site-on-docusaurus.md).
+87.
 
 ## [2026-10-21] todo | Briefs 89-99 filed from the 2026-10-20 improvement sweep
 
@@ -2661,7 +2661,7 @@ editor offers the copy back with Restore or Discard, the same banner as the
 LaTeX editor's, now shared. Signing in as another account deletes both kinds
 of copy. The stash module moved to `lib/unsaved-stash.ts`; LaTeX keeps its
 localStorage keys. Outcome in
-[88](briefs/done/88-expired-session-keeps-unsaved-notes.md);
+88;
 [latex.md](wiki/latex.md) covers both editors.
 
 ## [2026-10-27] build | Brief 89: the sign-in lockout counts clients behind the proxy
@@ -2672,7 +2672,7 @@ comment say it is required in a container. With `NODE_ENV=production` and the
 variable unset, the API warns at boot. A new test signs in through a bridge peer:
 one client's five wrong passwords lock only that client. Owed by the owner: the
 value in vps-deploy's env before the accounts rework is deployed. Outcome in
-[89](briefs/done/89-trusted-proxies-for-login-lockout.md).
+89.
 
 ## [2026-10-27] build | Brief 90: the first deploy keeps every household member's way in
 
@@ -2682,7 +2682,7 @@ it has none yet). `seed:user --set-password` sets the password of an existing
 account and touches nothing else; there is no `--rename`, because the vendored
 library cannot change a username. `docs/getting-started.md` has the first-deploy
 steps, and status.md no longer asks for a seeded owner account, which would have
-been an empty one. Outcome in [90](briefs/done/90-first-deploy-keeps-accounts-reachable.md).
+been an empty one. Outcome in 90.
 
 ## [2026-10-27] build | Brief 91: jukebox.md names the bot's local account
 
@@ -2691,7 +2691,7 @@ the deleted `ward.guard.ts`. It now says the bot has a local `jukebox` account,
 made with `npm run seed:user`, that signs in with `POST /atrium-api/auth/login`,
 and links D55 as amended by D58 and `auth.guard.ts`.
 [glossary-jukebox.md](wiki/glossary-jukebox.md)'s "Bot account" says the same.
-Outcome in [91](briefs/done/91-jukebox-page-local-account.md).
+Outcome in 91.
 
 ## [2026-10-27] build | Brief 92: deleting the playing song keeps the Jukebox's place
 
@@ -2701,7 +2701,7 @@ before it, a playing current Track advances as if it had ended, a paused one sto
 Before, the foreign keys nulled the cursor and the next song was the library's
 first. Tests cover the middle song, the last song at repeat off, a deleted cursor
 and a paused song. [jukebox.md](wiki/jukebox.md) has the rule. Outcome in
-[92](briefs/done/92-jukebox-delete-playing-song.md).
+92.
 
 ## [2026-10-27] build | Brief 93: typecheck and test work on a fresh clone
 
@@ -2710,7 +2710,7 @@ whose types and code live in `dist/`, and `pretypecheck` and `pretest` run it. O
 a fresh clone and `npm ci`, `npm run typecheck` went from TS2307 to exit 0, and
 `npm test` from 23 failing API test files to green. `docs/getting-started.md`
 lists build, typecheck, test. Outcome in
-[93](briefs/done/93-typecheck-on-fresh-clone.md).
+93.
 
 ## [2026-10-27] build | Brief 94: an idle report waits for the bot's advance
 
@@ -2719,7 +2719,7 @@ An idle status report for the current play now stamps a new column,
 `advance` that follows plays the next Track. With no advance within 5 s the Player
 goes idle the next time anything reads or changes it. Lost voice now takes two
 reports in a row. [jukebox.md](wiki/jukebox.md) has both rules. Outcome in
-[94](briefs/done/94-jukebox-idle-report-race.md).
+94.
 
 ## [2026-10-27] build | Brief 95: a Player stops after five failed songs
 
@@ -2728,7 +2728,7 @@ resets the count, and the fifth in a row goes idle with a `failure` the Jukebox
 page shows as "Playback failed: …" until the next play. `Player` gains `failure`
 in the shared contract; just-a-bot's briefs that restate it were out of reach and
 owe a note. Checked by tests and in a browser with a stand-in for the bot.
-Outcome in [95](briefs/done/95-jukebox-failure-budget.md).
+Outcome in 95.
 
 ## [2026-10-27] build | Brief 96: no pretend play outside a voice channel
 
@@ -2737,28 +2737,28 @@ Player has no voice channel, instead of starting a Track the bot cannot play. Th
 Jukebox page disables them and says to pick a channel and press Join. Checked by a
 test and in a browser with the stand-in bot. Discord's `/jukebox` now gets the 409
 too; how just-a-bot words it is unchecked. Outcome in
-[96](briefs/done/96-jukebox-play-needs-voice.md).
+96.
 
 ## [2026-10-27] build | Brief 97: the bot's streams are not opens
 
 The library file route no longer records an open for the jukebox-only account, so
 songs the bot plays stay where they were on the home grid and its Range requests
 write nothing. A test covers the bot and a member. Outcome in
-[97](briefs/done/97-bot-streams-not-opens.md).
+97.
 
 ## [2026-10-27] build | Brief 98: the tile menu works from the keyboard
 
 A tile's More actions menu is Base UI's Menu now, not modal. Checked keyboard only
 in a browser: Tab to a music tile's trigger, Enter, Enter on "Add to Discord queue",
 and the song was in the scratch Queue. The main chunk grows by about 12 kB gzip.
-Outcome in [98](briefs/done/98-tile-menu-keyboard.md).
+Outcome in 98.
 
 ## [2026-10-27] build | Brief 99: the Calibre tests skip without Calibre
 
 The two conversion status-write tests probe `ebook-convert` once with the API's
 `isCalibreAvailable()` and skip with "Calibre not installed" when it is missing.
 With it off `PATH`: 127 pass, 2 skipped; with Calibre: 129 pass. Outcome in
-[99](briefs/done/99-skip-calibre-tests.md).
+99.
 
 ## [2026-10-28] decision | The Jellyfin study's four questions answered (D59)
 
@@ -2772,7 +2772,7 @@ The lookup's brief is to be written.
 
 ## [2026-10-28] todo | Brief 100: look up metadata on request
 
-[Brief 100](briefs/done/100-look-up-metadata-on-request.md) builds D59's
+Brief 100 builds D59's
 lookup: a Look up item in the tile menu for music and books searches
 MusicBrainz (with the Cover Art Archive) or Open Library from the API, shows
 candidates, and applies only the fields the user keeps, the cover through the
@@ -2780,7 +2780,7 @@ existing sharp path. No films (no TMDb key), nothing on upload.
 
 ## [2026-10-28] done | Brief 100: look up metadata on request
 
-[Brief 100](briefs/done/100-look-up-metadata-on-request.md) built D59's
+Brief 100 built D59's
 lookup (`2ef5d43`): Look up… in the tile menu for music and books opens a
 dialog that asks MusicBrainz (Cover Art Archive covers) or Open Library through
 the API, never the browser, and Apply writes only the ticked fields, the cover
@@ -2804,3 +2804,28 @@ A README refresh pass with the readme-docs standard. The README now names brief 
 Found while running it: a straight `cp .env.example .env` set `WARD_OIDC_ISSUER` with an empty client key, and the API refused to start (`WARD_OIDC_ISSUER is set but WARD_OIDC_CLIENT_KEY is not`), against the file's own comment that an unset issuer means local accounts only. The five `WARD_OIDC_*` lines are now commented out; Ward's `seed.mjs` still supplies them. Checked: `npm install`, `npm run dev` on scratch roots reached `API ready` and served `/atrium/`, `seed:user` made a test account, and it signed in.
 
 `docs/architecture.md` linked two docs-site pages at their old Starlight paths; they point at `apps/docs/docs/` now. `bash corpus/lint.sh` still fails, as it did before this pass, on four links: `wiki/performance.md` into the gitignored `playwright/perf/`, and `wiki/decisions.md` into the sibling `wzd_auth` checkout, which a clone of this repo alone does not have.
+
+## [2026-11-02] maintenance | Briefs reset
+
+Part of an estate-wide reset. The ninety-nine briefs in `briefs/done/` and the superseded 36 are
+folded into the wiki and deleted; brief numbering restarts at 01. The last commit that held them
+is `cd7925f`: read one with `git show cd7925f:corpus/briefs/done/40-engine-math.md`. Brief
+numbers in the entries above refer to that set.
+
+The typesetting engine's code named its scope as "brief 40's In list" and the like, so the In and
+Out lists of the foundation, the figures-tables-bibliography work and the math work now live in
+[typeset-scope.md](wiki/typeset-scope.md), and the code says "the declared scope". status.md
+becomes a dated line per area; it also said the accounts change was not deployed, which Ward's
+record of the 2026-10-13 cutover contradicts. The other pages name the work and its date.
+architecture.md and conversion.md gain two facts only the outcome notes held (the fresh-clone
+build order, the Calibre test skip).
+
+Code comments, test titles and CLAUDE.md no longer cite brief numbers, and parenthetical plan
+tags like "(chunk 11)" or "(chunk 39.4)" are gone too. Left as they were: the diagnostic strings
+the engine prints ("out of scope for brief 37", "on brief 40's Out list") and a docs sidebar
+label, since string literals stay; the dated migration files; Ward's vendored library; and about
+120 prose mentions of a spec's chunks or decisions ("chunk 8 will add", "decision 10"), which
+cite the deleted briefs' internals and can be reworded when that code is next touched.
+
+Lint on this checkout also failed on three links from performance.md into `playwright/perf/`,
+which is gitignored and so absent from a fresh clone; they are plain paths now.

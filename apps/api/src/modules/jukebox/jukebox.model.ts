@@ -2,7 +2,7 @@ import type { Knex } from "knex";
 import type { CommandRow, HistoryRow, PlayerRow, QueueEntryRow, TrackSourceRow } from "./jukebox.types.js";
 
 /**
- * SQL for the Jukebox (brief 81). Every function takes the handle to run on,
+ * SQL for the Jukebox. Every function takes the handle to run on,
  * because the pool has one connection (D47): a call on the global `knex` from
  * inside a transaction would wait forever for the connection the transaction
  * holds.

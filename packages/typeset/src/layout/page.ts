@@ -75,7 +75,7 @@ export interface PlacedRule {
 }
 
 /**
- * A picture placed on a page — `\includegraphics` (brief 39). `y` is its **top**
+ * A picture placed on a page — `\includegraphics`. `y` is its **top**
  * edge, like a rule's, and `width`/`height` are the size it was placed at, not
  * its pixel grid.
  *
@@ -96,7 +96,7 @@ export interface PlacedImage {
 }
 
 /**
- * A set formula placed on a page — `$x^2$` or a display (brief 40). `y` is its
+ * A set formula placed on a page — `$x^2$` or a display. `y` is its
  * **top** edge, like a rule's and an image's, and `height` is the whole box:
  * the formula's height *and* its depth, since a formula hangs below the
  * baseline it was placed on.
@@ -156,7 +156,7 @@ export interface Page {
  * fires at the last break *before* the referencing line — carrying line and
  * note to the next page together.
  *
- * **Floats (brief 39, chunk 39.4) reuse that machinery and add one thing to
+ * **Floats reuse that machinery and add one thing to
  * it: they may move forward.** A `figure` rides as a zero-height `Marker` in
  * the vertical list at the point the author wrote it, its material parked on
  * `LayoutContext.floats`; reaching that marker offers the float to the page
@@ -172,7 +172,7 @@ export interface Page {
  * **A document with no floats is byte-for-byte the document this file built
  * before floats existed.** Every addition below is either inside a
  * `node.kind === "marker"` arm that no name matches, or behind a length check
- * on a queue that is empty, or an argument that is an empty array. Brief 37's
+ * on a queue that is empty, or an argument that is an empty array. The engine foundation's
  * goldens are the proof and they are checked on every run.
  */
 
@@ -1119,7 +1119,7 @@ function placeHNodes(
         // The same `never` guard `vlist.ts` now carries on its two dispatchers,
         // and for the same reason: this switch is where a new `HNode` kind stops
         // being drawn, and without it a new kind is dropped here with nothing
-        // said. That is how brief 40's math reached a finished PDF as a blank
+        // said. That is how the math work's math reached a finished PDF as a blank
         // space (D38).
         const unhandled: never = node;
         throw new Error(`page: unhandled node kind ${String((unhandled as { kind: string }).kind)}`);

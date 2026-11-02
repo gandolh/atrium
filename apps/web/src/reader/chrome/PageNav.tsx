@@ -12,7 +12,7 @@
  * wire horizontal swipes to the same `onPrev`/`onNext` — so the buttons are
  * one of two affordances, not the only one.
  *
- * **Only where those margins exist** (brief 86). Both readers set the page in
+ * **Only where those margins exist** Both readers set the page in
  * the 620 px reading measure (`max-w-measure`, design.md) with an 8 px inset,
  * and each circle reaches 52 px in from its edge (60 px from 640 px up). At
  * 390 px the EPUB text starts 24 px in (the default margins setting) and a

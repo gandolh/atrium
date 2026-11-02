@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { FileType, LibraryBook } from "@ebook-reader/shared";
 
 /**
- * Media playback state, lifted **above the route** (brief 31, D33 move 4:
+ * Media playback state, lifted **above the route** (D33 move 4:
  * "playback persists"). This is the whole point of the store: a media element
  * owned by a route component dies the moment the route unmounts, so before this
  * brief starting a track and going back to the library silently stopped it.
@@ -39,7 +39,7 @@ import type { FileType, LibraryBook } from "@ebook-reader/shared";
  * and would fight the element on every tick.
  *
  * Per-user *persistence* of the position is untouched by all this: it stays in
- * `player/use-media-progress.ts` (brief 23's throttled PATCH + final flush),
+ * `player/use-media-progress.ts` (the media library's throttled PATCH + final flush),
  * attached to whichever element is mounted.
  */
 
@@ -62,7 +62,7 @@ export interface PlaybackItem {
   /** Needed for the dock's "back to the surface" link (`/read?format=…`). */
   format: FileType;
   hasCover: boolean;
-  /** The cover's cache key for `coverUrl` (brief 62). */
+  /** The cover's cache key for `coverUrl`. */
   coverVersion: number | null;
   /** Server-known length, or null — the dock's total time before metadata lands. */
   durationSeconds: number | null;
@@ -196,7 +196,7 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
   toggleMuted: () => set((state) => ({ muted: !state.muted })),
 
   // Unloading unmounts the owning element, whose `useMediaProgress` cleanup
-  // flushes the final position on the way out (brief 23) — so "close the dock"
+  // flushes the final position on the way out — so "close the dock"
   // still records where the listener stopped.
   stop: () => set({ ...initialState }),
 }));

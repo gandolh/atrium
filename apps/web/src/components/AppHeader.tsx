@@ -10,7 +10,7 @@ import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
  * `/notes`, `/latex`, `/profiles`) so the wordmark, search, Notes, LaTeX, the
  * profile switcher and the theme control never disappear when the page changes.
  *
- * **Brief 28 (D33 move 1) removed `NavTabs`.** Media kind is no longer an
+ * **The one-home layout (D33 move 1) removed `NavTabs`.** Media kind is no longer an
  * address — `/books` `/music` `/videos` collapsed into `/` where kind is a
  * filter chip (see `library/LibraryHeader`'s `KindChips`), so the header carries
  * no per-kind navigation at all. What remains is app-level only, in **two
@@ -19,11 +19,11 @@ import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
  *   wordmark · [search slot] ‖ Notes · LaTeX · Jukebox · {actions} · profile · theme
  *
  * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
- * is a link here rather than a chip in the grid. **Brief 38 (D36) adds LaTeX as
+ * is a link here rather than a chip in the grid. **The LaTeX editor (D36) adds LaTeX as
  * the same kind of peer**: a draft that lives only at `/latex`, never in the
  * media grid, so it gets the identical link treatment right next to Notes.
  *
- * **Brief 35** adds `ProfileSwitcher` as one more item in the existing right
+ * **The profiles work** adds `ProfileSwitcher` as one more item in the existing right
  * cluster rather than a third cluster — always reachable here regardless of
  * the picker's 24h idle rule (D35 decision 6), since a household member
  * switching mid-session needs a door that's open every time. Placed after
@@ -38,7 +38,7 @@ export function AppHeader({
   /** Optional quiet caption under the wordmark (the home's storage usage). */
   caption?: ReactNode;
   /**
-   * SEARCH SLOT — **brief 30 fills this**. Rendered between the two clusters in
+   * SEARCH SLOT — **the cross-library search box goes here**. Rendered between the two clusters in
    * a `flex-1` box that is `min-w-0` and caps at `sm:max-w-sm`, so whatever goes
    * in can be a full-width input on a phone and a compact field on a desktop.
    * Left empty the box collapses (no reserved gap), so every current caller
@@ -60,7 +60,7 @@ export function AppHeader({
         {caption}
       </div>
 
-      {/* ── SEARCH SLOT (brief 30) ─────────────────────────────────────────── */}
+      {/* ── SEARCH SLOT ─────────────────────────────────────────── */}
       {search && <div className="min-w-0 flex-1 sm:max-w-sm">{search}</div>}
 
       <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -79,10 +79,10 @@ export function AppHeader({
  * The one navigational link left in the header: **Notes** as its own
  * destination (D33g), reached from here rather than from a filter chip.
  *
- * Brief 33 owns its **active state** — accent, not ink, since accent "means
+ * The Notes destination owns its **active state** — accent, not ink, since accent "means
  * state only" (design.md) and being on `/notes` is exactly that: a state, not
  * decoration. The base style is a quiet Archivo `label-ui` link. Kept as a
- * separate component (rather than inlined) so brief 33 has one place to edit.
+ * separate component (rather than inlined) so the Notes destination has one place to edit.
  */
 function NotesLink() {
   return (
@@ -97,7 +97,7 @@ function NotesLink() {
 }
 
 /**
- * **LaTeX** as its own destination (brief 38, D36 generalising D33g) — a
+ * **LaTeX** as its own destination (D36 generalising D33g) — a
  * project is a draft that lives only at `/latex`, never in the media grid, so
  * it gets the same link-not-chip treatment as `NotesLink` right next to it.
  */
@@ -114,7 +114,7 @@ function LatexLink() {
 }
 
 /**
- * **Jukebox** (brief 82): the remote for the Discord bot's music. A peer place
+ * **Jukebox**: the remote for the Discord bot's music. A peer place
  * like Notes and LaTeX, not a kind, so it gets the same link treatment.
  */
 function JukeboxLink() {

@@ -11,7 +11,7 @@ import {
 import { apiFetch } from "./api-client";
 
 /**
- * Profile API calls (brief 35, D35). Thin wrappers over the Fastify
+ * Profile API calls (D35). Thin wrappers over the Fastify
  * `/profiles` routes, shaped exactly like notes-api.ts: responses validate
  * against the shared Zod contract so client and server can't drift (D11),
  * auth rides on `apiFetch`'s bearer token, and `ApiError` propagates.
@@ -73,7 +73,7 @@ export async function activateProfile(id: string): Promise<Profile> {
 /**
  * Read the profile's preferences blob. `{}` if the profile has never written
  * one (the DB column is NULL until the first PATCH — migration deliberately
- * leaves it unset, brief 35 step 8) — never a 404 for that case, only for a
+ * leaves it unset, the profiles work's spec) — never a 404 for that case, only for a
  * profile id that isn't this account's.
  */
 export async function fetchPreferences(id: string): Promise<Preferences> {

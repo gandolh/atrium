@@ -1,6 +1,6 @@
 ---
 summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
-updated: 2026-10-13
+updated: 2026-11-02
 ---
 
 # Architecture
@@ -18,7 +18,7 @@ ebook-reader/
 ```
 
 Root `workspaces` is `["packages/shared", "packages/typeset", "apps/*"]`, dependencies first on purpose: npm runs
-`--workspaces` scripts in declaration order and the apps compile against the packages' built `dist/` (brief 59). `npm run dev`
+`--workspaces` scripts in declaration order and the apps compile against the packages' built `dist/` (2026-10-03). `pretypecheck` and `pretest` run `build:packages` first, so a fresh clone typechecks and tests without a manual build (2026-10-27). `npm run dev`
 builds both packages, then runs web + api + a `tsc --watch` on typeset. Plain npm, no Turborepo. TypeScript throughout.
 
 ## Dependency direction
@@ -44,7 +44,7 @@ web: file upload ──POST /library──► api: validate (Zod) → store orig
      remove ──DELETE /library/:id──► delete row + file + thumbnail
 ```
 
-Since 2026-07-16 (briefs 21–22): extraction also pulls `series`/`seriesIndex`/
+Since 2026-07-16: extraction also pulls `series`/`seriesIndex`/
 `subjects` (EPUB OPF; best-effort PDF Info) with a one-time startup backfill
 for older rows, and books carry `source`/`source_id` provenance
 (`upload` | `gutenberg`). Two catalog routes sit beside the library:
@@ -55,7 +55,7 @@ then reuses the exact upload pipeline above). The library home groups by
 author/series/subject behind a Shelves ⇄ Stacks view toggle; the drilled
 group lives in the `?g` search param.
 
-Since brief 23 the library is a **media library**: formats widened to
+Since the media library (2026-07-16) the library is a **media library**: formats widened to
 pdf/epub/**mp3/mp4/webm** with `kind` (`book|audio|video`) +
 `duration_seconds` columns. mp3 metadata (`music-metadata`, pure JS) maps
 artist→author, album→series, track→series_index, genre→subjects — so grouping
@@ -104,7 +104,7 @@ apps/api/
   images/thumbnails/<id>.jpg extracted cover thumbnails
 ```
 Every storage root is **gitignored** and independently redirectable by env.
-There are **five** (D39, extended by brief 38):
+There are **five** (D39, extended by the LaTeX editor of 2026-08-27):
 
 | Env var | Holds |
 |---|---|
@@ -136,7 +136,7 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
   were dropped by D39.
 - `latex_projects`: `id, profile_id → profiles ON DELETE CASCADE, title,
   entrypoint, compile_status, published_book_id → books ON DELETE **SET NULL**,
-  created_at, updated_at` — per-profile LaTeX drafts (brief 38). The `SET NULL`
+  created_at, updated_at` — per-profile LaTeX drafts (2026-08-27). The `SET NULL`
   is load-bearing: deleting the published entry must not delete the draft, or
   vice versa.
 - `document_versions`: `id, book_id → books ON DELETE CASCADE, version_no,
@@ -161,7 +161,7 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
 - `reading_progress`: `(profile_id, book_id) PK` → `progress, locator,
   updated_at`, both FKs `ON DELETE CASCADE` — progress + resume position, keyed
   on the **profile** since D35 (was `user_id`; the composite PK meant SQLite
-  could not ALTER it, so brief 35 rebuilt the table).
+  could not ALTER it, so the profiles work (2026-08-25) rebuilt the table).
 
 ## Backend layering (`apps/api/src`)
 
@@ -181,7 +181,7 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
 - **react-reader** (epub.js) — EPUB rendering.
 
 ## Backend stack (`apps/api`)
-- **Fastify** + `@fastify/multipart` (upload). No CORS since brief 65: nothing calls the API cross-origin.
+- **Fastify** + `@fastify/multipart` (upload). No CORS since the local dev loop (2026-10-03): nothing calls the API cross-origin.
 - **Knex** over **`better-sqlite3`** (D24 as revised by D47) — same driver,
   still synchronous underneath, but every query is a promise. One connection in
   the pool, which is what keeps transactions exclusive and `foreign_keys` (a

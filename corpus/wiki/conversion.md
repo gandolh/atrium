@@ -1,6 +1,6 @@
 ---
 summary: Convert — the same book in either format, as linked library rows produced by an async Calibre job. Both directions, cancellable, quality-graded, and read in-app.
-updated: 2026-08-25
+updated: 2026-11-02
 ---
 
 # Convert (PDF ⇄ EPUB)
@@ -9,7 +9,7 @@ updated: 2026-08-25
 **converted book** — its own `books` row, linked to its **source book** — which
 is read in-app like any other. It is not an export.
 
-This page was rewritten by brief 34. Everything it previously described (a
+This page was rewritten by the convert work (2026-08-26). Everything it previously described (a
 single stateless `POST /convert`, a 60s cap, a downloaded file that could not be
 read in the app) is gone; see "What changed, and why" at the foot.
 
@@ -88,7 +88,7 @@ it is why the switch matters more than the conversion quality.
 
 - [convert.service.ts](../../apps/api/src/modules/library/convert.service.ts) — the runner, the
   single-flight guard, the quality gate, the boot sweep.
-- [calibre.service.ts](../../apps/api/src/modules/library/calibre.service.ts) — the `ebook-convert` wrapper.
+- [calibre.service.ts](../../apps/api/src/modules/library/calibre.service.ts) — the `ebook-convert` wrapper. The tests that need Calibre probe for it once and skip with "Calibre not installed" when it is missing (2026-10-27).
   Format-agnostic; it always was. Spawns with `PYTHONNOUSERSITE=1` so a pip
   `lxml` can't shadow the distro one — load-bearing, not theoretical.
 - [library.controller.ts](../../apps/api/src/modules/library/library.controller.ts) — convert, cancel /

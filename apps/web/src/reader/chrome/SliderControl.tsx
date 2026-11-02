@@ -3,7 +3,7 @@ import { Slider } from "@base-ui/react/slider";
 /**
  * Reusable labelled slider built on Base UI's Slider (wiki/reader.md
  * "Slider (font size/zoom)"). Controlled single-value only. Shared so PDF
- * (zoom, brief 06) and EPUB (font size / line-spacing / margins, brief 07) use
+ * (zoom) and EPUB (font size / line-spacing / margins) use
  * the same styled control.
  */
 export function SliderControl({

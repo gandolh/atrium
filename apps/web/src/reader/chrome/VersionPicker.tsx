@@ -12,7 +12,7 @@ import { useChromeHold } from "./use-auto-hide-chrome";
 import { MOTION_MS } from "../../lib/motion";
 
 /**
- * The reader's version picker (brief 38 step 7, decisions 8–11) — a QUIET
+ * The reader's version picker — a QUIET
  * control, not a feature to advertise. Reader chrome only: mounted as a
  * floating sibling of `PdfReader` in `routes/read.tsx`, never inside it —
  * `PdfReader` stays byte-for-byte unmodified (the brief's own constraint: a

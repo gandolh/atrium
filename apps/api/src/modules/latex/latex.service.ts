@@ -36,7 +36,7 @@ import {
 } from "./latex.model.js";
 
 /**
- * The `/latex` domain logic (brief 38) — wire shapes, the working tree, path
+ * The `/latex` domain logic — wire shapes, the working tree, path
  * confinement, and publishing. `latex.controller.ts` sits on top and owns the
  * HTTP; the two rules below bind both files, and the helpers that enforce them
  * (`requireProject`, `confinedOr400`) live here because they are the gate, not
@@ -47,14 +47,14 @@ import {
  * **1. Every route resolves the project through `await getLatexProject(profileId, id)`
  * first.** That statement is profile-scoped *in the SQL*, so a project on
  * another profile is simply not found and the answer is **404, never 403** —
- * brief 35's rule, the same one the profiles controller states at length. A 403
+ * the profiles work's rule, the same one the profiles controller states at length. A 403
  * would confirm the id exists on somebody else's account. `requireProject`
  * below is the single gate, and nothing derives a path from a URL parameter
  * before it has passed.
  *
  * **2. Every client-supplied path goes through `confineProjectPath`.** The
  * typesetting engine is a pure function with no I/O (D38) and cannot be
- * escaped, so this file is where brief 38's remaining security surface lives:
+ * escaped, so this file is where the LaTeX editor's remaining security surface lives:
  * it accepts paths from a client and writes them to disk. In the brief's own
  * words, *one unchecked join here is an arbitrary file write*. The paths that
  * must be confined are file read/write/delete, binary upload, **both sides** of
@@ -150,11 +150,11 @@ export function bodyToContent(body: unknown): string | null {
 // --- The seeded hello-world --------------------------------------------------
 
 /**
- * What a brand-new project starts as (brief 38, decision 4).
+ * What a brand-new project starts as (decision 4).
  *
- * **Deliberately inside the subset brief 37's engine actually renders**: prose,
+ * **Deliberately inside the subset the foundation engine actually renders**: prose,
  * sections, `\textbf`/`\emph`, and one `itemize`. No math, no figures, no
- * tables — those are briefs 39 and 40, and seeding them would greet a new user
+ * tables — those came later in the engine's scope, and seeding them would greet a new user
  * with a diagnostics panel full of "not supported" on a document they did not
  * write. Verified to compile with **zero** diagnostics.
  *
@@ -380,7 +380,7 @@ export async function pruneEmptyDirs(projectId: string, absoluteFile: string): P
  * link carrying a `?token=` (the guard accepts one, for cover `<img>` tags)
  * would render it on the API's origin. As an octet-stream it downloads
  * instead, which costs an inline preview of a format the engine cannot draw
- * until brief 39 anyway.
+ * until the figures, tables and bibliography work anyway.
  */
 const TEXT_EXTENSIONS = new Set([
   "tex", "bib", "cls", "sty", "bst", "txt", "md", "csv", "json", "log", "yml", "yaml",
@@ -565,13 +565,13 @@ export async function accountedFilesOr409(
 
 // --- Publishing: drafts become one library entry with many versions ---------
 //
-// Brief 38 step 6 and decisions 8/11. The whole of "publish ten times, one
+// The LaTeX editor's spec and decisions 8/11. The whole of "publish ten times, one
 // card" is that `latex_projects.published_book_id` is written ONCE and every
 // later publish appends a `document_versions` row to the book already named
 // there. Nothing below ever repoints that column at a different book.
 //
 // **No path is ever stored** (D39, correction of 2026-08-27). `books.file_path`
-// and `books.cover_path` were dropped by brief 41 for being a stale cache of a
+// and `books.cover_path` were dropped by the storage-paths work for being a stale cache of a
 // pure function, and `document_versions` was specified with `pdf_path` /
 // `source_zip_path` columns that were removed before they were ever written.
 // So every artifact this file produces goes to a location `paths.ts` derives

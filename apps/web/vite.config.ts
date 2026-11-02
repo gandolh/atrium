@@ -51,7 +51,7 @@ export default defineConfig(({ mode }) => {
   const rawBase = env.BASE_PATH ?? "/";
   const base = rawBase.endsWith("/") ? rawBase : `${rawBase}/`;
 
-  // Runtime-cache match for cover thumbnails ONLY (brief 19). Covers are the
+  // Runtime-cache match for cover thumbnails ONLY. Covers are the
   // one API surface we cache: immutable-per-book images fetched by
   // `<img src="<api-base>/library/:id/cover?v=…">`. `coverUrl` builds those
   // via `apiUrl()`, which PRESERVES any path prefix on VITE_API_URL (e.g. a
@@ -147,7 +147,7 @@ export default defineConfig(({ mode }) => {
               // from cache, refresh in the background.
               //
               // A cover can change in place (a re-publish regenerates it; D40's
-              // `POST /library/:id/cover` is last-write-wins), and since brief 62
+              // `POST /library/:id/cover` is last-write-wins), and since the republish fix
               // `coverUrl` carries the cover's version (`?v=<mtime>`), so a
               // changed cover is a new URL and a new cache entry rather than a
               // stale paint. The pattern is a prefix, so versioned URLs match.

@@ -28,7 +28,7 @@ import {
  * One convention lives here, not three: `library-routes.ts`, `catalog-routes.ts`,
  * `convert-jobs.ts` and `db.ts` all import from this module.
  *
- * Brief 38's LaTeX paths join the same rule (D39, correction of 2026-08-27):
+ * The LaTeX editor's LaTeX paths join the same rule (D39, correction of 2026-08-27):
  * `document_versions` was specified with `pdf_path`/`source_zip_path` columns
  * and they were removed **before they were ever written**, so the derivations
  * at the bottom of this file are not a cache of a column — they are the only
@@ -51,7 +51,7 @@ export function filePathFor(id: string, format: FileType): string {
  * The cover thumbnail: `images/thumbnails/<coverOwnerId>.jpg`.
  *
  * Takes the **cover owner's** id, not just any book id — see `coverOwnerId`.
- * A converted book's cover is **reused, never re-extracted** (brief 34 keeps
+ * A converted book's cover is **reused, never re-extracted** (the convert work keeps
  * `extract.ts` out of the convert path entirely), so a converted pair is one
  * thumbnail file with two rows pointing at it. Deleting only the conversion
  * must therefore delete the converted FILE and leave the thumbnail alone, or
@@ -117,7 +117,7 @@ function assertUuid(id: string, what: string): void {
 }
 
 /**
- * A LaTeX project's working tree: `latex/<projectId>/` (brief 38).
+ * A LaTeX project's working tree: `latex/<projectId>/`.
  *
  * This is the draft — mutable, per-project, never in the gallery — and it is
  * the directory `confineProjectPath` in `latex-paths.ts` confines every
@@ -131,7 +131,7 @@ export function projectDirFor(projectId: string): string {
 }
 
 /**
- * A published version's PDF: `versions/<versionId>.pdf` (brief 38 step 6).
+ * A published version's PDF: `versions/<versionId>.pdf`.
  *
  * Flat, one directory, named by the version's own id — the same shape as
  * `library/<id>.<ext>`, on purpose. The *newest* version's bytes also exist as

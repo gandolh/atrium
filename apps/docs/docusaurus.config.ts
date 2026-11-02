@@ -2,7 +2,7 @@ import type { Config } from '@docusaurus/types'
 import type * as Preset from '@docusaurus/preset-classic'
 
 /**
- * Atrium's documentation site (Docusaurus since 2026-10-19, brief 87; it was
+ * Atrium's documentation site (Docusaurus since 2026-10-19, the Docusaurus move; it was
  * Astro Starlight before, at the same URLs).
  *
  *   • Narrative  → authored here, and deliberately THIN: atrium's corpus is a

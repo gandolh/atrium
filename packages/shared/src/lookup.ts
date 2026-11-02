@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { MediaKind } from "./file-validation.js";
 
 /**
- * Metadata lookup contract (brief 100, D59): a lookup the user asks for, on
+ * Metadata lookup contract (D59): a lookup the user asks for, on
  * one item at a time, never automatic and never on upload. Music asks
  * MusicBrainz (and the Cover Art Archive for its cover), books ask Open
  * Library. Films have no source until the owner registers a TMDb key.

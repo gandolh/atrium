@@ -16,10 +16,10 @@ import type { SvgTargetBox } from "../src/pdf/svg.ts";
 import type { Diagnostic } from "../src/diagnostics.ts";
 
 /**
- * Brief 40, chunk 40.1: the SVG → PDF operator emitter.
+ * The math work's spec: the SVG → PDF operator emitter.
  *
  * **Every assertion here is on a coordinate, not on "it did not throw".** That
- * is deliberate, and it is the lesson `wiki/typeset.md` records from brief 39:
+ * is deliberate, and it is the lesson `wiki/typeset.md` records from the figures, tables and bibliography work:
  * the one defect its review found was geometry that produced no diagnostic and
  * still drew the wrong picture, because the test asserted only that the case
  * "stays quiet". A formula rendered upside down, or with one glyph half a point
@@ -427,10 +427,10 @@ test("svg: a rect under a skewing matrix stays a parallelogram, not a re", () =>
   assert.deepEqual(ops(svg), ["0 100 m", "10 100 l", "20 90 l", "10 90 l", "h", "f"]);
 });
 
-/* ============================================ the loud guards (D38, brief 40 §2) */
+/* ============================================ the loud guards (D38, the math work §2) */
 
 /**
- * The guard brief 40's settled calls asked for by name. `fontCache: "none"`
+ * The guard the math work's settled calls asked for by name. `fontCache: "none"`
  * inlines every glyph outline, so a `<use>` means that assumption broke — and
  * the failure it prevents is every glyph in the document silently disappearing.
  */

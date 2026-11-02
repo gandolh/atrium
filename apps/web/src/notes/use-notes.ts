@@ -18,13 +18,13 @@ import {
 } from "./notes-api";
 
 /**
- * React Query hooks for notes (brief 26). Mirrors the library hooks' shape:
+ * React Query hooks for notes. Mirrors the library hooks' shape:
  * one list query + mutations that invalidate it. The editor uses `useNote`
  * (single) + `useNoteAutosave` (the serialized autosave pipeline).
  */
 
 /**
- * Note query keys carry the active profile (brief 35 step 7). Notes moved from
+ * Note query keys carry the active profile. Notes moved from
  * user scope to profile scope (D35 decision 3), so a cached list is one
  * person's notebook and a key without an identity in it would hand it to the
  * next person who switches in. `switchProfile` clears the cache outright; this
@@ -74,7 +74,7 @@ export function useDeleteNote() {
 }
 
 /* -------------------------------------------------------------------------
- * Autosave (brief 56)
+ * Autosave
  *
  * Every save carries the whole notebook, so the pipeline has three rules:
  *
@@ -191,7 +191,7 @@ export function useNoteAutosave(id: string) {
 }
 
 /* -------------------------------------------------------------------------
- * Note folders (brief 50)
+ * Note folders
  *
  * Their own query key, carrying the active profile for exactly the reason the
  * note keys do: a folder tree belongs to one person, and a cached tree served

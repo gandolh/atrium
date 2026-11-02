@@ -16,11 +16,11 @@ import { type FileType, fileTypeSchema, mediaKindSchema } from "./file-validatio
 
 /**
  * Where a library book came from: a user `upload` (the default) or a catalog
- * `import` (brief 22). Stored on the row and surfaced on the wire so the client
+ * `import`. Stored on the row and surfaced on the wire so the client
  * can badge imported books and cross-reference them against a catalog id.
  */
 /**
- * Where a library entry came from. `latex` was added 2026-08-27 (brief 38): a
+ * Where a library entry came from. `latex` was added 2026-08-27: a
  * published document is authored *here*, so calling it an `upload` would make
  * the card lie about its own provenance — and it is the one source whose entry
  * has a live draft still behind it.
@@ -30,7 +30,7 @@ export const bookSourceSchema = z.enum(BOOK_SOURCES);
 export type BookSource = z.infer<typeof bookSourceSchema>;
 
 /**
- * Where a book sits in the convert machine (D34, brief 34). `none` is every
+ * Where a book sits in the convert machine (D34). `none` is every
  * book that has never been converted; `running` means a job is in flight;
  * `ready` and `poor` both mean a **converted book** exists and opens — `poor`
  * only adds "this looks scanned, expect little text", which the UI *warns*
@@ -73,7 +73,7 @@ export const libraryBookSchema = z.object({
   author: z.string().nullable(),
   format: fileTypeSchema,
   /**
-   * Media kind (brief 23) derived from `format` at upload: "book" for pdf/epub,
+   * Media kind derived from `format` at upload: "book" for pdf/epub,
    * "audio" for mp3, "video" for mp4/webm. Drives the gallery type filter and
    * whether the reader or a media player opens. Existing rows migrate to "book".
    */
@@ -85,7 +85,7 @@ export const libraryBookSchema = z.object({
    */
   durationSeconds: z.number().nullable(),
   /**
-   * Provenance (brief 22): "upload" for user uploads (the default so existing
+   * Provenance: "upload" for user uploads (the default so existing
    * rows and the upload path stay correct), "gutenberg" for catalog imports.
    */
   source: bookSourceSchema.default("upload"),
@@ -104,7 +104,7 @@ export const libraryBookSchema = z.object({
   /** Whether a cover thumbnail was extracted (drives fallback tile in the UI). */
   hasCover: z.boolean(),
   /**
-   * The cover file's mtime (ms), or null when there is no cover (brief 62).
+   * The cover file's mtime (ms), or null when there is no cover.
    * A cover is rewritten in place (a re-publish, D40's last-write-wins
    * setter), so it is the cache key: `coverUrl(id, coverVersion)` puts it in
    * the URL, and a changed cover is a new URL rather than a year-long stale
@@ -132,7 +132,7 @@ export const libraryBookSchema = z.object({
   lastOpenedAt: z.string().nullable(),
   /**
    * The CURRENT profile's `reading_progress.updated_at` for this row, or null
-   * if they've never opened it (brief 34 step 7, pre-authorised addition).
+   * if they've never opened it.
    * Distinct from `lastOpenedAt` (which just means the file route was hit):
    * this is what lets the client compare a linked convert pair — the source
    * and its converted book — and reopen whichever one this reader read most
@@ -177,11 +177,11 @@ export const updateProgressSchema = z.object({
    * stored locator untouched. */
   locator: z.string().min(1).nullish(),
   /**
-   * The profile this reading was recorded *as* (brief 35). Omitted on a normal
+   * The profile this reading was recorded *as* Omitted on a normal
    * live PATCH — the route resolves the profile from the session, which is
    * always right when the write happens as it's made.
    *
-   * It exists for the offline queue (brief 35 step 7). A record queued while
+   * It exists for the offline queue. A record queued while
    * profile A was reading may only flush after a switch to B, and the session
    * by then says B — so without this the flush would silently re-attribute A's
    * reading to B, which is the exact bug that step exists to prevent. The
@@ -195,7 +195,7 @@ export const updateProgressSchema = z.object({
    */
   profileId: z.string().optional(),
   /**
-   * Which published **version** the `locator` was measured in (brief 38
+   * Which published **version** the `locator` was measured in (the LaTeX editor
    * decision 10). Omitted/null leaves the stored one untouched — the upsert
    * COALESCEs it exactly as it does the locator, so the two move as a matched
    * pair or not at all: a locator without its version could later be applied to

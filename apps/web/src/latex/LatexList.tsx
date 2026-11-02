@@ -7,7 +7,7 @@ import { AppHeader } from "../components/AppHeader";
 import { useCreateLatexProject, useDeleteLatexProject, useLatexProjects } from "./use-latex";
 
 /**
- * `/latex` list (brief 38 chunk 7) — the per-profile LaTeX project index.
+ * `/latex` list — the per-profile LaTeX project index.
  * Modelled directly on `notes/NotesList.tsx`: LaTeX is a destination sibling
  * to Notes (D33g generalised by D36 to every authored thing), not a media
  * chip and not a card in the gallery grid, so this renders the same single

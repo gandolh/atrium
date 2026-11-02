@@ -4,7 +4,7 @@ import { writeFileSync } from "node:fs";
 import { knex } from "../src/database/knex.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 66: `GET /notes` selected every column, ink included, and JSON-parsed
+// `GET /notes` selected every column, ink included, and JSON-parsed
 // each notebook only to count its pages; the profile-delete checks reused the
 // same query to count notes. The list now counts pages in SQL, and the checks
 // call a count.

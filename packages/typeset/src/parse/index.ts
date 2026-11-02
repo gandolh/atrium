@@ -13,7 +13,7 @@ import type { ParseResult } from "./ast.ts";
 const parser = getParser();
 
 /**
- * Parse LaTeX source into Atrium's own AST (brief 37, chunk 3).
+ * Parse LaTeX source into Atrium's own AST.
  *
  * Turns text into a tree of what the source *says*; it does not expand
  * macros, does not know what any command *means*, and does not resolve

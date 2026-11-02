@@ -1,6 +1,6 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs'
 
-// Ported group by group from the Starlight sidebar (brief 87), labels as they
+// Ported group by group from the Starlight sidebar, labels as they
 // were, plus the four corpus pages its hand-kept list had left out. Doc items
 // are checked at build time: an entry for a page that does not exist fails the
 // build. Doc ids are paths under docs/ without the extension
@@ -52,6 +52,7 @@ const sidebars: SidebarsConfig = {
         { type: 'doc', id: 'wiki/latex', label: 'The /latex destination' },
         { type: 'doc', id: 'wiki/typeset', label: 'The typesetting engine' },
         { type: 'doc', id: 'wiki/typeset-math', label: 'Setting mathematics' },
+        { type: 'doc', id: 'wiki/typeset-scope', label: 'What the engine sets' },
         { type: 'doc', id: 'wiki/glossary-authoring', label: 'Authoring vocabulary' },
       ],
     },

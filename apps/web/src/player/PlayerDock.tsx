@@ -14,7 +14,7 @@ import {
 } from "./transport";
 
 /**
- * The persistent player dock (brief 31, design.md "Components" → "Player
+ * The persistent player dock (design.md "Components" → "Player
  * dock"): full-width, `paper-raised`, a 1px top `line`; artwork, title, source,
  * transport, scrub track and tabular elapsed/total. It lives in the app SHELL
  * (`routes/root-layout.tsx`), which is what lets it — and the playback it
@@ -120,7 +120,7 @@ function DockArtwork({ item }: { item: PlaybackItem }) {
  * Title + source. The title is the way back: clicking it returns to the item's
  * surface, and because the store keeps the position (and re-loading the item
  * already loaded is a no-op for position and play state), that surface picks up
- * exactly where the dock was — brief 31's "resume".
+ * exactly where the dock was — the player dock's "resume".
  */
 function DockTitle({ item }: { item: PlaybackItem }) {
   return (

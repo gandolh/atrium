@@ -1,6 +1,6 @@
 ---
 summary: Naming authority for authored content — Notes (note, page, stroke, text box) and LaTeX (project, draft, published document, version, typesetting engine, supported subset, diagnostic); the collected-media half lives in glossary.md.
-updated: 2026-08-26
+updated: 2026-11-02
 ---
 
 # Glossary — authored content
@@ -16,7 +16,7 @@ displaces, definitions only.
 
 **Note**:
 One per-user notebook: an ordered list of note pages, stored server-side
-(brief 26).
+(2026-07-20).
 _Avoid_: notebook, document, doc, sketch
 
 **Note page**:
@@ -71,7 +71,7 @@ _Avoid_: revision, snapshot, release, build
 ## The engine
 
 **Typesetting engine**:
-Atrium's own TypeScript library (`packages/typeset`, brief 37, D38) that turns a
+Atrium's own TypeScript library (`packages/typeset`, the engine foundation of 2026-08-26, D38) that turns a
 LaTeX project into a PDF. Ours, not TeX — it takes an in-memory file map and
 returns bytes, with no filesystem, network, or shell. See `wiki/typeset.md`.
 _Avoid_: the compiler, LaTeX, TeX, Tectonic, the renderer

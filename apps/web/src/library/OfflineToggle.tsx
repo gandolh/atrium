@@ -1,7 +1,7 @@
 import type { OfflineDownloadStatus } from "../lib/use-library";
 
 /**
- * Per-book "Available offline" control (brief 20 item 2) — a quiet icon
+ * Per-book "Available offline" control — a quiet icon
  * button anchored top-left on the cover, mirroring the format badge's
  * top-right position (`CoverCard`). One glyph + one tap per lifecycle state:
  *

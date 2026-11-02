@@ -44,7 +44,7 @@ import {
 } from "./epub-page-map";
 
 /**
- * EPUB reader (brief 07 + the redesign that became Reading Room). Wraps
+ * EPUB reader (the EPUB reader + the redesign that became Reading Room). Wraps
  * `react-reader` (epub.js) inside the SAME shared Kindle-style chrome the PDF
  * reader uses.
  *
@@ -58,7 +58,7 @@ import {
  * string, stored in Zustand `currentLocation`.
  */
 
-// ── Session caches (chunk 16) ────────────────────────────────────────────────
+// ── Session caches ────────────────────────────────────────────────
 // Re-opening the SAME book (same identity + layout) re-ran two full-book walks
 // every time: the off-screen page-map pagination AND epub.js `locations.generate`
 // — measured at ~2.8 s and ~4.7 s of background CPU AFTER the reader was already
@@ -127,7 +127,7 @@ function hrefMatches(target: unknown, href: string): boolean {
 }
 
 /**
- * The open row (brief 34), supplied by `read.tsx` which already resolved it.
+ * The open row, supplied by `read.tsx` which already resolved it.
  * Rendered as the convert status button / format switch in the format-adaptive
  * slot below. Passed as DATA, not a node, so `ConvertControl` stays inside this
  * lazily-loaded reader chunk instead of the entry chunk.
@@ -140,7 +140,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
   const toggleTocSidebar = useReaderStore((s) => s.toggleTocSidebar);
   // Layout-affecting settings — a change invalidates the page map.
   const fontSettings = useReaderStore((s) => s.fontSettings);
-  // Reading mode (chunk 11): "scroll" flips epub.js to `flow: scrolled-doc`.
+  // Reading mode: "scroll" flips epub.js to `flow: scrolled-doc`.
   const pageMode = useReaderStore((s) => s.pageMode);
 
   // epub.js reads from an ArrayBuffer (in-memory file → no network, no object
@@ -217,7 +217,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
   // Re-runs on `recomputeToken` (layout-affecting settings / viewport changed).
   useEffect(() => {
     if (!rendition || !data) return;
-    // Scroll mode (chunk 11) uses `flow: scrolled-doc`, which reports no per-
+    // Scroll mode uses `flow: scrolled-doc`, which reports no per-
     // screen page — the page field is hidden and the map is unused. Skip the
     // whole off-screen walk (a full second parse of the book) in that mode.
     if (pageMode === "scroll") {

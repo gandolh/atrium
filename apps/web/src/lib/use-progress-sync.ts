@@ -23,13 +23,13 @@ import {
  * The saved locator is what lets a refresh / reopen land back on the exact page
  * the user left off at (the reader seeds its start position from it).
  *
- * Offline (brief 20): every debounced tick ALSO writes a local progress record
+ * Offline: every debounced tick ALSO writes a local progress record
  * (IndexedDB), so reading position survives offline and a reload. When the PATCH
  * succeeds the local record is marked synced; when it fails (offline) the record
  * stays pending and `flushPendingProgress` / `useReconnectProgressSync` push it
  * once on reconnect — last-write-wins, no queue of intermediate positions.
  *
- * Profiles (brief 35 step 7): the local record is tagged with whoever is
+ * Profiles: the local record is tagged with whoever is
  * active on THIS device at write time, so a flush that lands after a profile
  * switch still attributes the position correctly instead of writing it to
  * whoever happens to be active when the network comes back. The live PATCH
@@ -61,14 +61,14 @@ export function useProgressSync() {
   const bookId = useReaderStore((s) => s.loadedBookId);
   const fraction = useReaderStore((s) => s.progressFraction);
   const location = useReaderStore((s) => s.currentLocation);
-  // Brief 38 step 7, decision 10: a `locator` inside a published document only
+  // The LaTeX editor's spec: a `locator` inside a published document only
   // means something alongside the version it was measured in, so the version
   // travels in the pending write with the locator it was measured against.
   const versionId = useReaderStore((s) => s.loadedVersionId);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSent = useRef<string | null>(null);
   /**
-   * The position not yet written (brief 57). Held in a ref, not a timer
+   * The position not yet written. Held in a ref, not a timer
    * closure, so every way out can write it: the debounce timer, leaving the
    * reader, switching to the converted twin or another version, hiding the
    * tab, and closing it. Before this, only the timer could, and a reader who
@@ -183,7 +183,7 @@ export function useProgressSync() {
  * than the server" is inferred from the local pending flag (`updatedAt >
  * syncedAt`, tracked in the store) plus value divergence from the fetched row.
  *
- * Profiles (brief 35 step 7): `rows` is fetched under the session's CURRENT
+ * Profiles: `rows` is fetched under the session's CURRENT
  * active profile, so it is only a valid "already on the server" comparison
  * for pending records that belong to that same profile. A record recorded by
  * a DIFFERENT profile (the whole reason this queue needs `profileId` at all)
@@ -240,7 +240,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       // record, per the comment above) — never the currently active one.
       //
       // **Never write a locator that is not paired with the version it was
-      // measured in** (brief 38 decision 10; `apps/api/src/library-routes.ts`
+      // measured in** (the LaTeX editor's spec; `apps/api/src/library-routes.ts`
       // states the same rule from the server side). `upsertProfileProgress`
       // COALESCEs `locator` and `version_id` independently, so a locator sent
       // without a version replaces the page number and leaves the OLD version
@@ -248,7 +248,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       // never measured in, which resumes in the wrong place and is strictly
       // worse than resuming at 0.
       //
-      // Records written since brief 38 carry their version (`putLocalProgress`),
+      // Records written since the LaTeX editor carry their version (`putLocalProgress`),
       // so the pair normally goes out intact. The one case that cannot is a
       // versioned book read while the version list never resolved — reading
       // OFFLINE, where `GET /library/:id/versions` simply never answered and
@@ -298,7 +298,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
  * `isOffline` (from `useLibraryList`) means those rows are the OFFLINE FALLBACK
  * — downloaded books' cached snapshots — and it MUST suppress the flush. Those
  * rows compose their `progress`/`locator` from this device's own progress
- * records (brief 35 fix), so comparing a pending record against them is
+ * records (the profiles work fix), so comparing a pending record against them is
  * comparing it against itself: every record would look "already on the server"
  * and be marked synced without a single PATCH ever going out, silently
  * discarding the offline reading it was queued to deliver. `rows` is only a

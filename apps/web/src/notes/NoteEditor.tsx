@@ -47,17 +47,17 @@ import { fetchNotePdf } from "./notes-api";
 import { useNote, useNoteAutosave } from "./use-notes";
 
 /**
- * The note editor (brief 26) — a paged notebook page with vector ink
+ * The note editor — a paged notebook page with vector ink
  * (perfect-freehand) + movable typed text boxes. Coordinates are normalized to
  * the page box (width 1, height PAGE_ASPECT) so a note drawn on a phone renders
  * identically on a monitor. Autosaves through `useNoteAutosave`: debounced, one
- * save at a time, and a failure is shown rather than swallowed (brief 56).
+ * save at a time, and a failure is shown rather than swallowed.
  *
  * Every save also copies the note to this device first (`lib/unsaved-stash.ts`,
- * brief 88), because a 401 replaces the editor with the login page and takes
+ * the unsaved-notes stash), because a 401 replaces the editor with the login page and takes
  * the unsaved ink with it. A save that leaves nothing unsaved removes the copy;
  * opening the note again as the same account and profile offers it back
- * ("Recovered unsaved changes"), as the LaTeX editor does (brief 85).
+ * ("Recovered unsaved changes"), as the LaTeX editor does.
  *
  * The page sheet is deliberately a light "paper" surface in every theme (a
  * sheet of paper looks the same; the desk around it changes) so dark ink stays
@@ -156,7 +156,7 @@ type StrokeLayer = { d: string; opacity: number };
  *
  * The `perfect-freehand` options are NOT written here. They live once in
  * `packages/shared/src/notes.ts` because `apps/api/src/note-pdf.ts` rebuilds
- * the same geometry for the PDF export (brief 49) — a nib added to only one of
+ * the same geometry for the PDF export — a nib added to only one of
  * the two would export as a plain pen with no error and no diagnostic.
  */
 function strokeLayers(stroke: Stroke): StrokeLayer[] {
@@ -171,8 +171,8 @@ function strokeLayers(stroke: Stroke): StrokeLayer[] {
 
 /* ------------------------------------------------------------------ export */
 /*
- * Export (brief 49). The PDF is rendered by the API — `apps/web` carries no PDF
- * writer and briefs 15/16/17 were spent trimming its payload, while the server
+ * Export. The PDF is rendered by the API — `apps/web` carries no PDF
+ * writer and three rounds of work were spent trimming its payload, while the server
  * already has pdf-lib. The PNG is the exception and is produced HERE, because
  * the browser already holds the exact geometry on screen and rasterising it
  * costs no new dependency on either side: the page is re-serialised as a
@@ -389,7 +389,7 @@ export function NoteEditor({ id }: { id: string }) {
   const [color, setColor] = useState<string>(() => cssToken(INKS[0].token));
   const [thickness, setThickness] = useState(1);
 
-  // Export state (brief 49): which format is in flight, and the last failure.
+  // Export state: which format is in flight, and the last failure.
   const [exporting, setExporting] = useState<null | "pdf" | "png">(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -460,8 +460,8 @@ export function NoteEditor({ id }: { id: string }) {
     setHistTick((t) => t + 1);
   }
 
-  // --- The device copy of unsaved ink (brief 88) ---------------------------
-  // The LaTeX editor's rules (brief 85): keyed to the signed-in account and the
+  // --- The device copy of unsaved ink ---------------------------
+  // The LaTeX editor's rules: keyed to the signed-in account and the
   // active profile as well as the note, so whoever signs in next on this
   // device never sees it; offered back with Restore or Discard; gone once a
   // save leaves nothing unsaved.
@@ -554,7 +554,7 @@ export function NoteEditor({ id }: { id: string }) {
     setRecovered(null);
   }, []);
 
-  // --- Autosave (brief 56) --------------------------------------------------
+  // --- Autosave --------------------------------------------------
   // Every render hands the pipeline the current draft (a ref write), so a save
   // that starts later, queued behind one in flight or fired on the way out,
   // always carries the latest state.
@@ -602,7 +602,7 @@ export function NoteEditor({ id }: { id: string }) {
     };
   }, [isDirty, saveWithCopy]);
 
-  // --- Export (brief 49) ----------------------------------------------------
+  // --- Export ----------------------------------------------------
   // The PDF is rendered by the server from the STORED note, so a pending
   // autosave has to land first — otherwise the download is silently a few
   // seconds stale. It goes through the same queue as every other save, so it
@@ -660,7 +660,7 @@ export function NoteEditor({ id }: { id: string }) {
     <div className="flex min-h-[calc(100vh-var(--dock-height,0px))] flex-col bg-reader-bg text-ink">
       {/* Header + tool bar are one sticky block pinned to the top of the
           scroll container — not a fixed-bottom overlay. A page sheet taller
-          than the viewport can never push either below the fold (brief 26's
+          than the viewport can never push either below the fold (the Notes tab's
           live-audit fix), and the tool bar now sits visually above the sheet
           per design.md, not floating over it. */}
       <div className="sticky top-0 z-20 flex flex-col border-b border-line-soft/50 bg-paper/95 backdrop-blur-sm">
@@ -680,7 +680,7 @@ export function NoteEditor({ id }: { id: string }) {
             className="min-w-0 flex-1 rounded bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
             placeholder="Untitled note"
           />
-          {/* Save state (brief 56). Quiet while retrying: it is a transient
+          {/* Save state. Quiet while retrying: it is a transient
               condition the editor is already handling. Always mounted so a
               screen reader announces the change. */}
           <span role="status" className="shrink-0 font-ui text-xs text-ink-variant">
@@ -766,7 +766,7 @@ export function NoteEditor({ id }: { id: string }) {
 }
 
 /**
- * Capture precision (brief 56). Every autosave carries every point of every
+ * Capture precision. Every autosave carries every point of every
  * page, and a full double costs about 18 bytes of JSON. Four decimals of the
  * sheet width is about 0.1 px on a 1000 px sheet, which no one can see, and
  * roughly halves the payload. Stored notes are untouched; only new points are
@@ -1067,9 +1067,9 @@ function NoteSheet({
     </div>
 
     {/* Reset-zoom affordance — only while pinched in. It used to sit at
-        `bottom-28` to clear a fixed bottom tool bar; brief 33 moved that bar
+        `bottom-28` to clear a fixed bottom tool bar; the Notes destination moved that bar
         into the sticky block above the sheet, so the offset now only has to
-        clear the player dock (brief 31), which may or may not be present. */}
+        clear the player dock, which may or may not be present. */}
     {zoomed && (
       <button
         type="button"
@@ -1184,7 +1184,7 @@ function TextBoxView({
 
 /* ------------------------------------------------------------- nib picker */
 /*
- * Brief 51 added two nibs, and brief 26's live audit + brief 33 both say the
+ * The ink tools added two nibs, and the Notes tab's live audit + the Notes destination both say the
  * tool bar must stay above the fold at 375px. Six flat buttons would have made
  * the tool group alone wider than a phone's toolbar row, so the three nibs
  * share ONE slot with a popover — the bar is the same size it was with two
@@ -1535,7 +1535,7 @@ function Toolbar({
 }
 
 /**
- * The export control (brief 49) — two plainly-labelled actions rather than a
+ * The export control — two plainly-labelled actions rather than a
  * popover, because there are exactly two and a menu would hide both behind an
  * extra click. It sits with undo/redo: both are things you do *to* the open
  * note, not tools you draw with, so neither belongs in the tool bar.

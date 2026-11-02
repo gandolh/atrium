@@ -1,5 +1,5 @@
 /**
- * Coverless-tile initial variation (D42, brief 43; **revised 2026-08-29**).
+ * Coverless-tile initial variation (D42, coverless tiles; **revised 2026-08-29**).
  *
  * D42 asked for two axes so a large collection of coverless items would not
  * render as a wall of identical rectangles: a title initial, plus a second
@@ -13,7 +13,7 @@
  * OKLab. A lightness ladder wide enough to tell two tiles apart swamps it. At
  * the 20% mix first built, one kind's own spread came to 0.1871 — nearly *ten
  * times* the distance between two different kinds — so a grid would have read
- * by lightness and not by kind, which is precisely the D33 inversion brief 43
+ * by lightness and not by kind, which is precisely the D33 inversion coverless tiles
  * exists to prevent. Sweeping the range found no working value: by 4% the
  * spread (0.0374) still beat the kind signal while the per-step difference
  * (0.0094) had already dropped below what anyone can see. The window is empty,

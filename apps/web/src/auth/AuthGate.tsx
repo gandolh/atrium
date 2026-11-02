@@ -26,7 +26,7 @@ import { LoginPage } from "./LoginPage";
  *   `unlocked`: the device is most likely offline, and the library falls back
  *   to its downloaded books on its own. While the API answers but signing in
  *   is not possible (Ward down for a Ward-only account), the login page offers
- *   those downloads itself (brief 77).
+ *   those downloads itself.
  *
  * ## The picker still sits between the gate and the app
  *

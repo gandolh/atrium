@@ -1,5 +1,5 @@
 /**
- * The macro layer (brief 37, chunk 6): the builtin tables and the
+ * The macro layer: the builtin tables and the
  * `\newcommand` expander. See `expand.ts` for why expansion is a queue rather
  * than a recursion, and `builtins.ts` for how to add a command.
  */

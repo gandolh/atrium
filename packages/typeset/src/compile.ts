@@ -376,7 +376,7 @@ function layoutDocument(
     const built = buildPages(list, {
       design,
       footnotes: ctx.footnotes,
-      // The float queue's input (brief 39, chunk 39.4). Keyed by the marker
+      // The float queue's input. Keyed by the marker
       // `vlist.ts` left where each float was written, in document order.
       floats: ctx.floats,
       fonts,

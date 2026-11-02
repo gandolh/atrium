@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * LaTeX diagnostic contract (brief 37, D38) — the one shape the typesetting
+ * LaTeX diagnostic contract (D38) — the one shape the typesetting
  * engine, the compile route and the editor UI all agree on. Lives in shared
  * (not in `packages/typeset`) because it crosses the wire: the engine produces
  * these, the API serialises them, apps/web renders them (D11).
@@ -92,7 +92,7 @@ export const diagnosticSchema = z.object({
 export type Diagnostic = z.infer<typeof diagnosticSchema>;
 
 /**
- * LaTeX project, file, compile-result and version contracts (brief 38, D38,
+ * LaTeX project, file, compile-result and version contracts (D38,
  * D39) — the wire shapes for `/latex`, sibling to the `Diagnostic` contract
  * above. Same rule as everywhere else in this package: these are what the API
  * sends and the client renders, not the SQLite row shape. In particular there

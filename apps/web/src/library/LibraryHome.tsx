@@ -25,16 +25,16 @@ import { useAddToQueue, useJukeboxPlayers } from "../jukebox/use-jukebox";
 import { OfflineBanner } from "./OfflineBanner";
 
 /**
- * **The** home (brief 28, D33 move 1): one gallery of the whole library, with
+ * **The** home (D33 move 1): one gallery of the whole library, with
  * media kind demoted from an address to a filter chip that carries a count.
  *
  * This replaces `LibraryArea` and the three per-type areas it backed (`/books`
- * `/music` `/videos`, brief 25) — deliberately reversing D32/brief 25's IA. The
+ * `/music` `/videos`) — deliberately reversing D32/the per-type areas's IA. The
  * per-area config table is gone with it: there is one heading, one empty state,
  * one Add affordance and one grid, and `?kind` (absent = all kinds) narrows what
- * the grid shows. Brief 21's Shelves ⇄ Stacks grouping is gone too (D33h); the
+ * the grid shows. Library grouping's Shelves ⇄ Stacks grouping is gone too (D33h); the
  * `author`/`series`/`subject` columns it read stay populated and now feed chips
- * and search instead (`grouping.ts` survives for brief 30).
+ * and search instead (`grouping.ts` survives for cross-library search).
  *
  * The filter lives in the URL, not in state, so Back / refresh / share all
  * round-trip it, and the old area paths can redirect onto it (see router.tsx).
@@ -54,7 +54,7 @@ const KIND_LABELS: Record<MediaKind, string> = {
 
 /**
  * The one grid, holding all three card shapes at once (book 2:3, music 1:1,
- * video 16:9 — kept from brief 25).
+ * video 16:9 — kept from the per-type areas).
  *
  * `grid-flow-row-dense` + a **two-column span for video** is what keeps rows
  * from going ragged: a 16:9 tile is about as wide as two portrait tiles, so it
@@ -71,7 +71,7 @@ function cellSpan(book: LibraryBook): string | undefined {
   return (book.kind ?? "book") === "video" ? "col-span-2" : undefined;
 }
 
-/** Brief 30 item 4: debounce keystrokes before writing `?q` (mirrors `/discover`'s own 300ms box, just snappier). */
+/** Cross-library search's spec: debounce keystrokes before writing `?q` (mirrors `/discover`'s own 300ms box, just snappier). */
 const SEARCH_DEBOUNCE_MS = 120;
 
 export function LibraryHome() {
@@ -79,9 +79,9 @@ export function LibraryHome() {
   useApplyTheme();
 
   const navigate = useNavigate();
-  // The kind filter is a URL concern (brief 28): `?kind`, validated in
+  // The kind filter is a URL concern: `?kind`, validated in
   // router.tsx against the shared `mediaKindSchema`, absent = every kind.
-  // `q` (brief 30) is the cross-library search text, same treatment.
+  // `q` is the cross-library search text, same treatment.
   const { kind, q } = useSearch({ from: "/" });
   const query = q ?? "";
 
@@ -130,7 +130,7 @@ export function LibraryHome() {
   // snapshots, not the server's answer — see `useReconnectProgressSync`.
   useReconnectProgressSync(books, isOffline);
 
-  // Several files upload one after another (brief 70); one file is a queue of one.
+  // Several files upload one after another; one file is a queue of one.
   const uploads = useUploadQueue();
   const uploading = uploads.progress !== null;
   const uploadLabel =
@@ -138,7 +138,7 @@ export function LibraryHome() {
       ? `Adding ${uploads.progress.current} of ${uploads.progress.total}…`
       : "Uploading…";
   const remove = useDeleteBook();
-  // "Add to Discord queue" on music tiles (brief 82). One fetch, no polling:
+  // "Add to Discord queue" on music tiles. One fetch, no polling:
   // the guilds the bot is in rarely change while the home is open.
   const jukeboxPlayers = useJukeboxPlayers({ poll: false });
   const queueOnDiscord = useAddToQueue();
@@ -181,7 +181,7 @@ export function LibraryHome() {
   }, [books, trimmedQuery]);
 
   // `visible` is what the grid actually shows — kind AND query, both
-  // narrowing the same list (brief 30 item 6), same scoping the chips above
+  // narrowing the same list, same scoping the chips above
   // now share.
   const visible = useMemo(() => {
     const byKind = kind ? books.filter((b) => (b.kind ?? "book") === kind) : books;
@@ -255,7 +255,7 @@ export function LibraryHome() {
         }
         actions={
           <>
-            {/* Discover is reached from the Add flow now (brief 28 item 7), not
+            {/* Discover is reached from the Add flow now, not
                 from a Books area: importing from a catalog is the other half of
                 "add something", so it sits beside Add rather than in a nav. */}
             <Link
@@ -281,7 +281,7 @@ export function LibraryHome() {
 
       {isOffline && <OfflineBanner />}
 
-      {/* Ambient uploader (populated library only, brief 29): the header "Add"
+      {/* Ambient uploader (populated library only): the header "Add"
           button and the whole-window drag target handle uploads with no
           visible box competing with the grid. An empty library mounts its own
           `variant="hero"` UploadZone below instead — never both at once, since
@@ -326,7 +326,7 @@ export function LibraryHome() {
           )}
         </div>
 
-        {/* Count + clear (brief 30 item 3): only while a search is active — the
+        {/* Count + clear: only while a search is active — the
             kind chips already carry their own counts, so this line is purely
             about the query on top of them. */}
         {trimmedQuery && !isLoading && !isError && (
@@ -361,7 +361,7 @@ export function LibraryHome() {
             }
           />
         ) : libraryEmpty ? (
-          // The ONLY place the dashed dropzone still lives (brief 29's "a
+          // The ONLY place the dashed dropzone still lives (the tiles and Continue row's "a
           // dropzone that leaves") — everywhere else, upload is the header
           // Add button plus window-level drag-and-drop (the `UploadZone
           // variant="ambient"` above). The greeting sits above it; "Browse
@@ -395,7 +395,7 @@ export function LibraryHome() {
         ) : !hasItems ? (
           // The library has things in it, just none matching the active
           // filter(s) — a filter result, not an empty library, so the way out
-          // is "show everything". Brief 30: a search names what it searched
+          // is "show everything". Cross-library search: a search names what it searched
           // rather than reusing the bare kind-only copy.
           <EmptyState
             title={trimmedQuery ? "No matches" : kind ? `No ${KIND_LABELS[kind].toLowerCase()} yet` : "Nothing here yet"}
@@ -457,7 +457,7 @@ export function LibraryHome() {
  * The compact empty state, used for two of the three cases inside the
  * `aria-label="Library"` section below the chips: a load error, and a filter
  * that matches nothing. The THIRD case — an empty library — is bespoke markup
- * in `LibraryHome` instead (brief 29): it's the one place the dashed dropzone
+ * in `LibraryHome` instead: it's the one place the dashed dropzone
  * still lives, and reusing this title/body/action shape for it would either
  * bury the dropzone in an `action` slot or duplicate the greeting.
  */

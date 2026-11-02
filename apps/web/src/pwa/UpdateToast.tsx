@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 
 /**
- * PWA update prompt (brief 19). With `registerType: "prompt"` a freshly
+ * PWA update prompt. With `registerType: "prompt"` a freshly
  * deployed service worker installs but *waits* — it never swaps the running app
  * out from under an active reading session. `useRegisterSW` flips `needRefresh`
  * true while that worker waits; we surface this quiet toast so a new deploy is

@@ -1,7 +1,7 @@
 import { ApiError } from "../lib/api-client";
 
 /**
- * The `/profiles` routes' documented 4xx bodies (brief 35's API contract),
+ * The `/profiles` routes' documented 4xx bodies (the profiles work's API contract),
  * parsed defensively — an unrecognised shape (a network error, a proxy's HTML
  * page) just falls through to a generic message rather than throwing a second
  * error while handling the first. Kept in one place so the picker, switcher

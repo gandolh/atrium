@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { parseLatex } from "../src/parse/index.ts";
 
 /**
- * Malformed-input handling (brief 37, chunk 3's other non-negotiable line):
+ * Malformed-input handling (chunk 3's other non-negotiable line):
  * an unclosed environment, an unclosed group, or a stray `}` must produce a
  * `syntax` diagnostic with the right line, and `parseLatex` must never throw.
  *

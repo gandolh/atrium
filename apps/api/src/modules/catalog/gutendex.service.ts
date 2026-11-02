@@ -7,7 +7,7 @@ import type {
 import { GUTENDEX_BASE_URL } from "../../common/config.js";
 
 /**
- * The Gutendex client — brief 22's upstream half, and the only code in the app
+ * The Gutendex client — the Gutenberg discover page's upstream half, and the only code in the app
  * that talks to Project Gutenberg.
  *
  * It knows how to search the public Gutendex `/books` endpoint, how to map its

@@ -18,7 +18,7 @@ import { compile, createLatinModernProvider } from "../src/index.ts";
 import { loadLatinModernBytes } from "../node/fonts.ts";
 
 /**
- * Brief 39, chunk 39.1: the LaTeX-facing contract for figures, tables and
+ * The figures, tables and bibliography work's spec: the LaTeX-facing contract for figures, tables and
  * bibliography. Every construct here **parses, validates and numbers**; none of
  * them is set yet, because measurement, placement, image decode and `.bib`
  * parsing are four seams four later chunks fill in.
@@ -609,7 +609,7 @@ test("\\bibitem outside thebibliography is `unsupported`, and says where it belo
  * defaulting to `unsupported` for the constructs still waiting on a seam.
  * A row is deleted outright only once its construct, in this exact fixture,
  * produces no diagnostic at all: `\includegraphics{a.png}` and a valid
- * one-cell `tabular` (chunks 39.2 and 39.3) now set for real and are covered
+ * one-cell `tabular` now set for real and are covered
  * by their own suites; `\bibliographystyle{plain}` names the one style this
  * engine implements, so it is no longer even a diagnostic; and a
  * `thebibliography` with one real `\bibitem` is a valid non-empty list that
@@ -696,7 +696,7 @@ test("every brief-39 construct reaches a seam that reports it, exactly once", ()
   }
 });
 
-test("brief 39's Out list stays out, and says so", () => {
+test("the figures-and-tables Out list stays out, and says so", () => {
   for (const name of ["wrapfigure", "tabularx", "longtable"]) {
     const result = compileSource(doc(`\\begin{${name}}{l}\nx\n\\end{${name}}`));
     const hit = result.diagnostics.find((d) => d.code === "unsupported" && d.construct === name);

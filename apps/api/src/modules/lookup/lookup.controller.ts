@@ -4,7 +4,7 @@ import { getBookForProfile } from "../library/library.service.js";
 import { applyLookup, lookupThumbnail, searchForItem } from "./lookup.service.js";
 
 /**
- * Metadata lookup HTTP (brief 100, D59).
+ * Metadata lookup HTTP (D59).
  *
  * - `GET /library/:id/lookup?title=&author=` searches the item's source and
  *   answers up to ten candidates. An empty list is "no results", a 200.

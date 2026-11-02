@@ -5,7 +5,7 @@ import type { CompileFn, CompileOptions, CompileResult } from "../src/index.ts";
 import type { Diagnostic } from "../src/index.ts";
 
 /**
- * The golden-dump harness — the repo's first test suite (brief 37, M0).
+ * The golden-dump harness — the repo's first test suite (M0).
  *
  * A typesetting engine cannot be maintained without one: every change to line
  * breaking silently moves every line on every page, so the only way to know

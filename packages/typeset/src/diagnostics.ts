@@ -13,7 +13,7 @@ export type { Diagnostic, DiagnosticCode, DiagnosticSeverity };
 
 /**
  * Where in the source something happened. Carried through parse, macro
- * expansion and layout — brief 37 treats a wrong line number as a bug, so nodes
+ * expansion and layout — the engine foundation treats a wrong line number as a bug, so nodes
  * hold on to this rather than recomputing it at the point of failure.
  */
 export interface SourceRef {

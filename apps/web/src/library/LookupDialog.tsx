@@ -15,7 +15,7 @@ import { coverUrl } from "../lib/library-api";
 import { applyLookup, lookupCoverUrl, lookupErrorMessage, searchLookup } from "../lib/lookup-api";
 
 /**
- * The Look up dialog (brief 100, D59): one item's metadata, looked up on
+ * The Look up dialog (D59): one item's metadata, looked up on
  * request. Opened from the tile menu (`CoverCard`) for music and books only.
  *
  * Two steps. **Search**: the title and the artist or author, filled from the

@@ -8,7 +8,7 @@ import { CloseIcon, DownIcon, UpIcon } from "./icons";
 export const SECTION_HEAD = "font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink";
 
 /**
- * A Player's Queue (brief 82): the songs that play before the Playlist
+ * A Player's Queue: the songs that play before the Playlist
  * continues, each with who added it. Reorder, remove and clear work here and
  * nowhere else, and they keep working while the bot is offline: the Queue is
  * atrium's, and the bot reads it when it is back.

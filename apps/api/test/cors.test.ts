@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 65: CORS reflected every origin (`origin: true`), a leftover from the
+// CORS reflected every origin (`origin: true`), a leftover from the
 // cross-origin development D54 replaced. Nothing calls the API cross-origin any
 // more, so no origin is granted.
 describe("CORS grants no origin", () => {

@@ -18,7 +18,7 @@ import {
 } from "./gutendex.service.js";
 
 /**
- * Catalog rules (brief 22): the cached search, and the import that turns a
+ * Catalog rules: the cached search, and the import that turns a
  * Gutenberg book into an ordinary library row.
  *
  * The import deliberately runs the **same** extract→store pipeline the upload
@@ -96,7 +96,7 @@ export async function importGutenbergBook(
   // The bytes are already in memory, so the final name is written directly:
   // there is no stream to abort halfway. A failure between this write and the
   // insert (a full disk, a throwing insert) still removes the file and the
-  // cover, so no file outlives an import that produced no row (brief 58).
+  // cover, so no file outlives an import that produced no row.
   const filePath = filePathFor(id, format);
   try {
     await writeFile(filePath, bytes);
@@ -138,7 +138,7 @@ export async function importGutenbergBook(
       // /discover UI can badge it as "In library".
       source: "gutenberg",
       source_id: String(gutenbergId),
-      // Catalog imports are always EPUB books (brief 23); no playback duration.
+      // Catalog imports are always EPUB books; no playback duration.
       kind: kindForFormat(format),
       duration_seconds: null,
     };

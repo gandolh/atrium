@@ -6,7 +6,7 @@ import type { TocEntry } from "../chrome";
 /**
  * Flattens epub.js navigation (`book.navigation.toc`, delivered by react-reader
  * via `tocChanged`) into the shared `TocEntry[]` the chrome `TocDrawer`
- * consumes (brief 07 TOC step). Each entry's opaque `target` is the nav `href`,
+ * consumes (the EPUB reader TOC step). Each entry's opaque `target` is the nav `href`,
  * which the EPUB reader resolves with `rendition.display(href)`.
  *
  * epub.js nests chapters via `subitems`; we flatten depth-first and carry a

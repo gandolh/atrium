@@ -4,7 +4,7 @@ import type { Diagnostic, DiagnosticCode, LatexCompileResult } from "@ebook-read
 import type { LatexJumpTarget } from "./LatexEditor";
 
 /**
- * The diagnostics panel (brief 38 chunk 9) — errors first and always open,
+ * The diagnostics panel — errors first and always open,
  * warnings (and the rarer info-severity notices) collapsed behind a summary,
  * a raw-log disclosure at the foot. Lives beneath the PDF preview in the
  * `Preview` pane.
@@ -13,12 +13,12 @@ import type { LatexJumpTarget } from "./LatexEditor";
  * sentence written for a person, so it sets in `font-ui` throughout,
  * including the raw log — `font-code` is the source pane's alone.
  *
- * ## The distinction this exists to carry (D38, brief 37/38 context)
+ * ## The distinction this exists to carry (D38, the engine foundation/38 context)
  * Two diagnostic codes both surface at `severity: "error"` (or occasionally
  * `"info"` for a no-op like `\usepackage`) and both stop the reader cold, but
  * they mean opposite things to a writer:
  * - `unsupported` — real LaTeX Atrium's engine deliberately does not
- *   implement yet (figures/tables are brief 39, math is brief 40). The fix is
+ *   implement yet (figures/tables are the figures, tables and bibliography work, math is the math work). The fix is
  *   "wait for a brief" or "avoid the construct," not "fix your document."
  * - `undefined-command` / `undefined-environment` — not a thing at all, i.e.
  *   a typo or a missing `\newcommand`. The fix is in the document.

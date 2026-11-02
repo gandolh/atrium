@@ -4,7 +4,7 @@ import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import type { SearchMatch, SearchProvider } from "../chrome";
 
 /**
- * PDF in-book search provider (brief 07, D19). Implements the shared
+ * PDF in-book search provider (D19). Implements the shared
  * `SearchProvider` contract against the PDF.js text layer.
  *
  * STRATEGY — search-on-demand (resolved open question: index-on-load vs

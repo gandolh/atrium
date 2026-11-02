@@ -1,15 +1,15 @@
 ---
-summary: The PWA layer (briefs 19–20) — installable shell via vite-plugin-pwa/generateSW with prompt-mode updates, cover-only runtime caching, and offline reading via a three-store IndexedDB (metadata/blobs/progress) with explicit per-book downloads and last-write-wins progress sync.
-updated: 2026-08-24
+summary: The PWA layer (2026-07-16) — installable shell via vite-plugin-pwa/generateSW with prompt-mode updates, cover-only runtime caching, and offline reading via a three-store IndexedDB (metadata/blobs/progress) with explicit per-book downloads and last-write-wins progress sync.
+updated: 2026-11-02
 ---
 
 # PWA & offline reading
 
-Shipped 2026-07-16 (briefs 19–20). The app is installable, the shell loads from
+Shipped 2026-07-16 (2026-07-16). The app is installable, the shell loads from
 a service-worker cache, and explicitly-downloaded books are fully readable with
 zero connectivity.
 
-## Shell (brief 19)
+## Shell (2026-07-16)
 
 - `vite-plugin-pwa` (**generateSW** — declarative Workbox, no source `sw.ts`),
   configured entirely in [vite.config.ts](../../apps/web/vite.config.ts).
@@ -35,7 +35,7 @@ zero connectivity.
 - `scope`/`start_url`/`navigateFallback` all derive from `BASE_PATH`
   (normalized to a trailing slash). Verified against a non-root base.
 
-## Offline reading (brief 20)
+## Offline reading (2026-07-16)
 
 Locked product decisions: explicit per-book download (no auto-cache), IndexedDB
 storage, last-write-wins progress sync (no mutation queue), cached content

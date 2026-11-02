@@ -29,7 +29,7 @@
  * rather than fetched from a CDN — so the docs and the app render in the same
  * cut of the same face and the docs add no third-party request.
  *
- * Ported from the Starlight site's theme.css (brief 87): each --sl-* token now
+ * Ported from the Starlight site's theme.css: each --sl-* token now
  * sets the matching --ifm-* one, and `.sl-markdown-content` is `.markdown`.
  */
 

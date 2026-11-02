@@ -1,5 +1,5 @@
 /**
- * `@ebook-reader/typeset` — Atrium's own typesetting engine (brief 37, D38).
+ * `@ebook-reader/typeset` — Atrium's own typesetting engine (D38).
  *
  * It reads a *subset* of LaTeX and writes a PDF. It is not a TeX
  * reimplementation and never will be: the scope line is syntax, not semantics,
@@ -90,13 +90,13 @@ export { buildVerticalList, createLayoutContext, floatMarker, footnoteMarker } f
 export type { LayoutContext, PreparedFootnote } from "./layout/vlist.ts";
 
 /**
- * Brief 39's remaining seams, each a stub a later chunk fills in: float
+ * The figures, tables and bibliography work's remaining seams, each a stub a later chunk fills in: float
  * placement (39.4), table setting (39.3), and `.bib` parsing with the numeric
  * style (39.5). Exported so each chunk can drive its own seam from a test
  * without paying for a whole compile.
  */
 /**
- * Mathematics (brief 40). `createMathRenderer` is what a caller builds and
+ * Mathematics. `createMathRenderer` is what a caller builds and
  * hands to `compile()` through `CompileOptions.math`; it is exported from the
  * package root because a caller cannot obtain one any other way, and the
  * engine — which acquires nothing for itself — will not build one for them.
@@ -123,7 +123,7 @@ export type { FloatContext, PreparedFloat } from "./layout/float.ts";
 export { setTable } from "./layout/table.ts";
 export type { TableContext } from "./layout/table.ts";
 /**
- * Images (chunk 39.2, landed). `decodeImage` and `imageStream` are the two
+ * Images (landed). `decodeImage` and `imageStream` are the two
  * halves — bytes to an intrinsic size, and that size to a PDF `XObject`
  * description — and both are exported because they are separately testable and
  * separately useful: a caller can ask how big a figure is without laying out a

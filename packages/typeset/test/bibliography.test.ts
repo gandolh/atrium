@@ -10,9 +10,9 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
 /**
  * Chunk 39.5: `.bib` parsing, the numeric style, and citation resolution.
  *
- * `figures-tables-bib.test.ts` (chunk 39.1) is off limits to this chunk and
+ * `figures-tables-bib.test.ts` is off limits to this chunk and
  * stays pinned to the stub behaviour it was written against; this file is
- * this chunk's own, and is where every acceptance item brief 39 lists for
+ * this chunk's own, and is where every acceptance item the figures, tables and bibliography work lists for
  * the bibliography gets its coverage. Most assertions go through
  * `buildDocument` directly — the document model is what this chunk actually
  * produces — with one full `compile()` test at the end proving the numbers
@@ -389,7 +389,7 @@ Known \\cite{k}, unknown \\cite{ghost}.
   assert.match(text, /Something/);
 });
 
-// --- brief 47: the label column is sized from `widestLabel` -----------------
+// --- the label-width fix: the label column is sized from `widestLabel` -----------------
 
 /**
  * `thebibliography{widest}` with one `\bibitem[label]{a}` whose own printed

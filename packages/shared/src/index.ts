@@ -65,7 +65,7 @@ export type {
   ConvertStatus,
 } from "./library-book.js";
 
-// --- Metadata lookup contract (brief 100, D59) ------------------------------
+// --- Metadata lookup contract (D59) ------------------------------
 export {
   LOOKUP_SOURCES,
   lookupSourceSchema,
@@ -89,7 +89,7 @@ export type {
   LookupApplyRequest,
 } from "./lookup.js";
 
-// --- Catalog contract (brief 22) ------------------------------------------
+// --- Catalog contract ------------------------------------------
 export {
   CATALOG_SORTS,
   catalogSortSchema,
@@ -119,7 +119,7 @@ export type {
  * does not know they exist.
  */
 
-// --- Notes contract (brief 26; folders brief 50) ----------------------------
+// --- Notes contract (folders note folders) ----------------------------
 export {
   PAGE_ASPECT,
   NOTE_TOOLS,
@@ -172,7 +172,7 @@ export type {
   MoveNoteRequest,
 } from "./notes.js";
 
-// --- Profile contract (brief 35) -------------------------------------------
+// --- Profile contract -------------------------------------------
 export {
   PROFILE_COLORS,
   profileColorSchema,
@@ -193,7 +193,7 @@ export type {
   Preferences,
 } from "./profile.js";
 
-// --- LaTeX diagnostic + project/file/compile/version contract (briefs 37, 38) ---
+// --- LaTeX diagnostic + project/file/compile/version contract ---
 export {
   DIAGNOSTIC_SEVERITIES,
   diagnosticSeveritySchema,
@@ -218,7 +218,7 @@ export type {
   DocumentVersion,
 } from "./latex.js";
 
-// --- Jukebox contract (brief 81; D55, D56, D57) -----------------------------
+// --- Jukebox contract (D55, D56, D57) -----------------------------
 export {
   DISCORD_ID_PATTERN,
   discordIdSchema,

@@ -501,8 +501,8 @@ function applyGeometry(
  * The document model records `width=0.8\textwidth` and `p{3cm}` unresolved on
  * purpose (see `DocumentLength`): only the page design knows what `\textwidth`
  * is, and the same model is laid out up to three times. This is the one place
- * that answers the question, so `\includegraphics`'s width (chunk 39.2) and a
- * `p{}` column's (chunk 39.3) cannot drift apart.
+ * that answers the question, so `\includegraphics`'s width and a
+ * `p{}` column's cannot drift apart.
  *
  * `ex` uses the same 0.431em x-height ratio `parseDimension` does, for the same
  * reason: it is Latin Modern Roman's, and this engine sets Latin Modern.

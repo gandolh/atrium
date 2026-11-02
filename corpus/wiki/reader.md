@@ -1,6 +1,6 @@
 ---
 summary: The reader experience — PDF + EPUB renderers sharing one Kindle-style frame: nav, TOC, search, themes, progress rail, resume, a paged⇄scroll mode toggle, and a shared running header.
-updated: 2026-10-19
+updated: 2026-11-02
 ---
 
 # Reader
@@ -13,7 +13,7 @@ The home (`/`) is not part of the reader — see [overview.md](overview.md) for
 its shape and [design.md](design.md) for the Reading Room rules it follows.
 What matters here: opening a card navigates to `/read` **instantly**, and the
 route's hydrate hook streams `GET /library/:id/file` behind an opening screen
-(cover + title + a determinate download bar, with a retry on error — brief 10)
+(cover + title + a determinate download bar, with a retry on error — the loading feedback of 2026-07-07)
 while reading progress `PATCH`es back. Detection is still by extension/MIME
 (D13), and **both formats open the reader directly** — EPUB→PDF export is a
 secondary "Download as PDF" action in the EPUB toolbar (see
@@ -25,7 +25,7 @@ measure-capped column** (`spread: none`). Orientation lives at the edges and
 fades with the chrome: running header (title / chapter), a footer "chapter · %"
 button that opens the TOC at the current chapter, and the shared **progress
 rail** (chapter ticks in locations-space, hover tooltip, click / drag / arrow
-seek — one seek committed on release; brief 08, both readers mount it).
+seek — one seek committed on release; the progress rail (2026-07-07), both readers mount it).
 Loading is a skeleton page; TOC/search jumps crossfade via an overlay **veil** —
 never opacity on the iframe's ancestors, which triggers Chromium raster
 staleness.
@@ -51,7 +51,7 @@ one sanctioned use) and still commits exactly one seek on release.
 |---|---|---|---|
 | Page nav (keys / click-zones / arrows) | ✅ | ✅ | core |
 | Progress indicator (% / page count) | ✅ | ✅ | EPUB = accurate book-wide pages (pre-paginated, see below) |
-| Scrub rail (click / drag / arrow-key seek) | ✅ | ✅ | shared `ProgressRail` (brief 08); PDF ticks from outline |
+| Scrub rail (click / drag / arrow-key seek) | ✅ | ✅ | shared `ProgressRail` (2026-07-07); PDF ticks from outline |
 | Table of contents drawer | ✅ | ⚠️ if outline | Base UI drawer |
 | Auto-hiding chrome | ✅ | ✅ | Kindle feel |
 | Themes (light / sepia / dark) | ✅ full | ⚠️ invert-only | reflow vs fixed |
@@ -66,7 +66,7 @@ The chrome is shared, but the toolbar's controls swap by format:
 - EPUB → font controls (size/family/spacing/margins), full themes.
 - PDF → zoom/fit, invert-only "dark" hack.
 
-Both bottom bars cluster identically (brief 12): `ReaderToolbar` is a
+Both bottom bars cluster identically (2026-07-13): `ReaderToolbar` is a
 **`grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]`** shell with three slots —
 **Home** / **actions + settings gear** / **page number + progress**. The grid
 (not the old `justify-between`) pins the middle cluster to its content width
@@ -77,7 +77,7 @@ chapter label truncates instead of overflowing onto the middle actions.
 The paged⇄scroll `PageModeToggle` and the settings popover both live in the
 middle actions for both formats.
 
-## Reading modes: paged ⇄ scroll (brief 11)
+## Reading modes: paged ⇄ scroll (2026-07-13)
 A `pageMode` toggle in the bottom bar switches the current reader between
 single-page-per-view and continuous vertical scroll:
 - **EPUB** → **`manager: "continuous" + flow: "scrolled"`** via a `key={flow}`
@@ -100,11 +100,11 @@ single-page-per-view and continuous vertical scroll:
   resume + the rail keep tracking. A `suppressObserverRef` guards programmatic
   jumps/resume (incl. across the async page-aspect reflow) from being
   overwritten. `PageNav` flip circles render **only in paged mode**, and only
-  on windows 740 px and wider, where they clear the 620 px measure (brief 86);
+  on windows 740 px and wider, where they clear the 620 px measure (2026-10-19);
   in scroll mode the PDF scroll container is `overflow-x: hidden` and pages are
   fit-to-width (zoom ignored) so continuous reading never scrolls sideways.
 
-## Shared reading frame (brief 14)
+## Shared reading frame (2026-07-13)
 Both readers now use one 3-row grid — a shared `ReaderHeader` (running
 title/detail, fades with the chrome) / a centered `max-w-4xl` column / the
 bottom bar — over `bg-reader-bg`, so a PDF and an EPUB sit in an identical
@@ -116,7 +116,7 @@ sidebar vs PDF overlay drawer). Enforced by design.md (D27).
 Current page/location, theme, font settings, chrome visibility, and `pageMode`
 (`"paged"|"scroll"`, **persisted to localStorage**). Reading *position* resumes
 per-user from the library (D24); the old `layoutMode` field was dead and was
-removed (brief 11/review).
+removed (the reading-mode toggle of 2026-07-13/review).
 
 ## Styling
 Tailwind + Base UI (`@base-ui/react`) primitives: **Dialog** (TOC side-panel +
@@ -125,7 +125,7 @@ settings sheet — chose Dialog over the heavier swipe Drawer), **Popover**
 unstyled → bend toward a clean Kindle look; state via `data-*` attrs maps to
 Tailwind variants.
 
-## Implementation map (built in brief 06)
+## Implementation map (built in the PDF reader of 2026-07-02)
 Shared, format-agnostic chrome lives in `apps/web/src/reader/chrome/`:
 - **`PageNav`** — two **visible full-height edge bars** (faint fill + hairline
   border + centred chevron); clicking a bar flips, the page BODY doesn't. Paged
@@ -133,20 +133,20 @@ Shared, format-agnostic chrome lives in `apps/web/src/reader/chrome/`:
 - **`ReaderToolbar`** — the toolbar shell with the **format-adaptive seam**: slots
   `leftControls` / `formatControls` / `rightControls`. Each reader supplies its
   own `formatControls` (PDF = zoom/fit/invert; EPUB = font/theme). This is the
-  reuse contract — brief 07 fills the slot, doesn't fork the toolbar.
+  reuse contract — the EPUB reader (2026-07-02) fills the slot, doesn't fork the toolbar.
 - `PageNav` (visible full-height edge bars — see above), `use-page-nav-keys`
   (Arrow/PageUp-Down/Space), `use-auto-hide-chrome` (idle-hide → Zustand
   `chromeVisible`), `ProgressIndicator`, `ProgressRail` (bottom-edge scrub strip,
-  moved here from `epub/` in brief 08: hover tooltip, chapter ticks,
+  moved here from `epub/` in the progress rail (2026-07-07): hover tooltip, chapter ticks,
   pointer-capture drag with live preview + commit-on-release, touch-safe),
   `TocDrawer` (Base UI Dialog panel; entries
   carry an opaque `target` the reader resolves), `SettingsPopover`, `SliderControl`,
   `ThemePicker` (Tabs → `theme`), `use-apply-theme` (`data-theme` → `--reader-*`).
-- **`search-seam.ts`** — typed STUB (`SearchProvider`/`SearchMatch`); brief 07
+- **`search-seam.ts`** — typed STUB (`SearchProvider`/`SearchMatch`); the EPUB reader (2026-07-02)
   implements search for both formats against it (D19).
 
 PDF reader in `apps/web/src/reader/pdf/`: `PdfReader`, `PdfControls`,
-`use-pdf-outline`. Mounts the shared `ProgressRail` (brief 08): percent =
+`use-pdf-outline`. Mounts the shared `ProgressRail` (2026-07-07): percent =
 `currentPage / numPages`, ticks from top-level outline entries, seek =
 `goToPage(round(pct × numPages))`. Worker via `pdfjs-dist/build/pdf.worker.min.mjs?url` (bundled).
 **PDF TOC only when the doc has an outline.** Invert-dark = CSS `invert(1)
@@ -154,7 +154,7 @@ hue-rotate(180deg)` on the canvas (fixed layout can't be re-themed).
 Store fields: `theme`, `fontSettings`, `currentLocation`, `chromeVisible`,
 `layoutMode`, `zoom`, `loadedFile`/`loadedFormat`.
 
-EPUB reader in `apps/web/src/reader/epub/` (built in brief 07, reuses the shared
+EPUB reader in `apps/web/src/reader/epub/` (built in the EPUB reader of 2026-07-02, reuses the shared
 chrome verbatim): `EpubReader` (react-reader; loads `file.arrayBuffer()`,
 `locationChanged` → Zustand CFI, paginated; hides react-reader's built-in
 arrows/TOC so shared `PageNav`/`TocDrawer` drive), `EpubControls` (fills the
@@ -179,7 +179,7 @@ the rail stays stable across font changes). Superseded: the old
 locations-as-page-unit counter (stepped by 2, chunk-count "total"). PDF is
 unchanged (true fixed pages).
 
-**Cost + caching (brief 16, measured 2026-07-13).** The page-map walk (~2.8 s
+**Cost + caching (the EPUB open-cost fix of 2026-07-13, measured 2026-07-13).** The page-map walk (~2.8 s
 on a 24 MB EPUB) and `locations.generate(1000)` (~4.7 s) run in the background
 *after* the reader is visible, not behind a veil. Both are now cached
 session-scoped: `locations` via `save()/load()` keyed by book identity
@@ -190,7 +190,7 @@ ms). The walk is skipped entirely in scroll mode (no discrete pages there).
 See [performance.md](performance.md). Follow-up: durable (IndexedDB) locations
 cache to survive a full reload.
 
-## Search (built in brief 07, both formats)
+## Search (built in the EPUB reader of 2026-07-02, both formats)
 Shared **`SearchPanel`** (`reader/chrome/`, right-anchored Base UI Dialog: query +
 results + click-to-jump) is format-agnostic — it consumes a `SearchProvider`
 (`search-seam.ts`) and reports the chosen `target` via `onJump`. Both readers mount

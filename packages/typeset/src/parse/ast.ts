@@ -1,9 +1,9 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 
 /**
- * The parse layer's AST (brief 37, chunk 3). This is the boundary between
- * "what the source says" and "what it means": macro expansion (chunk 6),
- * layout (chunks 4/7) and semantics (chunk 8) all walk this tree, but nothing
+ * The parse layer's AST. This is the boundary between
+ * "what the source says" and "what it means": macro expansion,
+ * layout (chunks 4/7) and semantics all walk this tree, but nothing
  * here decides what `\section` does or what `\x` expands to — see the
  * scope note in each node's doc comment.
  *
@@ -98,7 +98,7 @@ export interface Argument {
  * and a `{...}` group written immediately after it in the source shows up as
  * a *sibling* `GroupNode`, not as this command's argument. Deciding it
  * belongs to the command requires knowing the command's arity, which is
- * macro-expansion's job (chunk 6), not the parser's. This is the single
+ * macro-expansion's job, not the parser's. This is the single
  * biggest surprise in `@unified-latex`'s output — see the handoff notes.
  */
 export interface CommandNode extends NodeBase {

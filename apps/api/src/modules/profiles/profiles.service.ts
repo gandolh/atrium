@@ -25,7 +25,7 @@ import {
 } from "./profiles.model.js";
 
 /**
- * Profile rules (brief 35, D35). A **profile** is a person in the household;
+ * Profile rules (D35). A **profile** is a person in the household;
  * the **account** is the household and the security boundary.
  *
  * The controller owns HTTP — parsing, status codes, the 404-not-403 rule on a
@@ -173,7 +173,7 @@ export async function deleteAccountProfile(
    * the whole household until the job ends by itself, bounded only by
    * `LATEX_TIMEOUT_MS`. Nothing can rescue it afterwards either: every route
    * that could cancel resolves the project from its row first, and the row is
-   * exactly what the cascade removed. Brief 44 fixed the *reporting* of that
+   * exactly what the cascade removed. The compile worker fixed the *reporting* of that
    * state; this is the state itself.
    *
    * Hence the ordering: read the list and settle the jobs here, before
@@ -263,7 +263,7 @@ export function readPreferences(profile: ProfileRow): Preferences {
  * the size sends the settings whole.
  *
  * Spread, not replace, so a key this server has never heard of — written by a
- * newer client on another device — survives the round trip (brief 35 step 8).
+ * newer client on another device — survives the round trip.
  */
 export async function writePreferences(
   profile: ProfileRow,
@@ -272,7 +272,7 @@ export async function writePreferences(
   // Merged over the row as it is NOW, inside the model's transaction, not over
   // `profile.preferences`, a snapshot read before this request's awaits: two
   // concurrent PATCHes used to merge over the same snapshot and lose a key
-  // (brief 68).
+  //.
   let merged: Preferences = { ...storedPreferences(profile.preferences), ...patch };
   await updateProfilePreferences(profile.id, (stored) => {
     merged = { ...storedPreferences(stored), ...patch };

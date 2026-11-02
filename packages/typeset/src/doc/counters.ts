@@ -2,7 +2,7 @@ import type { FloatClass, HeadingLevel } from "./model.ts";
 import { HEADING_DEPTH, SECTION_NUMBER_DEPTH } from "./model.ts";
 
 /**
- * Counters, and the number a `\ref` to them prints (brief 37, chunk 6).
+ * Counters, and the number a `\ref` to them prints.
  *
  * The formats are `article.cls`'s, not inventions: `\theenumii` really is
  * lowercase letters in parentheses, and a `\ref` to a second-level item really
@@ -238,7 +238,7 @@ export function formatFloatNumber(counters: Counters, floatClass: FloatClass): s
   return String(counters[floatCounter(floatClass)]);
 }
 
-// --- equations (brief 40) ---------------------------------------------------
+// --- equations ---------------------------------------------------
 
 /**
  * `\theequation` — `\@arabic\c@equation` in `article`, so a plain number with

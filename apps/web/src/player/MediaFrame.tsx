@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 
 /**
- * Reading Room frame shared by the audio and video players (brief 23). Mirrors
+ * Reading Room frame shared by the audio and video players. Mirrors
  * the readers' "orientation lives at the edges" language (wiki/reader.md) — a
  * quiet running header with the title — but, unlike the decorative
  * `ReaderHeader`, it owns the one interactive affordance the players need: a

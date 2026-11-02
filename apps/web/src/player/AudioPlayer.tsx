@@ -10,7 +10,7 @@ import { PlayPauseButton, ScrubTrack, SkipButton, TimeReadout } from "./transpor
  * The full-surface audio view: the square embedded cover art (or the typographic
  * fallback tile) above the transport, inside the Reading Room frame.
  *
- * **Brief 31 removed this component's `<audio>` element.** It owns no element at
+ * **The player dock removed this component's `<audio>` element.** It owns no element at
  * all now — it is a large remote control for the one the app shell owns
  * (`player/PlaybackHost`), driven entirely through the playback store. That is
  * what makes leaving this route harmless: the sound is not here to lose. It also

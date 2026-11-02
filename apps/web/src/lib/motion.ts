@@ -6,7 +6,7 @@ import type { Transition } from "motion/react";
  *
  * "Paper moves like paper: things lift, settle and fade. Nothing bounces,
  * springs past its mark, or slides in from off-screen." One curve, one set of
- * durations, one reduced-motion path — established here so briefs 28–33 reuse
+ * durations, one reduced-motion path — established here so the screens built after it reuse
  * them instead of each rolling its own.
  *
  * Two idioms are sanctioned and no more:

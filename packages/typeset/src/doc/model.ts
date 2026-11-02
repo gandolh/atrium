@@ -6,7 +6,7 @@ import { diagnostic } from "../diagnostics.ts";
 import type { FontFamily, FontSlant, FontWeight } from "../font/handle.ts";
 
 /**
- * The document model (brief 37, chunk 6): what the source *means*, after macro
+ * The document model: what the source *means*, after macro
  * expansion, counter assignment and reference resolution — and the last stage
  * that still knows about LaTeX. Everything downstream (chunk 7's line breaking
  * and page building) reads this and never touches the parse AST again.
@@ -175,7 +175,7 @@ export interface ImageSizing {
  *
  * **No bytes here, and no intrinsic size.** The engine performs no I/O (D38):
  * the file arrives in `compile()`'s file map like every other input, and
- * decoding it is `src/image/`'s job at layout time (chunk 39.2). This node
+ * decoding it is `src/image/`'s job at layout time. This node
  * carries only what the *source* said.
  */
 export interface ImageInline extends InlineBase {
@@ -216,13 +216,13 @@ export interface CitationInline extends InlineBase {
   textStyle: TextStyle;
 }
 
-// --- mathematics (brief 40) -------------------------------------------------
+// --- mathematics -------------------------------------------------
 
 /**
  * `$…$` or `\(…\)` — a math run inside a paragraph.
  *
  * **The mathematics is carried as a TeX *string*, not as a sub-tree**, and that
- * is the load-bearing decision of brief 40. The engine does not implement TeX's
+ * is the load-bearing decision of the math work. The engine does not implement TeX's
  * mlist layout; it hands the run to MathJax and converts the SVG that comes
  * back (D41). A renderer wants exactly one thing — the TeX — so modelling the
  * inside of a formula as document-model nodes would be inventing a second
@@ -272,7 +272,7 @@ export type Inline =
 export const UNRESOLVED_REFERENCE = "??";
 
 /**
- * What a `\cite` prints for a key no bibliography entry matched. Brief 39 asks
+ * What a `\cite` prints for a key no bibliography entry matched. The figures, tables and bibliography work asks
  * for this specifically: an unknown key is a diagnostic *and* a visible mark in
  * the PDF, so the problem cannot be missed by someone reading the output rather
  * than the log.
@@ -389,7 +389,7 @@ export interface MarkerBlock extends BlockBase {
   name: string;
 }
 
-// --- floats, captions and the lists of them (brief 39) ---------------------
+// --- floats, captions and the lists of them ---------------------
 
 /**
  * Which counter a float steps, which `\listof...` collects it, and which name
@@ -429,7 +429,7 @@ export const DEFAULT_FLOAT_PLACEMENT: FloatPlacement = {
 /**
  * A `figure`/`table` environment: content that does not belong at the point it
  * was written. **This block does not carry a position** — where it ends up is
- * the page builder's answer (`layout/float.ts`, chunk 39.4), which is the whole
+ * the page builder's answer (`layout/float.ts`), which is the whole
  * meaning of the word float.
  */
 export interface FloatBlock extends BlockBase {
@@ -485,7 +485,7 @@ export interface FloatListEntry {
   marker: string;
 }
 
-// --- tables (brief 39) ------------------------------------------------------
+// --- tables ------------------------------------------------------
 
 /** A `tabular` column's horizontal alignment. `paragraph` is `p{width}`. */
 export type TableColumnAlign = "left" | "center" | "right" | "paragraph";
@@ -548,7 +548,7 @@ export interface TableRow {
 /**
  * A `tabular`. **Parsed only** by chunk 39.1: the grid, the column spec and the
  * rules are here, and not one width has been measured — column measurement and
- * grid setting are `layout/table.ts`'s (chunk 39.3), because both need a shaper
+ * grid setting are `layout/table.ts`'s, because both need a shaper
  * and a measure the document layer must not know about.
  */
 export interface TableBlock extends BlockBase {
@@ -561,7 +561,7 @@ export interface TableBlock extends BlockBase {
   rulesBelow: TableRule[];
 }
 
-// --- bibliography (brief 39) ------------------------------------------------
+// --- bibliography ------------------------------------------------
 
 /** One `\bibitem{key} text` of a `thebibliography` environment. */
 export interface BibItem {
@@ -597,7 +597,7 @@ export interface BibliographyBlock extends BlockBase {
   content: Block[];
 }
 
-// --- display mathematics (brief 40) -----------------------------------------
+// --- display mathematics -----------------------------------------
 
 /**
  * Which construct wrote a display. Not cosmetic: the variant decides whether
@@ -605,7 +605,7 @@ export interface BibliographyBlock extends BlockBase {
  * carry more than one line — three questions the layout and numbering chunks
  * both ask, and which cannot be answered from the TeX string once it is one.
  *
- * This union **is** brief 40's In list for display math, as D41 §5 requires it
+ * This union **is** the declared scope for display math, as D41 §5 requires it
  * to be: `equation`, `equation*`, `displaymath`, `align`, `align*`, `gather`
  * and `split`, plus `\[…\]` (`bracket`, which has no environment name). Every
  * other amsmath display — `multline`, `alignat`, `flalign`, `gather*`,
@@ -688,8 +688,8 @@ export interface MathLine {
  * **Not measured, and not rendered.** Like `TableBlock`, this block is the
  * *parse* of the construct and nothing more: `source` is TeX, and turning TeX
  * into a box needs MathJax and a shaper, neither of which the document layer
- * may know about. Rendering is `src/math/` (chunk 40.2), placement and the
- * overrun diagnostic are `layout/` (chunk 40.4).
+ * may know about. Rendering is `src/math/`, placement and the
+ * overrun diagnostic are `layout/`.
  */
 export interface DisplayMathBlock extends BlockBase {
   kind: "displaymath";
@@ -805,16 +805,16 @@ export function equationMarker(index: number): string {
   return `equation:${index}`;
 }
 
-// --- the math seams (brief 40) ----------------------------------------------
+// --- the math seams ----------------------------------------------
 
 /*
- * Brief 40 is split across four chunks and only one of them — this one — may
+ * The math work is split across four chunks and only one of them — this one — may
  * touch the document model. What follows is the two shapes the *other* chunks
  * agreed to meet on this side of the seam, declared here rather than imported
  * from `src/layout/` because the document layer must not depend on layout in
  * the finished engine either: it has no shaper and no measure, by design.
  *
- * Rendering is **not** among them. `src/math/` (chunk 40.2) owns TeX → SVG and
+ * Rendering is **not** among them. `src/math/` owns TeX → SVG and
  * the MathML subset gate, and publishes its own `MathRenderer`, `MathRequest`
  * and `MathGeometry`; a duplicate declaration here would be a second definition
  * of the same contract, which is the drift D38 spends the rest of this file
@@ -828,7 +828,7 @@ export function equationMarker(index: number): string {
  */
 
 /**
- * Brief 40 step 5, "measure the rendered display width
+ * The math work's spec, "measure the rendered display width
  * against the text width and report when it exceeds it".
  *
  * Line breaking inside math is explicitly Out — TeX barely does it either — so
@@ -862,7 +862,7 @@ export type EquationNumberSetter = (line: MathLine, measure: number) => Inline[]
  */
 
 /**
- * Brief 40 step 5: a display wider than the measure is reported, because line
+ * The math work's spec: a display wider than the measure is reported, because line
  * breaking inside mathematics is explicitly Out and the author is the one who
  * has to break it.
  *

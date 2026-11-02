@@ -8,7 +8,7 @@ import { filePathFor } from "../src/common/paths.js";
 import { isCalibreAvailable } from "../src/modules/library/calibre.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 67: a conversion's terminal status write that threw left the source row
+// A conversion's terminal status write that threw left the source row
 // `running` with nothing running, and the install-wide slot (D34) refused every
 // conversion until a restart. The write is now parked and replayed by the next
 // convert or cancel. The failure here is a real SQLITE_BUSY: a second
@@ -20,7 +20,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * Both tests end in a real conversion through Calibre's `ebook-convert`, which
  * getting-started.md calls optional. Probed once, the way the API's own boot
  * probes it, so a machine without Calibre skips them with the reason instead of
- * failing them (brief 99).
+ * failing them.
  */
 const needsCalibre = { skip: (await isCalibreAvailable()) ? false : "Calibre not installed" };
 

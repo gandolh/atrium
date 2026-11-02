@@ -7,7 +7,7 @@ import type {
 } from "../doc/model.ts";
 
 /**
- * The builtin command and environment tables (brief 37, chunk 6).
+ * The builtin command and environment tables.
  *
  * This file is **data, not behaviour**: every command the engine knows about
  * appears here exactly once, with a `role` that says which branch of the
@@ -77,7 +77,7 @@ export type BuiltinSpec =
   | { role: "special"; id: SpecialId }
   /**
    * Real LaTeX that is only meaningful **inside math mode** — `\frac`,
-   * `\alpha`, `\left` (brief 40). Written outside `$…$` there is nothing for
+   * `\alpha`, `\left`. Written outside `$…$` there is nothing for
    * it to set, and real LaTeX refuses it too ("Missing $ inserted"), so it
    * produces a diagnostic naming the reason. Written *inside* math it never
    * reaches this table at all: the body of a math run is printed back to TeX
@@ -96,7 +96,7 @@ export type BuiltinSpec =
 /**
  * The message every TeX-programming primitive gets. These are not "not yet":
  * the engine reads LaTeX-shaped documents, it does not execute TeX, and no
- * later brief changes that (D38).
+ * later work changes that (D38).
  */
 const TEX_PROGRAMMING = "the engine reads LaTeX-shaped documents and does not execute TeX; this is permanently out of scope";
 
@@ -108,12 +108,12 @@ function unimplemented(detail: string): BuiltinSpec {
   return { role: "unsupported", detail };
 }
 
-// --- mathematics (brief 40) -------------------------------------------------
+// --- mathematics -------------------------------------------------
 
 /**
  * The math allowlist, and the reason it exists.
  *
- * D41 §5 is the owner's explicit call: **math is gated to brief 40's In list**,
+ * D41 §5 is the owner's explicit call: **math is gated to the declared scope**,
  * even where MathJax would happily render more. The recommendation was the
  * opposite — accept MathJax's surface and treat the Out list as "not promised"
  * — and it was overridden deliberately, because a subset engine whose subset is
@@ -145,7 +145,7 @@ function unimplemented(detail: string): BuiltinSpec {
  */
 
 /**
- * Every math command brief 40's In list promises to set. Chunk 40.2's MathML
+ * Every math command the declared scope promises to set. Chunk 40.2's MathML
  * gate reads this too — one list, so the two halves of the gate cannot drift.
  *
  * Grouped by the In list's own bullets. Names already in `BUILTIN_COMMANDS`
@@ -218,13 +218,13 @@ export const MATH_COMMANDS: readonly string[] = [
 ];
 
 /**
- * Every math environment brief 40's In list promises to set, and which display
+ * Every math environment the declared scope promises to set, and which display
  * variant each one is. `null` means it is a *structure* inside a formula
  * (`pmatrix`, `array`) rather than a display of its own, so it has no variant:
  * written inside math it is part of the TeX handed to the renderer, and written
  * outside math it is `math-only` like `\frac` is.
  *
- * `Bmatrix` and `Vmatrix` are here beside the four the brief names: the In list
+ * `Bmatrix` and `Vmatrix` are here beside the four the scope names: the In list
  * bullet is "Matrices", and these two are the same construct with a different
  * pair of delimiters, set by the same MathJax code path.
  */
@@ -236,7 +236,7 @@ export const MATH_ENVIRONMENTS: Readonly<Record<string, DisplayMathVariant | nul
   "align*": "align*",
   gather: "gather",
   // `gather*` is the unnumbered `gather`, exactly as `align*` is the
-  // unnumbered `align`. Brief 40's In list names `align*` and not `gather*`,
+  // unnumbered `align`. The declared scope names `align*` and not `gather*`,
   // which reads as a transcription slip rather than a decision — the owner
   // confirmed it as one on 2026-08-29, so it is admitted with its pair.
   "gather*": "gather*",
@@ -251,7 +251,7 @@ export const MATH_ENVIRONMENTS: Readonly<Record<string, DisplayMathVariant | nul
 };
 
 /**
- * Math commands brief 40 declines, and why. Every one of these is real LaTeX
+ * Math commands the math work declines, and why. Every one of these is real LaTeX
  * that a real document could contain, so every one is `unsupported` and never
  * `undefined-command` — conflating the two is the bug D38 exists to prevent.
  *
@@ -313,7 +313,7 @@ export const DECLINED_MATH_COMMANDS: Readonly<Record<string, string>> = {
   numberwithin: "amsmath's \\numberwithin is outside brief 40's In list; equations are numbered straight through the document, as article.cls numbers them",
 };
 
-/** Math environments brief 40 declines, and why. Same contract as the commands above. */
+/** Math environments the math work declines, and why. Same contract as the commands above. */
 export const DECLINED_MATH_ENVIRONMENTS: Readonly<Record<string, string>> = {
   // The Out list names `cases` outright: "cases beyond what array gives".
   // MathJax renders it cleanly; it is refused anyway (D41 §5).
@@ -364,7 +364,7 @@ function declinedMathCommandRows(): Record<string, BuiltinSpec> {
 
 /** Every command name (without its backslash) the engine has heard of. */
 export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
-  // --- mathematics (brief 40) ---
+  // --- mathematics ---
   // Generated, and spread first so every explicit row below overrides them.
   ...mathOnlyCommandRows(),
   ...declinedMathCommandRows(),
@@ -391,13 +391,13 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   tableofcontents: { role: "special", id: "tableofcontents" },
   item: { role: "special", id: "item" },
 
-  // --- floats (brief 39) ---
+  // --- floats ---
   caption: { role: "special", id: "caption" },
   listoffigures: { role: "special", id: "listoffigures" },
   listoftables: { role: "special", id: "listoftables" },
   includegraphics: { role: "special", id: "includegraphics" },
 
-  // --- bibliography (brief 39) ---
+  // --- bibliography ---
   cite: { role: "special", id: "cite" },
   citep: { role: "special", id: "citep" },
   citet: { role: "special", id: "citet" },
@@ -487,7 +487,7 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   // likely to slip through). A row here, and the `case "input"` it used to
   // route to in `applySpecial`, promised to catch a case that could not
   // occur — dead code that claims to handle something it cannot reach, which
-  // is worse than no code (chunk 8). Removed rather than kept "just in
+  // is worse than no code. Removed rather than kept "just in
   // case": if `resolveInputs` ever regresses, the honest failure is
   // `undefined-command`, not a message about a case this table cannot prove
   // it still catches.
@@ -499,7 +499,7 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   relax: { role: "special", id: "ignore" },
   ignorespaces: { role: "special", id: "ignore" },
 
-  // --- real LaTeX we do not implement (brief-scoped) ---
+  // --- real LaTeX we do not implement (outside the declared scope) ---
   centering: unimplemented("centred text is out of scope for brief 37"),
   // `\bibitem` is real LaTeX, and inside `thebibliography` it *is* implemented
   // — but never through this table: `applyBibliography` in `doc/build.ts` reads
@@ -558,15 +558,15 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   href: unimplemented("hyperlinks are out of scope for brief 37"),
   url: unimplemented("hyperlinks are out of scope for brief 37"),
 
-  // --- real LaTeX we do not implement (brief 39's Out list, chunk 39.6) ---
+  // --- real LaTeX we do not implement (the declared Out list) ---
   // These four command names were, until this chunk, in no table at all —
   // which made them `undefined-command`, telling an author that `\rotatebox`
   // or `\multirow` are not real LaTeX. They are: `\rotatebox` is graphicx,
   // `\multirow` is the multirow package, and `\toprule`/`\midrule`/
-  // `\bottomrule`/`\cmidrule` are booktabs. Brief 39 lists all of them as
+  // `\bottomrule`/`\cmidrule` are booktabs. The figures, tables and bibliography work lists all of them as
   // things this engine deliberately declined, so the honest diagnostic is
   // `unsupported`, matching how `wrapfigure`/`tabularx`/`longtable` (a few
-  // rows and one table up) already report. `detail` says *why brief 39
+  // rows and one table up) already report. `detail` says *why the figures, tables and bibliography work
   // stops here*, not "not yet" — there is no brief that picks this back up.
   rotatebox: unimplemented("graphicx's \\rotatebox is out of scope for brief 39; images are placed unrotated"),
   toprule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
@@ -664,7 +664,7 @@ export type EnvironmentSpec =
   | { role: "float"; class: FloatClass; spanning: boolean }
   | { role: "special"; id: "document" | "abstract" | "verbatim" | "tabular" | "thebibliography" }
   /**
-   * A display-math environment on brief 40's In list. `variant` is what
+   * A display-math environment on the declared scope. `variant` is what
    * `DisplayMathBlock.variant` becomes, and it decides numbering and alignment
    * — the environment's *name* is kept on the block separately, because
    * `\begin{equation}` and `\begin{align}` differ in more than a label.
@@ -697,7 +697,7 @@ function mathEnvironmentRows(): Record<string, EnvironmentSpec> {
 }
 
 export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
-  // --- mathematics (brief 40) ---
+  // --- mathematics ---
   // Generated, and spread first so every explicit row below overrides them.
   ...mathEnvironmentRows(),
 
@@ -708,7 +708,7 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   enumerate: { role: "list", variant: "enumerate" },
   description: { role: "list", variant: "description" },
 
-  // --- brief 39 ---
+  // --- the figures, tables and bibliography work ---
   figure: { role: "float", class: "figure", spanning: false },
   "figure*": { role: "float", class: "figure", spanning: true },
   table: { role: "float", class: "table", spanning: false },
@@ -723,12 +723,12 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   // The subcaption package's environment (its `\subcaption` command is the
   // matching row in `BUILTIN_COMMANDS` above). Was previously in no table at
   // all, which reported `undefined-environment` — a false claim that no such
-  // environment exists, for a package brief 39 names as declined on purpose.
+  // environment exists, for a package the figures, tables and bibliography work names as declined on purpose.
   subfigure: { role: "unsupported", detail: "the subcaption package is out of scope for brief 39" },
-  // The seven `math is brief 40` placeholders that stood here are gone: brief
-  // 40 landed, and `equation`, `equation*`, `align`, `align*`, `gather`,
+  // The seven math placeholders that stood here are gone: the math work
+  // landed, and `equation`, `equation*`, `align`, `align*`, `gather`,
   // `displaymath` and `array` are now rows generated from `MATH_ENVIRONMENTS`
-  // above. The two that stayed behind are the two brief 40 did *not* take.
+  // above. The two that stayed behind are the two the math work did *not* take.
   //
   // `math` is `\(…\)` written as an environment. Inline math is implemented,
   // but the In list names the two delimiter forms and not this one, and D41 §5
@@ -758,10 +758,10 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   list: { role: "unsupported", detail: "the generic list environment is out of scope for brief 37" },
   trivlist: { role: "unsupported", detail: "the generic list environment is out of scope for brief 37" },
   picture: { role: "unsupported", detail: "the picture environment is out of scope" },
-  // Theorem environments. `theorem` and `proof` were already here from brief
-  // 37; the rest are the conventional `\newtheorem` names an author writes
+  // Theorem environments. `theorem` and `proof` were already here from the
+  // foundation; the rest are the conventional `\newtheorem` names an author writes
   // beside them, and they were in no table at all — so a document using them
-  // was told `lemma` is not a thing, when what is true is that brief 40 lists
+  // was told `lemma` is not a thing, when what is true is that the math work lists
   // theorem environments on its Out list. `\newtheorem` itself is a row in
   // `BUILTIN_COMMANDS` and reports the same way.
   theorem: { role: "unsupported", detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list" },

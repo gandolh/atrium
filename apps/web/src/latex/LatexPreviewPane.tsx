@@ -7,11 +7,11 @@ import type { LatexJumpTarget } from "./LatexEditor";
 import { usePreviewReaderIsolation } from "./use-preview-reader-isolation";
 
 /**
- * The `Preview` mount point's contents (brief 38 chunk 9): the compiled PDF on
+ * The `Preview` mount point's contents: the compiled PDF on
  * top, the diagnostics panel beneath, inside the `<section aria-label="Preview">`
  * chunk 8 already sized and scoped (`min-h-0`, scrolls inside itself).
  *
- * `PdfReader` (brief 06) is code-split exactly like `SourceEditor` (brief 15's
+ * `PdfReader` is code-split exactly like `SourceEditor` (the reader code-split's
  * precedent, chunk 8's own choice for the source pane) — nobody who never
  * compiles a LaTeX project should download the PDF.js worker + react-pdf.
  * `ReaderChunkErrorBoundary` is reused unchanged rather than duplicated: it is

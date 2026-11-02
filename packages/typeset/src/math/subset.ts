@@ -2,7 +2,7 @@ import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { error, unsupported } from "../diagnostics.ts";
 
 /**
- * The subset gate (D41). MathJax will happily set things brief 40 declared
+ * The subset gate (D41). MathJax will happily set things the math work declared
  * **Out** — `\begin{cases}` and `\DeclareMathOperator` both render clean — and
  * the owner's call is to refuse them anyway. A subset engine whose subset is
  * not precisely knowable cannot honour D38's promise that an unimplemented
@@ -56,11 +56,11 @@ import { error, unsupported } from "../diagnostics.ts";
  * explicit that conflating `unsupported` with `undefined-command` makes the
  * diagnostic useless to a writer. The tables below are what keeps that
  * distinction honest, and they are the same shape `builtins.ts` already uses
- * for brief 39's `\rotatebox` and `\multirow`.
+ * for the figures, tables and bibliography work's `\rotatebox` and `\multirow`.
  */
 
 /**
- * The MathML element vocabulary brief 40's In list actually produces, measured
+ * The MathML element vocabulary the declared scope actually produces, measured
  * against `mathjax@4.1.3` rather than assumed.
  *
  * `mpadded` and `mphantom` are in because allowed constructs emit them
@@ -99,10 +99,11 @@ export const ALLOWED_ELEMENTS: ReadonlySet<string> = new Set([
 const TOKEN_ELEMENTS: ReadonlySet<string> = new Set(["mi", "mn", "mo"]);
 
 /**
- * The structural half of brief 40's In list, command by command. Symbols and
+ * The structural half of the declared scope, command by command. Symbols and
  * operator names are **not** here — they come in through the token rule above.
  *
- * Read this as the brief's Scope section transcribed, not as a wishlist: every
+ * Read this as the declared math scope transcribed (corpus/wiki/typeset-scope.md),
+ * not as a wishlist: every
  * entry maps to a bullet there, and the two commands that look like padding
  * (`\limits`/`\nolimits`) are the bullet "sums/products/integrals with limits in
  * both inline and display style".
@@ -163,7 +164,7 @@ export const ALLOWED_COMMANDS: ReadonlySet<string> = new Set([
   "\\Bigm",
   "\\biggm",
   "\\Biggm",
-  // Math alphabets — the five the brief names, plus `\boldsymbol`, which the
+  // Math alphabets — the five the scope names, plus `\boldsymbol`, which the
   // owner admitted on 2026-08-29 as common enough in ordinary papers to be
   // worth the widening. `\mathsf`, `\mathtt` and `\mathfrak` are real and
   // render fine, and stay refused: the In list is an allowlist ("and nothing
@@ -423,7 +424,7 @@ function scanTags(mathml: string): ScannedTag[] {
 
 /**
  * Gate one rendered expression. Returns the diagnostics that make it refusable
- * — empty means every construct in it is inside brief 40's In list.
+ * — empty means every construct in it is inside the declared scope.
  *
  * `mathml` is `MathJax.tex2mml(…)` output for the run, **before** any SVG has
  * been asked for: an expression that fails here never gets drawn, so a refused

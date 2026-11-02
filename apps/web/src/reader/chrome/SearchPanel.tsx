@@ -6,7 +6,7 @@ import { useChromeHold } from "./use-auto-hide-chrome";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * SHARED IN-BOOK SEARCH UI  (brief 07 — completes the `search-seam.ts` stub)
+ * SHARED IN-BOOK SEARCH UI  (completes the `search-seam.ts` stub)
  * ─────────────────────────────────────────────────────────────────────────────
  * Format-agnostic search surface reused by BOTH readers (D19). Rendered as a
  * right-anchored Base UI Dialog panel (mirrors `TocDrawer`'s left drawer) so the
@@ -129,7 +129,7 @@ export function SearchPanel({
                 className="min-w-0 flex-1 rounded-card border border-reader-border bg-reader-surface px-3 py-1.5 text-sm text-reader-fg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
               />
               {/* design.md "accent means state only, never a button fill":
-                  ink-filled primary, not accent-filled (brief 27 conformance
+                  ink-filled primary, not accent-filled (a Reading Room conformance
                   gap, fixed here alongside the OpeningErrorState instance). */}
               <button
                 type="submit"

@@ -1,15 +1,15 @@
 ---
 summary: Recorded live + build-time performance baseline of the current (post-code-split) build — initial JS transfer, chunk sizes, cover→first-page for PDF and EPUB, and EPUB open phases — plus how to reproduce the numbers.
-updated: 2026-08-25
+updated: 2026-11-02
 ---
 
 # Performance baseline
 
 The measured baseline for the **current, post-optimization** build (readers are
-now code-split — brief 15). Two layers: **build-time** asset sizes from
+now code-split — the reader code-split (2026-07-13)). Two layers: **build-time** asset sizes from
 `vite build`, and **live** numbers driven through a production-like build in a
 real Chrome. Reproduce with the harness at
-[`../../playwright/perf/`](../../playwright/perf/) (gitignored) — bring-up +
+`../../playwright/perf/` (gitignored) — bring-up +
 exact steps live there.
 
 ## How this was measured (2026-07-13)
@@ -54,10 +54,10 @@ pdf.worker are absent until a book is opened (code-split verified live).
 | Initial JS transfer | **123 kB** gzip (1 file) | (from cache) |
 
 > **Stale as of 2026-08-25.** The 123 kB above is the brief-15 measurement and
-> was never re-taken across briefs 19–33 (PWA, media library, discover, notes,
-> the Reading Room rework). A build at `00a7bae` — the commit *before* brief 35
+> was never re-taken across the work of 2026-07-16 to 2026-08-24 (PWA, media library, discover, notes,
+> the Reading Room rework). A build at `00a7bae` — the commit *before* the profiles work (2026-08-25)
 > — measures the entry chunk at **195.76 kB gzip**, so the headline number had
-> already drifted ~73 kB before profiles touched anything. Brief 35 itself cost
+> already drifted ~73 kB before profiles touched anything. The profiles work (2026-08-25) itself cost
 > **+4.90 kB gzip** (195.76 → 200.66) and +19.5 KiB precache, measured by
 > building both trees. Re-baselining the whole table needs a fresh live run
 > (the harness in `playwright/`); until then, trust the two figures in this
@@ -107,7 +107,7 @@ on the epub bytes). Approximate timeline of a warm-chunk open:
 
 Steps 1–2 account for only ~150–300 ms of the ~600–880 ms total; the remaining
 **~450–700 ms is client-side epub.js work** (unzip/parse/render). That client
-cost is the target of **brief 16** (reduce EPUB open cost / double-parse). Note:
+cost is the target of **the EPUB open-cost fix (2026-07-13)** (reduce EPUB open cost / double-parse). Note:
 DOM signals top out at "iframe visible" — epub.js emits no marks, so the
 parse-vs-render split above is inferred from the timeline, not a hard boundary.
 
@@ -119,14 +119,14 @@ parse-vs-render split above is inferred from the timeline, not a hard boundary.
   worker/parse cost (PDF 513 ms; EPUB 601–880 ms).
 - The EPUB heavy path has two remaining costs: the 24 MB transfer (network-bound
   on deploy; loopback hides it) and ~450–700 ms of client-side epub.js
-  parse/render (brief 16).
+  parse/render (2026-07-13).
 - **Not captured** (no chrome-devtools MCP): Lighthouse score, automatic
   LCP/CLS/INP. If that MCP is registered later, add CWV here and keep this
   harness for the interaction timings.
 
 ## Reproduce
 
-See [`../../playwright/perf/README.md`](../../playwright/perf/README.md) for
+See `../../playwright/perf/README.md` for
 bring-up + the exact agent-browser drive sequence, and
-[`../../playwright/perf/instrument.js`](../../playwright/perf/instrument.js) for
+`../../playwright/perf/instrument.js` for
 the copy-paste `eval` snippets.

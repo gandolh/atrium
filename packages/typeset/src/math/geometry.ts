@@ -10,13 +10,13 @@ import { error } from "../diagnostics.ts";
  * recovered from the path data afterwards:
  *
  * - **`vertical-align`**, in `ex`, negative for the part that hangs below the
- *   text baseline. This is *the* number brief 40 says betrays a bad
+ *   text baseline. This is *the* number the math work says betrays a bad
  *   implementation: inline math sitting a point or two off the baseline looks
  *   subtly wrong across a whole paragraph, which is harder to notice and worse
  *   than an obvious break.
  * - **`width`/`height`**, also in `ex`, which is the box the run occupies.
  * - **the `viewBox`**, in the SVG's own font units, which is what the
- *   SVG → PDF emitter (chunk 40.1) needs to map path coordinates onto the page.
+ *   SVG → PDF emitter needs to map path coordinates onto the page.
  *
  * **Units are `ex`, and they are left as `ex` on purpose.** An `ex` is a
  * property of the surrounding *text* font at the surrounding *size*, and this

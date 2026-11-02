@@ -14,7 +14,7 @@ export const PDF_EXTENSIONS = [".pdf"] as const;
 export const EPUB_MIME_TYPES = ["application/epub+zip"] as const;
 export const EPUB_EXTENSIONS = [".epub"] as const;
 
-// Media formats (brief 23) — what the native <audio>/<video> playback path
+// Media formats — what the native <audio>/<video> playback path
 // supports (extends D12's "formats = what the playback/read path supports").
 // Real browsers vary the MIME they attach: mp3 files often arrive as
 // `audio/mp3`, MediaRecorder emits `audio/webm` for webm audio, and m4a-ish
@@ -35,7 +35,7 @@ export type PdfMimeType = z.infer<typeof pdfMimeSchema>;
 export type EpubMimeType = z.infer<typeof epubMimeSchema>;
 
 /**
- * Every file format this app understands (D12, extended for media in brief 23):
+ * Every file format this app understands (D12, extended for media in the media library):
  * PDF/EPUB books plus MP3 audio and MP4/WebM video — the formats browsers play
  * natively (no transcoding). Detection stays extension/MIME only (D13).
  */
@@ -46,7 +46,7 @@ export type FileType = z.infer<typeof fileTypeSchema>;
 /**
  * The kind of media a format is: a `book` (paged reader), `audio` (player), or
  * `video` (player). The gallery filters and the player/card rendering branch on
- * this; web consumes `kindForFormat` in later chunks (brief 23 steps 5–6).
+ * this; web consumes `kindForFormat` in later chunks.
  */
 export const MEDIA_KINDS = ["book", "audio", "video"] as const;
 export const mediaKindSchema = z.enum(MEDIA_KINDS);
@@ -88,7 +88,7 @@ function getExtension(name: string): string {
 
 /**
  * The extension + MIME signals for each format, in match-priority order. The
- * table keeps `detectFileType` uniform as formats widen (brief 23).
+ * table keeps `detectFileType` uniform as formats widen.
  */
 const FORMAT_SIGNALS: {
   format: FileType;

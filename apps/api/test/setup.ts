@@ -9,7 +9,7 @@
  *
  * Why this is enforced in code rather than by habit: on 2026-08-25 a
  * verification run with the database redirected but the files not destroyed
- * one of the owner's books (D39), and brief 53 showed a file move silently
+ * one of the owner's books (D39), and the storage-roots fix showed a file move silently
  * re-pointing every default root. A test run must not be able to reach the real
  * library, even by accident.
  */

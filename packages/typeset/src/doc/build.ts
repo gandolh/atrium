@@ -78,7 +78,7 @@ import { IMPLEMENTED_BIB_STYLE } from "./bib.ts";
 import { scanTextRun } from "./text.ts";
 
 /**
- * The document builder (brief 37, chunk 6): the expanded AST becomes blocks,
+ * The document builder: the expanded AST becomes blocks,
  * inlines, counters and labels.
  *
  * The loud-failure contract (D38) lives here. Every node kind reaches a branch
@@ -133,7 +133,7 @@ interface BuildState {
   /** Per-variant nesting, tracked separately because LaTeX's labels are. */
   variantDepth: Record<ListVariant, number>;
   /**
-   * The float being walked, or null outside one (brief 39). `\caption` reads
+   * The float being walked, or null outside one. `\caption` reads
    * this to know which counter to step and which `\listof...` to join, and
    * refuses outright when it is null — a caption with no float has no number,
    * and printing it unnumbered would be silently wrong output.
@@ -365,7 +365,7 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
          */
         if ((node.name === "begin" || node.name === "end") && nodes[i + 1]?.type === "group") i++;
         /*
-         * Two of brief 39's commands have an argument the parser leaves as a
+         * Two of the figures, tables and bibliography work's commands have an argument the parser leaves as a
          * *sibling* group — the biggest surprise in `@unified-latex`'s output,
          * documented on `CommandNode` in `ast.ts`. Adopt it here, where the
          * siblings are in scope, rather than in `applySpecial`, which only ever
@@ -924,16 +924,16 @@ function buildItem(
   return { label, content: walkBlocks(bodyNodes, st, DEFAULT_TEXT_STYLE, depth + 1), loc: at };
 }
 
-// --- brief 39: floats, captions, images, tables, bibliography ---------------
+// --- the figures, tables and bibliography work: floats, captions, images, tables, bibliography ---------------
 
 /*
- * Everything below this line is brief 39's *syntax* half (chunk 39.1): the
+ * Everything below this line is the figures, tables and bibliography work's *syntax* half: the
  * constructs are parsed, validated, numbered and put into the document model,
  * and the four capabilities they need — image decode, column measurement, float
  * placement, bibliography formatting — are seams elsewhere (`src/image/`,
  * `layout/table.ts`, `layout/float.ts`, `doc/bib.ts`).
  *
- * **No interim notices remain.** Every one of brief 39's five chunks carried a
+ * **No interim notices remain.** Every one of the figures, tables and bibliography work's five chunks carried a
  * temporary loud-failure diagnostic here or at its own seam while its
  * capability was missing — image decode and placement (39.2), column
  * measurement and grid setting (39.3), float placement (39.4) and bibliography
@@ -1086,7 +1086,7 @@ function readFloatPlacement(env: EnvironmentNode, st: BuildState): FloatPlacemen
  *
  * **Nothing is read.** The path is recorded as written; resolving it against
  * `compile()`'s file map, decoding the bytes and honouring the sizing keys is
- * `src/image/`'s job (chunk 39.2), because the engine performs no I/O of its
+ * `src/image/`'s job, because the engine performs no I/O of its
  * own (D38) and the document layer has no file map at all.
  */
 function applyIncludeGraphics(cmd: CommandNode, sink: Sink, st: BuildState): void {
@@ -1418,7 +1418,7 @@ function readColumnSpec(
   return { columns, rulesAfter: rules };
 }
 
-/** Column types that are real LaTeX from a package brief 39 leaves out. */
+/** Column types that are real LaTeX from a package the figures, tables and bibliography work leaves out. */
 const ARRAY_PACKAGE_COLUMNS: Readonly<Record<string, string>> = {
   m: "the array package's m{width} (vertically centred) column is out of scope; use p{width}",
   b: "the array package's b{width} (bottom-aligned) column is out of scope; use p{width}",
@@ -1968,7 +1968,7 @@ function boldStyle(): TextStyle {
   return { font: { ...DEFAULT_TEXT_STYLE.font, weight: "bold" }, underline: false };
 }
 
-// --- mathematics (brief 40) -------------------------------------------------
+// --- mathematics -------------------------------------------------
 
 /**
  * What a `math-only` name is told when it is written outside math mode. One
@@ -2028,7 +2028,7 @@ function applyMath(node: MathNode, sink: Sink, st: BuildState, depth: number): v
 }
 
 /**
- * `\begin{equation}`, `\begin{align}` and the rest of brief 40's In list. The
+ * `\begin{equation}`, `\begin{align}` and the rest of the declared scope. The
  * environment name has to be kept: `align` and `gather` are both numbered
  * multi-line displays and differ only in whether `&` means anything, which is
  * MathJax's business, but the *diagnostics* have to say which one was written.
@@ -2113,7 +2113,7 @@ function buildDisplay(
    * `\pageref` resolves through markers that layout has *placed*, and layout
    * places `MarkerBlock`s already — so emitting them here closes the two-pass
    * cycle for equations today, with no layout change and no second reference
-   * mechanism (brief 40 step 3 forbids one). It is provisional in exactly one
+   * mechanism. It is provisional in exactly one
    * respect: a marker sitting immediately before the display reports the page
    * the display *starts* on, which is the right answer unless a page break
    * lands between the marker and the block. Chunk 40.4 can move the markers
@@ -2228,7 +2228,7 @@ function collectMathLabels(
 /**
  * The In-list gate, name level (D41 §5).
  *
- * Walks everything a math run contains and reports the names brief 40 declined.
+ * Walks everything a math run contains and reports the names the math work declined.
  * It does **not** report names it has never heard of: an unrecognised control
  * sequence inside math is MathJax's to judge — with `noundefined` dropped it
  * raises a real error through `formatError` (D41 §4) — and guessing here would
@@ -2402,7 +2402,7 @@ function readDocumentClass(cmd: CommandNode, st: BuildState): void {
   const options = cmd.args.find((a) => a.bracket === "[");
   st.classOptions = options === undefined ? "" : plainText(options.content).trim();
   // Kept with the options themselves: `documentDesign` reports an option it
-  // cannot honour, and brief 37 treats a wrong line number as a bug.
+  // cannot honour, and the engine foundation treats a wrong line number as a bug.
   st.classLoc = at;
   if (st.documentClass !== null) {
     st.diagnostics.push(error("syntax", at, "a document has only one \\documentclass", "\\documentclass"));

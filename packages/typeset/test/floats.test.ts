@@ -8,7 +8,7 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
 import { dumpResult, goldenTest, loadFixture } from "./harness.ts";
 
 /**
- * Brief 39, chunk 39.4: the float deferral queue and placement.
+ * The figures, tables and bibliography work's spec: the float deferral queue and placement.
  *
  * Chunk 39.1 parsed `figure`/`table`, numbered their captions and collected
  * `\listoffigures`; this chunk is what finally *puts them somewhere*. So unlike
@@ -25,7 +25,7 @@ import { dumpResult, goldenTest, loadFixture } from "./harness.ts";
  * The one thing worth stating twice: **nothing may be dropped**. Several tests
  * below check not that a float landed in a particular place but that it landed
  * *at all*, and the never-placeable case checks that the engine says so at the
- * float's own line. That is D38's failure contract, and brief 39 names floats
+ * float's own line. That is D38's failure contract, and the figures, tables and bibliography work names floats
  * as the place it matters most.
  */
 

@@ -12,12 +12,12 @@ import { usePlaybackStore } from "../store/playback-store";
  * wordmark + search + theme toggle) and the readers are full-screen (`fixed
  * inset-0`), so the shell adds no chrome of its own except the player dock.
  *
- * `AuthGate` wraps `<Outlet />` here (brief 09) rather than in `main.tsx`
+ * `AuthGate` wraps `<Outlet />` here rather than in `main.tsx`
  * because this is the root *route* component — every route (`/`, `/read`)
  * renders inside it, so gating here covers deep links too, and it's the
  * natural home for app-shell-level concerns (it already owns the shell div).
  *
- * **Playback lives here (brief 31).** `PlaybackHost` mounts the app's one
+ * **Playback lives here.** `PlaybackHost` mounts the app's one
  * `<audio>` element and the dock: at shell level, so navigating between routes
  * can't unmount either and a track never stops. It sits INSIDE the auth gate —
  * media is authenticated (the session cookie rides the file URL, which lives

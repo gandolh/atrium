@@ -5,7 +5,7 @@ import type { Extension } from "@codemirror/state";
 
 /**
  * The LaTeX source pane's CodeMirror theme, built from Reading Room tokens
- * (brief 38 chunk 8).
+ *.
  *
  * **No stock theme.** `@codemirror/theme-one-dark` and friends each ship their
  * own palette, which would drop a second colour system into the middle of the

@@ -4,7 +4,7 @@ import { PlayerDock } from "./PlayerDock";
 import { usePlaybackElement } from "./use-playback-element";
 
 /**
- * Everything the app SHELL owns for playback (brief 31): the single `<audio>`
+ * Everything the app SHELL owns for playback: the single `<audio>`
  * element and the dock that drives it. Mounted once by
  * `routes/root-layout.tsx`, inside the auth gate, so neither is a child of any
  * route — which is the entire point of the brief. A `<audio>` owned by a route

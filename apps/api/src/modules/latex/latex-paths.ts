@@ -3,7 +3,7 @@ import { isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { projectDirFor } from "../../common/paths.js";
 
 /**
- * Path confinement for LaTeX projects (brief 38, step 4).
+ * Path confinement for LaTeX projects.
  *
  * The typesetting engine is a pure function with no I/O (D38): it resolves
  * `\input` against an in-memory file map, so there is no filesystem for a
@@ -308,13 +308,13 @@ export async function confinePathUnder(
 
 /**
  * Confine an untrusted, project-relative path to one LaTeX project's working
- * tree. **This is the function every path-accepting route in brief 38 calls** —
+ * tree. **This is the function every path-accepting route in the LaTeX editor calls** —
  * file create, write, rename (both sides), delete, upload, and the `entrypoint`
  * field. There is no other sanctioned way to turn a client string into a path
  * under `LATEX_PROJECTS_DIR`.
  *
  * `projectId` must already be a server-generated id the route resolved from the
- * database, scoped to the requesting profile (brief 35: 404, not 403) —
+ * database, scoped to the requesting profile (404, not 403) —
  * `projectDirFor` asserts its shape, since a malformed id would move the
  * confinement root rather than escape it.
  */
@@ -327,7 +327,7 @@ export async function confineProjectPath(
   // But this function's whole contract is that a bad input comes back as a
   // result, never as an exception, and a route reaches here with an id taken
   // straight off the URL. Letting the throw escape would turn a hostile id into
-  // an unhandled 500, where brief 35's rule requires a plain 404 — a malformed
+  // an unhandled 500, where the profiles work's rule requires a plain 404 — a malformed
   // id and a well-formed id belonging to someone else must be indistinguishable
   // to the caller, and two different status codes distinguish them.
   //

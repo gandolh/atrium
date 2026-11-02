@@ -1,5 +1,5 @@
 /**
- * The outbound half of the metadata lookup (brief 100): how the API talks to
+ * The outbound half of the metadata lookup: how the API talks to
  * MusicBrainz, the Cover Art Archive and Open Library. Shaped after the
  * Gutendex client (`catalog/gutendex.service.ts`): `fetch` with a timeout and
  * a descriptive `User-Agent`, an error thrown on anything but a 2xx.

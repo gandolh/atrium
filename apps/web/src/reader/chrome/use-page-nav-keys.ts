@@ -5,7 +5,7 @@ import { useEffect } from "react";
  * PageUp go to the previous page; ArrowRight / Space / PageDown go to the next.
  *
  * Format-agnostic: the reader passes `onPrev`/`onNext` that mean "previous /
- * next unit" — a page for PDF, a location for EPUB (brief 07). Ignores key
+ * next unit" — a page for PDF, a location for EPUB. Ignores key
  * events originating from inputs/editable surfaces so it never fights typing in
  * the (future) search box.
  */

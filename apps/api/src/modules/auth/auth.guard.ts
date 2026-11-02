@@ -87,7 +87,7 @@ export function roleForWardRole(wardRole: string): string {
 const JUKEBOX_LIBRARY_ROUTES = new Set(["/library/:id/file", "/library/:id/cover"]);
 
 /**
- * The jukebox-only allowlist (D55, brief 80): `/jukebox/*`, an item's file and
+ * The jukebox-only allowlist (D55): `/jukebox/*`, an item's file and
  * cover, and the caller's own account routes (signing out, a password). The
  * handlers of the file and cover routes then refuse anything that isn't
  * `audio`.

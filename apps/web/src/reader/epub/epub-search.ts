@@ -3,7 +3,7 @@ import type { Book, NavItem } from "epubjs";
 import type { SearchMatch, SearchProvider } from "../chrome";
 
 /**
- * EPUB in-book search provider (brief 07, D19). Implements the shared
+ * EPUB in-book search provider (D19). Implements the shared
  * `SearchProvider` contract against epub.js.
  *
  * Strategy — spine walk (the epub.js idiom): iterate every spine `Section`,

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 /**
- * Cross-library search field (brief 30) — rendered into `AppHeader`'s search
- * slot from `LibraryHome`. Chrome matches the slot brief 28 left: a 1px
+ * Cross-library search field — rendered into `AppHeader`'s search
+ * slot from `LibraryHome`. Chrome matches the slot the one-home layout left: a 1px
  * `line` border, 4px (`rounded-card`) radius. A quiet "/" hint chip sits at
  * the field's trailing edge while it's idle and empty; once there's a query
  * (or the field is focused) the hint gives way to a "Clear" affordance.

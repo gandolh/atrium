@@ -15,7 +15,7 @@ import type {
 import type { Diagnostic } from "../src/diagnostics.ts";
 
 /**
- * The document model (brief 37, chunk 6): blocks, inlines, counters, labels.
+ * The document model: blocks, inlines, counters, labels.
  *
  * Nearly every test goes through `buildDocument` with a whole (tiny) document
  * rather than through the walker directly, because the preamble/body split and
@@ -424,10 +424,10 @@ test("a missing entrypoint is a diagnostic, not a throw", () => {
 
 /*
  * These two asserted, until chunk 40.3, that *all* math reported `unsupported`
- * — the placeholder brief 37 left behind. Brief 40 landed and math is
+ * — the placeholder the engine foundation left behind. The math work landed and math is
  * implemented, so the assertions now check the behaviour that replaced it: a
  * math run becomes a typed node carrying its TeX, and only a construct outside
- * brief 40's In list still reports `unsupported` (D41 §5). They are not
+ * the declared scope still reports `unsupported` (D41 §5). They are not
  * relaxed: each still pins a file, a line and a construct on the diagnostic,
  * because the position contract is what they were really guarding.
  *
@@ -444,7 +444,7 @@ test("inline math becomes a math inline carrying its source, with a file and a l
   assert.equal(math.loc.line, 3);
 });
 
-test("a math construct outside brief 40's In list is still unsupported, with a file and a line", () => {
+test("a math construct outside the declared math scope is still unsupported, with a file and a line", () => {
   // `\mathfrak` needs a fraktur face this engine does not ship, so it is on
   // the Out list — real LaTeX, declined, which is `unsupported` and never
   // `undefined-command` (D38).
@@ -518,7 +518,7 @@ test("every unsupported diagnostic carries a file, a line and the construct", ()
   // document-layer-only `build()` never reaches). The math exemplar had to be
   // swapped for the same reason at chunk 40.3: a bare `$x$` is implemented
   // now, so it was replaced by `$\mathfrak{g}$` — still math, still one
-  // `unsupported`, but the one brief 40 actually declines (a math alphabet
+  // `unsupported`, but the one the math work actually declines (a math alphabet
   // needing a face this engine does not ship). Only that, `\textsc` and
   // `\hspace` are still unimplemented, so the count is 3, not 5.
   const result = build(

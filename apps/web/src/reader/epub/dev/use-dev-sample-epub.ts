@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * DEV-ONLY, OPT-IN sample EPUB loader (brief 07) — the EPUB twin of the PDF
+ * DEV-ONLY, OPT-IN sample EPUB loader — the EPUB twin of the PDF
  * `useDevSampleFile`. The uploader hands the EPUB over in memory (no
  * persistence — D3), so a direct visit to `/read?format=epub` has no file. This
  * fetches a tiny bundled sample EPUB and returns it as a `File` so the reader is

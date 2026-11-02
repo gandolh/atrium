@@ -78,7 +78,7 @@ export function toLibraryBook(
     // by widening `coverOwnerId` — see the note on that function for why the
     // key is required there.
     //
-    // The same stat gives the cover's version (brief 62): its mtime, which
+    // The same stat gives the cover's version: its mtime, which
     // changes whenever the file is rewritten in place.
     ...coverOf(coverPathFor(coverOwnerId({ id: row.id, converted_from: row.converted_from ?? null }))),
     sizeBytes: row.size_bytes,
@@ -103,7 +103,7 @@ export function toLibraryBook(
     convertStatus: row.convert_status ?? "none",
     convertError: row.convert_error ?? null,
     // The active profile's `reading_progress.updated_at` for this row, or null
-    // when they've never opened it (brief 34 step 7's pre-authorised addition —
+    // when they've never opened it (the convert work's spec's pre-authorised addition —
     // the wire previously exposed no progress timestamp at all). Lets the client
     // compare a linked pair's two rows and reopen whichever this reader used
     // last, without a second per-book request.

@@ -9,7 +9,7 @@ import { mediaFileUrl } from "./media-url";
 import { usePlaybackElement } from "./use-playback-element";
 
 /**
- * The full-surface video view (brief 31): unlike `AudioPlayer`, this surface
+ * The full-surface video view: unlike `AudioPlayer`, this surface
  * DOES own an element — video needs its own `<video>` for the picture — and
  * claims the playback output while mounted (`output: "surface"`). That claim
  * is what unmounts the shell's `<audio>` (see `PlaybackHost` and the playback
@@ -27,9 +27,9 @@ import { usePlaybackElement } from "./use-playback-element";
  * The element itself is bound through `usePlaybackElement`, the same
  * store↔element wiring the dock's `<audio>` uses, so position/play-state stay
  * truthful in the dock and resume + the throttled progress PATCH (including
- * the final flush on unmount, brief 23) stay exactly where they were.
+ * the final flush on unmount) stay exactly where they were.
  *
- * This is also the playback half of the video cover backfill (brief 42, D40
+ * This is also the playback half of the video cover backfill (D40
  * item 1): the first `play` of a coverless video captures and posts a frame
  * here. It belongs on THIS surface, not on the dock's `<audio>` — a video item
  * can only ever reach dock output via `releaseSurface`, i.e. after mounting

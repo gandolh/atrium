@@ -53,7 +53,7 @@ The corpus is the WHY; the code is the WHAT. Neither substitutes.
 | backend (apps/api) | apps/api/src, wiki/conversion.md, wiki/architecture.md (library) | apps/web | — |
 | shared contract | packages/shared, wiki/decisions.md, **wiki/glossary.md** | — | — |
 | notes | packages/shared/src/notes.ts, wiki/glossary.md (Notes terms) | apps/api/src/extract.ts | impeccable |
-| typesetting engine (packages/typeset) | packages/typeset/src, wiki/typeset.md, **wiki/glossary-authoring.md** (engine terms), briefs 37/39/40 | apps/web, apps/api — the engine ships no UI and no routes | — |
+| typesetting engine (packages/typeset) | packages/typeset/src, wiki/typeset.md, **wiki/glossary-authoring.md** (engine terms), wiki/typeset-scope.md | apps/web, apps/api — the engine ships no UI and no routes | — |
 
 **`packages/typeset` toolchain quirk, load-bearing:** relative imports inside its
 `src/` carry an explicit **`.ts` suffix**, not `.js`. Node's type stripping does not

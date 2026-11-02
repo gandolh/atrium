@@ -4,7 +4,7 @@ import type { LatexFile } from "@ebook-reader/shared";
 import { buildFileTree, dirnameOf, formatBytes, isTextPath, type TreeNode } from "./latex-paths";
 
 /**
- * The project's file tree (brief 38 chunk 8) — the left rail of the editor on
+ * The project's file tree — the left rail of the editor on
  * desktop, the "Files" tab on a phone.
  *
  * Shape follows `NotesList`/`LatexList`'s rows rather than an IDE explorer: one

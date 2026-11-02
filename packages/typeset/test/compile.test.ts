@@ -9,7 +9,7 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
 import { dumpResult, goldenTest, loadFixture } from "./harness.ts";
 
 /**
- * End-to-end tests for `compile()` (brief 37, chunk 7): source in, pages and a
+ * End-to-end tests for `compile()`: source in, pages and a
  * PDF out.
  *
  * The two golden fixtures are the acceptance criterion — plain prose and a

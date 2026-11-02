@@ -1,7 +1,7 @@
 import type { FileType, LibraryBook } from "@ebook-reader/shared";
 
 /**
- * Offline store (brief 20) — the data layer that makes an explicitly downloaded
+ * Offline store — the data layer that makes an explicitly downloaded
  * book readable with zero connectivity.
  *
  * Design decisions locked by the brief (do not relitigate):
@@ -11,9 +11,9 @@ import type { FileType, LibraryBook } from "@ebook-reader/shared";
  * - Last-write-wins progress sync with a single PATCH on reconnect — no queue of
  *   intermediate positions.
  * - Storage lives in IndexedDB accessed from app code at the hydrate seam; the
- *   service worker (brief 19) is NOT involved in serving book bytes.
+ *   service worker is NOT involved in serving book bytes.
  *
- * Profiles (brief 35, decision 7) draw the line through this store: the blob and
+ * Profiles (decision 7) draw the line through this store: the blob and
  * the shared metadata are DEVICE-scoped (one download serves every profile on
  * the device), while the reading position is PROFILE-scoped. So progress rows
  * are keyed per (profile, book), and the `LibraryBook` snapshot is stored with
@@ -36,10 +36,10 @@ const DB_NAME = "ebook-reader:offline";
 // metadata-only operations (list, snapshot refresh) never touch the (large)
 // blobs. v1 databases are migrated in `onupgradeneeded` (blobs relocated, then
 // stripped from the metadata record) — existing downloads survive the bump.
-// v3 (brief 35): PROGRESS_STORE records gained `profileId` so a pending write
+// v3: PROGRESS_STORE records gained `profileId` so a pending write
 // remembers who recorded it — otherwise a flush after a profile switch would
 // silently re-attribute one person's reading to another.
-// v4 (brief 35 fix): `profileId` as a FIELD wasn't enough. The store was keyed
+// v4 (the profiles work fix): `profileId` as a FIELD wasn't enough. The store was keyed
 // on the book id alone, so two profiles shared one row: whoever wrote last
 // overwrote — and destroyed — the other's un-synced position, and whoever read
 // got someone else's page. Progress moved to PROFILE_PROGRESS_STORE, keyed by
@@ -110,9 +110,9 @@ function progressKey(bookId: string, profileId: string | null): string {
 
 /**
  * Local reading-progress record — the client-side mirror of the server's
- * per-profile progress (D31, moved from user to profile scope by brief 35).
+ * per-profile progress (D31, moved from user to profile scope by the profiles work).
  * `{progress, locator, updatedAt, profileId}` is the public shape (brief item
- * 1/5, extended by brief 35 step 7, `fraction` renamed to `progress` at v5);
+ * 1/5, extended by the profiles work's spec, `fraction` renamed to `progress` at v5);
  * `updatedAt` is a local `Date.now()` ms
  * epoch stamped when the reading position last changed on THIS device.
  */
@@ -124,7 +124,7 @@ export interface LocalProgress {
   /** Local ms epoch of the last position change (last-write-wins clock, this device). */
   updatedAt: number;
   /**
-   * The profile active on THIS device when the write happened (brief 35 step
+   * The profile active on THIS device when the write happened (the profiles work step
    * 7) — what lets a reconnect flush attribute the PATCH to the person who
    * actually read, instead of whoever happens to be active when the network
    * comes back. Since v4 it is also half of the record's KEY, so two profiles
@@ -139,7 +139,7 @@ export interface LocalProgress {
    */
   profileId: string | null;
   /**
-   * The published **version** `locator` was measured in (brief 38, decision 10),
+   * The published **version** `locator` was measured in (decision 10),
    * or `null`/absent for a book that has no versions at all — an ordinary
    * upload, a Gutenberg import, a dev sample.
    *
@@ -192,7 +192,7 @@ export interface OfflineBookRecord {
   fileName: string;
   /** Reconstructs `File.type` (application/pdf | application/epub+zip). */
   mime: string;
-  // Widened Format → FileType (brief 23) so `book.format` (now the full
+  // Widened Format → FileType so `book.format` (now the full
   // pdf/epub/mp3/mp4/webm enum) assigns here without a cast and web compiles.
   // Type-only: media is books-only-excluded from offline v1, so in practice a
   // stored record's format is always pdf/epub — no blob/store logic changes.
@@ -280,7 +280,7 @@ function openDb(): Promise<IDBDatabase> {
         // this branch runs exactly once per database.
         const profileProgress = db.createObjectStore(PROFILE_PROGRESS_STORE, { keyPath: "key" });
         profileProgress.createIndex(PROGRESS_BOOK_INDEX, "id", { unique: false });
-        // v1/v2/v3 → v4 migration (brief 35 fix): copy every row of the old
+        // v1/v2/v3 → v4 migration (the profiles work fix): copy every row of the old
         // book-keyed store into the profile-keyed one, re-keyed by (profile,
         // book). A pre-v3 row has no `profileId` at all and a v3 row may carry
         // `null`; both map to the `~device` half of the key, meaning "unknown —
@@ -780,12 +780,12 @@ export async function putLocalProgress(id: string, record: LocalProgress): Promi
           updatedAt: record.updatedAt,
           // The profile active on THIS device right now — recorded at write
           // time so a later flush (possibly after a profile switch) still
-          // knows who actually read this position (brief 35 step 7).
+          // knows who actually read this position.
           profileId: record.profileId,
           // The version `locator` was measured in, recorded at write time for
           // the same reason and with the same consequence if it is missing: a
           // locator that arrives at the server without its version is filed
-          // against whatever version was there before (brief 38, decision 10).
+          // against whatever version was there before (decision 10).
           versionId: record.versionId ?? null,
           syncedAt: existing?.syncedAt ?? 0,
         } satisfies StoredProgress),
@@ -856,7 +856,7 @@ export async function listPendingProgress(): Promise<Array<LocalProgress & { id:
 /**
  * Drop ONE profile's local progress record for a book — used when the profile
  * that recorded it no longer exists (the reconnect flush's profile-scoped PATCH
- * comes back 404, brief 35 step 7). Deliberately narrower than
+ * comes back 404, the profiles work's spec). Deliberately narrower than
  * `deleteOfflineBook` in two directions: it touches ONLY the progress store, so
  * a still-downloaded book's blob and metadata (device-scoped, decision 7) are
  * untouched — it's the attribution that's gone, not the book — and only the

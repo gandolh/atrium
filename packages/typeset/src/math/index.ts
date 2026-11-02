@@ -3,7 +3,7 @@ import type { MathGeometry } from "./geometry.ts";
 
 /**
  * `src/math/` — one TeX math run in, one SVG plus the geometry to place it out,
- * and every failure a real Atrium `Diagnostic` (brief 40, D41).
+ * and every failure a real Atrium `Diagnostic` (D41).
  *
  * The subsystem is deliberately narrow. It does **not** know what a paragraph
  * is, where a line breaks, what an equation is numbered, or how big an `ex` is
@@ -13,7 +13,7 @@ import type { MathGeometry } from "./geometry.ts";
  * can do:
  *
  * 1. **TeX → SVG**, through MathJax (`bridge.ts`).
- * 2. **The subset gate** — refusing what brief 40 declared Out even where
+ * 2. **The subset gate** — refusing what the math work declared Out even where
  *    MathJax renders it clean, read off the *MathML* so macro expansion cannot
  *    hide anything (`subset.ts`).
  * 3. **The placement geometry** — baseline offset, size, viewBox (`geometry.ts`).
@@ -75,7 +75,7 @@ export interface MathRequest {
    */
   display: boolean;
   /**
-   * Where the run came from. Carried rather than recomputed, because brief 37
+   * Where the run came from. Carried rather than recomputed, because the engine foundation
    * treats a wrong line number as a bug and this subsystem has no source text
    * to recover one from.
    */

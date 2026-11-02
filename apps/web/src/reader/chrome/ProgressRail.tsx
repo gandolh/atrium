@@ -11,7 +11,7 @@ export interface RailTick {
 
 /**
  * Scrubbable reading-progress rail (the reader's one moment of delight), shared
- * by both readers (brief 08 — formerly EPUB-only). A hairline strip along the
+ * by both readers (formerly EPUB-only). A hairline strip along the
  * very bottom edge: accent-filled to the current position, faint ticks at
  * chapter boundaries, and a small accent **knob** at the current spot so the
  * strip reads as a grabbable handle rather than decor (the hit area is a
@@ -23,7 +23,7 @@ export interface RailTick {
  * EPUB rendition). Appears and fades with the rest of the chrome; never steals
  * reading space.
  *
- * The drag preview (brief 32) is driven by an anime.js `Timeline`, the ONE
+ * The drag preview is driven by an anime.js `Timeline`, the ONE
  * sanctioned use of the library (design.md "Motion") — an imperative escape
  * from React state for the fill/knob's continuous position, scrubbed via
  * `.seek()` on every pointermove rather than a `setState` (`hover` already
@@ -34,7 +34,7 @@ export interface RailTick {
  * the fill would visually promise a release position it doesn't land on.
  * Under reduced motion the timeline is skipped and JSX renders the fill/knob
  * straight from `shownPct` instead — both paths commit the seek identically
- * (see `onPointerUp`, unchanged from brief 08).
+ * (see `onPointerUp`, unchanged from the progress rail).
  */
 export function ProgressRail({
   percent,

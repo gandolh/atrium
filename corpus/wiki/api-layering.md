@@ -1,11 +1,11 @@
 ---
 summary: How apps/api is organised since D47 — the domain modules (lookup's outbound clients included), what a controller/service/model may and may not do, the tagged-union outcome convention, profile scoping in SQL, how Knex migrations are registered, and how the API test harness keeps tests off the real library.
-updated: 2026-10-28
+updated: 2026-11-02
 ---
 
 # API layering (`apps/api/src`)
 
-Split out of [architecture.md](architecture.md) on 2026-08-30, when brief 52
+Split out of [architecture.md](architecture.md) on 2026-08-30, when the Knex layering (2026-08-30)
 restructured the API and that page crossed the 200-line limit.
 
 Since 2026-08-30 the API is organised by **domain module**, and within a module
@@ -36,7 +36,7 @@ src/
 ```
 
 **Outbound calls** go through a module's own client, never from the browser:
-`catalog/gutendex.service.ts` (brief 22) and `lookup/` (brief 100, D59: Look
+`catalog/gutendex.service.ts` (2026-07-16) and `lookup/` (the metadata lookup of 2026-10-28, D59: Look
 up on request, MusicBrainz and the Cover Art Archive for music, Open Library
 for books). Each sets a timeout and a descriptive `User-Agent`, caches in
 memory, and turns an unreachable source into a tagged `UPSTREAM` outcome the
@@ -62,7 +62,7 @@ Two conventions that carry weight:
   and LaTeX query is keyed on `profile_id` as well as `id`, so a foreign id is
   simply *not found* — which is why those routes answer **404, never 403**. A 403
   would confirm the id exists on somebody else's account.
-- **A thrown error is a 500 that says nothing** (brief 73). One `setErrorHandler`
+- **A thrown error is a 500 that says nothing** (2026-10-03). One `setErrorHandler`
   in `app.ts` answers any 5xx `{ error: "INTERNAL" }` and logs the real error; a
   Knex error's message is its SQL, bound values included. A 4xx raised by Fastify
   (bad JSON, body too large) keeps its message. A route-level `errorHandler`
@@ -75,7 +75,7 @@ production). `20260830000000-baseline.ts` is idempotent because it has to bring
 both a fresh database and a pre-Knex one to the same place; **every migration
 after it is an ordinary forward migration and must not be.**
 
-## Tests (brief 63)
+## Tests (2026-10-03)
 
 `npm run test -w @ebook-reader/api` runs `node --import tsx --import ./test/setup.ts --test 'test/**/*.test.ts'`. Each file is its own process and so owns its own database.
 

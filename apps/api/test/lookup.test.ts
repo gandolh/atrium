@@ -11,7 +11,7 @@ import { clearLookupCaches } from "../src/modules/lookup/lookup.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 /**
- * Brief 100: Look up on request. Every source is mocked: `fetch` is swapped
+ * Look up on request. Every source is mocked: `fetch` is swapped
  * for a dispatcher keyed on hostname that THROWS on any host it was not given,
  * so a missed stub fails the test instead of reaching the network.
  */

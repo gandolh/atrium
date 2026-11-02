@@ -7,15 +7,15 @@ import { getBootPreferences, initPreferencesSync, schedulePreferencesWrite } fro
 /**
  * In-memory reader state (decisions.md D9): resets on refresh — intended, no
  * persistence, EXCEPT the four preference groups below (theme, fontSettings,
- * pageMode, tocSidebarOpen), which brief 35 / D35 moves to the active
+ * pageMode, tocSidebarOpen), which the profiles work / D35 moves to the active
  * profile's server-side `preferences` blob (revising D9 for preferences
  * only — reading *position* stays session-only, that's D31's locator, not a
  * preference). Shared by both renderers (PDF/EPUB) behind the common Kindle-
  * style chrome (wiki/reader.md).
  *
- * `loadedFile`/`loadedFormat` are set by the uploader (brief 05, `/`) once a
+ * `loadedFile`/`loadedFormat` are set by the uploader (`/`) once a
  * PDF is picked or an EPUB fork resolves to "Read", and are the handoff seam
- * the `/read` renderers (briefs 06/07) consume — kept in Zustand rather than
+ * the `/read` renderers (PDF and EPUB) consume — kept in Zustand rather than
  * router state so the `File` object (not serializable into a URL/search
  * param) survives the navigation to `/read`.
  */
@@ -23,7 +23,7 @@ import { getBootPreferences, initPreferencesSync, schedulePreferencesWrite } fro
 export type Theme = "light" | "sepia" | "dark";
 
 /**
- * Reading-mode toggle (chunk 11): one page per view ("paged") vs a continuous
+ * Reading-mode toggle: one page per view ("paged") vs a continuous
  * vertical scroll ("scroll"). The durable, user-facing preference the bottom-bar
  * toggle flips, wired into both readers (EPUB `flow`, PDF single-vs-multi-page
  * render). Default "paged".
@@ -31,7 +31,7 @@ export type Theme = "light" | "sepia" | "dark";
 export type PageMode = "paged" | "scroll";
 
 /**
- * The reading pane's type face (brief 32, replacing the old serif/sans/mono
+ * The reading pane's type face (replacing the old serif/sans/mono
  * family list per design.md's "Newsreader wrote it, Archivo says it" rule):
  * `"reading"` is Newsreader (the system's reading face), `"ui"` is Archivo
  * (the system's interface face, offered as the sans alternative). See
@@ -98,7 +98,7 @@ export interface ReaderState {
   initialLocation: ReaderLocation;
   /**
    * The published **version** id whose bytes are currently `loadedFile`
-   * (brief 38 step 7). `null` for a non-versioned book (an ordinary upload,
+   * `null` for a non-versioned book (an ordinary upload,
    * a dev sample) — every published document always carries one once its
    * version list has resolved. Two consumers:
    *  - `useProgressSync` sends it alongside every progress PATCH, so a saved
@@ -119,9 +119,9 @@ export interface ReaderState {
 
   /**
    * PDF-only zoom scale (1 = 100%). Fixed-layout PDFs zoom instead of reflow;
-   * the EPUB reader (brief 07) ignores this and uses `fontSettings` instead.
+   * the EPUB reader ignores this and uses `fontSettings` instead.
    * Kept here so the shared chrome can wire a zoom control format-agnostically.
-   * Additive field (brief 06) — do not rename/remove.
+   * Additive field — do not rename/remove.
    */
   zoom: number;
 
@@ -154,7 +154,7 @@ export interface ReaderState {
   ) => void;
   /**
    * Re-tag the already-loaded file as belonging to a given version, with NO
-   * refetch and NO change to `loadedFile`/`currentLocation` (brief 38 step 7).
+   * refetch and NO change to `loadedFile`/`currentLocation`.
    * Exists for the common case the version picker hits on every mount: the
    * default open (`GET /library/:id/file` with no `?version=`) already served
    * the NEWEST version's bytes, which is also the picker's own default
@@ -167,7 +167,7 @@ export interface ReaderState {
   setLoadedVersionId: (versionId: string | null) => void;
   /** Report coarse reading progress (0..1) from the active reader. */
   setProgressFraction: (fraction: number | null) => void;
-  /** Set the PDF zoom scale (brief 06). Clamped by the caller. */
+  /** Set the PDF zoom scale. Clamped by the caller. */
   setZoom: (zoom: number) => void;
   /**
    * Drop the loaded book and everything derived from it, leaving preferences
@@ -178,7 +178,7 @@ export interface ReaderState {
 }
 
 // design.md "Typography": the reading pane defaults to Newsreader at 18/1.78
-// (brief 32).
+//.
 const DEFAULT_FONT_SETTINGS: FontSettings = {
   size: 18,
   family: "reading",
@@ -204,7 +204,7 @@ function persistPreference(patch: Preferences): void {
   if (id) schedulePreferencesWrite(id, patch);
 }
 
-// Brief 35 / D35: the four groups below used to be three bare localStorage
+// The profiles work / D35: the four groups below used to be three bare localStorage
 // keys (theme/pageMode/tocSidebarOpen) plus fontSettings, which wasn't
 // persisted at all. All four now flow through `lib/preferences.ts`, which
 // owns the actual boot-cache/localStorage keys and the debounced server

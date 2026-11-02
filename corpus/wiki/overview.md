@@ -1,30 +1,30 @@
 ---
 summary: What Atrium is in a paragraph — a personal cloud space: a household media library (books, music, video) plus authored Notes and LaTeX documents; the orientation page.
-updated: 2026-10-13
+updated: 2026-11-02
 ---
 
 # Overview
 
-**Atrium** (renamed from "ebook-reader" in brief 24, 2026-07-20) is a personal
+**Atrium** (renamed from "ebook-reader" in the Atrium brand of 2026-07-20, 2026-07-20) is a personal
 **media gallery** with **per-user accounts** and a **shared persistent
 library** — books (PDF/EPUB), music (MP3), and video (MP4/WebM) — plus the
 things you **author**: **Notes** for drawing and writing, and **LaTeX** for
 documents you compile and publish.
 
-Since brief 36 the premise has a name (**D36**): Atrium is **a personal cloud
+Since the first LaTeX plan (2026-08-26) the premise has a name (**D36**): Atrium is **a personal cloud
 space — your stuff, reachable from anywhere**. Media you collect *plus*
 documents you write, sharing one account model, one design system and one
 deploy. An **account** is a household and a **profile** is a person in it
 (D35).
 
-Since the **Reading Room** rework (briefs 27–33, D33) there is **one home** at
+Since the **Reading Room** rework (the work of 2026-08-24, D33) there is **one home** at
 `/`: media kind is a filter chip with a live count, not a destination — which
-reverses brief 25's per-type routes (`/books` `/music` `/videos` survive as
+reverses the per-type areas's per-type routes (`/books` `/music` `/videos` survive as
 redirects). Each kind keeps its native card shape (book 2:3, music square,
 video 16:9) and now carries a **paper tint** that signals kind without a badge.
 A **Continue** strip leads the page in *time remaining*, a **player dock** at
 the foot survives navigation, and a `/`-focused field searches the whole
-library. **Notes** (brief 26) and **LaTeX** (brief 38) stay their own
+library. **Notes** (2026-07-20) and **LaTeX** (2026-08-27) stay their own
 destinations, outside the grid — a notebook is authored, not collected, and the
 rule generalises to every authored thing.
 

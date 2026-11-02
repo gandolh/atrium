@@ -1,6 +1,6 @@
 ---
 summary: The /latex destination — projects, the compile job, publishing into the library as versioned documents, where the sandbox actually lives now that the engine is pure, and the worker thread the engine is hosted on.
-updated: 2026-10-21
+updated: 2026-11-02
 ---
 
 # LaTeX in Atrium
@@ -8,7 +8,7 @@ updated: 2026-10-21
 `/latex` is the third **authored** destination, after Notes. You write a
 multi-file project, compile it with **our own engine** (D38,
 [typeset.md](typeset.md)), preview the PDF beside the source, and **publish** it
-into the library as a document that accumulates versions. Built by brief 38;
+into the library as a document that accumulates versions. Built by the LaTeX editor (2026-08-27);
 the decisions are **D37** (drafts, publishing, versions) and **D38** (engine).
 
 ## Draft and published document are different things
@@ -66,7 +66,7 @@ outer wall-clock backstop. A stop from either is reported as `stopped`, never as
 `budget-exceeded` — the codes mean different things and conflating them tells a
 writer to simplify a document that was never too complex.
 
-**The engine runs on a `worker_thread`** (brief 44). `compile()` is still a
+**The engine runs on a `worker_thread`** (2026-08-28). `compile()` is still a
 synchronous function — that is its contract and it did not change — but it no
 longer runs on the API's thread: `latex-compile.ts` spawns
 [`latex-worker.ts`](../../apps/api/src/modules/latex/latex-worker.ts) per compile and awaits
@@ -93,7 +93,7 @@ would address a deleted project.
 
 ## The seams that bit
 
-Brief 38 was ten chunks, and — for the fifth build running — **every serious
+The LaTeX editor (2026-08-27) was ten chunks, and — for the fifth build running — **every serious
 defect spanned files owned by different chunks, and none tripped the gates**:
 
 - the compile preview mounts a second `PdfReader` against the **shared reader
@@ -112,7 +112,7 @@ Budget the scoped review accordingly on anything this size.
 A 401 replaces the editor with the login page in place (D58), which unmounts it
 with whatever the last autosave did not carry. So every unsaved edit is also
 copied to localStorage
-([`lib/unsaved-stash.ts`](../../apps/web/src/lib/unsaved-stash.ts), brief 85),
+([`lib/unsaved-stash.ts`](../../apps/web/src/lib/unsaved-stash.ts), the unsaved-LaTeX stash of 2026-10-19),
 one entry per file, keyed by account, profile, project and path. A save that
 lands removes the copy. Opening the file again as the same account and profile
 offers it back ("Recovered unsaved changes", Restore or Discard, the shared
@@ -120,7 +120,7 @@ offers it back ("Recovered unsaved changes", Restore or Discard, the shared
 may be newer. Whenever an account signs in, `lib/auth.ts` deletes every copy
 that belongs to another account.
 
-The Notes editor follows the same rules (brief 88) with two differences: the
+The Notes editor follows the same rules (2026-10-21) with two differences: the
 copy goes to IndexedDB (a note can be 16 MiB, past localStorage's limit), and
 it is written once per save, just before the request, rather than on every
 edit.

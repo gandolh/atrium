@@ -40,7 +40,7 @@ import {
 import type { CommandRow, PlayerRow } from "./jukebox.types.js";
 
 /**
- * The Jukebox's rules (brief 81; D56, D57).
+ * The Jukebox's rules (D56, D57).
  *
  * Atrium owns every Player. People and Discord's slash commands change a
  * Player through these functions, each in one transaction, and every change
@@ -64,7 +64,7 @@ const SHUFFLE_LOOKBACK = 50;
 
 /**
  * How long a Player waits for the bot's `advance` after the bot reported the
- * current play idle (brief 94). The `advance` normally follows within one
+ * current play idle. The `advance` normally follows within one
  * request; past this, the Player goes idle on its own.
  */
 export const IDLE_REPORT_GRACE_MS = 5_000;
@@ -291,7 +291,7 @@ async function goIdle(op: Op, extra: Partial<PlayerRow> = {}): Promise<void> {
 
 /**
  * The bot reported the current play idle and no `advance` came within the
- * grace period (brief 94): the play is over, so the Player goes idle. Applied
+ * grace period: the play is over, so the Player goes idle. Applied
  * lazily, at the start of every operation on the Player and on every listing,
  * so whoever looks next sees it. No `stop` is sent: the bot said it is idle.
  */
@@ -493,7 +493,7 @@ const NEEDS_VOICE = new Set<ControlRequest["action"]>(["play", "resume", "next",
 /**
  * A control action. Refused with 409 while the bot is offline: nothing would
  * act on it. A control that would start a Track is refused with 409
- * `NOT_IN_VOICE` while the Player has no voice channel (brief 96): it used to
+ * `NOT_IN_VOICE` while the Player has no voice channel: it used to
  * start the Track and queue a `play` the bot could not act on, so the page
  * showed Playing until the bot's idle report flipped it back. `join` sets the
  * channel at once, so Join then Play works without waiting for the bot.
@@ -588,7 +588,7 @@ export async function clearQueue(guildId: string): Promise<Player> {
 
 /**
  * Let go of a Track the library is deleting, then delete its row with
- * `deleteRow`, all in one transaction (brief 92).
+ * `deleteRow`, all in one transaction.
  *
  * The foreign keys clear a deleted Track as a Player's current Track and its
  * Playlist cursor (`SET NULL`), and drop its Queue and history rows. A null
@@ -666,7 +666,7 @@ export async function deleteTrack(
  * report sent before the bot saw the `stop` must not start it again. Any other
  * report carries just the voice fields and liveness.
  *
- * **Idle for the current play is not taken at its word** (brief 94). The bot
+ * **Idle for the current play is not taken at its word** The bot
  * ends a Track by going idle and then asking `advance` for the next one, and
  * this report can land in between: idling here would drop the Track, and the
  * `advance` would then find nothing to advance. So the report only stamps
@@ -674,7 +674,7 @@ export async function deleteTrack(
  * `IDLE_REPORT_GRACE_MS` (`expireIdleReport`). A later report that the play
  * is playing or paused clears the stamp.
  *
- * **Lost voice takes two reports** (brief 94). No voice channel on the current
+ * **Lost voice takes two reports** No voice channel on the current
  * play means the bot lost its voice connection, so the Player goes idle and
  * keeps its Queue, but only if the report before this one had no voice
  * channel either: a Discord voice reconnect drops it for one report while the
@@ -735,7 +735,7 @@ export async function reportStatus(request: BotStatusRequest): Promise<{ upcomin
  * Player already idle was stopped meanwhile, so it stays stopped. The play is
  * returned, not written as a command.
  *
- * **The failure budget** (brief 95). The bot asks again at once after an
+ * **The failure budget** The bot asks again at once after an
  * `error`, and shuffle and repeat-all never run out, so with the media missing
  * the two would loop through the library as fast as HTTP allows. The
  * `JUKEBOX_FAILURE_BUDGET`th `error` in a row goes idle instead, with a
@@ -781,7 +781,7 @@ function toCommand(row: CommandRow): BotCommand {
 }
 
 /**
- * A bot that takes a fresh cursor has just started (just-a-bot brief 26 does it
+ * A bot that takes a fresh cursor has just started (just-a-bot does it
  * once, at ready), and a started bot plays nothing and sits in no voice
  * channel. Every Player it left playing or paused goes idle and keeps its
  * Queue, before any status report arrives.

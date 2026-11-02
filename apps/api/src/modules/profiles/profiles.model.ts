@@ -3,7 +3,7 @@ import { knex } from "../../database/knex.js";
 
 /**
  * Data access for `profiles` and `reading_progress` — the person half of
- * identity (brief 35, D35) and everything keyed on it.
+ * identity (D35) and everything keyed on it.
  *
  * The two tables live in one model because reading progress has no meaning
  * apart from the profile it belongs to: it is created, listed and destroyed
@@ -11,7 +11,7 @@ import { knex } from "../../database/knex.js";
  */
 
 /**
- * One profile on an account (brief 35, D35) — a person in the household. Owns
+ * One profile on an account (D35) — a person in the household. Owns
  * reading progress, notes and preferences; the library stays shared, across
  * profiles as it is across accounts. Cascades away with its user.
  *
@@ -36,7 +36,7 @@ export interface ProfileRow {
   is_default: number;
   /**
    * The preferences JSON blob (theme / font settings / page mode / TOC sidebar
-   * — brief 35 step 8), or null until the profile first writes one. Stored and
+   * — the profiles work's spec), or null until the profile first writes one. Stored and
    * returned verbatim so an unknown key from a newer client can't be stripped
    * in transit; only the client parses it.
    */
@@ -46,7 +46,7 @@ export interface ProfileRow {
 
 /**
  * One profile's reading state for one book. Progress + resume position are
- * per-profile since brief 35 (D35, revising D31's per-user scope): the library
+ * per-profile since the profiles work (D35, revising D31's per-user scope): the library
  * is shared, the place you're at is not.
  */
 export interface ProfileProgressRow {
@@ -56,14 +56,14 @@ export interface ProfileProgressRow {
   /** Opaque resume position: PDF page number (string) or EPUB CFI; null if unset. */
   locator: string | null;
   /**
-   * ISO timestamp of the last write to this row (brief 34 step 7): what "which
+   * ISO timestamp of the last write to this row: what "which
    * of a linked pair did this reader use last" compares. Every stored row has
    * one (`NOT NULL`); a book this profile has never opened simply has no row at
    * all, which callers represent as `null` rather than by faking a value here.
    */
   updated_at: string;
   /**
-   * Which published **version** `locator` belongs to (brief 38 decision 10), or
+   * Which published **version** `locator` belongs to, or
    * null for an ordinary book — one that was uploaded or imported rather than
    * published from a LaTeX project.
    *
@@ -173,7 +173,7 @@ export async function getProfilePreferences(id: string): Promise<string | null |
 
 /**
  * Read the **current** preferences blob and write `merge(stored)`, as one
- * transaction (brief 68). Returns what was written, or `undefined` when no such
+ * transaction. Returns what was written, or `undefined` when no such
  * profile exists.
  *
  * Merging over a snapshot the request read earlier lost keys: two PATCHes for
@@ -218,10 +218,10 @@ export async function getProfileProgress(
 
 /**
  * Forget every reading position measured in `versionId` of `bookId`: version,
- * locator and fraction (brief 78). Called when a newer version is published.
+ * locator and fraction. Called when a newer version is published.
  * Returns how many rows were reset.
  *
- * Brief 38's decision 9 opens a published card on the **latest** version
+ * The LaTeX editor's spec opens a published card on the **latest** version
  * unless the reader explicitly opened an older one, and decision 10 says *"when
  * you are on page 40 on v3 and publish v4, you will resume from page 0 of
  * v4."* The client picks the version a position was measured in whenever it

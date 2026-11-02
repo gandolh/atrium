@@ -14,11 +14,11 @@ import {
 } from "../src/macro/builtins.ts";
 
 /**
- * The math document-model contract (brief 40, chunk 40.3).
+ * The math document-model contract.
  *
  * Two claims, and they are opposites — which is the whole point of the file:
  *
- * 1. **Every construct on brief 40's In list becomes a typed node.** Not a
+ * 1. **Every construct on the declared scope becomes a typed node.** Not a
  *    diagnostic, not a dropped node: a `math` inline or a `displaymath` block
  *    carrying the TeX a renderer will be handed.
  * 2. **Every construct on its Out list reports `unsupported`, and never
@@ -41,7 +41,7 @@ import {
  * table would only ever check that the source agrees with itself.
  *
  * Everything is asserted through `buildDocument` — the document layer alone.
- * Rendering (chunk 40.2) and placement (40.4) are deliberately not exercised
+ * Rendering and placement (40.4) are deliberately not exercised
  * here — `test/math-layout.test.ts` owns those — so this file stays a test of
  * the document layer alone. Section 7 is the one exception: the two seams that
  * *live* in the document model, which chunk 40.4 filled in.
@@ -181,7 +181,7 @@ test("\\[...\\] becomes an unnumbered display block", () => {
   assert.equal(block.loc.line, 3);
 });
 
-/** One entry per display environment on brief 40's In list. */
+/** One entry per display environment on the declared scope. */
 const IN_LIST_DISPLAYS = [
   { name: "equation", body: "E = mc^2", numbered: true },
   { name: "equation*", body: "E = mc^2", numbered: false },
@@ -323,7 +323,7 @@ test("a \\label inside an unnumbered display is a warning, not a blank \\ref", (
 
 test("a numbered equation emits a marker before its block, so \\pageref can resolve", () => {
   // The two-pass cycle closes through the markers layout places; equations use
-  // that one rather than a second reference mechanism (brief 40 step 3).
+  // that one rather than a second reference mechanism.
   const blocks = blocksOf("\\begin{align}a \\\\ b\\end{align}");
   const markers = blocks.filter((b) => b.kind === "marker").map((b) => b.kind === "marker" && b.name);
   assert.deepEqual(markers, ["equation:0", "equation:1"]);
@@ -348,7 +348,7 @@ test("\\label inside math is stripped from the TeX the renderer is handed", () =
 // --- 4. the Out list: real LaTeX, declined, and never "undefined" ------------
 
 /**
- * Brief 40's Out list, transcribed: `\newtheorem` and theorem environments,
+ * The declared Out list, transcribed: `\newtheorem` and theorem environments,
  * `cases` beyond what `array` gives, commutative diagrams, `mathtools` /
  * `physics` / `siunitx`, `\DeclareMathOperator`, custom math alphabets, and
  * TikZ in math.
@@ -416,7 +416,7 @@ const OUT_LIST = [
   { construct: "\\numberwithin", body: "\\numberwithin{equation}{section}" },
 ] as const;
 
-test("every construct on brief 40's Out list reports `unsupported` — never `undefined-*`", () => {
+test("every construct on the math Out list reports `unsupported` — never `undefined-*`", () => {
   for (const entry of OUT_LIST) assertDeclined(entry.body, entry.construct);
 });
 
@@ -570,7 +570,7 @@ test("an unlanded math seam still fails loudly and names the chunk that owes it"
 // --- the 2026-08-29 widening (D41, owner's call) -----------------------------
 
 /**
- * D41 chose a gate literal about brief 40's In list, and accepted that it would
+ * D41 chose a gate literal about the declared scope, and accepted that it would
  * refuse constructs MathJax renders perfectly well. Reviewing that list against
  * real use, the owner admitted four things on 2026-08-29 — two of them
  * inconsistencies in the list rather than decisions, two of them simply common:

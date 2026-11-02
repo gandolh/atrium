@@ -1,6 +1,6 @@
 /**
  * Text-level translation: the substitutions TeX makes in its mouth, before
- * anything is measured (brief 37, chunk 6).
+ * anything is measured.
  *
  * These run over a *merged* run of adjacent text nodes rather than node by
  * node, because the parser splits on every character it treats specially — an

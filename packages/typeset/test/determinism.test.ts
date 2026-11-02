@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { loadFixture } from "./harness.ts";
 
 /**
- * Cross-process determinism (brief 37, chunk 9, D38).
+ * Cross-process determinism (D38).
  *
  * `compile()`'s golden-test strategy — and the whole idea of comparing PDF
  * bytes at all — depends on the same source producing byte-identical output

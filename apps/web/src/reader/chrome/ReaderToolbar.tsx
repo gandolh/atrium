@@ -5,7 +5,7 @@ import { MOTION_MS } from "../../lib/motion";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * FORMAT-ADAPTIVE TOOLBAR SEAM  (the crux of brief 06 for brief 07)
+ * FORMAT-ADAPTIVE TOOLBAR SEAM  (the crux of the PDF reader for the EPUB reader)
  * ─────────────────────────────────────────────────────────────────────────────
  * `ReaderToolbar` is the SHARED chrome shell used by BOTH readers. The shell
  * owns the layout (an in-flow bottom bar that fades with the auto-hide chrome
@@ -16,13 +16,13 @@ import { MOTION_MS } from "../../lib/motion";
  *   - `formatControls` → the ADAPTIVE region. This is where the toolbar's
  *                        controls swap by format (wiki/reader.md
  *                        "Format-adaptive toolbar"):
- *                          • PDF  (brief 06): zoom out / fit-width / zoom in +
+ *                          • PDF : zoom out / fit-width / zoom in +
  *                            an "invert colors" dark toggle.
- *                          • EPUB (brief 07): font size / family / line-spacing
+ *                          • EPUB: font size / family / line-spacing
  *                            / margins + the full theme picker.
  *   - `rightControls`  → progress indicator, settings popover trigger, etc.
  *
- * Brief 07 REUSES this component verbatim — it does NOT fork it. It only passes
+ * The EPUB reader REUSES this component verbatim — it does NOT fork it. It only passes
  * different slot contents. Keep this shell format-agnostic: no `format`
  * branching, no PDF/EPUB imports here. If a control needs format knowledge,
  * it belongs in the slot the reader supplies, not in this file.
@@ -102,7 +102,7 @@ export function ReaderToolbar({
 
 /**
  * Shared toolbar button styling so PDF and EPUB controls look consistent.
- * Exported for reuse by brief 07's EPUB controls.
+ * Exported for reuse by the EPUB reader's EPUB controls.
  */
 export function ToolbarButton({
   label,

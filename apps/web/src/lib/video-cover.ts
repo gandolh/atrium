@@ -1,10 +1,10 @@
 import { uploadCover } from "./library-api";
 
 /**
- * Browser-side video cover capture (brief 42, D40). **The browser is the
+ * Browser-side video cover capture (D40). **The browser is the
  * decoder**: mp4/webm are accepted formats precisely because `<video>` plays
  * them (D12), so a frame can be lifted client-side and posted as the cover —
- * which is what keeps brief 23's declined-ffmpeg decision standing instead of
+ * which is what keeps the media library's declined-ffmpeg decision standing instead of
  * being revisited.
  *
  * Shared by BOTH capture sites D40 item 1 requires, because a capture that
@@ -60,7 +60,7 @@ export interface CaptureVideoFrameOptions {
   fractions?: number[];
 }
 
-/** 10% / 25% / 50% (D40 / brief 42's "Capture at upload" bullet). */
+/** 10% / 25% / 50% (D40 / video covers's "Capture at upload" bullet). */
 const DEFAULT_FRACTIONS = [0.1, 0.25, 0.5];
 
 /**

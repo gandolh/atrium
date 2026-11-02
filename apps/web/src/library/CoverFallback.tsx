@@ -5,15 +5,15 @@ import { coverInitial, coverInitialVariant } from "../lib/cover-initial-variant"
 /**
  * The typographic fallback tile for a missing cover: title set in Newsreader
  * over whatever ground is behind it. Deliberately paints no background of its
- * own (brief 29) — the caller supplies the ground, which for `CoverCard` is
+ * own — the caller supplies the ground, which for `CoverCard` is
  * the tile's `bg-tint-{kind}` (design.md "Kind tints"), so a coverless tile
  * still reads by kind once every badge is stripped. `/discover`'s
  * `CatalogResultCard` (not a tinted tile) supplies its own neutral ground
- * instead. Extracted from `CoverCard` (brief 22); brief 25 makes the glyph
+ * instead. Extracted from `CoverCard`; the per-type areas makes the glyph
  * media-aware (music note / play / book) so a coverless music or video tile
  * no longer shows a book icon.
  *
- * Brief 43/D42 makes coverless tiles tell each other apart: a large, very
+ * Coverless tiles/D42 makes coverless tiles tell each other apart: a large, very
  * low-contrast **title initial** bleeding past an edge, whose size and corner
  * vary by a hash of the title (`coverInitialVariant`). Both axes live on the
  * letterform, never on the ground — D42's original second axis was the tile's
@@ -21,7 +21,7 @@ import { coverInitial, coverInitialVariant } from "../lib/cover-initial-variant"
  * kind tints are near-achromatic, so any usable lightness ladder swamps the
  * kind signal D33 rests on. See `cover-initial-variant.ts` for the numbers.
  * Because the ground is untouched, this component's "paints no background of
- * its own" contract (brief 29) still holds, and D33's tint test passes by
+ * its own" contract still holds, and D33's tint test passes by
  * construction — which also means `/discover`'s `CatalogResultCard`, on its
  * neutral ground, is unaffected beyond gaining the same initial.
  */

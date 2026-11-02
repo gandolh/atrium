@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 78 (brief 38 decisions 9 and 10): a published card opens on the latest
+// The publish-positions fix: a published card opens on the latest
 // version unless the reader explicitly opened an older one, and a new version
 // starts at page 0. The client keeps the version a position was measured in, so
 // the server releases positions on the version a publish supersedes.

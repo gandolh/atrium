@@ -86,7 +86,7 @@ async function checkCalibre(): Promise<void> {
 }
 
 /**
- * Startup check for `AUTH_TRUSTED_PROXIES` (brief 89). Not fatal either: a
+ * Startup check for `AUTH_TRUSTED_PROXIES`. Not fatal either: a
  * deploy without it still serves everyone, but the password lockout then keys
  * on the proxy, so the sixth wrong password from anyone answers 429 to every
  * account for 15 minutes. Production only (the image sets `NODE_ENV`): locally
@@ -113,11 +113,11 @@ async function start(): Promise<void> {
     await checkCalibre();
     checkTrustedProxies();
     // The first boot after D58 turns each Ward subject into a passwordless
-    // account; say which, and how each gets in (brief 90).
+    // account; say which, and how each gets in.
     logMigratedAccounts(app.log, migratedAccounts, { signInWithWard: wardClient !== undefined });
     await app.listen({ port: PORT, host: HOST });
     // Every storage root, in the first line an operator reads. Two incidents and
-    // brief 53 were all a root silently pointing somewhere unintended; this is
+    // the storage-roots fix were all a root silently pointing somewhere unintended; this is
     // where the next one shows.
     app.log.info(
       {
@@ -134,13 +134,13 @@ async function start(): Promise<void> {
       },
       "API ready",
     );
-    // Backfill series/subjects metadata for pre-existing rows (brief 21). Fired
+    // Backfill series/subjects metadata for pre-existing rows. Fired
     // off the request path (not awaited) so it never delays readiness; failures
     // are logged, not fatal.
     void backfillLibraryMetadata(app.log).catch((err) => {
       app.log.error({ err }, "library metadata backfill failed");
     });
-    // Reap thumbnails no live row can claim (brief 48). Same fire-and-forget
+    // Reap thumbnails no live row can claim. Same fire-and-forget
     // shape for the same reason: it deletes files, so it must never be able to
     // stop the API from serving. It refuses to delete anything on a partial
     // read — see `sweepOrphanThumbnails`, where that refusal is the point.
@@ -186,7 +186,7 @@ async function shutdown(signal: string): Promise<void> {
   // (D38) — so this is not about leaked work but about the *slot*. A compile
   // still holding one when the process goes down leaves its row `running`, and
   // `reapInterruptedLatexCompiles()` flips those to `failed` on the way back up.
-  // Cancelling here *terminates* the compile's worker thread (brief 44) rather
+  // Cancelling here *terminates* the compile's worker thread rather
   // than waiting for the engine to notice a flag at its next step boundary — a
   // document nobody will read is not worth delaying a shutdown for, and the
   // thread dies with the process regardless.

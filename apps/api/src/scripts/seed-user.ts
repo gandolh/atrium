@@ -20,7 +20,7 @@ import { JUKEBOX_ROLE, MEMBER_ROLE } from "../modules/auth/auth.guard.js";
  * exactly as it is, password and role included. In the deploy, run the built
  * copy inside the container: `node apps/api/dist/scripts/seed-user.js`.
  *
- * ## `--set-password`: a password for an account that exists (brief 90)
+ * ## `--set-password`: a password for an account that exists
  *
  *   SEED_USERNAME=user-0a1b2c3d SEED_PASSWORD=…  npm run seed:user -- --set-password
  *

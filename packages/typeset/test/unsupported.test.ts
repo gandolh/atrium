@@ -5,7 +5,7 @@ import { compile, createLatinModernProvider } from "../src/index.ts";
 import { loadLatinModernBytes } from "../node/fonts.ts";
 
 /**
- * The loud-failure contract (brief 37, chunk 9, D38): every construct outside
+ * The loud-failure contract (D38): every construct outside
  * the engine's subset produces a diagnostic naming it, with a file and a line
  * — never a silent skip, never a guess. Chunk 6 published the exact
  * inventory (`src/macro/builtins.ts`); this file proves every item in it, and
@@ -161,7 +161,7 @@ test("every TeX-programming primitive reports `unsupported`, permanently out of 
 /**
  * The amsmath display environments are excluded from the main table below —
  * see the dedicated tests further down. Six of the seven are *implemented* as
- * of brief 40 (chunk 40.3) and report nothing at all; `math` is the one that
+ * of the math work and report nothing at all; `math` is the one that
  * stayed declined, and it still guards the `mathenv` name-normalisation bug
  * those tests were written for.
  */
@@ -169,7 +169,7 @@ const UNSUPPORTED_ENVIRONMENTS = [
   // `figure`, `figure*`, `table` and `table*` are gone from this inventory:
   // chunk 39.4 places floats for real, so a well-formed one now reports
   // nothing at all. `test/floats.test.ts` covers what they do instead.
-  // `wrapfigure` stays — text wrapped around a float is on brief 39's Out list.
+  // `wrapfigure` stays — text wrapped around a float is on the declared Out list.
   "wrapfigure",
   "tabularx",
   "longtable",
@@ -224,7 +224,7 @@ const IMPLEMENTED_MATH_ENVIRONMENTS = ["equation", "equation*", "align", "align*
  * `undefined-environment` ("not a thing at all") for the single most common
  * math construct in LaTeX.
  *
- * Brief 40 implemented six of the seven, so the original assertion — "they
+ * The math work implemented six of the seven, so the original assertion — "they
  * report `unsupported`" — is no longer the correct behaviour to assert for
  * them. It is NOT relaxed: the bug it guards is that the *name* does not
  * survive the parser, and a name that does not survive still lands in
@@ -232,7 +232,7 @@ const IMPLEMENTED_MATH_ENVIRONMENTS = ["equation", "equation*", "align", "align*
  * looked up successfully (no `undefined-environment`, and they really build a
  * display block), which fails in exactly the same way the old assertion did if
  * the quirk returns, and the second keeps the original assertion verbatim on
- * the one mathenv brief 40 declined.
+ * the one mathenv the math work declined.
  */
 test("the implemented mathenvs are found by name, not reported as undefined", () => {
   for (const name of IMPLEMENTED_MATH_ENVIRONMENTS) {
@@ -251,14 +251,14 @@ test("the implemented mathenvs are found by name, not reported as undefined", ()
   }
 });
 
-test("the `math` mathenv, which brief 40 declined, reports `unsupported` and not `undefined-environment`", () => {
+test("the `math` mathenv, which the math scope declined, reports `unsupported` and not `undefined-environment`", () => {
   // `\begin{math}` is `\(…\)` written as an environment. Inline math is
-  // implemented; this spelling of it is not on brief 40's In list, and D41 §5
+  // implemented; this spelling of it is not on the declared scope, and D41 §5
   // says the gate follows the In list. So it is the one mathenv left carrying
   // the original assertion — including the second half of it, which would
   // otherwise have bitten far from here: the raw object also landed in the
   // diagnostic's `construct` field, which the shared schema declares
-  // `z.string().optional()` and brief 38 validates at the API boundary.
+  // `z.string().optional()` and the LaTeX editor validates at the API boundary.
   const result = compileSource(doc("\\begin{math}\nx=y\n\\end{math}"));
   const hit = unsupportedFor(result, "math");
   assert.ok(hit !== undefined, `math did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
@@ -271,7 +271,7 @@ test("the `math` mathenv, which brief 40 declined, reports `unsupported` and not
  * These two asserted that `$…$` and `\[…\]` were themselves unsupported. Brief
  * 40 implemented both, so what is asserted here now is the boundary that
  * replaced that blanket refusal: math *sites* are implemented, and a construct
- * inside one that is outside brief 40's In list is what still reports
+ * inside one that is outside the declared scope is what still reports
  * `unsupported` — with the same construct-naming contract the rest of this file
  * checks. The full In/Out inventory is `test/math-contract.test.ts`.
  */

@@ -6,7 +6,7 @@ import { loadLatinModernBytes } from "../node/fonts.ts";
 import { loadFixture } from "./harness.ts";
 
 /**
- * Adversarial tests for the resource-limit machinery (brief 37, chunk 9, D38):
+ * Adversarial tests for the resource-limit machinery (D38):
  * the deterministic step budget, `maxPages`, `maxOutputBytes` and cooperative
  * cancellation. Chunk 7 wired the enforcement; nothing before this chunk tried
  * to break it on purpose.

@@ -1,7 +1,7 @@
 /**
  * Shared reading-progress indicator (wiki/reader.md "Progress indicator").
  * Shows "current / total" and a percentage. Format-agnostic: PDF passes page
- * numbers; EPUB (brief 07) passes a location index / total locations. `total`
+ * numbers; EPUB passes a location index / total locations. `total`
  * may be `null` while the document is still loading.
  */
 export function ProgressIndicator({

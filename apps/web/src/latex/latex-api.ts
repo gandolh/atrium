@@ -14,12 +14,12 @@ import { z } from "zod";
 import { ApiError, apiFetch } from "../lib/api-client";
 
 /**
- * LaTeX project API calls (brief 38 chunk 7). Thin wrappers over the Fastify
+ * LaTeX project API calls. Thin wrappers over the Fastify
  * `/latex` routes (chunk 4 lands the server side); responses validate against
  * the shared Zod contract so the client can't drift from the server (D11).
  * Auth rides on `apiFetch` (bearer token), same as `notes-api.ts`.
  *
- * A project that belongs to another profile 404s (brief 35's rule — a 403
+ * A project that belongs to another profile 404s (the profiles work's rule — a 403
  * would confirm the id exists on someone else's account). Nothing here special-
  * cases that: `apiFetch` throws `ApiError` with `status: 404` like any other
  * not-found, and callers treat it as such.
@@ -67,7 +67,7 @@ export async function deleteLatexProject(id: string): Promise<void> {
   await apiFetch(`/latex/${id}`, { method: "DELETE" });
 }
 
-// --- Files (brief 38 chunk 8) ------------------------------------------------
+// --- Files ------------------------------------------------
 
 const latexFileListSchema = z.array(latexFileSchema);
 
@@ -151,7 +151,7 @@ export async function renameLatexFile(
   return latexFileSchema.parse(await res.json());
 }
 
-// --- Compile, PDF and log (brief 38 chunk 9) --------------------------------
+// --- Compile, PDF and log --------------------------------
 
 /**
  * `POST /latex/:id/compile` — compile the project's entrypoint and answer with
@@ -169,8 +169,8 @@ const latexCancelResultSchema = z.object({ cancelled: z.boolean() });
 
 /**
  * `POST /latex/:id/cancel` — stop the compile running on this project, now
- * that brief 44 moved the engine onto a worker thread and cancelling can
- * actually take effect (brief 38 shipped no such call because it couldn't).
+ * that the compile worker moved the engine onto a worker thread and cancelling can
+ * actually take effect (the LaTeX editor shipped no such call because it couldn't).
  * No request body.
  *
  * Both `{ cancelled: true }` (a compile really was running and has now fully
@@ -218,7 +218,7 @@ export async function fetchLatexCompileLog(projectId: string): Promise<LatexComp
 /**
  * `GET /latex/:id/pdf` — the draft PDF as an in-memory `File`, or `null` if no
  * compile has ever succeeded. A `File` (not a URL) because that is exactly
- * the shape `PdfReader` already consumes — brief 05's uploader hands it the
+ * the shape `PdfReader` already consumes — the uploader's uploader hands it the
  * same thing, so there is no second code path to maintain.
  *
  * The route survives a *failed* compile on purpose (`out.pdf` is written only
@@ -237,7 +237,7 @@ export async function fetchLatexPdf(projectId: string): Promise<File | null> {
   }
 }
 
-// --- Publish (brief 38 chunk 10) ---------------------------------------------
+// --- Publish ---------------------------------------------
 
 const latexPublishResultSchema = z.object({ book: libraryBookSchema, version: documentVersionSchema });
 export interface LatexPublishResult {
@@ -312,7 +312,7 @@ export function latexErrorMessage(error: unknown, fallback = "Something went wro
 
   switch (error.status) {
     case 404:
-      // A project on another profile answers 404, never 403 (brief 35) — the
+      // A project on another profile answers 404, never 403 — the
       // same message covers both, on purpose.
       return "Not found — it may have been deleted or renamed.";
     case 413:

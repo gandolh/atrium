@@ -4,13 +4,13 @@ import { usePlaybackStore, type PlaybackItem } from "../store/playback-store";
 import { useMediaProgress } from "./use-media-progress";
 
 /**
- * Binds ONE `<audio>`/`<video>` element to the playback store (brief 31): the
+ * Binds ONE `<audio>`/`<video>` element to the playback store: the
  * element follows the store's play/pause intent, seeks and volume, and reports
  * its real position and play state back. Used by both element owners — the app
  * shell's single `<audio>` (`PlaybackHost`) and the full-surface `<video>`
  * (`VideoPlayer`) — so the two can't drift into two subtly different transports.
  *
- * It wraps, and does not replace, `useMediaProgress` (brief 23): per-user resume
+ * It wraps, and does not replace, `useMediaProgress`: per-user resume
  * and the throttled progress PATCH **including the final flush on unmount** stay
  * exactly where they were. Every handler below calls the progress hook's handler
  * FIRST, because that's what refreshes the hook's `lastSnapshot` — the fallback
@@ -24,7 +24,7 @@ import { useMediaProgress } from "./use-media-progress";
  * (`handoffAt`), applied on `loadedmetadata`, and playback is gated on that being
  * done (`canPlay`). When there is nothing to hand off (`handoffAt` ≈ 0 — a fresh
  * open) the gate is open from the start and `useMediaProgress`'s stored-locator
- * resume is what positions the element, unchanged from brief 23.
+ * resume is what positions the element, unchanged from the media library.
  *
  * There is only something to hand off when the store is ALREADY on this item
  * (see `handoffPositionFor`) — otherwise a fresh open would inherit the

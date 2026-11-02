@@ -138,7 +138,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
 
   // --- GET /library/:id/file — stream the original for the reader ------------
   //
-  // `?version=<id>` (brief 38 step 7) selects one published VERSION of the book
+  // `?version=<id>` selects one published VERSION of the book
   // instead of the current library file. Everything below — ETag, range, 304,
   // the recorded open — is the same machinery; only the identity and the path
   // change, and both change together.
@@ -153,7 +153,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     }
 
     // Record the open (drives "recently opened" ordering) even on a cache hit.
-    // Not for the bot (brief 97): a song it streams to Discord was not opened
+    // Not for the bot: a song it streams to Discord was not opened
     // by anyone here, and each of its Range requests would be a write that
     // pushes what people did open down the home grid.
     if (!request.jukeboxOnly) await touchOpened(id, nowIso());
@@ -169,7 +169,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       // `getDocumentVersion` looks up by id ALONE, so the `book_id` comparison
       // is what stops one book's URL streaming another's bytes. Both an unknown
       // id and a foreign one answer 404 — never 403, which would confirm the id
-      // exists somewhere (brief 35's rule).
+      // exists somewhere (the profiles work's rule).
       if (!version || version.book_id !== id) {
         return reply.status(404).send({ error: "Version not found." });
       }
@@ -197,9 +197,9 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // If-None-Match short-circuits to a 304 (no multi-MB re-download of the
     // book) while the touch above still runs. `Accept-Ranges: bytes` is always
     // advertised — media players (and Safari's `bytes=0-1` probe) require it to
-    // enable seek/scrub (brief 23).
+    // enable seek/scrub.
     //
-    // **The newest file's validator is the file on disk** (brief 62). The id
+    // **The newest file's validator is the file on disk** The id
     // used to double as the ETag on the premise that an id's bytes never
     // change, and a published document breaks it: every publish (and deleting
     // the newest version) copies a version's PDF OVER `library/<id>.pdf`. The
@@ -272,7 +272,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     } catch {
       return reply.status(404).send({ error: "No cover for this book." });
     }
-    // A cover is NOT immutable (brief 62): a re-publish regenerates it and
+    // A cover is NOT immutable: a re-publish regenerates it and
     // D40's setter replaces it in place. So it is cached for a year only under
     // a URL that names its version (`?v=<coverVersion>` from the listing, the
     // cover file's mtime), where a new cover is a new URL. A request without
@@ -291,11 +291,11 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   });
 
   /**
-   * Store a client-supplied image as this item's cover (brief 42, D40).
+   * Store a client-supplied image as this item's cover (D40).
    *
    * It exists because video is the one kind with no server-side cover path: the
    * frame is decoded in the **browser** — the only video decoder we have, since
-   * the ffmpeg binary stays declined (brief 23, upheld by D40) — and posted
+   * the ffmpeg binary stays declined (upheld by D40) — and posted
    * here. Nothing about the route is video-specific, though. D40 decision 2
    * makes it a **dumb generic setter, last-write-wins**, so a future "pick a
    * different frame" affordance needs no replace flag: only-if-absent with a
@@ -367,7 +367,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       return reply.status(400).send({ error: "progress must be a number in [0, 1]." });
     }
 
-    // `profileId` is the offline-flush override (brief 35 step 7, D35): a record
+    // `profileId` is the offline-flush override: a record
     // queued while one profile was reading must PATCH as THAT profile even if
     // the session has since switched to another, or the flush would silently
     // re-attribute person A's reading to person B. Honouring a client-supplied
@@ -387,7 +387,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
       targetProfileId = target.id;
     }
 
-    // Brief 38 decision 10: a `locator` inside a published document is only
+    // The LaTeX editor's spec: a `locator` inside a published document is only
     // meaningful together with the version it was measured in — page 40 of v3 is
     // not page 40 of v4. `upsertProfileProgress` COALESCEs both columns, so a
     // write carrying a locator for a version MUST carry that version's id too;
@@ -420,7 +420,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     return reply.send(toLibraryBook(row, await getProfileProgress(targetProfileId, id)));
   });
 
-  // --- POST /library/:id/convert — start a conversion (D34, brief 34) --------
+  // --- POST /library/:id/convert — start a conversion (D34) --------
   app.post("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = await getBook(id);
@@ -445,7 +445,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   });
 
   // --- DELETE /library/:id/convert — cancel a running job, or delete a -------
-  // finished conversion (D34, brief 34).
+  // finished conversion (D34).
   app.delete("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
     const { id } = request.params as { id: string };
     const row = await getBook(id);

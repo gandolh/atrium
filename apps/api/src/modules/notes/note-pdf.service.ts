@@ -11,7 +11,7 @@ import {
 } from "@ebook-reader/shared";
 
 /**
- * Note → PDF (brief 49). One PDF page per note page, all vector.
+ * Note → PDF. One PDF page per note page, all vector.
  *
  * ## Why this lives on the server
  *
@@ -22,7 +22,7 @@ import {
  * via `@ebook-reader/typeset`. So the conversion happens here.
  *
  * It deliberately does NOT go through the LaTeX engine: `packages/typeset` sets
- * documents from LaTeX and a note is not one. What is borrowed from brief 40's
+ * documents from LaTeX and a note is not one. What is borrowed from the math work's
  * `packages/typeset/src/pdf/svg.ts` is the *approach* — bake the geometry into
  * the emitted numbers, round to a fixed grid so the bytes are deterministic,
  * and let one place own the y-axis flip (here that place is `pdf-lib`'s
@@ -36,8 +36,8 @@ import {
  * `STROKE_VB` scale and then mapped into points. An outline is a FILLED path,
  * not a stroked line — stroking it would draw both of its edges.
  *
- * Those options are NOT restated here. Brief 49 originally copied them out of
- * `NoteEditor.tsx`, and brief 51's two new nibs would then have had to be added
+ * Those options are NOT restated here. Note export originally copied them out of
+ * `NoteEditor.tsx`, and the ink tools's two new nibs would then have had to be added
  * in two places — miss one and a fountain pen exports as a plain pen with no
  * error and no diagnostic. The parameter table now lives once in
  * `packages/shared/src/notes.ts` (`nibPasses` / `strokeNibPasses`) and both
@@ -165,7 +165,7 @@ export function strokeOutlineLayers(stroke: Stroke): StrokeLayer[] {
 }
 
 /**
- * The first (widest) outline of a stroke. Kept from brief 49 for callers that
+ * The first (widest) outline of a stroke. Kept from note export for callers that
  * want one path — but note it is NOT the whole picture for a multi-pass nib
  * like the pencil, so the renderer below uses `strokeOutlineLayers`.
  */

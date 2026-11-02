@@ -11,7 +11,7 @@ import { knex } from "../src/database/knex.js";
 import { sweepInterruptedOutputs } from "../src/modules/library/convert.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 58: an upload streamed straight to its final name, with no cleanup, so
+// An upload streamed straight to its final name, with no cleanup, so
 // a dropped client, a full disk or a throwing insert left a file (and maybe a
 // cover) that no row points at and nothing ever reclaims.
 

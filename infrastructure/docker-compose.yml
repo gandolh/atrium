@@ -6,7 +6,7 @@
 # WARD_OIDC_POST_LOGOUT_REDIRECT_URI), AUTH_TRUSTED_PROXIES and the tuning
 # knobs. Accounts are atrium's own (D58); Ward is a second way in.
 #
-# AUTH_TRUSTED_PROXIES is not optional here (brief 89). Host Caddy reaches this
+# AUTH_TRUSTED_PROXIES is not optional here. Host Caddy reaches this
 # container through the published port below, so the API sees the network's
 # bridge address as the peer of every request, never the client. Unset, the
 # sign-in lockout counts every client as that one peer, and six wrong passwords
@@ -37,7 +37,7 @@ services:
       - ${ATRIUM_IMAGES_DIR:-../apps/api/images}:/app/apps/api/images
       # The LaTeX side: drafts, and every published version's PDF and source
       # zip. Their rows are in the database above, so their bytes must persist
-      # alongside it (brief 55).
+      # alongside it.
       - ${ATRIUM_LATEX_DIR:-../apps/api/latex}:/app/apps/api/latex
       - ${ATRIUM_VERSIONS_DIR:-../apps/api/versions}:/app/apps/api/versions
     restart: unless-stopped

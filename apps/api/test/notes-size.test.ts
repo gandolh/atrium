@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NOTE_MAX_BYTES } from "../src/common/config.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 56: every autosave carries the whole notebook, and the notes routes ran
+// Every autosave carries the whole notebook, and the notes routes ran
 // on Fastify's 1 MiB default, so a well-used notebook would start failing every
 // save. A note past 1 MiB must save; one past the cap must be refused with a
 // code the editor can name.

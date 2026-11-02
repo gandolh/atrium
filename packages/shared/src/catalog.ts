@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Catalog (Project Gutenberg / Gutendex) wire contract — brief 22. Shared so
+ * Catalog (Project Gutenberg / Gutendex) wire contract — the Gutenberg discover page. Shared so
  * apps/web and apps/api can't drift (decisions.md D11). The API proxies the
  * public Gutendex instance, maps its response to `catalogBookSchema`, and
  * exposes an import route that pulls one book into the library.

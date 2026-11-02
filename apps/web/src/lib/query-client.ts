@@ -3,7 +3,7 @@ import { ApiError } from "./api-client";
 
 /**
  * Single QueryClient for the app. No queries live here yet — the convert
- * `useMutation` (wrapping `POST /convert`) lands in brief 05. This just
+ * `useMutation` (wrapping `POST /convert`) lands in the uploader. This just
  * provides the client so `QueryClientProvider` can wrap the router.
  *
  * One coupling worth knowing at the definition site: `lib/auth.ts` calls

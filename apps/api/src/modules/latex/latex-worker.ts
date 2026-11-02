@@ -5,7 +5,7 @@ import { loadLatinModernBytes } from "@ebook-reader/typeset/fonts/node";
 import type { Diagnostic } from "@ebook-reader/shared";
 
 /**
- * The worker thread that runs the typesetting engine (brief 44 chunk 1).
+ * The worker thread that runs the typesetting engine.
  *
  * `compile()` is a **pure synchronous function** and stays that way — that
  * purity is the sandbox (D38) and the engine is deliberately not being changed.
@@ -125,7 +125,7 @@ export type LatexWorkerResponse =
  * cooperative stop lets the engine report *where* it stopped, and it costs the
  * host nothing.
  *
- * The two layers of the limit itself are unchanged from brief 34/38. The
+ * The two layers of the limit itself are unchanged from the convert work and the LaTeX editor. The
  * engine's **step budget** is the real guard — a count, so it stops a runaway
  * `\newcommand` at the same point on every machine, which is what makes "this
  * compile was stopped" reproducible (D38). The **wall clock** covers only what a
@@ -186,7 +186,7 @@ async function runEngine(request: LatexWorkerRequest): Promise<LatexWorkerRespon
   const signal = createWorkerSignal(request.deadline);
   const fonts = createLatinModernProvider(loadLatinModernBytes());
   /*
-   * Mathematics (brief 40). `compile()` stays synchronous — the renderer is
+   * Mathematics. `compile()` stays synchronous — the renderer is
    * *injected*, exactly as fonts are, because `createMathRenderer()` has to
    * load MathJax and warm its lazily-split fonts before anything can be set.
    *
@@ -199,7 +199,7 @@ async function runEngine(request: LatexWorkerRequest): Promise<LatexWorkerRespon
    * promise is kept cheaply.
    *
    * The cost lands on this thread, not the API's — which is the whole point of
-   * brief 44. A compile got slower; nothing else got less responsive.
+   * A compile got slower; nothing else got less responsive.
    */
   const math = await createMathRenderer();
 
@@ -248,7 +248,7 @@ if (port === null) {
 let response: LatexWorkerResponse;
 try {
   // `await` at module scope: `runEngine` became async when the math renderer
-  // arrived (brief 40), and this file is ESM in both of the ways it is loaded.
+  // arrived, and this file is ESM in both of the ways it is loaded.
   response = await runEngine(workerData as LatexWorkerRequest);
 } catch (cause) {
   response = {

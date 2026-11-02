@@ -16,14 +16,14 @@ import type { TextFace } from "./hlist.ts";
 
 /**
  * Placing mathematics: a rendered run becomes a box, and a display becomes a
- * centred line with a number at the margin (brief 40, chunk 40.4).
+ * centred line with a number at the margin.
  *
  * This file is the seam between two subsystems that deliberately know nothing
  * about each other. `src/math/` turns TeX into an SVG and reports its geometry
  * **in `ex`**, because an `ex` is a property of the surrounding text font at the
  * surrounding size and a renderer knows neither. `src/layout/` knows both and
  * knows nothing about MathJax. The multiplication happens here, once, and it is
- * the arithmetic brief 40 says betrays a bad implementation:
+ * the arithmetic the math work says betrays a bad implementation:
  *
  * ```
  * ex     = xHeight(surrounding face) · size / unitsPerEm

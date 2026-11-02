@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Notes contract (brief 26) — the shape of a paged note with vector ink +
+ * Notes contract — the shape of a paged note with vector ink +
  * typed text boxes, shared by apps/web and apps/api so they can't drift (D11).
  *
  * Coordinate convention (resolution-independent so a note drawn on a phone
@@ -15,7 +15,7 @@ import { z } from "zod";
 export const PAGE_ASPECT = 1.414;
 
 /**
- * The stored ink kinds. v1 shipped `pen` + `highlighter`; brief 51 added
+ * The stored ink kinds. v1 shipped `pen` + `highlighter`; the ink tools added
  * `fountain-pen` and `pencil` after a side-by-side design pass.
  *
  * Order matters only for the tool bar, which reads the nib list below.
@@ -30,7 +30,7 @@ export const NOTE_TOOLS = ["pen", "fountain-pen", "pencil", "highlighter"] as co
  * A bare `z.enum` would throw at `noteSchema.parse` and take the whole note
  * with it. Losing a nib style is a blemish; losing the notebook is not.
  *
- * ## The accepted cost (decided by the owner, brief 51 — do not "fix" this)
+ * ## The accepted cost (decided by the owner, the ink tools — do not "fix" this)
  *
  * This is LOSSY, not merely permissive. `apps/web/src/notes/notes-api.ts`
  * parses every fetched note through `noteSchema.parse`, and the editor
@@ -86,11 +86,11 @@ export const strokeSchema = z.object({
 export type Stroke = z.infer<typeof strokeSchema>;
 
 /* -------------------------------------------------------------------------
- * Nib geometry (brief 51) — ONE parameter table, two renderers
+ * Nib geometry — ONE parameter table, two renderers
  *
  * A stroke's outline is rebuilt from its points in three places: the editor's
  * live sheet + PNG export (`apps/web/src/notes/NoteEditor.tsx`) and the
- * server-side PDF export (`apps/api/src/note-pdf.ts`, brief 49). Brief 49
+ * server-side PDF export (`apps/api/src/note-pdf.ts`). Note export
  * already duplicated the `perfect-freehand` options once, and adding two nibs
  * to only one of the copies would render a fountain pen as a plain pen in the
  * PDF with no error and no diagnostic. So the *parameters* live here, in the
@@ -109,7 +109,7 @@ export type Stroke = z.infer<typeof strokeSchema>;
 /**
  * The editor's scaled working space. perfect-freehand's smoothing/streamline
  * math is tuned for pixel-scale inputs and degenerates into huge blobs on
- * normalized 0..1 coordinates (live-audit bug #3, brief 26), so geometry is
+ * normalized 0..1 coordinates (live-audit bug #3), so geometry is
  * computed with points and sizes multiplied by this. **Storage stays
  * normalized**; only the geometry is scaled.
  */
@@ -164,7 +164,7 @@ export function nibNoise(seed: number, index: number): number {
 }
 
 /**
- * The pencil's three passes, as picked in brief 51's design pass: a full-width
+ * The pencil's three passes, as picked in the ink tools's design pass: a full-width
  * base plus two narrower, progressively more scattered passes. Cumulative
  * alpha ≈ 0.70, so it sits lighter on the page than the pen.
  *
@@ -319,7 +319,7 @@ export type Note = z.infer<typeof noteSchema>;
 /**
  * Lightweight row for the notes list (no page contents).
  *
- * `folderId` (brief 50) is on the SUMMARY and deliberately NOT on `noteSchema`
+ * `folderId` is on the SUMMARY and deliberately NOT on `noteSchema`
  * above: a note does not know or care what folder it is in — filing is a
  * property of the *list*, which is the only surface that draws the tree. The
  * editor loads a `Note`, and its contract is unchanged by folders.
@@ -339,7 +339,7 @@ export const noteListSchema = z.array(noteSummarySchema);
 /**
  * `POST /notes` body — optional title (defaults server-side).
  *
- * Unchanged by brief 50: a new note is born at the ROOT and filed afterwards
+ * Unchanged by note folders: a new note is born at the ROOT and filed afterwards
  * with `PATCH /notes/:id/folder`. Folders are an organising move the owner
  * makes on a note that already exists, so creation stays the one-field request
  * it has always been.
@@ -361,7 +361,7 @@ export const updateNoteSchema = z
 export type UpdateNoteRequest = z.infer<typeof updateNoteSchema>;
 
 /* -------------------------------------------------------------------------
- * Note folders (brief 50)
+ * Note folders
  *
  * A folder is a ROW with a `parentId`, never a path string: a path cannot be
  * renamed atomically, and it goes wrong the first time a name contains the

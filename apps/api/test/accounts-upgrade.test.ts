@@ -8,7 +8,7 @@ import { knex } from "../src/database/knex.js";
 import { initDatabase, logMigratedAccounts, type BootLog } from "../src/database/bootstrap.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
-// Brief 90: the first deploy of D58. The boot says which Ward subjects became
+// The first deploy of D58. The boot says which Ward subjects became
 // passwordless accounts, and `seed:user --set-password` gives such an account a
 // password without making a new, empty one.
 

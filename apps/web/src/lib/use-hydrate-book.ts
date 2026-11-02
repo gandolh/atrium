@@ -10,7 +10,7 @@ import { getLocalProgress, getOfflineBook, offlineRecordToFile, resolveOfflineRe
 
 /**
  * Load the reader's `File` from the library for `/read?book=<id>` — both the
- * cover-card click (which navigates here immediately, brief 10) and a refresh /
+ * cover-card click (which navigates here immediately) and a refresh /
  * direct visit (D24) go through this single path. The open `File` lives only in
  * memory; the book id in the URL lets us (re-)fetch it. No-op when the right
  * file is already loaded or there's no `book` id (dev samples).
@@ -19,7 +19,7 @@ import { getLocalProgress, getOfflineBook, offlineRecordToFile, resolveOfflineRe
  * show a real opening screen, the matched `book` row (title/cover for that
  * screen), and `retry` for the error state.
  *
- * Offline-first (brief 20): this seam checks the offline store BEFORE the
+ * Offline-first: this seam checks the offline store BEFORE the
  * network. A downloaded book always opens from its stored blob (no request,
  * works with zero connectivity) and resumes from the local progress record when
  * it's newer than the snapshot. Only a book that was never downloaded hits the
@@ -65,7 +65,7 @@ function resumeLocation(locator: string | null, format: LibraryBook["format"]): 
  * variant holds the same `LibraryBook[]`, only ordered differently, and the
  * live query result below still wins as soon as it arrives.
  *
- * Scoped to ONE profile's key prefix (brief 35 step 7), not the bare
+ * Scoped to ONE profile's key prefix, not the bare
  * `["library"]` one: the row carries `locator`, which is that profile's resume
  * position (D31 as revised by D35), so a leftover entry from another profile
  * would open the book at someone else's page.
@@ -85,7 +85,7 @@ function cachedLibraryRow(
 }
 
 export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "book"): HydrateState {
-  // Media (brief 23) doesn't hydrate an in-memory `File`: the player streams
+  // Media doesn't hydrate an in-memory `File`: the player streams
   // straight from the authenticated file URL. So for audio/video this hook
   // resolves the library ROW only (title/cover/locator/duration) and skips the
   // reader-specific machinery — the offline blob store and the byte download.
@@ -103,7 +103,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
   // reachable — lets the opening screen still show a title/cover.
   const [offlineBook, setOfflineBook] = useState<LibraryBook | null>(null);
 
-  // Reopening a published document within the same session (brief 76). The
+  // Reopening a published document within the same session. The
   // in-memory file was the newest version WHEN it was fetched, and a publish
   // since then rewrites what "newest" means; `VersionPicker`'s default
   // selection only runs while no version is tagged, and assumes the loaded
@@ -138,7 +138,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     enabled: needsHydrate,
   });
 
-  // Genuinely unavoidable edit (brief 34 step 7 — see that brief's handoff for
+  // Genuinely unavoidable edit (the convert work's spec — see that brief's handoff for
   // why): `GET /library` above deliberately excludes CONVERTED books so the
   // grid shows one card per book (D34) — but that means `library.data` can
   // NEVER contain one, and this hook otherwise has no other way to resolve a
@@ -199,7 +199,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
 
     let cancelled = false;
 
-    // Media path (brief 23): resolve the row from the live list only — no
+    // Media path: resolve the row from the live list only — no
     // offline-store lookup, no byte download, no reader-store writes. The
     // AudioPlayer/VideoPlayer streams from the file URL and reads the row's
     // locator/duration directly.
@@ -223,7 +223,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
     async function openFromOfflineStore(id: string): Promise<boolean> {
       const record = await getOfflineBook(id);
       if (cancelled || !record) return false;
-      // Scoped to the active profile (brief 35 fix): the progress store holds
+      // Scoped to the active profile (the profiles work fix): the progress store holds
       // one record per (profile, book), so this is THIS reader's position and
       // never the housemate's. The stored snapshot carries no position at all.
       const local = await getLocalProgress(id, profileId);
@@ -289,7 +289,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
       }
 
       setProgress(found.sizeBytes > 0 ? 0 : null);
-      // Resume from THIS book's own position, read fresh (brief 75). `found` is
+      // Resume from THIS book's own position, read fresh. `found` is
       // the library list's row, which is the CARD: for a converted pair it
       // carries whichever twin was read more recently, so after reading the
       // EPUB the PDF's row held the EPUB's CFI, which is no page number, and

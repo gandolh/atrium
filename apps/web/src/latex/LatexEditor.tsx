@@ -48,14 +48,14 @@ import {
 } from "../lib/unsaved-stash";
 
 /**
- * The LaTeX editor at `/latex?project=<id>` (brief 38 chunk 8).
+ * The LaTeX editor at `/latex?project=<id>`.
  *
  * Three panes: the project's file tree, a CodeMirror 6 source pane, and the
  * PDF preview. **Split on desktop, tabbed on a phone** — decision 5 is light
  * edits on the phone, not full authoring, so the phone gets one pane at a time
  * (workable) rather than three squeezed side by side (equal, and useless).
  *
- * `SourceEditor` is code-split (`React.lazy`, brief 15's precedent): CodeMirror
+ * `SourceEditor` is code-split (`React.lazy`, the reader code-split's precedent): CodeMirror
  * is worth its weight on this one destination and nowhere else, and the library
  * home must not download an editor it will never show.
  *
@@ -146,7 +146,7 @@ export function LatexEditor({ id }: { id: string }) {
   const writeRef = useRef(write);
   writeRef.current = write;
 
-  // --- The device copy of unsaved source (brief 85) -------------------------
+  // --- The device copy of unsaved source -------------------------
   // Keyed to the signed-in account and the active profile as well as the
   // project, so whoever signs in next on this device never sees it.
   const session = useSession();
@@ -375,7 +375,7 @@ export function LatexEditor({ id }: { id: string }) {
     [flush],
   );
   /**
-   * The compile button's action (chunk 9). `flush()` FIRST, always — and now
+   * The compile button's action. `flush()` FIRST, always — and now
    * actually AWAITED, because "first" was previously only a hope: `flush()`
    * returned the instant `mutate()` was called, so the PUT and the compile POST
    * went out as two unordered requests to two independent handlers. Whenever
@@ -396,7 +396,7 @@ export function LatexEditor({ id }: { id: string }) {
   }, [flush, compile]);
 
   /**
-   * The compile button's OTHER action, once it's showing "Cancel" (brief 44's
+   * The compile button's OTHER action, once it's showing "Cancel" (the compile worker's
    * last chunk). No `flush()` — cancelling doesn't touch the buffer, there is
    * nothing to save before stopping a compile. `cancelCompile.isPending` is
    * `CompileButton`'s `cancelling` prop, which disables the button for the
@@ -591,7 +591,7 @@ export function LatexEditor({ id }: { id: string }) {
    * running, because a fresh mutation instance starts `isPending: false`. The
    * server's own 409 tells people to go and cancel the compile on the named
    * project (`busyMessage`) and hands them its id, so the action the message
-   * instructs was the one action the UI could not offer — brief 38's rule
+   * instructs was the one action the UI could not offer — the LaTeX editor's rule
    * (never offer an action the user cannot reach) broken from the other side,
    * with the capability real and unreachable.
    *

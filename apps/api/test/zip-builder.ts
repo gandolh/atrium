@@ -1,7 +1,7 @@
 import { crc32, createDeflateRaw, deflateRawSync } from "node:zlib";
 
 /**
- * A minimal zip writer for crafted EPUBs (brief 64). An entry is either real
+ * A minimal zip writer for crafted EPUBs. An entry is either real
  * bytes or `zeros(n)`: n zero bytes compressed as a stream, so an entry that
  * truly inflates to gigabytes (and says so in its headers) costs a few MB of
  * archive and never a gigabyte of memory to build.

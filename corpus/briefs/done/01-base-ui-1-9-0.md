@@ -128,3 +128,9 @@ One commit for the bump, `chore(deps): @base-ui/react 1.9.0`. Record the baselin
 
 - Brief 03 builds the wrappers and the new primitives (`Toast`, `RadioGroup`, `Toggle`) on a tree already at 1.9.0.
 - Brief 02 reformats every file; this brief touches two manifests only, so the order costs nothing.
+
+## Outcome (2026-11-10)
+
+Pinned `@base-ui/react` at exactly 1.9.0 in `apps/web/package.json` (commit 4299ea1). The lockfile still resolves one hoisted copy, 1.9.0; eight entries moved (`@base-ui/utils` 0.5.0, `@floating-ui/*` 1.8.0 / 2.1.9 / 0.2.12, `reselect` 5.3.0, `use-sync-external-store` 1.7.0), none added or dropped. The OTPField and `sanitizeValue` grep prints nothing. `npm run typecheck` and `npm run build` passed before and after.
+
+Changelog lines per primitive: not read (GitHub was not reachable), so Dialog, Menu, Popover and Slider are unverified against the release notes. Behaviour table: not run (no browser session; sign-in needed). `docker build` skipped, docker was unavailable. All three are left for the owner's smoke test after the deploy.

@@ -2845,3 +2845,7 @@ reader's page-turn swipe kept (Q40), native selects stay native (Q16). Brief 04:
 stays and Fastify's own 4xx pass through (Q43); `modules/` becomes `features/` (Q23);
 validation before authorisation accepted (Q52). Added brief 05, a redesign with Hallmark on the
 estate board, inside the enforced Reading Room design system (Q39).
+
+## [2026-11-10] done | Brief 01 — Base UI 1.9.0
+
+`@base-ui/react` 1.6.0 to 1.9.0, pinned exactly in `apps/web` (4299ea1). Eight lockfile entries moved, all Base UI's own tree. Typecheck and build pass before and after; the renamed OTPField and `sanitizeValue` are not used. Not done: release-notes read, browser check of the four primitives, `docker build`. Needs a deploy.

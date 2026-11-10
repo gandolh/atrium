@@ -6,7 +6,7 @@
 - In the owner's skills library:
   - brief 02, *A base-ui skill, styled with Tailwind*: rules 1-13, the references and `check-base-ui.mjs`;
   - brief 15, *Enforce the base-ui and code-structure skills in every repo*: the checker runs `--warn-only` until this brief is done.
-- The owner's answers of 2026-11-10: Q18 (a Light / Dark / System switch), Q19 (visual parity), Q40 (the Drawer for side panels) and Q58 (form dialogs keep `disablePointerDismissal`; inline confirms stay inline). The skills library's open questions Q15, Q16, Q57 and Q59 still apply.
+- The owner's answers of 2026-11-10: Q18 (a Light / Dark / System switch), Q19 (visual parity), Q40 (the Drawer for side panels) and Q58 (form dialogs keep `disablePointerDismissal`; inline confirms stay inline). Its technical calls: Q15 (Base UI only under `ui/`), Q16 (native controls stay native), Q41 and Q57 (always-one-chosen controls), Q59 (where wrappers live), Q60 and Q62 (tests).
 
 **Runs before:** nothing. Brief 04 is independent and touches no web file.
 
@@ -78,19 +78,21 @@ So what Q18 adds is small: a **System** option, and `@custom-variant dark` keyed
 
 **Considered and left:**
 
-- **Native by the skill (Q16):** the three `<select>`s and the checkbox in the Look up dialog. Atrium's decisions keep native controls where Reading Room styles them (`components/QuietSelect.tsx` carries its design note).
+- **Native by the skill (decided 2026-11-10, technical call, Q16):** native text, date and time inputs, and a native `<select>` on phones, stay native. So the three `<select>`s and the checkbox in the Look up dialog stay native. Atrium's decisions keep native controls where Reading Room styles them (`components/QuietSelect.tsx` carries its design note).
 - **Sliders in group 6.** Default: both stay, as exceptions in `scripts/conventions.json` with the reason, because each is a scrubbing surface with a hover readout and chapter marks, not a value field. Step 1 reads them and confirms. `reader/chrome/SliderControl.tsx` is already Base UI.
 - **Not widgets:** the status spans above, and `components/AppHeader.tsx`'s navigation links.
 
-## Owner decisions (defaults this brief builds)
+## Decisions
 
-1. **The theme switch** (owner, 2026-11-10, Q18). A Light / Dark / System choice in the app, kept where the app keeps its other settings, a first visit light, and Tailwind's `dark:` keyed off a `data-theme` attribute through `@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *))`. Atrium already has three themes. Default: add **System** as a fourth choice on the same switch, which resolves to light or dark from `prefers-color-scheme` and writes the resolved value to `data-theme`; keep sepia as it is, as a reading theme beside light and dark. The choice keeps today's per-profile server sync (the owner's answer names no storage, so atrium's store stands). *Repo question:* does System apply to sepia? Default: no, sepia has no system equivalent.
-2. **Visual parity** (owner, 2026-11-10, Q19: close enough). Before and after screenshots at 1280 and 390 px show no visible change to layout or colour. A few pixels of drift in spacing or rounding need not be fixed or listed.
-3. **Base UI only under `ui/`** (Q15, Q59). Default: yes. The seven imports move behind wrappers in `apps/web/src/components/ui/`. Atrium's web already groups by feature folder, so wrappers sit in the shared `components/ui/`.
-4. **Side panels use the Drawer** (owner, Q40). `reader/chrome/TocDrawer.tsx` (from the left) and `reader/chrome/SearchPanel.tsx` (from the right) become Base UI 1.9.0's `Drawer`, with `swipeDirection` set toward their edge, closed by a swipe, a tap outside, the X or Esc. A `SwipeArea` to open by edge swipe is left out: the reader's page-turn swipe (`reader/chrome/swipe.ts`) would fight it. *Repo question:* read `swipe.ts` first and confirm the two do not collide on the reader's page.
-5. **Form dialogs** (owner, Q58). A dialog that holds a form sets `disablePointerDismissal` and closes with Cancel, the X or Esc: `LookupDialog` and `SearchPanel`. Confirms stay inline where they already are. `ManageProfiles`'s delete confirm is a dialog with a choice, so it stays a dialog on the `Dialog` wrapper.
-6. **Hand-built widgets** (Q57). Default: convert groups 1, 2, 3, 4 and 5 as listed in the wrapper set. For group 4 (always one chosen), use `RadioGroup`: arrows choose, which is what these groups do today. Group 6 stays, with an exception.
-7. **Tooltips.** Not in this brief. Same default as the other apps.
+Items marked "decided" are final. The rest are defaults this brief builds.
+
+1. **The theme switch** (decided 2026-11-10, owner, Q18). A Light / Dark / System choice in the app, kept where the app keeps its other settings, a first visit light, and Tailwind's `dark:` keyed off a `data-theme` attribute through `@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *))`. Atrium already has three themes. Default: add **System** as a fourth choice on the same switch, which resolves to light or dark from `prefers-color-scheme` and writes the resolved value to `data-theme`; keep sepia as it is, as a reading theme beside light and dark. The choice keeps today's per-profile server sync (the owner's answer names no storage, so atrium's store stands). *Repo question:* does System apply to sepia? Default: no, sepia has no system equivalent.
+2. **Visual parity** (decided 2026-11-10, owner, Q19: close enough). Before and after screenshots at 1280 and 390 px show no visible change to layout or colour. A few pixels of drift in spacing or rounding need not be fixed or listed.
+3. **Base UI only under `ui/`** (decided 2026-11-10, technical call, Q15 and Q59). The seven imports move behind wrappers in `apps/web/src/components/ui/`, so atrium's feature files stop importing Base UI. Atrium's web already groups by feature folder, and wrappers stay in the shared `components/ui/` there.
+4. **Side panels use the Drawer** (decided 2026-11-10, owner, Q40). `reader/chrome/TocDrawer.tsx` (from the left) and `reader/chrome/SearchPanel.tsx` (from the right) become Base UI 1.9.0's `Drawer`, with `swipeDirection` set toward their edge, closed by a swipe, a tap outside, the X or Esc. **A `SwipeArea` to open by edge swipe is left out, and the Drawer must not fight the reader's page-turn swipe** (`reader/chrome/swipe.ts`): read `swipe.ts` first, and confirm on the reader's page that a swipe on the open panel closes only the panel and a page-turn swipe on the page still turns the page.
+5. **Form dialogs** (decided 2026-11-10, owner, Q58). A dialog that holds a form sets `disablePointerDismissal` and closes with Cancel, the X or Esc: `LookupDialog` and `SearchPanel`. Inline "Delete? Yes / No" confirms stay inline where they already are, with no move to `AlertDialog`. `ManageProfiles`'s delete confirm is a dialog with a choice, so it stays a dialog on the `Dialog` wrapper.
+6. **Hand-built widgets** (decided 2026-11-10, technical call, Q41 and Q57). Convert groups 1, 2, 3, 4 and 5 as listed in the wrapper set. For group 4 (always one chosen), a group whose choice is **saved to the server on each pick** is a guarded `ToggleGroup`, so arrow keys move focus without saving and one item always stays pressed. That is the theme switch (`AppHeader.tsx:149` and `ThemePicker.tsx:33`, through `persistPreference`) and the font family (`EpubSettings.tsx:64`). A choice that only sets editor state, with no save, is a `RadioGroup`, where arrow keys choose: the note editor's tool and thickness (`NoteEditor.tsx:1410`, `:1457`) and, after step 1 reads it, the other two there. A control that switches what a list shows would be a `RadioGroup` too (none here). Group 6 stays, with an exception.
+7. **Tooltips.** Not in this brief, the same as the other apps.
 
 ## The wrapper set: `apps/web/src/components/ui/`
 
@@ -102,7 +104,8 @@ So what Q18 adds is small: a **System** option, and `@custom-variant dark` keyed
 | `Menu.tsx` | Base UI `Menu` | `CoverCard.tsx`, `ProfileSwitcher.tsx`, `NoteEditor.tsx:1326` |
 | `Slider.tsx` | Base UI `Slider` | `SliderControl.tsx` |
 | `Toast.tsx` | Base UI `Toast`, a module-level manager so it can be called outside React | `pwa/UpdateToast.tsx` |
-| `RadioGroup.tsx` | Base UI `RadioGroup` + `Radio` | the eight groups in group 4 |
+| `RadioGroup.tsx` | Base UI `RadioGroup` + `Radio` | the editor-state groups in group 4 |
+| `ToggleGroup.tsx` | Base UI `ToggleGroup` + `Toggle`, guarded: a controlled value, arrow keys move focus only, Space or Enter chooses, the pressed item cannot be un-pressed | the saved-on-pick groups in group 4 (theme switch, font family) |
 | `Toggle.tsx` | Base UI `Toggle` | the pressed buttons in group 5 |
 | `index.css` additions | `--z-*` tokens, `@custom-variant dark` | `styles/globals.css` |
 
@@ -134,9 +137,9 @@ One commit per numbered step. After each, `npm run check` passes with `check-bas
 2. **`cn()` and the tokens.** Add `cn.ts` and the two dependencies. Add the `--z-*` scale (`z-overlay`, `z-popup`, `z-toast`) to `@theme`, and replace the 25 raw `z-` utilities. No visible change.
 3. **The seven wrappers**, one commit each family: `Dialog`, `Popover`, `Menu`, `Slider`, then `Drawer`. Each moves its Base UI import under `components/ui/`; call sites import the wrapper. `Dialog` sets `initialFocus` (first `[data-autofocus]`, else the first field, else the popup). Rule 3's count reaches 0.
 4. **Form dialogs and drawers.** `LookupDialog` and `SearchPanel` get `disablePointerDismissal`. `TocDrawer` and `SearchPanel` use `Drawer` per decision 4; check a swipe on the open panel closes it and a page-turn swipe on the reader still turns the page.
-5. **The two hand-built dialogs** on the `Dialog` wrapper. Keep the "busy" guard (`ManageProfiles.tsx:359, 386`): no Esc or outside tap while the request runs, as a test of the wrapper's props if the app has a harness, or as a Playwright step.
-6. **The menus, the toast, the radio groups and the toggles**, one commit each, keeping each widget's keys and labels. The toast keeps its trigger (`needRefresh`) and its two actions.
-7. **The theme switch.** Add `@custom-variant dark` keyed on `data-theme`. Add **System** to the switch in `AppHeader.tsx` and `ThemePicker.tsx`: it resolves through `matchMedia("(prefers-color-scheme: dark)")`, follows later changes, and writes the resolved light or dark to `data-theme`. Store the choice through the existing per-profile `persistPreference`, with `"light"` as the default on a first visit. Check all three themes and System, in the library, the readers and the notes editor.
+5. **The two hand-built dialogs** on the `Dialog` wrapper. Keep the "busy" guard (`ManageProfiles.tsx:359, 386`): no Esc or outside tap while the request runs, as a Playwright step. `apps/web` has no test runner and this brief adds none: jsdom tests are only for wrappers that hold logic (Q60), and the guarded `ToggleGroup` and the busy guard are checked in the browser. Playwright steps select by role, with `data-testid` only where no role fits (Q62).
+6. **The menus, the toast, the radio and toggle groups and the toggles**, one commit each, keeping each widget's keys and labels. The toast keeps its trigger (`needRefresh`) and its two actions.
+7. **The theme switch.** Add `@custom-variant dark` keyed on `data-theme`. Add **System** to the switch in `AppHeader.tsx` and `ThemePicker.tsx`, now on the guarded `ToggleGroup` (decision 6): it resolves through `matchMedia("(prefers-color-scheme: dark)")`, follows later changes, and writes the resolved light or dark to `data-theme`. Store the choice through the existing per-profile `persistPreference`, with `"light"` as the default on a first visit. Check all three themes and System, in the library, the readers and the notes editor.
 8. **`better-tailwindcss`.** Add it to `eslint.config.js` on `apps/web/src`, with the class registry pointed at `globals.css`. Fix what it finds; list any left, with the reason.
 9. **The exceptions.** `scripts/conventions.json` with the `ProgressRail` and `transport` slider entries and their reason.
 10. **After.** Take the screenshots again. Compare at 1280 and 390 px: no visible change in layout or colour (decision 2). Run `check-base-ui` strict, drop its `--warn-only`, and update [wiki/design.md](../../wiki/design.md), [wiki/decisions.md](../../wiki/decisions.md), [wiki/status.md](../../wiki/status.md), [log.md](../../log.md) and `.claude/rules/web.md`. Run `bash corpus/lint.sh`.
@@ -148,7 +151,7 @@ One commit per numbered step. After each, `npm run check` passes with `check-bas
 - [ ] `grep -rnE "\bz-\[?[0-9]+\]?\b" apps/web/src --include=*.tsx` prints nothing (z-index comes from the tokens).
 - [ ] `grep -rn "role=\"\(dialog\|menu\|radio\|radiogroup\)\"" apps/web/src --include=*.tsx | grep -v "components/ui/"` prints nothing.
 - [ ] `@custom-variant dark` is in `apps/web/src/styles/globals.css`, and `grep -rn "prefers-color-scheme" apps/web/src` finds it only in the System resolver and `reader-store`/theme code. A first visit with no stored choice renders light even when the system prefers dark (a Playwright step with `colorScheme: "dark"`).
-- [ ] The Light, Dark, Sepia and System choices each set `data-theme` as documented, and a reload keeps the choice.
+- [ ] The Light, Dark, Sepia and System choices each set `data-theme` as documented, and a reload keeps the choice. On the theme switch, an arrow key moves focus without changing the theme and Enter or Space chooses, and one choice is always pressed.
 - [ ] Before and after screenshots at 1280 and 390 px, in all three themes, show no visible change in layout or colour.
 - [ ] The Look up dialog and search panel stay open on an outside tap and close with Cancel, the X or Esc. A swipe closes the contents drawer, and a page-turn swipe on the reader still turns the page.
 - [ ] `npm run check` passes, and `bash corpus/lint.sh` ends clean.
@@ -157,4 +160,4 @@ One commit per numbered step. After each, `npm run check` passes with `check-bas
 
 - The skills library's `check-base-ui` heuristic for rule 9 may flag `Dialog.Close` around an icon. That is a false positive, to report to the skill rather than to except here.
 - Atrium's `data-theme` has three values and a per-profile store today. Both stay: the estate's rule asks for the switch and a light first visit, not a storage place.
-- If brief 02's width differs from the one the owner settles on, run the formatter again after this brief's last step.
+- Brief 02 sets the estate width, 120. Run the formatter after this brief's last step so the new files are formatted too (the formatter hook does it on save).

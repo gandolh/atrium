@@ -7,7 +7,7 @@
   - brief 03, *A code-structure skill for the Fastify + React apps*: rules 1-11, the `server-skeleton.md` reference, `zod-type-provider.md`, `migrating-a-server.md`, `check-structure.mjs`, and the dependency-cruiser and knip presets;
   - brief 16, *The Fastify servers adopt the code structure*: Atrium's row and the method;
   - brief 15, *Enforce the base-ui and code-structure skills in every repo*: `check-structure` runs `--warn-only` until this brief is done.
-- The owner's grilling of 2026-11-10: Q1 (the Dockerfile `CMD` is the repo's), Q23 (`features/`), Q24, Q25, Q27 (Atrium stays on `node:test`), Q53 and Q54, and the questions in "Owner decisions".
+- The owner's grilling of 2026-11-10 and its technical calls: Q1 (the Dockerfile `CMD` is the repo's), Q23 (`features/`), Q24, Q25, Q27 (Atrium stays on `node:test`), Q43 (the error body), Q52, Q53, Q55 and Q56, and config read at import time. The questions left open are in "Decisions".
 
 **Order:** after 02. It touches no web file, and no file brief 03 touches except `package-lock.json`, so it may run before 03, but never at the same time.
 
@@ -119,7 +119,7 @@ Command: `grep -rn "process\.env" apps/api/src | grep -v "^apps/api/src/common/c
 
 So **6 sites outside `config.ts`**, which brief 02's `no-process-env` warning reports and this brief clears.
 
-**`config.ts` stays a module of import-time constants.** It exports `PORT`, `PUBLIC_ORIGIN`, `DATA_DIR`, `DB_PATH` and 18 more (`grep -n "^export const" apps/api/src/common/config.ts`), and 14 source files plus 7 test files import them. `apps/api/test/setup.ts` depends on this: it sets the environment, then imports `config.ts` and throws unless every storage root resolved inside its scratch directory. The skills library's `loadConfig(env)` factory would change every one of those. Default: keep the constants, add the helpers above, and record the factory as an exception (decision 3).
+**`config.ts` stays a module of import-time constants (decided 2026-11-10, technical call: config read at import time is allowed).** It exports `PORT`, `PUBLIC_ORIGIN`, `DATA_DIR`, `DB_PATH` and 18 more (`grep -n "^export const" apps/api/src/common/config.ts`), and 14 source files plus 7 test files import them. `apps/api/test/setup.ts` depends on this: it sets the environment, then imports `config.ts` and throws unless every storage root resolved inside its scratch directory. The skills library's `loadConfig(env)` factory would change every one of those, and the rule now allows import-time config, so there is no factory and no exception to record. Keep the constants and add the helpers above (decision 3).
 
 **`.env` loading is deliberately forgiving**, and is not one of the "quiet failure" cases the skills library's Round 8 note warns about. `config.ts:59-62` loads `.env` only if it exists, because in production the container injects the variables, and the schema check at line 87 then fails loudly with the list of missing names. Keep it.
 
@@ -146,7 +146,7 @@ Command: `grep -rnE "app\.(get|post|put|patch|delete)\(" apps/api/src`. The vend
 - **At least 14 sites** already `schema.parse(...)` a reply by hand: `profiles.controller.ts:59, 73, 84, 119, 131, 141` and `notes.controller.ts:59, 66, 73, 112, 136, 151, 159, 171`. The response schema replaces them. A field a hand parse kept and a schema would drop is a finding.
 - **Helper parsing the regex misses** (the Round 8 note): the jukebox controller reads `request.params` through `guildIdOf` (`jukebox.controller.ts:43`), and `latex.controller.ts` builds its own checks. Step 1 lists them with `rg "request\.(params|query|body)"`.
 
-**The error body.** The 16 `{ error: "INVALID_REQUEST" }` replies (`grep -rn "INVALID_REQUEST" apps/api/src`) and the app-wide `{ error: "INTERNAL" }` are what the web client reads. Atrium's error body is a flat `{ error: CODE, message? }`, not `{ error: { code, message } }`. Default: keep the body. The error plugin maps a provider validation error to 400 `{ error: "INVALID_REQUEST" }` and a response-serialization error to 500 `{ error: "INTERNAL" }`.
+**The error body.** The 16 `{ error: "INVALID_REQUEST" }` replies (`grep -rn "INVALID_REQUEST" apps/api/src`) and the app-wide `{ error: "INTERNAL" }` are what the web client reads. Atrium's error body is a flat `{ error: CODE, message? }`, not `{ error: { code, message } }`, and it stays (decided 2026-11-10, technical call, Q43). The error plugin maps a provider validation error to 400 `{ error: "INVALID_REQUEST" }` and a response-serialization error to 500 `{ error: "INTERNAL" }`, **passes Fastify's own 4xx through with their own status** (a malformed JSON body, an unsupported media type and an oversized payload answer 4xx, not 500), and never echoes a thrown message to the client.
 
 ### The `server.ts` / `app.ts` split, and the entry file
 
@@ -165,16 +165,18 @@ Command: `grep -rnE "app\.(get|post|put|patch|delete)\(" apps/api/src`. The vend
 
 Nothing imports `@ebook-reader/api`. The root `package.json` `dev` script runs `npm run dev -w @ebook-reader/api`, so it follows. The skills library's Q1 answer (2026-11-10) says the repo owns the Dockerfile and services run from it, so the `CMD` changes in the same commit and nothing else in the deploy does.
 
-## Owner decisions (defaults this brief builds)
+## Decisions
 
-1. **`apps/api/src/features/<name>/`** (Q23). Default: yes, as in the move map. The skills library's tree writes `server/src/`; Atrium's is `apps/api/src/`.
-2. **Typed plugin options and explicit registration** (Q24). Default: Atrium has no `FeatureContext` today: each feature exports `registerXRoutes(app)` and the handlers import their stores. Keep that: explicit registration in `app.ts` stays, and no context object is invented. Features become `FastifyPluginAsyncZod` plugins that take no options until two need a shared one.
-3. **`buildApp(config)` and `loadConfig()`.** Default: not adopted (the constants stay), recorded in `scripts/conventions.json`. *Repo question:* does the owner want the factory later, as its own brief? It would touch 14 source files and the test setup.
+Items marked "decided" are final. The rest are defaults this brief builds.
+
+1. **`apps/api/src/features/<name>/`** (decided 2026-11-10, technical call, Q23). As in the move map. The skills library's tree writes `server/src/`; Atrium's is `apps/api/src/`, and `modules/` becomes `features/`.
+2. **Typed plugin options and explicit registration** (decided 2026-11-10, technical call, Q24 and Q56). Atrium has no `FeatureContext` today: each feature exports `registerXRoutes(app)` and the handlers import their stores. Keep that: explicit registration in `app.ts` stays, and no context object is invented. Features become `FastifyPluginAsyncZod` plugins that take no options until two need a shared one, and then they take typed plugin options. No decorators as a test seam.
+3. **`buildApp(config)` and `loadConfig()`** (decided 2026-11-10, technical call). Config read at import time is allowed, so `config.ts` keeps its constants and no `loadConfig()` factory is added. It is not an exception and needs no entry in `scripts/conventions.json`.
 4. **Import boundaries and the three cycles.** Default: add `features/<name>/index.ts` for the symbols other features use (the 24 imports above name them), switch each cross-feature import to it, and **record the three cycles** (`library` and `latex`, `latex` and `profiles`, `library` and `profiles`) and the `auth` and `profiles` import as dependency-cruiser exceptions with their reasons, because breaking them is a design change, not a move. *Repo question:* are the cycles worth breaking (for instance by moving the shared ownership rules into a `lib/` function), or accepted?
 5. **`common/paths.ts`.** Default: it becomes `lib/paths.ts`. It imports `config.ts`, which `lib/` should not (a pure helper takes the roots as arguments). Default: leave the import and record it as an exception.
-6. **A response schema on every JSON route** (Q25), and the 11 exempt routes (Q53). Default: as above.
-7. **The error body** (Q25 and the skills library's open question on its shape). Default: keep `{ error: CODE, message? }`.
-8. **The test runner and layout** (Q27). Default: `node:test` stays, tests stay in `apps/api/test/`, `buildTestApp` keeps its name.
+6. **A response schema on every JSON route** (decided 2026-11-10, technical call, Q25 and Q53). As above. Pass-through JSON uses a loose object. The 11 streams, binaries and multipart routes are exempt, each with an entry in `scripts/conventions.json`. A schema lives in `packages/shared` when the web client imports it (Q55), as every existing `*Schema` does, and otherwise in its feature folder.
+7. **The error body** (decided 2026-11-10, technical call, Q43). Keep `{ error: CODE, message? }`, pass Fastify's own 4xx through, never echo a thrown message.
+8. **The test runner and layout** (decided 2026-11-10, technical call, Q27). `node:test` stays, with `allowForKnownSafeCalls` for it in the lint (brief 02). Tests stay in `apps/api/test/`, and `buildTestApp` keeps its name.
 9. **Timeouts and proxy.** Defaults, each checked against the longest request in step 1:
    - `connectionTimeout: 10_000`;
    - `keepAliveTimeout: 125_000`, above Caddy's two-minute idle keep-alive to its upstreams;
@@ -192,7 +194,7 @@ Nothing imports `@ebook-reader/api`. The root `package.json` `dev` script runs `
 - `apps/api/test/**`: only imports that name `modules/` or an old path, and the new tests.
 - `infrastructure/Dockerfile`: the `CMD` line (line 105).
 - The root `package.json`: `check:conventions` (dependency-cruiser added, `check-structure`'s `--warn-only` dropped).
-- `.dependency-cruiser.cjs` (new, from the skill's preset), `scripts/conventions.json`.
+- `.dependency-cruiser.cjs` (new, from the skill's preset), `scripts/conventions.json`, which also sets the checkers' roots for this monorepo (`apps/*` and `packages/*`, not `server/` and `web/`; decided 2026-11-10, technical call).
 - `eslint.config.js`: `no-process-env` from warning to error.
 - `.claude/rules/server.md`: the structure lines.
 - `apps/web/src`: the zod import sites only if a 4.x API change forces a line (`apps/web/src/router.tsx`, `lib/library-api.ts`, `latex/latex-api.ts`). Expect none.
@@ -222,13 +224,13 @@ Follow the skill's `migrating-a-server.md`. One commit per step; after each, `np
 6. **The type provider and the schemas, one feature per commit:** health, profiles, notes, catalog, lookup, library, latex, jukebox. Each commit declares params, querystring, body and response, removes that feature's request parsing, and adds the tests below. The error plugin maps a validation error to 400 `{ error: "INVALID_REQUEST" }` and a serialization error to 500 `{ error: "INTERNAL" }`.
 7. **After.** Save the same JSON again and diff it against step 1's. A field that disappeared is a leak (keep it dropped and list it) or a missing schema field (add it). Put the diff's summary in the `log.md` entry.
 8. **Strict.** Drop `check-structure`'s `--warn-only` and make dependency-cruiser part of `check:conventions`.
-9. **Corpus.** Revise the [wiki/api-layering.md](../../wiki/api-layering.md) layout (it names `modules/`, `index.ts`, `common/`, `database/`), the other pages listed above, and add a [wiki/decisions.md](../../wiki/decisions.md) entry adopting the structure, with what was rejected (autoload, TypeBox, a `loadConfig()` factory for now) and why. Run `bash corpus/lint.sh` until it is clean.
+9. **Corpus.** Revise the [wiki/api-layering.md](../../wiki/api-layering.md) layout (it names `modules/`, `index.ts`, `common/`, `database/`), the other pages listed above, and add a [wiki/decisions.md](../../wiki/decisions.md) entry adopting the structure, with what was rejected (autoload, TypeBox, a `loadConfig()` factory, which the import-time rule makes unnecessary) and why. Run `bash corpus/lint.sh` until it is clean.
 
 New tests, all through `buildTestApp()` and `inject()`:
 
 - an extra field on a store row is stripped from a reply;
 - a reply that fails its response schema is a 500 `{ error: "INTERNAL" }` with no detail;
-- a malformed body, query and param each answer 400 `{ error: "INVALID_REQUEST" }`, and a foreign profile's note id still answers 404, never 403 (the profile-scoping rule in [wiki/api-layering.md](../../wiki/api-layering.md), and the Round 8 note on validation running before ownership checks: say what order the provider gives);
+- a malformed body, query and param each answer 400 `{ error: "INVALID_REQUEST" }`, and a foreign profile's note id still answers 404, never 403 (the profile-scoping rule in [wiki/api-layering.md](../../wiki/api-layering.md)). Validation runs before the ownership check, which is accepted (decided 2026-11-10, technical call, Q52): a malformed body answers 400 even for a foreign id, and a well-formed foreign id answers 404. Say so in the decision entry;
 - `preferencesSchema`'s unknown keys survive a `PATCH` and a `GET`;
 - `GET /health`;
 - the LaTeX worker thread still starts from the built `dist/` (run the compiled `server.js` once in step 6, or a test that spawns `latex-worker.js` from the `dist/` path).

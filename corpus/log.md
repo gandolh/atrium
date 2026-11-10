@@ -2829,3 +2829,19 @@ cite the deleted briefs' internals and can be reworded when that code is next to
 
 Lint on this checkout also failed on three links from performance.md into `playwright/perf/`,
 which is gitignored and so absent from a fresh clone; they are plain paths now.
+
+## [2026-11-10] todo | Briefs 02-04 revised to the grilling's answers; redesign brief 05 added
+
+Revised briefs 02-04 for the owner's answers and technical calls of 2026-11-10. Brief 02:
+`house-style` is vendored (Q6), width 120 stays as the measured least churn and the one-off
+reformat cost (Q8, Q51), `!` is an error in source and a warning in tests with the 129 in
+`packages/typeset/src` fixed in their own step (Q47), `noUncheckedIndexedAccess` deferred with
+its counts (Q50), `allowForKnownSafeCalls` for `node:test` (Q12), the root `CLAUDE.md` is short
+and the corpus schema moves to `corpus/CLAUDE.md` (Q46). Brief 03: Base UI only under `ui/`
+(Q15), a guarded `ToggleGroup` for the theme switch and the font picker, which save on each
+choice, and a `RadioGroup` for editor-state choices (Q41, Q57), the Drawer note about the
+reader's page-turn swipe kept (Q40), native selects stay native (Q16). Brief 04: no
+`loadConfig()` factory, since import-time config is allowed; the flat `{ error: CODE }` body
+stays and Fastify's own 4xx pass through (Q43); `modules/` becomes `features/` (Q23);
+validation before authorisation accepted (Q52). Added brief 05, a redesign with Hallmark on the
+estate board, inside the enforced Reading Room design system (Q39).

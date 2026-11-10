@@ -4,9 +4,9 @@
 
 - In Atrium: brief 01, so the reformat lands on a tree already on Base UI 1.9.0.
 - In the owner's skills library:
-  - brief 27, *A house style, and a quality harness that enforces it*: the `house-style` package at `v1.0.0`, the `house-style` skill, and the plugin's `Stop` and `PostToolUse` hooks;
+  - brief 27, *A house style, and a quality harness that enforces it*: the `house-style` package at `v1.0.0` (vendored here, decision 1), the `house-style` skill, and the plugin's `Stop` and `PostToolUse` hooks;
   - brief 15, *Enforce the base-ui and code-structure skills in every repo*: how the convention checkers are wired and when they run `--warn-only`.
-- The owner's grilling of 2026-11-10 and the skills library's open questions Q5-Q14, Q27, Q47-Q51.
+- The owner's grilling of 2026-11-10 and its technical calls: Q5-Q14, Q27, Q45, Q46 and Q47-Q51. Every question is answered; the decisions below record each.
 
 **Runs before:** 03 and 04. The reformat touches about 185 files, and those briefs rewrite or move many of them. Formatting first gives one clean reformat commit, and the formatter hook keeps every later diff formatted.
 
@@ -45,7 +45,7 @@ Taken on a scratch copy with Prettier 3.8.4 (from another repo's install), types
 | 140 | 1,882 | 4,473 | 214 |
 | 150 | 1,963 | 5,148 | 222 |
 
-120 has the least total churn (4,572 lines). 130 adds fewer lines but removes 1,000 more, because Atrium's code wraps at about 100 and wider widths join lines. The biggest single change at 120 is `packages/typeset/src/macro/builtins.ts` (+330, -75). The skills library's Q51 default is one estate width of 120 or 130. JSON and Markdown were not measured.
+120 has the least total churn (4,572 lines). 130 adds fewer lines but removes 1,000 more, because Atrium's code wraps at about 100 and wider widths join lines. The biggest single change at 120 is `packages/typeset/src/macro/builtins.ts` (+330, -75). The estate's one width is **120** (Q8 and Q51), so Atrium's least-churn width is the estate's, and the one-off reformat is the 1,992 lines added and 2,580 removed above, in one commit that blame ignores. JSON and Markdown were not measured.
 
 **TypeScript flags**, added to `tsconfig.base.json` on the scratch copy:
 
@@ -88,19 +88,21 @@ The last row matters. The 485 `!` are mostly `array[i]!`. Turning on `noUnchecke
 
 **Not measured here:** lint time with `projectService` against `project` (step 1 measures it), knip's findings, and the full `check` time. Warm `tsc` times: `apps/web` 9 s, `apps/api` 3.8 s, `packages/shared` 2.3 s, one workspace at a time.
 
-## Owner decisions (defaults this brief builds)
+## Decisions
 
-1. **Where the configs come from** (skills library Q6). Default: the `house-style` package, extended from Atrium's configs. The Docker builder stage runs `npm ci` without `git` (check the image: `infrastructure/Dockerfile:31`); depend on the tagged tarball URL, which needs none. If the owner picks `github:`, add `git` to the builder stage in the same commit.
-2. **Width** (Q8, Q51). Default: the estate's one width. If it is not settled when this runs, use **120**, Atrium's least churn, and record it.
-3. **Markdown and the generated docs stay out of Prettier.** Default: `.prettierignore` lists `*.md`, `apps/docs/docs/wiki/` (generated, gitignored), `apps/docs/dist`, `apps/docs/.docusaurus`, `apps/web/public/`, `packages/typeset/assets/`, the two `vendor/` folders, `package-lock.json`, `dist/` and the library data folders. Prettier covers the TypeScript, TSX, JS, CSS and JSON the repo writes.
-4. **tsconfig** (Q11, Q50). Default: add `verbatimModuleSyntax` and `erasableSyntaxOnly` to the base (typeset already has them), and **not** `exactOptionalPropertyTypes` or `noUncheckedIndexedAccess`. The second costs 107 errors in the web app and 17 in the API source, and it changes what the 485 `!` mean; it is a separate brief if the owner wants it. *Repo question.*
+Items marked "decided" are final. The rest are defaults this brief builds.
+
+1. **Where the configs come from** (decided 2026-11-10, technical call, Q6). `house-style` is **vendored**: a copy under `vendor/house-style/` at the repo root with a version header (`v1.0.0`), refreshed by a `house-style:sync` script in the root `package.json` that finds the `house-style` checkout by name. No git, `github:` or tarball dependency. The Docker builder stage copies only the manifests, `tsconfig.base.json`, `packages` and `apps`, and runs no lint, so the image never needs the vendored folder or `git`. The one shared file the build reads is `tsconfig.base.json`, so the house tsconfig flags are written into it, not extended from the vendored copy. `vendor/house-style/` is in `.prettierignore` and ESLint's ignores.
+2. **Width** (decided 2026-11-10, technical call, Q8 and Q51). `printWidth` is **120**, which is already Atrium's least churn. The measured table is kept.
+3. **Markdown and the generated docs stay out of Prettier** (decided 2026-11-10, technical call, Q45). `.prettierignore` lists `*.md`, `apps/docs/docs/wiki/` (generated, gitignored), `apps/docs/dist`, `apps/docs/.docusaurus`, `apps/web/public/`, `packages/typeset/assets/`, the two `apps/*/vendor/` folders, `vendor/house-style/`, `package-lock.json`, `dist/` and the library data folders. Prettier covers the TypeScript, TSX, JS, CSS and JSON the repo writes.
+4. **tsconfig** (decided 2026-11-10, technical call, Q11 and Q50). Add `verbatimModuleSyntax` and `erasableSyntaxOnly` to the base now (typeset already has them; the TypeScript here is 5.9.3, past the 5.8 these need), and the six parameter properties become fields. `exactOptionalPropertyTypes` waits for a count. **`noUncheckedIndexedAccess` is deferred** (Q50): 107 errors in the web app, 17 in the API source (46 with tests) and 47 in typeset's tests, and it changes what the 485 `!` mean. A later brief per repo where it is off takes it, with these counts as its start. That brief is not written yet.
 5. **`NodeNext` for the API.** Default: set `module` and `moduleResolution` to `NodeNext` in `apps/api/tsconfig.json` only (measured: 0 errors). Under `Bundler` a missing `.js` suffix typechecks and then fails when Node runs `dist/`. The web app, which Vite builds, stays on `Bundler`. *Repo question.*
-6. **Typed lint** (Q12). Default: the six rules, through `projectService` unless `project` measures faster. `no-floating-promises` is configured with `allowForKnownSafeCalls` for the `node:test` functions. Without it the rule is unusable here.
-7. **The house shapes as errors** (Q13, Q47). Default: `enum`, `console` outside the CLIs, default exports outside configs, `TODO`/`FIXME` are errors. `no-non-null-assertion` is an error in source and a warning in tests. `.d.ts` module declarations are excepted from the default-export rule. `no-process-env` (from `eslint-plugin-n`) starts as a **warning** and brief 04 makes it an error.
-8. **Test lint.** No test-lint plugin applies to `node:test`. Record that in the outcome note; `describe.only` and `it.only` are caught by `node --test --test-only` only if used, so add a plain `no-restricted-syntax` selector for `.only(` calls on those names if it takes one line.
-9. **`check:fast`** (Q10). Default: a typecheck of the touched workspaces plus ESLint on the changed files, under about 15 s warm with one changed file.
-10. **The Claude Code layer** (Q7). Default: the plugin's hooks. If the owner chooses committed hooks, add them to `.claude/settings.json` here.
-11. **The root `CLAUDE.md`.** Default: add a "Commands" section and a "Hard rules" pointer at the top of the existing file, and leave the corpus schema where it is. Alternative: move the schema to `corpus/CLAUDE.md`, as Almanac has it, leaving a root file under about 60 lines. *Repo question.*
+6. **Typed lint** (decided 2026-11-10, technical call, Q12). The six rules, through `projectService` unless `project` measures faster. `no-floating-promises` names `node:test`'s `describe`, `it` and `test` in `allowForKnownSafeCalls`. Without it the rule is unusable here.
+7. **The house shapes as errors** (decided 2026-11-10, technical call, Q13, Q47 and Q48). `enum`, `console` outside scripts and CLIs, default exports outside framework files (config files, route modules) and `TODO`/`FIXME` are errors. `no-non-null-assertion` is an **error in source and a warning in tests** (Q47), and `switch-exhaustiveness-check` sets `considerDefaultExhaustiveForUnions: true` (Q48). `.d.ts` module declarations are excepted from the default-export rule. `no-process-env` (from `eslint-plugin-n`) starts as a **warning** and brief 04 makes it an error.
+8. **Test lint** (decided 2026-11-10, technical call, Q27: Atrium stays on `node:test`). No test-lint plugin applies to `node:test`. Record that in the outcome note; `describe.only` and `it.only` are caught by `node --test --test-only` only if used, so add a plain `no-restricted-syntax` selector for `.only(` calls on those names if it takes one line.
+9. **`check:fast`** (decided 2026-11-10, technical call, Q10). A typecheck of the touched workspaces plus ESLint on the changed files, built incrementally, target about 15 s warm with one changed file, accepted up to about 30 s where `tsc` alone is slower.
+10. **The Claude Code layer** (decided 2026-11-10, technical call, Q7). The plugin's hooks: `Stop` runs `check:fast`, `PostToolUse` formats the saved file.
+11. **The root `CLAUDE.md`** (decided 2026-11-10, technical call, Q46). A short root `CLAUDE.md` with the commands, under about 60 lines. The corpus schema it holds today moves to a new `corpus/CLAUDE.md`, as Almanac has it, and the root file points at it.
 
 ## Files you OWN
 
@@ -111,10 +113,10 @@ The last row matters. The 485 `!` are mostly `array[i]!`. Turning on `noUnchecke
 - The fixes the new rules ask for:
   - `apps/api/src/modules/jukebox/jukebox.service.ts` and `apps/api/src/modules/lookup/lookup-http.ts` (the six parameter properties);
   - the 9 floating and 20 misused promises in `apps/web/src` (list above): `void` the first, wrap the second in a sync handler;
-  - the 170 `!` in source and the rest found in step 1.
-- New: `.claude/rules/web.md`, `.claude/rules/server.md`, and the changes to `CLAUDE.md`.
+  - the 41 `!` in `apps/api/src` (34) and `apps/web/src` (7), in step 5, and the 129 in `packages/typeset/src`, in step 6, each in its own commits;
+  - the rest found in step 1.
+- New: `vendor/house-style/`, `.claude/rules/web.md`, `.claude/rules/server.md`, `corpus/CLAUDE.md` (the schema moved out of the root file), and the rewritten root `CLAUDE.md`.
 - `scripts/conventions.json` (brief 15's exceptions file), if an exception is needed.
-- The `infrastructure/Dockerfile` builder stage, only under decision 1's `github:` branch.
 - Corpus: [wiki/decisions.md](../../wiki/decisions.md) (a new entry), [wiki/status.md](../../wiki/status.md), [log.md](../../log.md).
 
 ## Files you must NOT touch
@@ -136,10 +138,10 @@ One commit per step, each with `npm run typecheck`, `npm test` and `npm run buil
 
    Any rule that finds more than about 20 real problems, or mostly false ones, goes back to the owner before it is turned on (brief 27's rule: bring it, don't loosen it).
 2. **Prettier, and the reformat.**
-   1. Add `prettier` (pinned) and the config: `printWidth` per decision 2, `trailingComma: "all"`, the rest default.
+   1. Add `prettier` (pinned) and the config: `printWidth: 120` (decision 2), `trailingComma: "all"`, the rest default.
    2. Add `.prettierignore` per decision 3.
    3. Add `"format": "prettier --write ."` and `"format:check": "prettier --check ."`, and commit this alone.
-   4. Run `npm run format` and commit only that, as `style: format with Prettier`. Run it when no other brief has uncommitted work.
+   4. Run `npm run format` and commit only that, as `style: format with Prettier`: the one-off reformat at 120. Run it when no other brief has uncommitted work.
    5. Add that commit's full hash to `.git-blame-ignore-revs`, in its own commit.
    6. Hand the owner the one-time `git config blame.ignoreRevsFile .git-blame-ignore-revs`.
 3. **tsconfig.** Add `verbatimModuleSyntax` and `erasableSyntaxOnly` to the base, and `NodeNext` to the API per decision 5.
@@ -150,7 +152,7 @@ One commit per step, each with `npm run typecheck`, `npm test` and `npm run buil
    | Rule | After | Findings today |
    |---|---|---|
    | the six typed rules | error | 9 + 20 + 1 + 608 (step 1 re-measures) |
-   | `@typescript-eslint/no-non-null-assertion` | error in source, warn in tests | 170 source, 315 test |
+   | `@typescript-eslint/no-non-null-assertion` | error in source, warn in tests | 170 source (41 in `apps/api/src` and `apps/web/src`, 129 in `packages/typeset/src`), 315 test |
    | `no-restricted-syntax` on `TSEnumDeclaration` | error | 0 |
    | `no-warning-comments` (`todo`, `fixme`), pointing at `corpus/briefs/` (there is no `todos/`, see [CLAUDE.md](../../../CLAUDE.md)) | error | 0 |
    | `no-console` outside the CLIs | error | 11 in `apps/api/src` beyond the seed CLI: migrations (3), `config.ts` (2), `index.ts` (1), three services (5) |
@@ -158,31 +160,33 @@ One commit per step, each with `npm run typecheck`, `npm test` and `npm run buil
    | `no-process-env` (`eslint-plugin-n`) on `apps/api/src` outside `common/config.ts` and tests | **warn**; brief 04 makes it an error | 6 sites, listed in brief 04 |
    | `no-explicit-any`, `ban-ts-comment` | error (recommended) | 0 |
 
-   The `console` findings are real log calls. The default is to route the ones in `latex-compile.service.ts`, `convert.service.ts` and `extract.service.ts` through the `log` those services already receive or build; if one has no logger in reach, list it in `scripts/conventions.json` with the reason. Fix what the typed rules find, or list each finding left, with its reason, in the outcome note.
-5. **The gate.** In the root `package.json`:
+   The `console` findings are real log calls. The default is to route the ones in `latex-compile.service.ts`, `convert.service.ts` and `extract.service.ts` through the `log` those services already receive or build; if one has no logger in reach, list it in `scripts/conventions.json` with the reason. Fix what the typed rules find, or list each finding left, with its reason, in the outcome note. The `!` findings are left to steps 5 and 6, so step 4 turns `no-non-null-assertion` on as a warning and steps 5 and 6 make it an error.
+5. **The `!` in `apps/api/src` and `apps/web/src`** (41 sites: 34 and 7). One commit per workspace. Where the compiler already types the value as non-null (`no-unnecessary-type-assertion` says "does not change the type"), delete the `!`. Where it is a real assertion, narrow with a check or a named error. Behaviour stays. The rule is an error for these two workspaces at the end.
+6. **The `!` in `packages/typeset/src`** (129 sites, the bulk of the debt, in a package nothing else here touches). Its own commits, one per source folder that holds `!` (`macro/`, `layout/`, `pdf/` and the rest; list them in step 1), so a regression bisects to a folder. The same rule: delete a no-op `!`, narrow a real one. `npm test -w` the package after each commit: its 303 test `!` stay warnings. The rule becomes an error for `packages/typeset/src` at the end.
+7. **The gate.** In the root `package.json`:
    - `check` runs `typecheck`, `lint`, `format:check`, `check:conventions` and `test`;
    - `check:conventions` is knip plus the two convention checkers from the `house-style` package. `check-base-ui` runs `--warn-only` until brief 03 is done, `check-structure` `--warn-only` until brief 04 is done;
    - `check:fast` runs the typecheck, then ESLint on the files changed against `HEAD` plus untracked ones. Use the package's script, or a small Node script in `scripts/`. No shell-only syntax: the owner works on Windows under WSL;
    - `lint` is `eslint .`.
 
    Time `check:fast` warm with one changed file, and `check` in full. Record both.
-6. **`.claude/rules/`.** Each file under about 40 lines, scoped by `paths:`, pointing at the skill for the rest.
+8. **`.claude/rules/`.** Each file under about 40 lines, scoped by `paths:`, pointing at the skill for the rest.
    - **`web.md`** (`apps/web/src/**`): the Reading Room conformance checklist in [wiki/design.md](../../wiki/design.md) is the design gate; Base UI only through `components/ui/` wrappers (brief 03); light, sepia and dark are all checked; no raw hex in components; the `data-theme` attribute is the theme switch.
    - **`server.md`** (`apps/api/src/**`, `packages/shared/src/**`): read [wiki/api-layering.md](../../wiki/api-layering.md); a controller owns HTTP, a service the rules, a model the SQL; a service returns a tagged union for a normal outcome; every notes, folders and LaTeX query is keyed on `profile_id`, and a foreign id is a 404, never a 403; `apps/api/vendor/` is generated; tests go through `buildTestApp` in `apps/api/test/harness.ts`; a thrown error is a 500 that says nothing.
 
    Briefs 03 and 04 add the Tailwind, Base UI and structure lines.
-7. **`CLAUDE.md`** per decision 11: the commands (`npm run dev`, `npm run check` before every hand-back, `npm run check:fast`, one API test with `node --import tsx --import ./test/setup.ts --test apps/api/test/<file>`, `npm run seed:user -w @ebook-reader/api`), and the places that mislead: `pretest` and `pretypecheck` build `shared` and `typeset` first, `.env` sits at the repo root, the internal scope is `@ebook-reader/*` on purpose (D32), and the web app is served under `/atrium/`. Also the hard rules the repo holds today: no secrets in the repo, no CI, no pushes by agents.
-8. **Corpus.** Add a [wiki/decisions.md](../../wiki/decisions.md) entry "The house style, formatted and checked" (the width, the config source, what was rejected and why). Update [wiki/status.md](../../wiki/status.md) and [log.md](../../log.md). Run `bash corpus/lint.sh` until it is clean.
+9. **`CLAUDE.md`** per decision 11: move the corpus schema to `corpus/CLAUDE.md`, and write the short root file with the commands (`npm run dev`, `npm run check` before every hand-back, `npm run check:fast`, one API test with `node --import tsx --import ./test/setup.ts --test apps/api/test/<file>`, `npm run seed:user -w @ebook-reader/api`), and the places that mislead: `pretest` and `pretypecheck` build `shared` and `typeset` first, `.env` sits at the repo root, the internal scope is `@ebook-reader/*` on purpose (D32), and the web app is served under `/atrium/`. Also the hard rules the repo holds today: no secrets in the repo, no CI, no pushes by agents.
+10. **Corpus.** Add a [wiki/decisions.md](../../wiki/decisions.md) entry "The house style, formatted and checked" (the width, the config source, what was rejected and why). Update [wiki/status.md](../../wiki/status.md) and [log.md](../../log.md). Run `bash corpus/lint.sh` until it is clean.
 
 ## Acceptance
 
 - [ ] `npm run check` passes. Its run time and `check:fast`'s, warm with one changed file, are in the outcome note, and `check:fast` is under about 15 s or the owner has accepted the time.
 - [ ] `npx prettier --check .` passes. The reformat is one commit that changes whitespace only (`git diff -w <hash>^ <hash>` shows nothing outside the reformat), and its hash is in `.git-blame-ignore-revs`.
 - [ ] `tsconfig.base.json` has `verbatimModuleSyntax` and `erasableSyntaxOnly`. `npm run typecheck` and `docker build` of `infrastructure/Dockerfile` pass.
-- [ ] `npx eslint .` reports zero errors. The counts before and after are in the outcome note, with every finding left and its reason.
+- [ ] `npx eslint .` reports zero errors, including `no-non-null-assertion` in all source folders (the 41 and the 129 gone) and still only warnings in tests. The counts before and after are in the outcome note, with every finding left and its reason.
 - [ ] A deliberate `enum`, `!` in `apps/api/src`, `console.log` in a service, `// TODO` and `export default` in a non-config file each fail `npm run lint`. Revert them after.
 - [ ] `npm test` passes from a fresh clone (`pretest` builds the packages).
-- [ ] `.claude/rules/web.md` and `server.md` exist with `paths:` frontmatter, and `CLAUDE.md` lists `npm run check`.
+- [ ] `.claude/rules/web.md` and `server.md` exist with `paths:` frontmatter, and the root `CLAUDE.md` (under about 60 lines) lists `npm run check`, with the corpus schema in `corpus/CLAUDE.md`.
 - [ ] With the plugin's hooks on, an agent's edit is formatted on save, and a type error stops it at `Stop`.
 - [ ] `bash corpus/lint.sh` ends clean.
 
@@ -190,4 +194,5 @@ One commit per step, each with `npm run typecheck`, `npm test` and `npm run buil
 
 - Brief 03 adds `better-tailwindcss` and drops `check-base-ui`'s `--warn-only`. Brief 04 adds dependency-cruiser, drops `check-structure`'s `--warn-only`, and turns `no-process-env` into an error.
 - If brief 04 moves `apps/api/src/modules/` to `features/`, the reformat's hash still holds: the `git mv` keeps blame through the ignore file.
-- The 303 test `!` in `packages/typeset/test` and the 129 in `packages/typeset/src` are the bulk of the debt, in a package nothing else here touches. If the owner prefers, the typeset package takes `no-non-null-assertion` as a warning until a later brief.
+- The 303 test `!` in `packages/typeset/test` stay warnings (Q47). The 129 in `packages/typeset/src` are fixed in step 6, in their own commits, not deferred.
+- The deferred `noUncheckedIndexedAccess` (Q50) will turn some deleted `!` into needed narrowing; its later brief owns that.

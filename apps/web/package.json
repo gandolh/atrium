@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@base-ui/react": "1.6.0",
+    "@base-ui/react": "1.9.0",
     "@codemirror/commands": "6.11.0",
     "@codemirror/language": "6.12.4",
     "@codemirror/legacy-modes": "6.5.3",

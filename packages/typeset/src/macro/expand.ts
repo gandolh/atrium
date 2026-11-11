@@ -164,7 +164,7 @@ function unread(s: Stream, node: LatexNode): void {
 }
 
 function pushBack(s: Stream, nodes: readonly LatexNode[]): void {
-  for (let i = nodes.length - 1; i >= 0; i--) s.stack.push(nodes[i]!);
+  for (let i = nodes.length - 1; i >= 0; i--) s.stack.push(nodes[i]);
 }
 
 function remaining(s: Stream): number {
@@ -188,7 +188,7 @@ function takeLogged(s: Stream, log: LatexNode[]): LatexNode | undefined {
 
 /** Undo a scan: the log holds the originals, so the stream is restored exactly. */
 function restore(s: Stream, log: readonly LatexNode[]): void {
-  for (let i = log.length - 1; i >= 0; i--) s.stack.push(log[i]!);
+  for (let i = log.length - 1; i >= 0; i--) s.stack.push(log[i]);
 }
 
 /** Expand inside a node's arguments/body without treating the node itself as a macro. */
@@ -258,8 +258,8 @@ function readDefinition(cmd: CommandNode, ctx: ExpandContext): void {
     );
     return;
   }
-  const nameArg = braces[0]!;
-  const bodyArg = braces[braces.length - 1]!;
+  const nameArg = braces[0];
+  const bodyArg = braces[braces.length - 1];
 
   const named = nameArg.content.find((n) => n.type === "command");
   if (named === undefined || named.type !== "command") {
@@ -277,7 +277,7 @@ function readDefinition(cmd: CommandNode, ctx: ExpandContext): void {
 
   let paramCount = 0;
   if (brackets.length > 0) {
-    const raw = plainText(brackets[0]!.content).trim();
+    const raw = plainText(brackets[0].content).trim();
     const parsed = /^[0-9]$/.test(raw) ? Number(raw) : NaN;
     if (Number.isNaN(parsed)) {
       ctx.diagnostics.push(
@@ -287,7 +287,7 @@ function readDefinition(cmd: CommandNode, ctx: ExpandContext): void {
     }
     paramCount = parsed;
   }
-  const optionalDefault = brackets.length > 1 ? brackets[1]!.content : null;
+  const optionalDefault = brackets.length > 1 ? brackets[1].content : null;
   if (optionalDefault !== null && paramCount === 0) {
     ctx.diagnostics.push(
       error("syntax", at, `\\${cmd.name}{\\${name}}: a default value needs at least one parameter`, `\\${cmd.name}`),
@@ -350,8 +350,8 @@ function gatherArguments(cmd: CommandNode, stream: Stream, def: MacroDefinition,
 
   if (def.optionalDefault !== null) {
     required -= 1;
-    if (taken < attached.length && attached[taken]!.bracket === "[") {
-      args.push(attached[taken]!.content);
+    if (taken < attached.length && attached[taken].bracket === "[") {
+      args.push(attached[taken].content);
       taken++;
     } else {
       const optional = scanOptional(stream);
@@ -361,7 +361,7 @@ function gatherArguments(cmd: CommandNode, stream: Stream, def: MacroDefinition,
 
   for (let k = 0; k < required; k++) {
     if (taken < attached.length) {
-      args.push(attached[taken]!.content);
+      args.push(attached[taken].content);
       taken++;
       continue;
     }
@@ -438,7 +438,7 @@ function scanOptional(stream: Stream): LatexNode[] | null {
     let i = 0;
     let closer = -1;
     while (i < text.length) {
-      const ch = text[i]!;
+      const ch = text[i];
       if (ch === "[") depth++;
       else if (ch === "]") {
         if (depth === 0) {
@@ -563,7 +563,7 @@ function splitParameters(node: TextNode, def: MacroDefinition, ctx: ExpandContex
     }
   };
   for (let i = 0; i < node.value.length; i++) {
-    const ch = node.value[i]!;
+    const ch = node.value[i];
     if (ch !== "#") {
       literal += ch;
       continue;

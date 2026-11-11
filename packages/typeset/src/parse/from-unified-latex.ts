@@ -221,7 +221,7 @@ function mapArgs(
       continue;
     }
     const { nodes, endCursor } = mapContentList(rawArg.content, file, source, cursor, diagnostics);
-    args.push({ bracket, content: nodes, loc: { start: nodes[0]!.loc.start, end: endCursor } });
+    args.push({ bracket, content: nodes, loc: { start: nodes[0].loc.start, end: endCursor } });
     cursor = endCursor;
   }
   return { args, endCursor: cursor };
@@ -321,7 +321,7 @@ export function mapContentList(
   const out: LatexNode[] = [];
   let cursor = initialCursor;
   for (let i = 0; i < rawNodes.length; i++) {
-    const raw = rawNodes[i]!;
+    const raw = rawNodes[i];
     const span = resolveSpan(raw, file, cursor, rawNodes, i);
     checkMalformed(raw, rawNodes, i, file, diagnostics);
     const { node, consumedEnd } = mapNode(raw, file, source, span, diagnostics);

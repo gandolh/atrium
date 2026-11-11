@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "conventions.json",
+  "description": "Where a repo's code lives, for house-style's check-base-ui and check-structure, and the findings it accepts, each with its reason. Paths are from the repo root, except ui and stylesheet, which are inside each web root. The checkers validate the file the same way; bin/conventions.mjs is the source of truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "This schema, for editors: vendor/house-style/conventions.schema.json, relative to the file."
+    },
+    "web": {
+      "description": "The React source folders, such as web/src. Base UI's rules run here, and the structure's file-size rule. Default: web/src when it exists; [] for none.",
+      "$ref": "#/$defs/roots"
+    },
+    "server": {
+      "description": "The Fastify source folders, such as server/src. The structure's rules run here. Default: server/src when it exists; [] for none.",
+      "$ref": "#/$defs/roots"
+    },
+    "shared": {
+      "description": "The source folders of code both sides import, such as shared/src. Only config.ts reads the environment here too. Default: shared/src when it exists; [] for none.",
+      "$ref": "#/$defs/roots"
+    },
+    "ui": {
+      "description": "Inside each web root, the folders where Base UI may be imported (base-ui rule 3). * matches within a folder name, ** any depth. Default: [\"**/components/ui\", \"**/features/*/ui\"].",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^?\\[\\]{}]+$"
+      }
+    },
+    "stylesheet": {
+      "description": "Inside each web root, the one stylesheet (base-ui rule 5). Default: styles/index.css.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^*?\\[\\]{}]+$"
+    },
+    "exceptions": {
+      "description": "Findings the repo accepts. Each names its check, its rule and its path, and says why. An exception may record a case no checker reports (an inline style, a test helper's name).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/exception" }
+    }
+  },
+  "$defs": {
+    "roots": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A folder from the repo root. * matches within one folder name (apps/*/src); each match is a root, and a root that matches nothing is an error.",
+        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))(?!.*\\*\\*)[^?\\[\\]{}]+$"
+      }
+    },
+    "exception": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "rule", "path", "reason"],
+      "properties": {
+        "check": {
+          "description": "Whose rule: base-ui (check-base-ui), structure (check-structure), or house-style (the lint rules, recorded for review; no checker reads them).",
+          "enum": ["base-ui", "structure", "house-style"]
+        },
+        "rule": {
+          "description": "The rule's number in that skill: base-ui 1-17, structure 1-11, house-style 1-25.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "path": {
+          "description": "A file or folder from the repo root; * matches within a folder name, ** any depth. A folder covers what is under it.",
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^?\\[\\]{}]+$"
+        },
+        "match": {
+          "description": "Optional: text the finding's line or message contains, to accept one finding in a file rather than all of its findings for the rule (a route's path, a call).",
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "reason": {
+          "description": "Why the repo accepts it, in a sentence. Required: an exception without a reason is an error.",
+          "type": "string",
+          "pattern": "\\S"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "check": { "const": "base-ui" } } },
+          "then": { "properties": { "rule": { "maximum": 17 } } }
+        },
+        {
+          "if": { "properties": { "check": { "const": "structure" } } },
+          "then": { "properties": { "rule": { "maximum": 11 } } }
+        },
+        {
+          "if": { "properties": { "check": { "const": "house-style" } } },
+          "then": { "properties": { "rule": { "maximum": 25 } } }
+        }
+      ]
+    }
+  }
+}

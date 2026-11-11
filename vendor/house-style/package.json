@@ -1,0 +1,55 @@
+{
+  "name": "house-style",
+  "version": "1.1.0",
+  "description": "The estate's shared lint, format and type-check configs, vendored into each repo by a sync script.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "bin/",
+    "eslint.config.js",
+    "prettier.config.js",
+    "tsconfig.base.json",
+    "knip.json",
+    ".dependency-cruiser.cjs",
+    "conventions.schema.json",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@eslint/js": "10.0.1",
+    "@vitest/eslint-plugin": "1.6.28",
+    "dependency-cruiser": "18.7.2",
+    "eslint": "10.9.1",
+    "eslint-plugin-better-tailwindcss": "4.10.0",
+    "eslint-plugin-import-x": "4.18.1",
+    "eslint-plugin-n": "18.5.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "knip": "6.44.2",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.1",
+    "@vitest/eslint-plugin": "1.6.28",
+    "dependency-cruiser": "18.7.2",
+    "eslint": "10.9.1",
+    "eslint-plugin-better-tailwindcss": "4.10.0",
+    "eslint-plugin-import-x": "4.18.1",
+    "eslint-plugin-n": "18.5.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "knip": "6.44.2",
+    "prettier": "3.9.10",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2"
+  }
+}

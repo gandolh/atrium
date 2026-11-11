@@ -182,7 +182,7 @@ rail, where an imperative timeline beats React state. **SmoothUI is
 deliberately out**: it overlaps Motion Primitives almost entirely, and two
 motion idioms in one app read as two apps.
 
-## Conformance checklist (enforced — see ../CLAUDE.md)
+## Conformance checklist (enforced — see CLAUDE.md)
 Any `apps/web` change must, before it's considered done:
 - [ ] **Tokens only** — no raw hex in components; colour resolves through
       `globals.css`.

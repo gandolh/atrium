@@ -3,7 +3,7 @@
 The front door. What lives where.
 
 ## Navigation
-- [../CLAUDE.md](../CLAUDE.md) — repo-root guide: project one-liner, corpus schema + conventions, design enforcement
+- [CLAUDE.md](CLAUDE.md) — corpus schema + conventions, project one-liner, design enforcement (the repo-root `../CLAUDE.md` holds the commands)
 - [log.md](log.md) — chronological change record
 - [routing.md](routing.md) — orchestrate routing profile
 
@@ -39,11 +39,11 @@ Catalog generated from each page's `summary:` frontmatter — run
 <!-- END wiki-catalog -->
 
 Triage on the summaries: read `index.md`, then **at most 2–3** wiki pages
-(the retrieval budget — see [../CLAUDE.md](../CLAUDE.md)).
+(the retrieval budget — see [CLAUDE.md](CLAUDE.md)).
 
 ## Work
 One queue. Capture and spec are the same act — a new idea is written straight
-into `briefs/todo/` as a numbered brief (see [../CLAUDE.md](../CLAUDE.md)).
+into `briefs/todo/` as a numbered brief (see [CLAUDE.md](CLAUDE.md)).
 
 - [briefs/todo/](briefs/todo/) — everything not yet built, ready-to-build specs, run in number order (restarted at 01 on 2026-11-02)
 - [briefs/done/](briefs/done/) — completed (immutable)

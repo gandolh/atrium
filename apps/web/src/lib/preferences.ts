@@ -81,7 +81,7 @@ function readLegacyPreferences(): Preferences {
   const legacy: Preferences = {};
   try {
     const theme = localStorage.getItem(LEGACY_THEME_KEY);
-    if (theme === "sepia" || theme === "dark" || theme === "light") legacy.theme = theme;
+    if (theme === "sepia" || theme === "dark" || theme === "light" || theme === "system") legacy.theme = theme;
   } catch {
     /* ignore */
   }

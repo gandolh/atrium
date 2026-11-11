@@ -23,5 +23,5 @@ export { ThemePicker } from "./ThemePicker";
 export { useAutoHideChrome, useChromeHold, useChromeToggle } from "./use-auto-hide-chrome";
 export { usePageNavKeys } from "./use-page-nav-keys";
 export { resolveSwipe, resolveTapZone } from "./swipe";
-export { useApplyTheme } from "./use-apply-theme";
+export { resolveTheme, useApplyTheme, useResolvedTheme } from "./use-apply-theme";
 export { type SearchMatch, type SearchProvider } from "./search-seam";

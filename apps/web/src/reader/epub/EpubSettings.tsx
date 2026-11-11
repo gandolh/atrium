@@ -1,3 +1,4 @@
+import { ToggleGroup, ToggleItem } from "../../components/ui/ToggleGroup";
 import { SliderControl, ThemePicker } from "../chrome";
 import { useReaderStore, type FontFace } from "../../store/reader-store";
 import { cssToken } from "../../lib/tokens";
@@ -61,34 +62,32 @@ export function EpubSettings() {
 
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-reader-fg/70">Font</span>
-        <div role="radiogroup" aria-label="Font" className="flex gap-2">
-          {FONT_FACES.map((f) => {
-            const selected = fontSettings.family === f.value;
-            return (
-              <button
-                key={f.value}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setFontSettings({ family: f.value })}
-                className="flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
+        {/* The font is saved to the profile on the server: a guarded ToggleGroup (base-ui rule 16). */}
+        <ToggleGroup
+          label="Font"
+          value={fontSettings.family}
+          onValueChange={(family) => setFontSettings({ family })}
+          className="flex gap-2"
+        >
+          {FONT_FACES.map((f) => (
+            <ToggleItem
+              key={f.value}
+              value={f.value}
+              className="group flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
+            >
+              <span
+                aria-hidden="true"
+                className="grid h-11 w-full place-items-center rounded-card border border-reader-border bg-reader-surface text-base text-reader-fg transition-shadow group-data-pressed:ring-2 group-data-pressed:ring-reader-accent"
+                style={{ fontFamily: fontStackFor(f.value) }}
               >
-                <span
-                  aria-hidden="true"
-                  className={`grid h-11 w-full place-items-center rounded-card border border-reader-border bg-reader-surface text-base text-reader-fg transition-shadow ${
-                    selected ? "ring-2 ring-reader-accent" : ""
-                  }`}
-                  style={{ fontFamily: fontStackFor(f.value) }}
-                >
-                  Aa
-                </span>
-                <span className={`text-[11px] ${selected ? "font-medium text-reader-fg" : "text-reader-fg/60"}`}>
-                  {f.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                Aa
+              </span>
+              <span className="text-[11px] text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
+                {f.label}
+              </span>
+            </ToggleItem>
+          ))}
+        </ToggleGroup>
       </div>
 
       <div className="flex items-end gap-2">

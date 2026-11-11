@@ -7,8 +7,7 @@ import { AppHeader } from "../components/AppHeader";
 import { RecoveredBanner } from "../components/RecoveredBanner";
 import { useActiveProfileId } from "../lib/auth";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
-import { useApplyTheme } from "../reader/chrome/use-apply-theme";
-import { useReaderStore, type Theme } from "../store/reader-store";
+import { useApplyTheme, useResolvedTheme, type ResolvedTheme } from "../reader/chrome/use-apply-theme";
 import { CompileButton } from "./CompileButton";
 import { latexErrorMessage } from "./latex-api";
 import { LatexFileTree } from "./LatexFileTree";
@@ -96,7 +95,7 @@ export function LatexEditor({ id }: { id: string }) {
   // Same mechanism as every other page-level component: without it `data-theme`
   // freezes at whatever the list view's cleanup left behind on navigation in.
   useApplyTheme();
-  const theme = useReaderStore((s) => s.theme);
+  const theme = useResolvedTheme();
 
   const project = useLatexProject(id);
   const files = useLatexFiles(id);
@@ -704,7 +703,7 @@ export function LatexEditor({ id }: { id: string }) {
         {/* --- Source pane -------------------------------------------------- */}
         <section
           aria-label="Source"
-          className={`min-h-0 min-w-0 w-full flex-col bg-paper-low md:flex md:flex-1 md:border-r md:border-line-soft/60 ${
+          className={`min-h-0 w-full min-w-0 flex-col bg-paper-low md:flex md:flex-1 md:border-r md:border-line-soft/60 ${
             pane === "source" ? "flex" : "hidden"
           }`}
         >
@@ -724,7 +723,7 @@ export function LatexEditor({ id }: { id: string }) {
         {/* --- Preview pane ------------------------------------------------- */}
         <section
           aria-label="Preview"
-          className={`min-h-0 min-w-0 w-full flex-col bg-paper-low md:flex md:flex-1 ${
+          className={`min-h-0 w-full min-w-0 flex-col bg-paper-low md:flex md:flex-1 ${
             pane === "preview" ? "flex" : "hidden"
           }`}
         >
@@ -764,7 +763,7 @@ function SourcePane({
   loading: boolean;
   error: unknown;
   sizeBytes: number;
-  theme: Theme;
+  theme: ResolvedTheme;
   reveal: RevealTarget | null;
   onChange: (next: string) => void;
 }) {
@@ -860,7 +859,7 @@ function PaneTab({ active, onClick, children }: { active: boolean; onClick: () =
       type="button"
       onClick={onClick}
       aria-current={active ? "true" : undefined}
-      className={`rounded-t-card border-b-2 px-3 py-1.5 font-ui text-sm transition-colors duration-200 ease-paper motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-accent ${
+      className={`rounded-t-card border-b-2 px-3 py-1.5 font-ui text-sm transition-colors duration-200 ease-paper focus-visible:outline-2 focus-visible:outline-accent motion-reduce:transition-none ${
         active
           ? "border-b-accent font-semibold text-ink"
           : "border-b-transparent font-medium text-ink-variant hover:text-ink"

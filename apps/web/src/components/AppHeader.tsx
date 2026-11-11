@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { Theme } from "../store/reader-store";
 import { useReaderStore } from "../store/reader-store";
 import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
+import { ToggleGroup, ToggleItem } from "./ui/ToggleGroup";
 
 /**
  * The persistent app header, shared by every non-reader page (`/`, `/discover`,
@@ -53,7 +54,7 @@ export function AppHeader({
       <div className="flex flex-col gap-1">
         <Link
           to="/"
-          className="w-fit rounded font-display text-2xl font-semibold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
+          className="w-fit rounded-sm font-display text-2xl font-semibold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
         >
           Atrium
         </Link>
@@ -88,7 +89,7 @@ function NotesLink() {
   return (
     <Link
       to="/notes"
-      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       activeProps={{ className: "text-accent font-semibold" }}
     >
       Notes
@@ -105,7 +106,7 @@ function LatexLink() {
   return (
     <Link
       to="/latex"
-      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       activeProps={{ className: "text-accent font-semibold" }}
     >
       LaTeX
@@ -121,7 +122,7 @@ function JukeboxLink() {
   return (
     <Link
       to="/jukebox"
-      className="rounded px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       activeProps={{ className: "text-accent font-semibold" }}
     >
       Jukebox
@@ -133,43 +134,38 @@ const THEMES: { value: Theme; label: string; glyph: ReactNode }[] = [
   { value: "light", label: "Light theme", glyph: <SunGlyph /> },
   { value: "sepia", label: "Warm theme", glyph: <ContrastGlyph /> },
   { value: "dark", label: "Dark theme", glyph: <MoonGlyph /> },
+  { value: "system", label: "System theme", glyph: <SystemGlyph /> },
 ];
 
 /**
- * Segmented light/sepia/dark control (design.md mockup's sun/book/moon).
- * Drives the shared reader `theme` store so the library, catalog, and readers
- * stay in sync.
+ * Segmented light/sepia/dark/system control (design.md mockup's sun/book/moon, and a screen for System, which
+ * follows the operating system). Drives the shared reader `theme` store so the library, catalog, and readers
+ * stay in sync. The choice is saved to the profile on the server, so this is a guarded `ToggleGroup`
+ * (base-ui rule 16): the arrow keys only move focus, and Space, Enter or a click chooses.
  */
 function ThemeToggle() {
   const theme = useReaderStore((s) => s.theme);
   const setTheme = useReaderStore((s) => s.setTheme);
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Theme"
+    <ToggleGroup
+      label="Theme"
+      value={theme}
+      onValueChange={setTheme}
       className="flex items-center gap-0.5 rounded-full border border-line-soft/60 bg-paper-low p-0.5"
     >
-      {THEMES.map((t) => {
-        const active = theme === t.value;
-        return (
-          <button
-            key={t.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={t.label}
-            title={t.label}
-            onClick={() => setTheme(t.value)}
-            className={`grid h-9 w-11 place-items-center rounded-full transition ${
-              active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
-            }`}
-          >
-            {t.glyph}
-          </button>
-        );
-      })}
-    </div>
+      {THEMES.map((t) => (
+        <ToggleItem
+          key={t.value}
+          value={t.value}
+          aria-label={t.label}
+          title={t.label}
+          className="grid h-9 w-11 place-items-center rounded-full text-ink-variant transition hover:not-data-pressed:text-ink data-pressed:bg-paper-raised data-pressed:text-accent data-pressed:shadow-sm"
+        >
+          {t.glyph}
+        </ToggleItem>
+      ))}
+    </ToggleGroup>
   );
 }
 
@@ -203,6 +199,16 @@ function MoonGlyph() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />
+    </svg>
+  );
+}
+
+// A screen: the choice that follows the operating system.
+function SystemGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path strokeLinecap="round" d="M8 20h8M12 16v4" />
     </svg>
   );
 }

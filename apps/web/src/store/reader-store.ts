@@ -20,7 +20,11 @@ import { getBootPreferences, initPreferencesSync, schedulePreferencesWrite } fro
  * param) survives the navigation to `/read`.
  */
 
-export type Theme = "light" | "sepia" | "dark";
+/**
+ * The theme the user picked. `system` follows the operating system's light or dark setting, live: it is a choice,
+ * never a state on screen. `useResolvedTheme` (reader/chrome/use-apply-theme.ts) turns it into the one on screen.
+ */
+export type Theme = "light" | "sepia" | "dark" | "system";
 
 /**
  * Reading-mode toggle: one page per view ("paged") vs a continuous

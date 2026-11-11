@@ -33,6 +33,7 @@ import {
   type SearchMatch,
   type TocEntry,
   useApplyTheme,
+  useResolvedTheme,
   useAutoHideChrome,
   useChromeToggle,
   usePageNavKeys,
@@ -82,7 +83,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
   const setCurrentLocation = useReaderStore((s) => s.setCurrentLocation);
   const zoom = useReaderStore((s) => s.zoom);
   const setZoom = useReaderStore((s) => s.setZoom);
-  const theme = useReaderStore((s) => s.theme);
+  const theme = useResolvedTheme();
   const setTheme = useReaderStore((s) => s.setTheme);
   const chromeVisible = useReaderStore((s) => s.chromeVisible);
   // Reading mode: "scroll" stacks every page in one vertical scroll.

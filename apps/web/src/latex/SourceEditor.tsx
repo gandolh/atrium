@@ -16,7 +16,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirro
 import { StreamLanguage, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 
-import type { Theme } from "../store/reader-store";
+import type { ResolvedTheme } from "../reader/chrome/use-apply-theme";
 import { atriumSourceTheme } from "./source-theme";
 
 /**
@@ -62,7 +62,7 @@ interface SourceEditorProps {
   value: string;
   onChange: (next: string) => void;
   /** The active reading theme; only its dark/light-ness reaches CodeMirror. */
-  theme: Theme;
+  theme: ResolvedTheme;
   readOnly?: boolean;
   reveal?: RevealTarget | null;
   /** Accessible name for the text box. */
@@ -109,7 +109,7 @@ const readOnlyCompartment = new Compartment();
  */
 const latexLanguage = StreamLanguage.define(stex);
 
-function baseExtensions(theme: Theme, readOnly: boolean, label: string): Extension[] {
+function baseExtensions(theme: ResolvedTheme, readOnly: boolean, label: string): Extension[] {
   return [
     lineNumbers(),
     highlightActiveLine(),

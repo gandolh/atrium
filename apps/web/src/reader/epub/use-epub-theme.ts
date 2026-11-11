@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Rendition } from "epubjs";
 
-import { useReaderStore, type Theme } from "../../store/reader-store";
+import { useReaderStore } from "../../store/reader-store";
+import { useResolvedTheme, type ResolvedTheme } from "../chrome/use-apply-theme";
 import { themePalette } from "../../lib/tokens";
 import { fontStackFor } from "./EpubSettings";
 
@@ -155,7 +156,7 @@ const EPUB_FONT_FACE_RULES = {
  * chrome stay visually consistent across light/sepia/dark.
  */
 export function themeRules(
-  theme: Theme,
+  theme: ResolvedTheme,
   lineSpacing: number,
   margins: number,
   // Scroll mode (`flow: scrolled-doc`) changes how `vh` behaves for images —
@@ -247,7 +248,7 @@ export function themeRules(
 const NARROW_QUERY = "(max-width: 520px)";
 
 export function useEpubTheme(rendition: Rendition | null) {
-  const theme = useReaderStore((s) => s.theme);
+  const theme = useResolvedTheme();
   const fontSettings = useReaderStore((s) => s.fontSettings);
   // Scroll vs paged changes the image-height rule (see themeRules). A pageMode
   // flip remounts the rendition anyway, but subscribe + depend on it so the

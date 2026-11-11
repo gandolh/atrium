@@ -113,7 +113,7 @@ export type FontSettingsPreference = z.infer<typeof fontSettingsSchema>;
  */
 export const preferencesSchema = z
   .object({
-    theme: z.enum(["light", "sepia", "dark"]).optional(),
+    theme: z.enum(["light", "sepia", "dark", "system"]).optional(),
     fontSettings: fontSettingsSchema.optional(),
     pageMode: z.enum(["paged", "scroll"]).optional(),
     tocSidebarOpen: z.boolean().optional(),

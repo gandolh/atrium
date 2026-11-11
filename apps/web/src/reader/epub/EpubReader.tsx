@@ -23,6 +23,7 @@ import {
   type RailTick,
   type SearchMatch,
   type TocEntry,
+  resolveTheme,
   useApplyTheme,
   useAutoHideChrome,
   useChromeToggle,
@@ -229,7 +230,8 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     // Snapshot the live theme/font so the off-screen walk lays out identically
     // to the visible reader — a width/font mismatch would make the counted
     // total disagree with the on-screen pages (epub.js #274).
-    const { theme, fontSettings } = useReaderStore.getState();
+    const { theme: picked, fontSettings } = useReaderStore.getState();
+    const theme = resolveTheme(picked);
     const applyStyles = (r: Rendition) => {
       const name = `reader-${theme}`;
       r.themes.register(name, themeRules(theme, fontSettings.lineSpacing, fontSettings.margins));
@@ -970,7 +972,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
                     title="Reader settings"
                     trigger={
                       <ToolbarButton label="Reader settings">
-                        <span className="text-sm font-semibold leading-none tracking-tight">Aa</span>
+                        <span className="text-sm leading-none font-semibold tracking-tight">Aa</span>
                       </ToolbarButton>
                     }
                   >
@@ -988,7 +990,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
             // field. Chapter label hides on narrow bars so the input has room.
             <div className="flex min-w-0 items-center gap-2">
               {chapterLabel && (
-                <span className="hidden min-w-0 max-w-[9rem] truncate text-xs text-reader-fg/60 md:inline">
+                <span className="hidden max-w-[9rem] min-w-0 truncate text-xs text-reader-fg/60 md:inline">
                   {chapterLabel}
                 </span>
               )}

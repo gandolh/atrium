@@ -25,6 +25,7 @@ import {
   searchTracks,
   type QueueAdder,
 } from "./jukebox.service.js";
+import { present } from "../../common/present.js";
 
 /**
  * HTTP for the Jukebox (D55, D56, D57). Validation in, status codes
@@ -109,7 +110,7 @@ export function registerJukeboxRoutes(app: FastifyInstance): void {
       if (!parsed.data.addedBy) return invalid(reply);
       adder = { kind: "discord", name: parsed.data.addedBy.name };
     } else {
-      adder = { kind: "profile", name: request.authProfile!.name };
+      adder = { kind: "profile", name: present(request.authProfile, "the profile the guard resolved").name };
     }
     return answer(reply, () => addToQueue(guildId, parsed.data, adder));
   });

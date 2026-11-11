@@ -1,5 +1,6 @@
 import type { Knex } from "knex";
 import { knex } from "../../database/knex.js";
+import { present } from "../../common/present.js";
 
 /**
  * Data access for `note_folders` — the per-profile tree notes are filed into
@@ -115,7 +116,7 @@ export async function updateNoteFolder(
     if (Object.keys(changes).length > 0) {
       await trx("note_folders").where({ id, profile_id: profileId }).update(changes);
     }
-    return { ok: true, folder: (await folderOn(trx, profileId, id))! };
+    return { ok: true, folder: present(await folderOn(trx, profileId, id), "the folder just written") };
   });
 }
 

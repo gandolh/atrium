@@ -243,7 +243,7 @@ export async function confinePathUnder(rootDir: string, untrustedPath: string): 
 
   let cursor = rootReal;
   for (let i = 0; i < segments.length; i++) {
-    const next = join(cursor, segments[i]!);
+    const next = join(cursor, segments[i]);
     let info;
     try {
       info = await lstat(next);

@@ -18,6 +18,7 @@ import { updatePublishedBook } from "../library/library.model.js";
 import { isBuildArtifactPath, writeAtomic } from "./latex-compile.service.js";
 import { confineProjectPath, type ConfinedPath } from "./latex-paths.js";
 import { getLatexProject, type DocumentVersionRow, type LatexProjectRow } from "./latex.model.js";
+import { present } from "../../common/present.js";
 
 /**
  * The `/latex` domain logic — wire shapes, the working tree, path
@@ -415,8 +416,9 @@ export function sendFile(
 // neither is optional in practice. The **profile** owns projects; the
 // **account** — the local user (D58) — is the security boundary and the
 // compile single-flight scope (D35).
-export const pid = (request: FastifyRequest): string => request.authProfile!.id;
-export const uid = (request: FastifyRequest): string => request.auth!.user.id;
+export const pid = (request: FastifyRequest): string =>
+  present(request.authProfile, "the profile the guard resolved").id;
+export const uid = (request: FastifyRequest): string => present(request.auth, "the session the guard resolved").user.id;
 
 /**
  * Rule 1, in one place. Resolve `:id` to a project **on the caller's own

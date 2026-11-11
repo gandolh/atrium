@@ -26,6 +26,7 @@ import {
   saveNote,
   updateFolder,
 } from "./notes.service.js";
+import { present } from "../../common/present.js";
 
 /**
  * HTTP for notes and note folders. Per-profile since the profiles work
@@ -35,7 +36,7 @@ import {
  */
 export function registerNotesRoutes(app: FastifyInstance): void {
   // The guard guarantees an authProfile on every route here.
-  const pid = (request: FastifyRequest): string => request.authProfile!.id;
+  const pid = (request: FastifyRequest): string => present(request.authProfile, "the profile the guard resolved").id;
 
   /**
    * The note body routes' size ceiling. An autosave carries the whole

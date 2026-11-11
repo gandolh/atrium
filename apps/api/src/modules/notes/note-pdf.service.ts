@@ -111,8 +111,8 @@ export function parseInkColor(css: string): RGB {
   const text = css.trim();
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(text);
   if (hex) {
-    const h = hex[1]!;
-    const full = h.length === 3 ? h[0]! + h[0]! + h[1]! + h[1]! + h[2]! + h[2]! : h;
+    const h = hex[1];
+    const full = h.length === 3 ? h[0] + h[0] + h[1] + h[1] + h[2] + h[2] : h;
     return rgb(
       parseInt(full.slice(0, 2), 16) / 255,
       parseInt(full.slice(2, 4), 16) / 255,
@@ -122,7 +122,7 @@ export function parseInkColor(css: string): RGB {
   const fn = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(text);
   if (fn) {
     const clamp = (v: string) => Math.min(1, Math.max(0, Number(v) / 255));
-    return rgb(clamp(fn[1]!), clamp(fn[2]!), clamp(fn[3]!));
+    return rgb(clamp(fn[1]), clamp(fn[2]), clamp(fn[3]));
   }
   return SHEET_INK_COLOR;
 }
@@ -130,10 +130,10 @@ export function parseInkColor(css: string): RGB {
 /** An SVG path string from a perfect-freehand outline — the editor's algorithm. */
 function outlineToPath(outline: number[][]): string {
   if (!outline.length) return "";
-  const parts: string[] = ["M", num(outline[0]![0]!), num(outline[0]![1]!), "Q"];
+  const parts: string[] = ["M", num(outline[0][0]), num(outline[0][1]), "Q"];
   for (let i = 0; i < outline.length; i++) {
-    const [x0, y0] = outline[i]! as [number, number];
-    const [x1, y1] = outline[(i + 1) % outline.length]! as [number, number];
+    const [x0, y0] = outline[i] as [number, number];
+    const [x1, y1] = outline[(i + 1) % outline.length] as [number, number];
     parts.push(num(x0), num(y0), num((x0 + x1) / 2), num((y0 + y1) / 2));
   }
   parts.push("Z");

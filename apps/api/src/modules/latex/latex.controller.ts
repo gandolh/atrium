@@ -71,6 +71,7 @@ import {
   zipProjectTree,
 } from "./latex.service.js";
 import { removeProjectTree } from "./project-tree.service.js";
+import { present } from "../../common/present.js";
 
 /**
  * HTTP for `/latex` — project CRUD, file CRUD, binary upload,
@@ -169,7 +170,11 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     );
     if (!ok) return reply.status(404).send({ error: "NOT_FOUND" });
     // Re-read rather than reconstruct: COALESCE decided which columns changed.
-    return reply.send(latexProjectSchema.parse(toLatexProject((await getLatexProject(pid(request), project.id))!)));
+    return reply.send(
+      latexProjectSchema.parse(
+        toLatexProject(present(await getLatexProject(pid(request), project.id), "the project just updated")),
+      ),
+    );
   });
 
   /**
@@ -919,12 +924,12 @@ export function registerLatexRoutes(app: FastifyInstance): void {
 
     return reply.status(createdBook ? 201 : 200).send({
       book: toLibraryBook(
-        (await getBook(bookId))!,
+        present(await getBook(bookId), "the book just published"),
         (await getProfileProgress(pid(request), bookId)) ?? { progress: 0, locator: null },
       ),
       // Assigned in the try above, or the catch rethrew — the assertion is
       // about control flow, not about the data.
-      version: toDocumentVersion(version!, pdfBytes.byteLength),
+      version: toDocumentVersion(version, pdfBytes.byteLength),
     });
   });
 
@@ -998,7 +1003,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     }
 
     if (wasLatest) {
-      const latest = (await getLatestDocumentVersion(id))!;
+      const latest = present(await getLatestDocumentVersion(id), "the latest document version");
       try {
         await writeLibraryArtifacts(id, await readFile(versionPdfPathFor(latest.id)), book.title, request);
       } catch (err) {

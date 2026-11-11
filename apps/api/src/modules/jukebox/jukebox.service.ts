@@ -38,6 +38,7 @@ import {
   updatePlayerRow,
 } from "./jukebox.model.js";
 import type { CommandRow, PlayerRow } from "./jukebox.types.js";
+import { present } from "../../common/present.js";
 
 /**
  * The Jukebox's rules (D56, D57).
@@ -230,7 +231,7 @@ async function takeNext(op: Op, wrapAnyway = false): Promise<NextPick | null> {
     const [first, ...rest] = await ensurePicks(op);
     if (first === undefined) return null;
     await patch(op, { shuffle_picks: JSON.stringify(rest) });
-    return { track: op.playlist.byId.get(first)!, fromPlaylist: true };
+    return { track: present(op.playlist.byId.get(first), "a picked Track"), fromPlaylist: true };
   }
   const track = playlistAfterCursor(op, wrapAnyway || op.row.repeat === "all");
   return track ? { track, fromPlaylist: true } : null;
@@ -420,7 +421,7 @@ async function writeCommands(op: Op): Promise<boolean> {
         body = { kind, upcoming };
         break;
       case "join":
-        body = { kind, channelId: op.joinChannelId! };
+        body = { kind, channelId: present(op.joinChannelId, "the channel to join") };
         break;
       default:
         body = { kind };
@@ -770,7 +771,10 @@ export async function advance(guildId: string, request: BotAdvanceRequest): Prom
       }
       await startTrack(op, pick, { retire: true });
     }
-    const track = op.playlist.byId.get(op.row.current_book_id!)!;
+    const track = present(
+      op.playlist.byId.get(present(op.row.current_book_id, "the current book")),
+      "the current Track",
+    );
     return { play: { playId: op.row.play_id, track, upcoming: await computeUpcoming(op) } };
   });
 }

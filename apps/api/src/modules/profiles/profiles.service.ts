@@ -19,6 +19,7 @@ import {
   updateProfile,
   type ProfileRow,
 } from "./profiles.model.js";
+import { present } from "../../common/present.js";
 
 /**
  * Profile rules (D35). A **profile** is a person in the household;
@@ -154,7 +155,7 @@ export async function deleteAccountProfile(
 
   // Guaranteed by the is_default refusal above (the deleted profile is never
   // the default, and every account has one).
-  const fallback = (await getDefaultProfile(options.subject))!;
+  const fallback = present(await getDefaultProfile(options.subject), "the default profile");
   if (noteCount > 0) await reassignProfileNotes(profile.id, fallback.id);
 
   /*

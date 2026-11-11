@@ -22,6 +22,7 @@ import {
   type NoteRow,
   type NoteSummaryRow,
 } from "./notes.model.js";
+import { present } from "../../common/present.js";
 
 /**
  * Note and folder rules.
@@ -119,7 +120,7 @@ export async function moveNote(profileId: string, id: string, folderId: string |
   if (!(await setNoteFolder(profileId, id, folderId))) {
     return { ok: false, reason: "NOT_FOUND" };
   }
-  return { ok: true, note: (await getNote(profileId, id))! };
+  return { ok: true, note: present(await getNote(profileId, id), "the note just written") };
 }
 
 /**

@@ -17,6 +17,7 @@ import {
   renameAccountProfile,
   writePreferences,
 } from "./profiles.service.js";
+import { present } from "../../common/present.js";
 
 /**
  * HTTP for profiles. Validation in, status codes out;
@@ -31,9 +32,11 @@ import {
 export function registerProfileRoutes(app: FastifyInstance): void {
   // The app-wide guard (auth/auth.guard.ts) attaches the session, or answers
   // 401/403, so these are safe on every route in this file.
-  const accountId = (request: FastifyRequest): string => request.auth!.user.id;
+  const accountId = (request: FastifyRequest): string =>
+    present(request.auth, "the session the guard resolved").user.id;
   /** The device this request came from — the session it signed in with. */
-  const deviceId = (request: FastifyRequest): string => request.auth!.session.idHash;
+  const deviceId = (request: FastifyRequest): string =>
+    present(request.auth, "the session the guard resolved").session.idHash;
 
   /**
    * Resolve `:id` to a profile **on the caller's own account**, or answer 404

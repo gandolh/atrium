@@ -1,0 +1,24 @@
+# Markdown stays out of Prettier (decided 2026-11-10).
+*.md
+*.mdx
+
+# Generated or vendored copies.
+apps/api/vendor/
+apps/web/vendor/
+vendor/house-style/
+
+# The docs site's generated wiki and build output.
+apps/docs/docs/wiki/
+apps/docs/dist/
+apps/docs/.docusaurus/
+apps/docs/static/reference/
+
+# archify's output: the HTML is a build product, the JSON beside it is its source.
+apps/docs/static/diagrams/
+
+# Static assets, lockfile, build output.
+apps/web/public/
+packages/typeset/assets/
+package-lock.json
+dist/
+coverage/

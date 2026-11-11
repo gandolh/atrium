@@ -415,7 +415,7 @@ function emit(pages: readonly Page[], options: RenderPdfOptions, at: SourceRef):
         Parent: pagesRef,
         MediaBox: [0, 0, roundToOutput(page.width), roundToOutput(page.height)],
         Resources: resourcesRef,
-        Contents: contentRefs[index]!,
+        Contents: contentRefs[index],
       }),
     ),
   );

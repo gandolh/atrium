@@ -366,7 +366,7 @@ function parseMarkup(source: string, at: SourceRef): { roots: SvgElement[]; diag
     if (source.charCodeAt(i) === 0x2f /* / */) {
       i++;
       const start = i;
-      while (i < source.length && isNameChar(source[i]!)) i++;
+      while (i < source.length && isNameChar(source[i])) i++;
       const name = source.slice(start, i);
       const end = source.indexOf(">", i);
       if (end < 0) return fail(`an unterminated closing tag for \`${name}\``);
@@ -380,9 +380,9 @@ function parseMarkup(source: string, at: SourceRef): { roots: SvgElement[]; diag
       continue;
     }
 
-    if (i >= source.length || !isNameStart(source[i]!)) return fail("a `<` that starts no tag");
+    if (i >= source.length || !isNameStart(source[i])) return fail("a `<` that starts no tag");
     const nameStart = i;
-    while (i < source.length && isNameChar(source[i]!)) i++;
+    while (i < source.length && isNameChar(source[i])) i++;
     const name = source.slice(nameStart, i);
 
     const attributes: Record<string, string> = {};
@@ -401,9 +401,9 @@ function parseMarkup(source: string, at: SourceRef): { roots: SvgElement[]; diag
         i += 2;
         break;
       }
-      if (!isNameStart(source[i]!)) return fail(`an unreadable attribute in \`<${name}>\``);
+      if (!isNameStart(source[i])) return fail(`an unreadable attribute in \`<${name}>\``);
       const attrStart = i;
-      while (i < source.length && isNameChar(source[i]!)) i++;
+      while (i < source.length && isNameChar(source[i])) i++;
       const attrName = source.slice(attrStart, i);
       while (i < source.length && isWsp(source.charCodeAt(i))) i++;
       if (source.charCodeAt(i) !== 0x3d /* = */) {
@@ -430,7 +430,7 @@ function parseMarkup(source: string, at: SourceRef): { roots: SvgElement[]; diag
   }
 
   if (stack.length > 0) {
-    return fail(`\`<${stack[stack.length - 1]!.name}>\` was never closed`);
+    return fail(`\`<${stack[stack.length - 1].name}>\` was never closed`);
   }
   return { roots, diagnostics };
 }
@@ -552,7 +552,7 @@ function parsePreserveAspectRatio(raw: string | undefined): AspectRatio | null {
   // subset; accepting and dropping it here would be the one place this file
   // ignores something, so it is simply not accepted.
   if (parts.length === 0 || parts.length > 2) return null;
-  const align = parts[0]!;
+  const align = parts[0];
   if (!ALIGN_VALUES.includes(align)) return null;
   const meetOrSlice = parts[1];
   if (meetOrSlice === undefined) return { align, slice: false };
@@ -635,7 +635,7 @@ export function parseTransform(raw: string, at: SourceRef): { matrix: SvgMatrix 
     skipSeparator(s);
     if (s.i >= s.text.length) break;
     const nameStart = s.i;
-    while (s.i < s.text.length && /[A-Za-z]/.test(s.text[s.i]!)) s.i++;
+    while (s.i < s.text.length && /[A-Za-z]/.test(s.text[s.i])) s.i++;
     const name = s.text.slice(nameStart, s.i);
     if (name === "") return bad("a transform function name was expected");
     skipWsp(s);
@@ -656,18 +656,18 @@ export function parseTransform(raw: string, at: SourceRef): { matrix: SvgMatrix 
 
     let step: SvgMatrix;
     if (name === "translate") {
-      if (args.length === 1) step = [1, 0, 0, 1, args[0]!, 0];
-      else if (args.length === 2) step = [1, 0, 0, 1, args[0]!, args[1]!];
+      if (args.length === 1) step = [1, 0, 0, 1, args[0], 0];
+      else if (args.length === 2) step = [1, 0, 0, 1, args[0], args[1]];
       else return bad("`translate` takes one or two arguments");
     } else if (name === "scale") {
       // `scale(s)` is `scale(s, s)`, and MathJax writes the one-argument form
       // for script-size runs: `translate(605,363) scale(0.707)`.
-      if (args.length === 1) step = [args[0]!, 0, 0, args[0]!, 0, 0];
-      else if (args.length === 2) step = [args[0]!, 0, 0, args[1]!, 0, 0];
+      if (args.length === 1) step = [args[0], 0, 0, args[0], 0, 0];
+      else if (args.length === 2) step = [args[0], 0, 0, args[1], 0, 0];
       else return bad("`scale` takes one or two arguments");
     } else if (name === "matrix") {
       if (args.length !== 6) return bad("`matrix` takes six arguments");
-      step = [args[0]!, args[1]!, args[2]!, args[3]!, args[4]!, args[5]!];
+      step = [args[0], args[1], args[2], args[3], args[4], args[5]];
     } else if (name === "rotate" || name === "skewX" || name === "skewY") {
       diagnostics.push(
         unsupported(
@@ -753,7 +753,7 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
     skipWsp(s);
     if (s.i >= s.text.length) break;
 
-    const ch = s.text[s.i]!;
+    const ch = s.text[s.i];
     if (/[A-Za-z]/.test(ch)) {
       command = ch;
       s.i++;
@@ -804,8 +804,8 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
     if (upper === "M") {
       const a = need(2, command);
       if (a === null) return diagnostics;
-      cx = ox + a[0]!;
-      cy = oy + a[1]!;
+      cx = ox + a[0];
+      cy = oy + a[1];
       startX = cx;
       startY = cy;
       sink.out.push(`${emitPoint(sink, cx, cy)} m`);
@@ -823,18 +823,18 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
       if (upper === "L") {
         const a = need(2, command);
         if (a === null) return diagnostics;
-        nx = ox + a[0]!;
-        ny = oy + a[1]!;
+        nx = ox + a[0];
+        ny = oy + a[1];
       } else if (upper === "H") {
         const a = need(1, command);
         if (a === null) return diagnostics;
-        nx = ox + a[0]!;
+        nx = ox + a[0];
         ny = cy;
       } else {
         const a = need(1, command);
         if (a === null) return diagnostics;
         nx = cx;
-        ny = oy + a[0]!;
+        ny = oy + a[0];
       }
       cx = nx;
       cy = ny;
@@ -857,12 +857,12 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
       if (upper === "C") {
         const a = need(6, command);
         if (a === null) return diagnostics;
-        x1 = ox + a[0]!;
-        y1 = oy + a[1]!;
-        x2 = ox + a[2]!;
-        y2 = oy + a[3]!;
-        x = ox + a[4]!;
-        y = oy + a[5]!;
+        x1 = ox + a[0];
+        y1 = oy + a[1];
+        x2 = ox + a[2];
+        y2 = oy + a[3];
+        x = ox + a[4];
+        y = oy + a[5];
       } else {
         const a = need(4, command);
         if (a === null) return diagnostics;
@@ -870,10 +870,10 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
         // previous cubic the first control coincides with the current point.
         x1 = lastCubicX === null ? cx : 2 * cx - lastCubicX;
         y1 = lastCubicY === null ? cy : 2 * cy - lastCubicY;
-        x2 = ox + a[0]!;
-        y2 = oy + a[1]!;
-        x = ox + a[2]!;
-        y = oy + a[3]!;
+        x2 = ox + a[0];
+        y2 = oy + a[1];
+        x = ox + a[2];
+        y = oy + a[3];
       }
       sink.out.push(`${emitPoint(sink, x1, y1)} ${emitPoint(sink, x2, y2)} ${emitPoint(sink, x, y)} c`);
       sink.drew = true;
@@ -894,17 +894,17 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
       if (upper === "Q") {
         const a = need(4, command);
         if (a === null) return diagnostics;
-        qx = ox + a[0]!;
-        qy = oy + a[1]!;
-        x = ox + a[2]!;
-        y = oy + a[3]!;
+        qx = ox + a[0];
+        qy = oy + a[1];
+        x = ox + a[2];
+        y = oy + a[3];
       } else {
         const a = need(2, command);
         if (a === null) return diagnostics;
         qx = lastQuadX === null ? cx : 2 * cx - lastQuadX;
         qy = lastQuadY === null ? cy : 2 * cy - lastQuadY;
-        x = ox + a[0]!;
-        y = oy + a[1]!;
+        x = ox + a[0];
+        y = oy + a[1];
       }
       const x1 = cx + (2 / 3) * (qx - cx);
       const y1 = cy + (2 / 3) * (qy - cy);
@@ -972,8 +972,8 @@ const RGB_HEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 function parseColor(raw: string): [number, number, number] | null {
   const match = RGB_HEX.exec(raw.trim());
   if (match === null) return null;
-  const body = match[1]!;
-  const expanded = body.length === 3 ? `${body[0]!}${body[0]!}${body[1]!}${body[1]!}${body[2]!}${body[2]!}` : body;
+  const body = match[1];
+  const expanded = body.length === 3 ? `${body[0]}${body[0]}${body[1]}${body[1]}${body[2]}${body[2]}` : body;
   return [
     Number.parseInt(expanded.slice(0, 2), 16) / 255,
     Number.parseInt(expanded.slice(2, 4), 16) / 255,
@@ -1191,8 +1191,8 @@ function walk(element: SvgElement, ctm: SvgMatrix, inherited: Paint, state: Walk
       }
       numbers[key] = parsed.value;
     }
-    const w = numbers["width"]!;
-    const h = numbers["height"]!;
+    const w = numbers["width"];
+    const h = numbers["height"];
     if (w < 0 || h < 0) {
       refuse(state, error("internal", state.at, `an SVG \`<rect>\` has a negative extent (${w} × ${h})`));
       return;
@@ -1205,8 +1205,8 @@ function walk(element: SvgElement, ctm: SvgMatrix, inherited: Paint, state: Walk
       // `matrix()` the rectangle is a parallelogram, and `re` would draw a
       // different shape.
       const sink: PathSink = { ctm: local, out: [], drew: true };
-      const x0 = numbers["x"]!;
-      const y0 = numbers["y"]!;
+      const x0 = numbers["x"];
+      const y0 = numbers["y"];
       sink.out.push(`${emitPoint(sink, x0, y0)} m`);
       sink.out.push(`${emitPoint(sink, x0 + w, y0)} l`);
       sink.out.push(`${emitPoint(sink, x0 + w, y0 + h)} l`);

@@ -69,8 +69,8 @@ function allFinite(values: readonly number[]): boolean {
 function clusterTexts(run: GlyphRun): string[] {
   const texts: string[] = [];
   for (let i = 0; i < run.glyphs.length; i++) {
-    const glyph = run.glyphs[i]!;
-    const previous = i > 0 ? run.glyphs[i - 1]! : undefined;
+    const glyph = run.glyphs[i];
+    const previous = i > 0 ? run.glyphs[i - 1] : undefined;
     if (previous !== undefined && previous.cluster === glyph.cluster) {
       texts.push("");
       continue;
@@ -78,7 +78,7 @@ function clusterTexts(run: GlyphRun): string[] {
 
     let end = run.text.length;
     for (let j = i + 1; j < run.glyphs.length; j++) {
-      const next = run.glyphs[j]!;
+      const next = run.glyphs[j];
       if (next.cluster !== glyph.cluster) {
         end = next.cluster;
         break;
@@ -188,7 +188,7 @@ function emitRun(run: GlyphRun, page: Page, font: FontSubset, out: string[]): vo
   };
 
   for (let i = 0; i < run.glyphs.length; i++) {
-    const glyph = run.glyphs[i]!;
+    const glyph = run.glyphs[i];
 
     // A vertical offset is text rise; it does not move the pen horizontally, so
     // `penExact` and `viewerX` carry across the operator boundary unchanged.
@@ -212,7 +212,7 @@ function emitRun(run: GlyphRun, page: Page, font: FontSubset, out: string[]): vo
     }
 
     const code = subsetCodeFor(font, glyph.id);
-    recordUnicode(font, code, texts[i]!);
+    recordUnicode(font, code, texts[i]);
     pending += hexCode(code);
 
     // What the renderer will advance by: the `/W` entry for this glyph.

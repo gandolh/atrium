@@ -10,13 +10,11 @@ export default [
     root: import.meta.dirname,
     web: "apps/web/src",
     server: ["apps/api/src", "packages/shared/src", "packages/typeset/src"],
-    // Tests run on node:test, so the vitest rules are off. Test helpers sit beside the tests.
+    // Tests run on node:test, so the vitest rules are off.
     vitest: false,
-    tests: ["**/*.test.{ts,tsx,js,jsx,mjs,cjs}", "**/test/**"],
     // Allowed to print: the seed command talks to the person running it; the entry, the config check and the
     // migrations print before a logger exists or outside the server; the three services have no logger in
-    // reach (module-level state, recorded in scripts/conventions.json); tests hook console to read what a
-    // service printed.
+    // reach (module-level state, recorded in scripts/conventions.json).
     console: [
       "apps/api/src/scripts/seed-user.ts",
       "apps/api/src/index.ts",
@@ -26,8 +24,6 @@ export default [
       "apps/api/src/modules/latex/latex-compile.service.ts",
       "apps/api/src/modules/library/convert.service.ts",
       "apps/api/src/modules/library/extract.service.ts",
-      "**/test/**",
-      "**/*.test.{ts,tsx}",
     ],
     // Tests sit in tsconfigs that projectService does not find (they are not in the build configs).
     typed: {

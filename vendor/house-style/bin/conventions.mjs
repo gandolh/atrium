@@ -25,7 +25,7 @@ export const DEFAULT_STYLESHEET = "styles/index.css";
 /** The checks an exception can name, with their highest rule number. house-style's are records for review only. */
 export const CHECKS = { "base-ui": 17, structure: 11, "house-style": 25 };
 
-export const TOP_LEVEL_KEYS = ["$schema", "web", "server", "shared", "ui", "stylesheet", "exceptions"];
+export const TOP_LEVEL_KEYS = ["$schema", "web", "server", "shared", "ui", "stylesheet", "env", "exceptions"];
 export const EXCEPTION_KEYS = ["check", "rule", "path", "match", "reason"];
 
 /** Folders never walked: dependencies, builds, generated and vendored code, and dot-folders. */
@@ -131,6 +131,8 @@ export function loadConventions(repo) {
     rootSource,
     ui: (data.ui ?? DEFAULT_UI).map(clean),
     stylesheet: clean(data.stylesheet ?? DEFAULT_STYLESHEET),
+    // The env readers, as globs from the repo root; null keeps the default, any config.ts or config.js.
+    env: data.env === undefined ? null : data.env.map(clean),
     exceptions,
   };
 }
@@ -167,6 +169,15 @@ export function validateConventions(data, exceptionLines = []) {
   if (data.stylesheet !== undefined) {
     const problem = pathProblem(data.stylesheet, { globs: "none" });
     if (problem) at(null, `"stylesheet" ${problem}`);
+  }
+  if (data.env !== undefined) {
+    if (!Array.isArray(data.env)) at(null, `"env" is a list of files, such as ["server/src/config/env.ts"]`);
+    else {
+      data.env.forEach((value, i) => {
+        const problem = pathProblem(value, { globs: "any" });
+        if (problem) at(null, `env[${i}] ${problem}`);
+      });
+    }
   }
   if (data.exceptions !== undefined) {
     if (!Array.isArray(data.exceptions)) {
@@ -329,12 +340,19 @@ export function codeFiles(repo, roots) {
   return [...files].sort();
 }
 
-/** A test, or a helper only tests load: `*.test.*`, `*.spec.*`, or a file in a test folder. */
+/** The folders whose files are tests or helpers only tests load. */
+export const TEST_FOLDERS = ["test", "tests", "__tests__", "testing", "e2e"];
+
+/**
+ * A test, or a helper only tests load: `*.test.*`, `*.spec.*`, jest's `*-spec.*` (NestJS's
+ * `app.e2e-spec.ts`), or a file in a test folder. house-style's ESLint config gives the same
+ * files its test relaxations, and a test keeps the two in step.
+ */
 export function isTestFile(file) {
   const parts = file.split("/");
   const name = parts.at(-1) ?? "";
-  if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(name)) return true;
-  return parts.slice(0, -1).some((part) => ["test", "tests", "__tests__", "testing", "e2e"].includes(part));
+  if (/(?:\.test|\.spec|-spec)\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(name)) return true;
+  return parts.slice(0, -1).some((part) => TEST_FOLDERS.includes(part));
 }
 
 /** The path inside the root, for root-relative rules. */

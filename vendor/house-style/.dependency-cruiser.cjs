@@ -23,9 +23,9 @@ module.exports = {
       name: "not-to-unresolvable",
       severity: "error",
       comment:
-        "An import that cannot be resolved is an edge every other rule here misses. A Vite virtual module (`virtual:` ids) is made by a plugin at build time, so it is allowed.",
+        "An import that cannot be resolved is an edge every other rule here misses. A Vite virtual module (`virtual:` ids) is made by a plugin at build time, Astro's virtual modules (`astro:content`, `astro:assets`) by Astro, and React Router's route types (`./+types/<route>`) by its typegen, so all three are allowed.",
       from: {},
-      to: { couldNotResolve: true, pathNot: "^virtual:" },
+      to: { couldNotResolve: true, pathNot: ["^virtual:", "^astro:", "(^|/)\\+types/"] },
     },
     {
       name: "feature-through-index",

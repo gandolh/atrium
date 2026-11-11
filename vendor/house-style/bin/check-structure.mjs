@@ -11,8 +11,8 @@
  *   rule 1   listen( in a server root anywhere but server.ts (tests excepted: a
  *            fake upstream or a real-socket test isn't the app's entry)
  *   rule 2   a server root whose app.ts exports no buildApp, or that has no app.ts
- *   rule 3   process.env outside config.ts, and any NODE_ENV, in server and shared
- *            roots (tests excepted)
+ *   rule 3   process.env outside config.ts (or the files conventions.json's "env"
+ *            names), and any NODE_ENV, in server and shared roots (tests excepted)
  *   rule 5   a feature reached past its index: house-style's .dependency-cruiser.cjs
  *            (feature-through-index), not this script
  *   rule 6   request input parsed by hand (schema.parse(request.body), a parse
@@ -34,6 +34,7 @@ import {
   codeFiles,
   createReport,
   describeRoots,
+  globRegex,
   isTestFile,
   lineIndex,
   loadConventions,
@@ -86,6 +87,8 @@ function main() {
     }
   }
 
+  const envReader = envReaderTest(conventions.env);
+
   for (const file of codeFiles(repo, [...server, ...web, ...shared])) {
     const text = readFileSync(join(repo, file), "utf8");
     const test = isTestFile(file);
@@ -109,7 +112,7 @@ function main() {
       if (APP.test(file)) checkBuildApp(file, masked, report);
       checkSchemas(file, masked, lineOf, report);
     }
-    if (!test) checkEnvironment(file, masked, lineOf, report);
+    if (!test) checkEnvironment(file, masked, lineOf, envReader, report);
   }
   return report.finish();
 }
@@ -152,17 +155,28 @@ function checkBuildApp(file, { bare }, report) {
 
 // ── rule 3: config.ts reads the environment ──────────────────────────────────
 
-function checkEnvironment(file, { code, bare }, lineOf, report) {
+/**
+ * Which files may read process.env, and the name the message gives them: any config.ts by
+ * default, or exactly the globs of conventions.json's "env", which replace it (as ESLint's
+ * `env` option replaces its default).
+ */
+function envReaderTest(env) {
+  if (env === null) return { test: (file) => CONFIG.test(file), name: "config.ts" };
+  const globs = env.map(globRegex);
+  return { test: (file) => globs.some((glob) => glob.test(file)), name: `the env reader (${env.join(", ")})` };
+}
+
+function checkEnvironment(file, { code, bare }, lineOf, envReader, report) {
   const byLine = new Map();
   for (const match of code.matchAll(/\bNODE_ENV\b/g)) {
     const line = lineOf(match.index);
     byLine.set(line, "reads NODE_ENV: the app is configured by its own variables, never by NODE_ENV");
   }
-  if (!CONFIG.test(file)) {
+  if (!envReader.test(file)) {
     for (const match of bare.matchAll(/\bprocess\s*\.\s*env\b/g)) {
       const line = lineOf(match.index);
       if (!byLine.has(line))
-        byLine.set(line, "reads process.env outside config.ts: take the setting from the parsed config");
+        byLine.set(line, `reads process.env outside ${envReader.name}: take the setting from the parsed config`);
     }
   }
   for (const [line, message] of byLine) report.add({ file, line, rule: 3, message });

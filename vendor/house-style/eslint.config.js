@@ -23,7 +23,15 @@ const TS = "**/*.{ts,tsx,mts,cts}";
 const JS = "**/*.{js,jsx,mjs,cjs}";
 const SOURCE_EXTENSIONS = "{ts,tsx,mts,cts,js,jsx,mjs,cjs}";
 const CONFIG_FILES = [`**/*.config.${SOURCE_EXTENSIONS}`];
+/** The vitest block's files when the repo passes no `tests`: files named as tests. */
 const DEFAULT_TESTS = [`**/*.test.${SOURCE_EXTENSIONS}`, `**/*.spec.${SOURCE_EXTENSIONS}`];
+/**
+ * What the test relaxations reach: everything bin/conventions.mjs's `isTestFile` counts as a
+ * test or a test helper. That is the test names, jest's `*-spec.*` (NestJS's `app.e2e-spec.ts`),
+ * and every file in a test folder. A test of the two agreeing keeps them in step.
+ */
+const TEST_FOLDERS = ["test", "tests", "__tests__", "testing", "e2e"];
+const TEST_LIKE = [...DEFAULT_TESTS, `**/*-spec.${SOURCE_EXTENSIONS}`, ...TEST_FOLDERS.map((dir) => `**/${dir}/**`)];
 const DEFAULT_ENV = ["**/config.ts"];
 const DEFAULT_ASSERT_FUNCTIONS = ["expect", "expectTypeOf"];
 const DEFAULT_IGNORES = ["**/vendor/**", "**/dist/**", "**/coverage/**"];
@@ -45,6 +53,7 @@ const KNOWN_OPTIONS = new Set([
   "server",
   "scripts",
   "tests",
+  "playwright",
   "defaultExports",
   "console",
   "env",
@@ -59,15 +68,16 @@ const KNOWN_OPTIONS = new Set([
 /**
  * Builds the flat config array for one repo.
  *
- * Folders (`web`, `server`, `scripts`) are paths from the repo root; `tests`,
- * `defaultExports`, `console`, `untyped` and `ignores` are globs from the repo root.
+ * Folders (`web`, `server`, `scripts`) are paths from the repo root; `tests`, `playwright`,
+ * `defaultExports`, `console`, `env`, `untyped` and `ignores` are globs from the repo root.
  *
  * @param {object} [options]
  * @param {string} [options.root] The repo root, for typed linting and the Tailwind entry (default: the working directory).
  * @param {string | string[]} [options.web] The React source folders: they get the hooks rules, and the Tailwind rules when `tailwind` is set.
  * @param {string | string[]} [options.server] The Node source folders. No rule is scoped to them in 1.0.0; the key names the root for later presets.
  * @param {string[]} [options.scripts] Folders of scripts run by hand, where `console` is the interface and `process.env` is read directly (default `["scripts"]`).
- * @param {string[]} [options.tests] Test file globs (default `**\/*.test.*` and `**\/*.spec.*`).
+ * @param {string[]} [options.tests] The vitest files (default `**\/*.test.*` and `**\/*.spec.*`). The test relaxations reach these, and every file `isTestFile` counts as a test: `*-spec.*` names and the files in `test`, `tests`, `__tests__`, `testing` and `e2e` folders.
+ * @param {string[]} [options.playwright] Globs of Playwright specs (default none): they get the test relaxations, and the vitest rules leave them alone.
  * @param {string[]} [options.defaultExports] Globs where a framework or a runtime contract needs a default export, beyond config files.
  * @param {string[]} [options.console] Globs of app files allowed to print: a CLI entry, or a module that logs before the logger exists. Their `process.env` reads are still errors.
  * @param {string[]} [options.env] Globs of the files that read `process.env`, where `n/no-process-env` is off (default `["**\/config.ts"]`). A repo whose reader is `config/env.ts` passes its path instead.
@@ -87,6 +97,7 @@ export function houseStyle(options = {}) {
   const web = list(options.web);
   const scripts = options.scripts ?? ["scripts"];
   const tests = options.tests ?? DEFAULT_TESTS;
+  const playwright = options.playwright ?? [];
   const env = options.env ?? DEFAULT_ENV;
   const assertFunctionNames = options.assertFunctionNames ?? DEFAULT_ASSERT_FUNCTIONS;
   const typed = options.typed ?? {};
@@ -95,6 +106,13 @@ export function houseStyle(options = {}) {
   /** @type {import("eslint").Linter.Config[]} */
   const config = [
     { name: "house-style/ignores", ignores: [...DEFAULT_IGNORES, ...(options.ignores ?? [])] },
+    {
+      // A repo that imports typescript-eslint for a block of its own adds its config's folder as a second
+      // candidate root beside this copy's, and the parser then refuses to guess one for the files linted
+      // without types. One root for every file ends the guess.
+      name: "house-style/tsconfig-root",
+      languageOptions: { parserOptions: { tsconfigRootDir: root } },
+    },
 
     // The two recommended sets catch real mistakes the compiler lets through, and cost nothing to agree on.
     js.configs.recommended,
@@ -239,8 +257,10 @@ export function houseStyle(options = {}) {
 
   if (options.vitest ?? true) {
     config.push({
+      // Exactly the `tests` globs: helpers in a test folder aren't tests, and a Playwright spec isn't a vitest file.
       name: "house-style/vitest",
       files: tests,
+      ...(playwright.length > 0 ? { ignores: playwright } : {}),
       plugins: { vitest },
       rules: {
         // The vitest set catches a committed `.only`, a test with no assertion, and an expect that cannot fail.
@@ -251,6 +271,11 @@ export function houseStyle(options = {}) {
         "vitest/valid-expect": ["error", { maxArgs: 2 }],
         // The house asserts on a thrown error inside its `catch`, which this rule flags every time.
         "vitest/no-conditional-expect": "off",
+        // A hook that checks the state it set up is part of the test, not a stray assertion.
+        "vitest/no-standalone-expect": [
+          "error",
+          { additionalTestBlockFunctions: ["beforeAll", "beforeEach", "afterAll", "afterEach"] },
+        ],
       },
     });
   }
@@ -258,12 +283,14 @@ export function houseStyle(options = {}) {
   config.push(
     {
       name: "house-style/tests",
-      files: tests,
+      files: [...TEST_LIKE, ...tests, ...playwright],
       rules: {
         // In a test a `!` fails loudly at the line that broke, so it is a warning there, not an error.
         "@typescript-eslint/no-non-null-assertion": "warn",
         // A test sets the environment up for the code it tests.
         "n/no-process-env": "off",
+        // A test stubs the console and asserts on what the code printed.
+        "no-console": "off",
       },
     },
     {
@@ -294,7 +321,8 @@ export function houseStyle(options = {}) {
     },
   );
 
-  return config;
+  // A block whose files would be empty (`scripts: []` and no `console`) is left out: ESLint refuses it.
+  return config.filter((block) => !Array.isArray(block.files) || block.files.length > 0);
 }
 
 function list(value) {

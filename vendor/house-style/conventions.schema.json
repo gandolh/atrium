@@ -18,7 +18,7 @@
       "$ref": "#/$defs/roots"
     },
     "shared": {
-      "description": "The source folders of code both sides import, such as shared/src. Only config.ts reads the environment here too. Default: shared/src when it exists; [] for none.",
+      "description": "The source folders of code both sides import, such as shared/src. Only config.ts (or the env files) reads the environment here too. Default: shared/src when it exists; [] for none.",
       "$ref": "#/$defs/roots"
     },
     "ui": {
@@ -35,6 +35,15 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^*?\\[\\]{}]+$"
+    },
+    "env": {
+      "description": "The files that read process.env (the structure's rule 3), as globs from the repo root: * matches within a folder name, ** any depth. They replace the default (any config.ts or config.js) the same way ESLint's env option replaces its default, so keep the two lists the same. NODE_ENV stays a finding in them. Default: any config.ts or config.js.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^?\\[\\]{}]+$"
+      }
     },
     "exceptions": {
       "description": "Findings the repo accepts. Each names its check, its rule and its path, and says why. An exception may record a case no checker reports (an inline style, a test helper's name).",

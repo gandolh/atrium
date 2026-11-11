@@ -4,6 +4,151 @@ house-style's versions, newest first. Each section is the upgrade note for a
 repo moving to that version: what changed, and what to fix before syncing it.
 Tags are `house-style-v<version>`.
 
+## 1.2.0 (2026-11-11)
+
+Folds in what the 23 repos that adopted 1.1.0 reported. It loosens, adds
+opt-in options, fixes crashes and documents: it tightens no default, adds no
+plugin and changes no pin, and `tsconfig.base.json` is unchanged (so
+`sync --check` has no base-flag change to miss in a hand-kept base). The one
+exception to "a re-sync turns nothing red" is the `no-standalone-expect`
+change below, whose unused-directive warnings the sync's own commit deletes. A
+repo on 1.1.0 syncs `house-style-v1.2.0`, then runs `npx eslint .`; the list
+below says what each change does to it and what it can delete.
+
+- **`houseStyle({ scripts: [] })` no longer crashes** (ro-housing,
+  public-resource-map, shelfmark). A block whose `files` would be empty is left
+  out, where ESLint refused it ("files: Expected value to be a non-empty
+  array"). With `scripts: []` the scripts block goes, and the console block
+  stays only when `console` names files; with `tests: []` there is no vitest
+  block.
+- **One idea of a test file, in two widths** (wzd_auth, imbatranimOS). The test
+  relaxations (`house-style/tests`: `!` as a warning, `n/no-process-env` off,
+  and now `no-console` off) reach everything `check-structure`'s `isTestFile`
+  counts: `*.test.*`, `*.spec.*`, jest's `*-spec.*` (NestJS's
+  `app.e2e-spec.ts`), and every file under a `test`, `tests`, `__tests__`,
+  `testing` or `e2e` folder, plus the `tests` and `playwright` options. The
+  vitest block keeps exactly the `tests` option (default unchanged), minus
+  `playwright`: a helper in a test folder isn't a test file, and a Playwright
+  spec isn't a vitest file. A test keeps the two definitions in step. A repo
+  that listed a test folder or a test helper in its own `process.env` or
+  `console` block can delete it. imbatranimOS's `tests` entry
+  `apps/backend/test/**` is no longer needed for the relaxations, but dropping
+  it also takes the vitest rules off its jest e2e specs, so that is a choice,
+  not a pure retirement.
+- **`no-console` is off in the test relaxations** (atrium): tests stub and
+  assert on `console.error`. atrium can drop its `tests` option (it is
+  `vitest: false`, and both globs are built in now) and the `console` entries
+  `"**/test/**"` and `"**/*.test.{ts,tsx}"`; imbatranim-apps drops
+  `packages/shared/test/fixtures/**` from its `imbatranim-apps/build-env` block;
+  wzd_auth drops `shared-library/src/testing/ward-harness.ts` from
+  `ward/library-process-env-warns`.
+- **`playwright` option** (postern): globs of Playwright specs, default `[]`.
+  They get the test relaxations, and the vitest block ignores them (only when
+  the list isn't empty). A repo that doesn't pass it sees no change. postern,
+  in its `eslint.config.js`: `scripts: ["dev", "web/e2e"]` becomes
+  `["dev"]`; delete `tests: ["**/*.test.{ts,tsx}"]`, add
+  `playwright: ["web/e2e/**"]`, and delete the `postern/test-helpers` and
+  `postern/e2e-specs` blocks. public-resource-map deletes its `prm/e2e` block.
+- **`vitest/no-standalone-expect`** (wzd_auth, postern) is `["error",
+  { additionalTestBlockFunctions: ["beforeAll", "beforeEach", "afterAll",
+  "afterEach"] }]`, so an `expect` in a hook is fine, and so is one in a plain
+  function or an arrow helper. An `expect` in a class method is still flagged:
+  an assertion helper is a plain function. **Upgrade note:** with the hooks
+  counted, an existing `// eslint-disable-next-line vitest/no-standalone-expect`
+  on an `expect` in a hook becomes an "Unused eslint-disable directive"
+  warning. After the sync, delete every such directive ESLint reports as
+  unused, in the same commit as the sync, so no commit is red: postern has 9
+  (keep its class-method one), imbatranimOS 1 (in an `afterEach`, in
+  `apps/core/src/modules/marketplace/kitHooks.test.tsx`) and game-engine 1 (in
+  `tools/hollow-sim/src/rationalizer/claude-rationalizer.test.ts`), and
+  game-engine's `--max-warnings` cap would otherwise be broken.
+- **dependency-cruiser**: `not-to-unresolvable` also allows React Router's
+  generated `./+types/<route>` imports. public-resource-map can delete its
+  override of that rule (it keeps `options.tsConfig`).
+- **Astro's virtual modules** (Churchix, presentation-sites): `not-to-unresolvable`'s
+  `pathNot` is now `["^virtual:", "^astro:", "(^|/)\\+types/"]`, so an import of
+  `astro:content` or `astro:assets` is not an unresolvable edge. A repo's
+  same-name `not-to-unresolvable` override that only allowed `astro:` can go.
+- **conventions.json `env`** (just-a-bot): globs from the repo root of the
+  files `check-structure`'s rule 3 lets read `process.env`. It replaces the
+  default (any `config.{ts,js,mts,cts,mjs,cjs}`), as ESLint's `env` option
+  does, and `NODE_ENV` stays a finding everywhere. Only `*` and `**` are globs
+  (no braces, `?` or `[]`) and a plain path also covers what is under it, so an
+  ESLint `env` list doesn't always copy over verbatim. With `env` set, rule 3's
+  message reads "outside the env reader (<globs>)", so an exception whose
+  `match` says "outside config.ts" stops matching; without it the message is
+  unchanged. A malformed `env` exits 2 in both checkers, and the schema lists
+  it. just-a-bot replaces its rule-3 exception for `shared/src/env.ts` with
+  `"env": ["shared/src/env.ts"]`; SocialEvents adds `"env":
+  ["server/src/config/env.ts"]`; brief-board may mirror its ESLint `env` as
+  `"env": ["**/config.ts", "cli/src/index.ts"]`.
+- **One `tsconfigRootDir`** (imbatranimOS). A repo that imports
+  `typescript-eslint` after `houseStyle()` and reads `tseslint.configs.*` got
+  "No tsconfigRootDir was set, and multiple candidate TSConfigRootDirs are
+  present" on its JavaScript files, because each read adds the folder of the
+  nearest `eslint.config.*` as a candidate root. `houseStyle()` now returns a
+  `house-style/tsconfig-root` block (no `files`) that sets
+  `parserOptions.tsconfigRootDir` to the root. imbatranimOS deletes its
+  `imbatranimos/tsconfig-root` block, and presentation-sites' `tsconfigRootDir:
+  root` in its `presentation-sites/astro` block is redundant (keep `project:
+  true`). **Upgrade note:** the returned array is now filtered and that block
+  sits at index 1, so a repo that indexes into the array rather than spreading
+  it should pick blocks by `name`.
+- **`check-structure` without a server root** (postern): no code change. It
+  already skips default roots that don't exist; rule 11 runs on every root and
+  rule 3 on `shared` ones. A repo with no server lists its Node folders under
+  `shared` (postern: `"shared": ["jmap/src"]`) and appends `&& node
+  vendor/house-style/bin/check-structure.mjs` to `check:conventions`. The
+  argument is the repo root: `check-structure.mjs jmap/src` treats that folder
+  as the repo and checks nothing.
+- **`module: bundler` has no rule number** (sports-app): no code change. No
+  checker reads a tsconfig's `module` setting, so there is nothing to except. A
+  choice no checker reports is written in the repo's decisions page, not in
+  `conventions.json`.
+- **Declined as options** (documented as recipes instead): `consoleAllow`, a
+  per-folder `no-console` or `n/no-process-env`, and `recommendedTypeChecked`
+  for a NestJS folder (a repo's own block after `houseStyle()` does each); a
+  `node` root kind (a Node app with no server is a `shared` root); an Astro
+  preset and `eslint-plugin-react-refresh` (each would make every adopter
+  install a plugin); `exactOptionalPropertyTypes` in the base (a documented
+  opt-in); the sync writing a hand-kept base tsconfig or a workspace's `^`
+  range (it stays report-only); and counting a type-only import out of
+  dependency-cruiser (it counts on purpose).
+- **The hooks:** no change. The plugin's 0.42.0 carries these notes.
+- **Documentation:** the README, the adoption reference, the skill and a new
+  recipes reference say what the repos found. The two widths, `playwright`,
+  `env` in `conventions.json`, `+types` and `no-standalone-expect`; rules-file
+  names as examples; `scripts` takes folders and folder globs; knip
+  `ignoreBinaries` and `ignoreWorkspaces`; what the sync can't see (a hand-kept
+  base, a workspace's `^` range, a missing `save-exact`); the formatter hook's
+  nearest config; `/* global */` in `.mjs`; `res.json<T>()` against
+  `res.json() as T`; adoption order (knip config first, dependency-cruiser and
+  `check:conventions` together); test globs with extensions; `tsc` after
+  every `eslint --fix` and the ways its autofixes broke code; `tsc -b` build
+  info and the per-workspace incremental typecheck; dependency-cruiser's
+  `options.exclude`, `tsConfig`, type-only imports and hoisted pins; `env`
+  and a later block's `ignores`; assertion helpers and supertest's
+  `**.expect`; `typed.project` for `tsconfig.test.json`; tsx repos and
+  `verbatimModuleSyntax`; `prettier.config.mjs` and a CommonJS `knip.config.js`
+  in a typeless root; `.claude/settings.local.json` in `.prettierignore`;
+  ESLint 10's `no-useless-assignment` and `preserve-caught-error`; the image
+  cost of the pins (`npm ci --omit=dev`); the parameter-property field order
+  (at the top of the class, checked with esbuild and tsc); a third reason to
+  keep a hand-kept tsconfig base; per-folder blocks, `react-refresh`, a Node
+  app with no server and an Astro repo's recipe; counting
+  `exactOptionalPropertyTypes`; and comparing YAML parsed in the bundle
+  compare.
+
+To move a repo from 1.1.0:
+
+1. `npm run house-style:sync -- house-style-v1.2.0` (from the app's folder in a
+   multi-project repo), and commit the copy together with step 2.
+2. `npx eslint .`, then delete each `vitest/no-standalone-expect` disable
+   comment ESLint reports as unused (the repos above).
+3. Retire the adopter-local blocks and exceptions the notes above list for the
+   repo, and turn on `exactOptionalPropertyTypes` where its count is 0.
+4. `npm run check`.
+
 ## 1.1.0 (2026-11-11)
 
 Folds in what the eight repos that adopted 1.0.0 on 2026-11-11 reported

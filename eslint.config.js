@@ -87,10 +87,10 @@ export default [
     },
   },
   {
-    // A warning for now (2026-11-11): the source still holds 170 `!`. They are fixed one workspace at a time,
-    // and this block goes with the last.
+    // A warning for now (2026-11-11): packages/typeset/src still holds 129 `!`. They are fixed one folder at a
+    // time, and this block goes with the last.
     name: "atrium/non-null-warns",
-    files: ["apps/**/src/**", "packages/**/src/**"],
+    files: ["packages/typeset/src/**"],
     rules: { "@typescript-eslint/no-non-null-assertion": "warn" },
   },
 ];

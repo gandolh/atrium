@@ -223,13 +223,13 @@ function emit(sink: Sink, inline: Inline): void {
 /** Inter-word space, but never leading and never doubled. */
 function emitSpace(sink: Sink, loc: SourceRef): void {
   if (sink.para.length === 0) return;
-  const last = sink.para[sink.para.length - 1]!;
+  const last = sink.para[sink.para.length - 1];
   if (last.kind === "space" || last.kind === "linebreak") return;
   sink.para.push({ kind: "space", style: cloneStyle(sink.style), loc });
 }
 
 function flush(sink: Sink, indentNext = true): void {
-  while (sink.para.length > 0 && sink.para[sink.para.length - 1]!.kind === "space") sink.para.pop();
+  while (sink.para.length > 0 && sink.para[sink.para.length - 1].kind === "space") sink.para.pop();
   if (sink.para.length > 0) {
     const block: ParagraphBlock = {
       kind: "paragraph",
@@ -300,21 +300,21 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
       reportStop(st, nodes[i]?.loc.start);
       return;
     }
-    const node = nodes[i]!;
+    const node = nodes[i];
     switch (node.type) {
       case "text": {
         // Adjacent text nodes are one run: `--` and `` `` `` are split across
         // nodes by the parser and only mean anything rejoined.
         const chunks: { value: string; loc: SourceRef; at: number }[] = [];
         let value = "";
-        while (i < nodes.length && nodes[i]!.type === "text") {
+        while (i < nodes.length && nodes[i].type === "text") {
           const t = nodes[i] as Extract<LatexNode, { type: "text" }>;
           chunks.push({ value: t.value, loc: t.loc.start, at: value.length });
           value += t.value;
           i++;
         }
         const locAt = (offset: number): SourceRef => {
-          let found = chunks[0]!.loc;
+          let found = chunks[0].loc;
           for (const c of chunks) {
             if (c.at <= offset) found = c.loc;
             else break;
@@ -877,7 +877,7 @@ function buildItem(
   const optional = cmd.args.find((a) => a.bracket === "[");
   // The body is the trailing gobbled slot: `\item`'s signature swallows
   // everything up to the next `\item`/`\end`, nested environments included.
-  const last = cmd.args.length > 0 ? cmd.args[cmd.args.length - 1]! : undefined;
+  const last = cmd.args.length > 0 ? cmd.args[cmd.args.length - 1] : undefined;
   const bodyNodes = last !== undefined && last.bracket === null ? last.content : [];
 
   let label: Inline[] | null = null;
@@ -1324,7 +1324,7 @@ function readColumnSpec(
   let rules = 0;
 
   for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i]!;
+    const token = tokens[i];
     if (token.kind === "group") {
       st.diagnostics.push(
         error(
@@ -1453,7 +1453,7 @@ function readTableBody(env: EnvironmentNode, spec: TableColumnSpec, st: BuildSta
      * has content would be a silent loss, which is why the test is "one empty
      * unspanned cell" rather than "no cells".
      */
-    const empty = cells.length === 1 && cells[0]!.content.length === 0 && cells[0]!.span === 1;
+    const empty = cells.length === 1 && cells[0].content.length === 0 && cells[0].span === 1;
     if (final && empty) {
       cells = [];
       return;
@@ -1479,12 +1479,12 @@ function readTableBody(env: EnvironmentNode, spec: TableColumnSpec, st: BuildSta
       reportStop(st, env.body[i]?.loc.start);
       break;
     }
-    const node = env.body[i]!;
+    const node = env.body[i];
     if (node.type === "text" && node.value.includes("&")) {
       const parts = node.value.split("&");
       for (let p = 0; p < parts.length; p++) {
         if (p > 0) endCell();
-        const value = parts[p]!;
+        const value = parts[p];
         if (value.length === 0) continue;
         note(node.loc.start);
         cellNodes.push({ ...node, value });
@@ -1569,7 +1569,7 @@ function readTableBody(env: EnvironmentNode, spec: TableColumnSpec, st: BuildSta
  */
 function lastContentIndex(nodes: readonly LatexNode[]): number {
   for (let i = nodes.length - 1; i >= 0; i--) {
-    const type = nodes[i]!.type;
+    const type = nodes[i].type;
     if (type !== "whitespace" && type !== "comment" && type !== "parbreak") return i;
   }
   return -1;
@@ -1642,14 +1642,14 @@ function readMulticolumn(cmd: CommandNode, st: BuildState): SpanningCell | null 
     );
     return null;
   }
-  const span = Number(plainText(args[0]!.content).trim());
+  const span = Number(plainText(args[0].content).trim());
   if (!Number.isInteger(span) || span < 1) {
     st.diagnostics.push(
       error("syntax", at, "\\multicolumn's first argument must be a whole number of columns", "\\multicolumn"),
     );
     return null;
   }
-  const spec = readColumnSpec(args[1]!.content, at, "\\multicolumn", st);
+  const spec = readColumnSpec(args[1].content, at, "\\multicolumn", st);
   if (spec.columns.length !== 1) {
     st.diagnostics.push(
       error(
@@ -1660,7 +1660,7 @@ function readMulticolumn(cmd: CommandNode, st: BuildState): SpanningCell | null 
       ),
     );
   }
-  return { span, column: spec.columns[0] ?? null, rulesAfter: spec.rulesAfter, content: args[2]!.content };
+  return { span, column: spec.columns[0] ?? null, rulesAfter: spec.rulesAfter, content: args[2].content };
 }
 
 // --- bibliography -----------------------------------------------------------
@@ -1728,7 +1728,7 @@ function adoptSiblingGroup(
   index: number,
   st: BuildState,
 ): { cmd: CommandNode; consumed: number } | null {
-  const node = nodes[index]!;
+  const node = nodes[index];
   if (node.type !== "command") return null;
   if (node.name === "caption") return adoptStarredCaption(nodes, index, st);
   if (!CITATION_ADOPTS_SIBLING.has(node.name)) return null;
@@ -1796,7 +1796,7 @@ function closingBracket(nodes: readonly LatexNode[], from: number): number | nul
   // to follow a citation, and consuming to a distant `]` would eat a sentence.
   const LIMIT = 32;
   for (let i = from; i < nodes.length && i - from < LIMIT; i++) {
-    const node = nodes[i]!;
+    const node = nodes[i];
     if (node.type === "text" && node.value.includes("]")) return i;
   }
   return null;
@@ -1888,14 +1888,14 @@ function applyThebibliography(env: EnvironmentNode, sink: Sink, st: BuildState, 
 function buildBibItem(cmd: CommandNode, st: BuildState, depth: number): BibItem {
   const at = cmd.loc.start;
   const braced = cmd.args.filter((a) => a.bracket === "{");
-  const key = braced.length > 0 ? plainText(braced[0]!.content).trim() : "";
+  const key = braced.length > 0 ? plainText(braced[0].content).trim() : "";
   if (key.length === 0) {
     st.diagnostics.push(error("syntax", at, "\\bibitem needs a citation key", "\\bibitem"));
   }
   const optional = cmd.args.find((a) => a.bracket === "[");
   // The trailing gobbled slot: `\bibitem`'s signature swallows everything up to
   // the next `\bibitem` or `\end`, exactly as `\item`'s does.
-  const last = cmd.args.length > 0 ? cmd.args[cmd.args.length - 1]! : undefined;
+  const last = cmd.args.length > 0 ? cmd.args[cmd.args.length - 1] : undefined;
   const bodyNodes = last !== undefined && last.bracket === null ? last.content : [];
   return {
     key,
@@ -2395,7 +2395,7 @@ function readPackage(cmd: CommandNode, st: BuildState): void {
 /** The last brace-delimited argument the parser filled in — a command's "the" argument. */
 function mandatoryArgument(cmd: CommandNode): Argument | null {
   for (let i = cmd.args.length - 1; i >= 0; i--) {
-    const arg = cmd.args[i]!;
+    const arg = cmd.args[i];
     if (arg.bracket === "{") return arg;
   }
   return null;
@@ -2408,7 +2408,7 @@ function mandatoryArgument(cmd: CommandNode): Argument | null {
 function isStarred(cmd: CommandNode): boolean {
   const first = cmd.args[0];
   if (first === undefined || first.bracket !== null) return false;
-  return first.content.length === 1 && first.content[0]!.type === "text" && first.content[0]!.value === "*";
+  return first.content.length === 1 && first.content[0].type === "text" && first.content[0].value === "*";
 }
 
 /** Flatten a node list to the characters it contributes — keys, class names, verbatim. */

@@ -181,7 +181,7 @@ function formatBibfile(request: BibliographyBlock, ctx: BibContext, table: Map<s
       continue;
     }
     anyFileFound = true;
-    parseBibText(ctx.files[resolved]!, resolved, ctx, strings, entries, order);
+    parseBibText(ctx.files[resolved], resolved, ctx, strings, entries, order);
   }
   if (!anyFileFound) return [];
 
@@ -191,7 +191,8 @@ function formatBibfile(request: BibliographyBlock, ctx: BibContext, table: Map<s
   if (printOrder.length === 0) return [];
 
   const items: ReferenceItem[] = printOrder.map((key, index) => {
-    const entry = entries.get(key)!;
+    const entry = entries.get(key);
+    if (entry === undefined) throw new Error(`the citation order names ${key}, which has no entry`);
     const number = index + 1;
     table.set(key, { number, authorShort: shortAuthor(entry.fields.get("author")) });
     return {
@@ -430,11 +431,11 @@ function shortAuthor(author: string | undefined): string | null {
     const comma = name.indexOf(",");
     if (comma >= 0) return name.slice(0, comma).trim();
     const parts = name.split(/\s+/).filter((p) => p.length > 0);
-    return parts.length > 0 ? parts[parts.length - 1]! : name;
+    return parts.length > 0 ? parts[parts.length - 1] : name;
   };
-  if (people.length === 1) return last(people[0]!);
-  if (people.length === 2) return `${last(people[0]!)} and ${last(people[1]!)}`;
-  return `${last(people[0]!)} et al.`;
+  if (people.length === 1) return last(people[0]);
+  if (people.length === 2) return `${last(people[0])} and ${last(people[1])}`;
+  return `${last(people[0])} et al.`;
 }
 
 // --- turning one entry into a paragraph -------------------------------------
@@ -518,7 +519,7 @@ function entryParagraph(entry: BibEntry): Block[] {
   const pieces = entryPieces(entry);
   const content: Inline[] = [];
   for (let i = 0; i < pieces.length; i++) {
-    const piece = pieces[i]!;
+    const piece = pieces[i];
     content.push(textInline(piece.text, entry.loc, piece.italic ? ITALIC : DEFAULT_TEXT_STYLE));
     if (!/[.?!]$/.test(piece.text)) content.push(textInline(".", entry.loc));
     if (i < pieces.length - 1) content.push({ kind: "space", style: cloneStyle(DEFAULT_TEXT_STYLE), loc: entry.loc });
@@ -567,7 +568,7 @@ function builtinStrings(): Map<string, string> {
   ];
   const table = new Map<string, string>();
   for (let i = 0; i < months.length; i++) {
-    table.set(months[i]!.slice(0, 3).toLowerCase(), months[i]!);
+    table.set(months[i].slice(0, 3).toLowerCase(), months[i]);
   }
   return table;
 }
@@ -629,7 +630,7 @@ function eof(s: Scanner): boolean {
 }
 
 function peek(s: Scanner): string {
-  return s.i < s.text.length ? s.text[s.i]! : "";
+  return s.i < s.text.length ? s.text[s.i] : "";
 }
 
 function here(s: Scanner): SourceRef {
@@ -637,7 +638,7 @@ function here(s: Scanner): SourceRef {
 }
 
 function advance(s: Scanner): string {
-  const c = s.text[s.i]!;
+  const c = s.text[s.i];
   s.i++;
   if (c === "\n") {
     s.line++;

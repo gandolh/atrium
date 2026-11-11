@@ -131,7 +131,7 @@ const ROMAN: readonly (readonly [number, string])[] = [
 export function alph(n: number): string {
   // LaTeX's `\@alph` is only defined for 1–26 and errors past it; printing the
   // bare number is a visible, honest fallback rather than a wrong letter.
-  return n >= 1 && n <= 26 ? LOWER_ALPHA[n - 1]! : String(n);
+  return n >= 1 && n <= 26 ? LOWER_ALPHA[n - 1] : String(n);
 }
 
 export function Alph(n: number): string {
@@ -155,7 +155,7 @@ export const ENUM_COUNTERS: readonly CounterName[] = ["enumi", "enumii", "enumii
 
 /** The counter for an `enumerate` at `depth` (1-based). Depth past 4 reuses the last. */
 export function enumCounter(depth: number): CounterName {
-  return ENUM_COUNTERS[Math.min(Math.max(depth, 1), ENUM_COUNTERS.length) - 1]!;
+  return ENUM_COUNTERS[Math.min(Math.max(depth, 1), ENUM_COUNTERS.length) - 1];
 }
 
 /** `\theenumN` — the counter's own value, without the parent chain. */

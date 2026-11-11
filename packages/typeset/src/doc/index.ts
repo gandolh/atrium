@@ -80,7 +80,7 @@ export function buildDocument(files: SourceFiles, entrypoint: string, options: B
     return emptyResult(diagnostics, budget);
   }
 
-  const parsed = parseLatex(files[entrypoint]!, entrypoint);
+  const parsed = parseLatex(files[entrypoint], entrypoint);
   for (const d of parsed.diagnostics) diagnostics.push(d);
   const included = resolveInputs(parsed.root, files, [entrypoint], st, 0);
 
@@ -257,7 +257,7 @@ function expandInput(
     );
     return [];
   }
-  const parsed = parseLatex(files[resolved]!, resolved);
+  const parsed = parseLatex(files[resolved], resolved);
   for (const d of parsed.diagnostics) st.diagnostics.push(d);
   const inner = resolveInputs(parsed.root, files, [...stack, resolved], st, depth + 1);
   if (cmd.name !== "include") return inner;
@@ -283,7 +283,7 @@ function splitDocument(nodes: readonly LatexNode[]): {
   hasDocumentEnvironment: boolean;
 } {
   for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i]!;
+    const node = nodes[i];
     if (node.type === "environment" && node.name === "document") {
       // Anything after `\end{document}` is discarded by LaTeX too, and the
       // parser has already given it to us as siblings; leaving it out here is

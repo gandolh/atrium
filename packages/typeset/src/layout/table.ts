@@ -146,7 +146,7 @@ function measureColumns(table: TableBlock, ctx: TableContext): ColumnLayout[] {
       if (!spend(ctx.budget)) break outer;
       const span = Math.max(1, Math.min(cell.span, layout.length - col));
       if (cell.override === null) {
-        const entry = layout[col]!;
+        const entry = layout[col];
         if (entry.align !== "paragraph") {
           const hlist = ctx.setInlines(cell.content, ctx.bodySize.size, cell.loc);
           const width = measure(hlist, "h").natural;
@@ -283,14 +283,14 @@ function buildRow(table: TableBlock, row: TableRow, layout: readonly ColumnLayou
 
     let slotWidth = 0;
     for (let k = col; k < col + span; k++) {
-      const c = layout[k]!;
+      const c = layout[k];
       slotWidth += TAB_COL_SEP * 2 + c.contentWidth;
       if (k > col) slotWidth += c.leftRuleWidth;
     }
 
     const override = cell.override;
-    const align: TableColumnAlign = override !== null ? override.align : layout[col]!.align;
-    const leftRuleWidth = override !== null ? ruleGroupWidth(override.rulesBefore) : layout[col]!.leftRuleWidth;
+    const align: TableColumnAlign = override !== null ? override.align : layout[col].align;
+    const leftRuleWidth = override !== null ? ruleGroupWidth(override.rulesBefore) : layout[col].leftRuleWidth;
     const rightOverrideWidth = override !== null ? ruleGroupWidth(cell.overrideRulesAfter) : null;
 
     const box =
@@ -301,7 +301,7 @@ function buildRow(table: TableBlock, row: TableRow, layout: readonly ColumnLayou
             // independent of the span — the author is responsible for that
             // being sensible. A plain `p{}` column uses the width the
             // measurement pass already resolved.
-            override !== null ? resolveDocumentLength(override.width ?? ZERO_LENGTH, ctx) : layout[col]!.contentWidth,
+            override !== null ? resolveDocumentLength(override.width ?? ZERO_LENGTH, ctx) : layout[col].contentWidth,
             cell.loc,
             ctx,
           )
@@ -325,7 +325,7 @@ function buildRow(table: TableBlock, row: TableRow, layout: readonly ColumnLayou
    */
   for (; col < layout.length; col++) {
     if (!spend(ctx.budget)) break;
-    const c = layout[col]!;
+    const c = layout[col];
     const box =
       c.align === "paragraph"
         ? buildParagraphCell([], c.contentWidth, row.loc, ctx)
@@ -380,14 +380,14 @@ function buildRuleRow(table: TableBlock, rule: TableRule, layout: readonly Colum
 
   let offset = 0;
   for (let k = 0; k < from - 1; k++) {
-    const col = layout[k]!;
+    const col = layout[k];
     offset += col.leftRuleWidth + TAB_COL_SEP * 2 + col.contentWidth;
   }
-  offset += layout[from - 1]!.leftRuleWidth;
+  offset += layout[from - 1].leftRuleWidth;
 
   let width = 0;
   for (let k = from - 1; k < to; k++) {
-    const col = layout[k]!;
+    const col = layout[k];
     width += TAB_COL_SEP * 2 + col.contentWidth;
     if (k > from - 1) width += col.leftRuleWidth;
   }

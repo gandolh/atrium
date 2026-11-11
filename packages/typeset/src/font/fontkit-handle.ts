@@ -148,8 +148,8 @@ class FontkitHandle implements FontHandle {
     let depth = 0;
 
     for (let i = 0; i < run.glyphs.length; i++) {
-      const glyph = run.glyphs[i]!;
-      const position = run.positions[i]!;
+      const glyph = run.glyphs[i];
+      const position = run.positions[i];
       const advance = scaleToPoints(position.xAdvance, size, upem);
       const yOffset = scaleToPoints(position.yOffset, size, upem);
 
@@ -158,7 +158,7 @@ class FontkitHandle implements FontHandle {
         advance,
         xOffset: scaleToPoints(position.xOffset, size, upem),
         yOffset,
-        cluster: clusters[i]!,
+        cluster: clusters[i],
       });
 
       // Summing the points rather than the font units keeps `width` literally
@@ -224,7 +224,7 @@ function clustersFor(text: string, glyphs: readonly FontkitGlyph[]): number[] | 
 
   for (const glyph of glyphs) {
     if (consumed >= starts.length) return null;
-    clusters.push(starts[consumed]!);
+    clusters.push(starts[consumed]);
     // A glyph that covers nothing (an inserted mark) still has to advance the
     // run somewhere sane; charge it one code point so the walk stays monotone.
     consumed += Math.max(1, glyph.codePoints.length);
@@ -238,7 +238,7 @@ function codePointStarts(text: string): number[] {
   const starts: number[] = [];
   for (let i = 0; i < text.length;) {
     starts.push(i);
-    i += text.codePointAt(i)! > 0xffff ? 2 : 1;
+    i += (text.codePointAt(i) ?? 0) > 0xffff ? 2 : 1;
   }
   return starts;
 }
@@ -254,7 +254,7 @@ function spreadClusters(text: string, count: number): number[] {
   if (starts.length === 0 || count === 0) return new Array<number>(count).fill(0);
   return Array.from(
     { length: count },
-    (_, i) => starts[Math.min(starts.length - 1, Math.floor((i * starts.length) / count))]!,
+    (_, i) => starts[Math.min(starts.length - 1, Math.floor((i * starts.length) / count))],
   );
 }
 

@@ -196,3 +196,55 @@ One commit per step, each with `npm run typecheck`, `npm test` and `npm run buil
 - If brief 04 moves `apps/api/src/modules/` to `features/`, the reformat's hash still holds: the `git mv` keeps blame through the ignore file.
 - The 303 test `!` in `packages/typeset/test` stay warnings (Q47). The 129 in `packages/typeset/src` are fixed in step 6, in their own commits, not deferred.
 - The deferred `noUncheckedIndexedAccess` (Q50) will turn some deleted `!` into needed narrowing; its later brief owns that.
+
+## Outcome (2026-11-11)
+
+Adopted the house-style harness at 1.1.0, vendored in `vendor/house-style/`, with the Claude Code layer. Atrium's own flag and Docker constraints are in D60.
+
+**Commits** (local, on main, in order): vendor 1.1.0 (`ae27dc9`); TypeScript 6.0.3 and the tool pins (`bde3730`); Prettier config, ignore and scripts (`fba1f1d`); the reformat (`2890a98`, the only commit that changes layout); blame-ignore (`3c2d472`); tsconfig flags, NodeNext for the API and the six parameter properties (`1ec80d6`); ESLint and the typed-rule fixes (`7ca083a`); the gate with knip and dependency-cruiser (`582e4e6`); the `!` removals per workspace and per typeset folder (`a908860`, `24d9227`, `ddec5d5`, `04a865d`, `b32ffc5`, `e2aba3b`, `3bcd0dd`, `f0bcd2f`) with the rule turned to an error (`7199f9a`, `0f7ae9c`); CLAUDE.md, corpus/CLAUDE.md and the rules files; `.npmrc` `save-exact`.
+
+**Gate.** `npm run check` exits 0 (1 m 44 s, 794 tests: 647 typeset, 147 API). `check:fast` with one file changed: 33 s (the typecheck is most of it: `pretypecheck` builds the two packages, then five `tsc` runs). That is over the brief's 15 s target and the 30 s it accepts; the cause is that the gate typechecks every workspace, not only the touched ones. `npx prettier --check .` and `npm run house-style:sync -- --check` exit 0. `npm run lint` alone is about 38 s cold.
+
+**Reformat.** 193 files, 2,180 lines added and 2,896 removed (the brief measured 185 files over TypeScript, JavaScript and CSS; the rest are JSON, HTML and the like). Bundle compare (esbuild minify per file, CSS through the `css` loader, JSON parsed; 335 files): five differences, all JSX text split by Prettier with `{" "}`, which renders the same: `apps/docs/src/components/Diagram.tsx`, `apps/web/src/jukebox/PlaylistPanel.tsx`, `apps/web/src/latex/PublishDialog.tsx`, `apps/web/src/profiles/ManageProfiles.tsx`, `apps/web/src/reader/chrome/ConvertControl.tsx`. Four JSONC tsconfigs with comments are unparseable as JSON and were not compared.
+
+**Pins.** All twelve exact. npm took TypeScript 6.0.3 in the four workspaces with no peer conflict; `apps/docs` keeps 5.9.3 (Docusaurus, outside the harness), reported by the sync as pin drift. `.npmrc` gained `save-exact=true`.
+
+**Rule counts, before the fixes and after (errors unless noted).**
+
+| Rule | Before | After |
+|---|---|---|
+| `no-floating-promises` | 9 (814 `node:test` calls allowed) | 0 |
+| `no-misused-promises` | 20 | 0 |
+| `switch-exhaustiveness-check` | 1 (test) | 0 |
+| `no-non-null-assertion` | 170 source, 315 test | 0 source (147 deleted as no-ops, 23 narrowed), 315 test warnings |
+| `no-console` | 11 in the API source beyond the seed CLI, 12 in tests | 0 (files listed in `console`, three services recorded in `scripts/conventions.json`) |
+| `n/no-process-env` | 6 | 6 warnings, in `index.ts`, `calibre.service.ts`, `seed-user.ts` |
+| enum, `any`, ts-comments, TODO, default exports | 0 | 0 |
+| `react-hooks/refs`, `set-state-in-effect`, `immutability`, `preserve-manual-memoization` | 27, 17, 1, 1 | the same 46, as warnings |
+| `react-hooks/rules-of-hooks` | 2 (`useMap` was a local helper) | 0, renamed `applyMap` |
+| `react-hooks/exhaustive-deps` | 1 missing dep, 1 stale disable | 1 disable with its reason, 1 removed |
+| `no-useless-assignment`, `no-useless-escape` | 5, 1 | 0 |
+| `no-unnecessary-type-assertion` | 608 | off (ruling 6) |
+
+**Checkers** (`check:conventions` also runs knip and depcruise). `check-base-ui --warn-only`: 9 warnings, 8 of them errors when strict (rule 3: 7, rule 5: 1, rule 9: 1), as in the earlier run. `check-structure --warn-only`: 137 warnings, 94 of them errors when strict (rule 1: 1, rule 3: 6, rule 6: 87), plus rule 11: 43 (a file over 400 lines, a warning anyway). knip: exit 0 with 131 unused exports and 100 unused types as warnings; its errors were two unused dependencies (`react-swipeable`, `@types/adm-zip`, both removed; adm-zip 0.6.1 ships its own types), the unlisted `pdftotext` binary and `@playwright/test`, which the owner's local test hub uses (both ignored in `knip.config.js` with the reason). dependency-cruiser: 26 `no-circular` errors, 22 in `packages/typeset/src` and 4 in the LaTeX editor; the rule alone is a warning (`.dependency-cruiser.cjs`).
+
+**Deliberate violations** (each exits 1 under `eslint` and together under `npm run lint`): an `enum`, a `!` in `apps/api/src`, a `console.log` in a service, a `// TODO`, an `export default`. Reverted.
+
+**Hooks**, run by hand with Claude Code's event JSON: the formatter hook formatted a messy `apps/api/src/common` file; the Stop hook, after a save noted by `note-saved-file.mjs`, exited 2 with `TS2322` from a type error, and 0 once the file was removed.
+
+**Docker.** `docker build` skipped (local Docker is unusable). The builder stage's three `npm run build -w` runs pass in the checkout, and `npm ci --dry-run` accepts the lockfile.
+
+**Deviations and calls.**
+- The 170 `!`: the brief deletes the ones the compiler types as non-null; ruling 6 says not to autofix `no-unnecessary-type-assertion`. I used that rule as a locator in a script, deleting only a `!` that both it and `no-non-null-assertion` reported, and left the rule off in the config. When `noUncheckedIndexedAccess` comes on, the deleted `!` on indexed reads turn into compile errors the later brief fixes (its start: 107 web, 17 API source, 47 typeset tests).
+- `present()` (`apps/api/src/common/present.ts`) is new: a named error instead of `!` for values a guard or a write guarantees.
+- The four React compiler rules stay warnings (46 findings; a fix changes behaviour). **Question for the owner:** fix them one at a time with a test around each, or keep them as warnings?
+- Typed lint uses the four tsconfigs under `typed.project`, not `projectService`: the tests are not in the build tsconfigs. The `projectService` timing was not measured.
+- `check:fast` runs the whole typecheck, not the touched workspaces (33 s).
+- Root `package.json` gained `"type": "module"` so the root configs load without a warning; every workspace has its own manifest.
+- `apps/docs` MDX files and the generated `static/reference/` and `static/diagrams/` stay out of Prettier too (the brief listed the first two folders only).
+
+**For house-style.** (1) `eslint.config.js` has no way to give the `tests` option a glob that skips JSON-named files; `**/*.test.*` matches `tsconfig.test.json`, which ESLint then parses as JavaScript. Atrium uses the extension form. (2) `no-console` has no test exemption: tests that replace `console.error` to read what a service logged need the `console` option, which the README says is for app files. (3) The README says a sync with `save-exact` missing adds it to `.npmrc`, but the sync only reports; Atrium added it by hand. (4) knip reports `dependency-cruiser` unused until the script runs it, so the preset and `check:conventions` should land in one commit.
+
+**Checks skipped:** docker build (see above); the live-session hook check waits for the plugin update on this machine; the base-ui behaviour comparison was never part of this brief.
+
+**Owner steps.** `git config blame.ignoreRevsFile .git-blame-ignore-revs`; deploy with `node cli.ts atrium deploy` from the vps-deploy checkout.

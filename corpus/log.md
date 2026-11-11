@@ -2849,3 +2849,7 @@ estate board, inside the enforced Reading Room design system (Q39).
 ## [2026-11-10] done | Brief 01 — Base UI 1.9.0
 
 `@base-ui/react` 1.6.0 to 1.9.0, pinned exactly in `apps/web` (4299ea1). Eight lockfile entries moved, all Base UI's own tree. Typecheck and build pass before and after; the renamed OTPField and `sanitizeValue` are not used. Not done: release-notes read, browser check of the four primitives, `docker build`. Needs a deploy.
+
+## [2026-11-11] done | Brief 02 — The house style and the quality harness
+
+Atrium adopted the estate's harness (D60): Prettier at 120 in one blame-ignored reformat, the vendored `house-style` 1.1.0 ESLint config with typed rules, knip, dependency-cruiser and `npm run check` / `check:fast`. TypeScript 6.0.3, `verbatimModuleSyntax` and `erasableSyntaxOnly` on, `NodeNext` for the API, the six parameter properties fixed. 170 source `!` removed (147 deleted, 23 narrowed through the new `present()`), 29 promise findings fixed, zero lint errors. Warnings stay for the React compiler rules (46), three API files that read the environment, and 26 import cycles; the two convention checkers run `--warn-only`. The root `CLAUDE.md` is now the short commands file, and the corpus schema moved to `corpus/CLAUDE.md`. Details and counts: [briefs/done/02-the-house-style-harness.md](briefs/done/02-the-house-style-harness.md).

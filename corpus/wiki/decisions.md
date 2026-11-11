@@ -1,6 +1,6 @@
 ---
-summary: Locked tech/design decisions (D1–D59) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
-updated: 2026-11-02
+summary: Locked tech/design decisions (D1–D60) — the settled calls future briefs and reviews must not relitigate without an explicit revisit + log note.
+updated: 2026-11-11
 ---
 
 # Decisions (locked)
@@ -80,3 +80,4 @@ keep it that way. Terminology that a decision settles belongs in
 Two buttons only: **Download** (save the PDF) and **Go back** (return to
 uploader). No "read in new tab" — to read a converted PDF, the user re-uploads
 it (which routes through the normal PDF reading path).
+| D60 | **The house style, formatted and checked** (2026-11-11; the estate's harness, adopted from the `house-style` library at 1.1.0) | **Width 120, one Prettier config, a vendored copy.** The configs live in `vendor/house-style/`, refreshed by `npm run house-style:sync`, because Atrium's image build copies only the manifests, `tsconfig.base.json`, `packages` and `apps`: the house tsconfig flags are written into Atrium's own base file, not extended. 120 was already Atrium's least-churn width (1,992 lines added, 2,580 removed over 325 files, measured 2026-11-10); the reformat is one commit that git blame skips (`.git-blame-ignore-revs`). **Markdown, the generated docs and static assets stay out of Prettier**; `apps/docs` (Docusaurus) stays out of ESLint and knip. **TypeScript 6.0.3 everywhere but the docs site**, which keeps its own pin. **Typed lint** runs through four test-aware tsconfigs, because `projectService` finds only the build configs and the tests are not in them; `no-floating-promises` names `node:test`, and the vitest rules are off. **`noUncheckedIndexedAccess` stays off** (107 errors in the web app, 17 in the API source, 47 in typeset's tests), so `no-unnecessary-type-assertion` is off too: with the flag off it calls every `!` on an indexed read unnecessary and its autofix would strip them. The 170 `!` in source were fixed (147 deleted where the compiler already typed the value, 23 narrowed, in the API through `present()`); the later brief that turns the flag on re-narrows the indexed reads. **Rejected:** extending the vendored tsconfig (breaks the image build); Prettier on Markdown (churn, and the corpus is prose); lowering `no-non-null-assertion` for typeset's source (the 129 were the debt the brief set out to clear). **Warnings that stay, each with a removal condition in `eslint.config.js`:** the react-hooks compiler rules (46 findings in the web app, where a fix changes behaviour), `n/no-process-env` in three API files, and dependency-cruiser's `no-circular` (26 cycles, 22 in typeset). |

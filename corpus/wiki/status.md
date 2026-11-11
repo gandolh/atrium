@@ -1,6 +1,6 @@
 ---
 summary: Dated snapshot (2026-11-02) of Atrium, per area — the media library (books, music, video) and its readers, Notes, the LaTeX editor on its own typesetting engine, profiles, accounts (local plus "Sign in with Ward", in production since 2026-10-13), the Jukebox, the two improvement sweeps (done 2026-10-03 and 2026-10-27), the metadata lookup (2026-10-28); what is deployed, what the owner still owes, and where the older history lives.
-updated: 2026-11-02
+updated: 2026-11-11
 ---
 
 # Status — 2026-11-02
@@ -50,6 +50,12 @@ numbering restarted at 01 on 2026-11-02 (see [`../log.md`](../log.md),
   2026-10-27 (the login lockout behind the proxy, migrated passwordless
   accounts, the Jukebox's delete, idle and failure fixes, the tile menu from the
   keyboard).
+- **The house style** (2026-11-11, D60). Prettier at 120, the vendored `house-style` 1.1.0 ESLint
+  config with typed rules, knip, dependency-cruiser, and `npm run check` /
+  `npm run check:fast` as the gate. Zero lint errors; warnings stay for the
+  react-hooks compiler rules (46), three API files that read the environment, and
+  26 import cycles. `check-base-ui` and `check-structure` run `--warn-only` until
+  the Base UI and server briefs (03, 04). TypeScript is 6.0.3.
 - **Docs site** (2026-10-19). Docusaurus at `/atrium/docs`, same URLs.
 
 ## Next (owner)

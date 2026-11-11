@@ -13,6 +13,8 @@
 
 **Before you start:** run `brief-board guide` ([CLAUDE.md](../../../CLAUDE.md)).
 
+**2026-11-11:** dependency-cruiser landed with the house-style harness (brief 02), not here: `.dependency-cruiser.cjs` extends the house preset and `check:conventions` runs it. What stays for this brief: replace the one lowered rule (`no-circular` is a warning for the 26 existing cycles, 22 in `packages/typeset/src` and 4 among the LaTeX editor's web components; this brief owns the API's feature boundaries, the typeset and web cycles are separate work), record the API's three cycles as exceptions, check that a deliberate cross-feature import fails it, and drop `check-structure`'s `--warn-only`. `n/no-process-env` is a warning in `apps/api/src/index.ts`, `modules/library/calibre.service.ts` and `scripts/seed-user.ts` until the settings move into `config.ts`.
+
 ## Context
 
 The owner asked on 2026-11-09 for one researched code structure, enforced in every repo. Atrium's API (`apps/api`) already follows a layered shape ([wiki/api-layering.md](../../wiki/api-layering.md)):

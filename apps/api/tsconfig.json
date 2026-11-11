@@ -1,6 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // Node runs dist/ as written, so a relative import must carry its real suffix; Bundler lets a missing
+    // `.js` typecheck and then fail at runtime.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "types": ["node"],
     "rootDir": "./src",
     "outDir": "./dist"

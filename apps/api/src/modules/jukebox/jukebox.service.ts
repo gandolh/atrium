@@ -51,11 +51,13 @@ import type { CommandRow, PlayerRow } from "./jukebox.types.js";
 
 /** A refusal the controller answers as `{error: code}`. */
 export class JukeboxError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-  ) {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(status: number, code: string) {
     super(code);
+    this.status = status;
+    this.code = code;
   }
 }
 

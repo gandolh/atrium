@@ -88,11 +88,13 @@ const realClock: Clock = {
  */
 export class RateGate {
   private nextAt = 0;
+  private readonly intervalMs: number;
+  private readonly clock: Clock;
 
-  constructor(
-    private readonly intervalMs: number,
-    private readonly clock: Clock = realClock,
-  ) {}
+  constructor(intervalMs: number, clock: Clock = realClock) {
+    this.intervalMs = intervalMs;
+    this.clock = clock;
+  }
 
   /** Resolves when the caller may send its request. */
   async take(): Promise<void> {
@@ -110,11 +112,13 @@ export class RateGate {
  */
 export class TtlCache<T> {
   private readonly entries = new Map<string, { value: T; expires: number }>();
+  private readonly ttlMs: number;
+  private readonly maxEntries: number;
 
-  constructor(
-    private readonly ttlMs: number,
-    private readonly maxEntries: number,
-  ) {}
+  constructor(ttlMs: number, maxEntries: number) {
+    this.ttlMs = ttlMs;
+    this.maxEntries = maxEntries;
+  }
 
   get(key: string): T | undefined {
     const hit = this.entries.get(key);

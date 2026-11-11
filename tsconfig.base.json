@@ -14,6 +14,12 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    // The house flags (vendor/house-style/tsconfig.base.json) are written here, not extended: the image
+    // build copies only this file. noUncheckedIndexedAccess stays off for now (2026-11-11): it needs about
+    // 107 fixes in the web app, 17 in the API source and 47 in typeset's tests, and it changes what the
+    // `!` on indexed reads mean. When it comes on, no-unnecessary-type-assertion comes back with it.
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     "declaration": true,
     "sourceMap": true

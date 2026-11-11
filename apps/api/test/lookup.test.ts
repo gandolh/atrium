@@ -42,7 +42,8 @@ function installFakeNetwork(): void {
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-const image = (bytes: Buffer) => new Response(new Uint8Array(bytes), { status: 200, headers: { "content-type": "image/png" } });
+const image = (bytes: Buffer) =>
+  new Response(new Uint8Array(bytes), { status: 200, headers: { "content-type": "image/png" } });
 const timeout = () => Promise.reject(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
 
 // --- MusicBrainz and Open Library fixtures -----------------------------------
@@ -52,7 +53,11 @@ const REMIX = "39b7ae7d-0000-4000-8000-000000000002";
 const VINYL = "aaaaaaaa-0000-4000-8000-000000000003";
 const RAM_GROUP = "aa997ea0-2936-40bd-884d-3af8a0e064dc";
 
-function release(id: number, title: string, opts: { status?: string; type?: string; secondary?: string[]; date?: string; group?: string; number?: string }) {
+function release(
+  id: number,
+  title: string,
+  opts: { status?: string; type?: string; secondary?: string[]; date?: string; group?: string; number?: string },
+) {
   return {
     id: `00000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
     title,
@@ -107,7 +112,7 @@ const MB_RECORDINGS = {
       title: "Get Lucky",
       score: 60,
       "artist-credit": [{ name: "Daft Punk" }],
-      releases: [release(3, "Get Lucky 12\"", { type: "Single", date: "2013", number: "B1" })],
+      releases: [release(3, 'Get Lucky 12"', { type: "Single", date: "2013", number: "B1" })],
     },
   ],
 };
@@ -115,8 +120,19 @@ const MB_RECORDINGS = {
 const OL_DOCS = {
   numFound: 2,
   docs: [
-    { key: "/works/OL27482W", title: "The Hobbit", author_name: ["J.R.R. Tolkien"], first_publish_year: 1937, cover_i: 14627509 },
-    { key: "/works/OL219602W", title: "The Hobbit", author_name: ["Charles Dixon", "Sean Deming", "J.R.R. Tolkien"], first_publish_year: 1990 },
+    {
+      key: "/works/OL27482W",
+      title: "The Hobbit",
+      author_name: ["J.R.R. Tolkien"],
+      first_publish_year: 1937,
+      cover_i: 14627509,
+    },
+    {
+      key: "/works/OL219602W",
+      title: "The Hobbit",
+      author_name: ["Charles Dixon", "Sean Deming", "J.R.R. Tolkien"],
+      first_publish_year: 1990,
+    },
   ],
 };
 
@@ -126,7 +142,13 @@ async function seed(
   id: string,
   format: FileType,
   kind: MediaKind,
-  fields: { title: string; author?: string | null; series?: string | null; seriesIndex?: number | null; convertedFrom?: string },
+  fields: {
+    title: string;
+    author?: string | null;
+    series?: string | null;
+    seriesIndex?: number | null;
+    convertedFrom?: string;
+  },
 ): Promise<void> {
   await knex("books").insert({
     id,
@@ -260,16 +282,16 @@ describe("Look up", () => {
     assert.equal(res.statusCode, 200, res.body);
     assert.equal(sent.length, 2);
     assert.equal(sent[1].url.searchParams.get("query"), 'recording:"get lucky"');
-    assert.ok(sent[1].at - sent[0].at >= 990, `MusicBrainz is held to one request a second (${sent[1].at - sent[0].at}ms)`);
+    assert.ok(
+      sent[1].at - sent[0].at >= 990,
+      `MusicBrainz is held to one request a second (${sent[1].at - sent[0].at}ms)`,
+    );
     assert.ok(res.json().candidates.length > 0);
   });
 
   it("holds two searches arriving together to one MusicBrainz request a second", async () => {
     routes["musicbrainz.org"] = () => json(MB_RECORDINGS);
-    const [a, b] = await Promise.all([
-      search("song", "?title=one&author=a"),
-      search("song", "?title=two&author=b"),
-    ]);
+    const [a, b] = await Promise.all([search("song", "?title=one&author=a"), search("song", "?title=two&author=b")]);
     assert.equal(a.statusCode, 200);
     assert.equal(b.statusCode, 200);
     assert.equal(sent.length, 2);
@@ -354,7 +376,11 @@ describe("Look up", () => {
     assert.equal(book.series, "Random Access Memories");
     assert.equal(book.seriesIndex, 8);
     assert.equal(book.hasCover, true);
-    assert.deepEqual(sent.map((s) => s.url.hostname), ["coverartarchive.org"], "apply asks MusicBrainz nothing");
+    assert.deepEqual(
+      sent.map((s) => s.url.hostname),
+      ["coverartarchive.org"],
+      "apply asks MusicBrainz nothing",
+    );
 
     const stored = readFileSync(coverPathFor("song"));
     assert.notDeepEqual(stored, coverPng, "the source's bytes are re-encoded, never stored as-is");
@@ -382,7 +408,9 @@ describe("Look up", () => {
   });
 
   it("changes nothing when the cover cannot be fetched", async () => {
-    await knex("books").where({ id: "song" }).update({ title: "Track 01", author: "Unknown Artist", series: null, series_index: null });
+    await knex("books")
+      .where({ id: "song" })
+      .update({ title: "Track 01", author: "Unknown Artist", series: null, series_index: null });
     const cover = await writeCover("song");
     const candidate = {
       source: "musicbrainz",
@@ -476,11 +504,19 @@ describe("Look up", () => {
     assert.ok((meta.width ?? 0) <= 300, "re-encoded small");
 
     routes["coverartarchive.org"] = () => new Response("", { status: 404 });
-    const none = await t.app.inject({ method: "GET", url: `/lookup/covers/musicbrainz/${RAM_GROUP}`, headers: { cookie } });
+    const none = await t.app.inject({
+      method: "GET",
+      url: `/lookup/covers/musicbrainz/${RAM_GROUP}`,
+      headers: { cookie },
+    });
     assert.equal(none.statusCode, 404);
 
     sent = [];
-    for (const path of ["/lookup/covers/openlibrary/..%2F..%2Fetc", "/lookup/covers/tmdb/1", `/lookup/covers/musicbrainz/123`]) {
+    for (const path of [
+      "/lookup/covers/openlibrary/..%2F..%2Fetc",
+      "/lookup/covers/tmdb/1",
+      `/lookup/covers/musicbrainz/123`,
+    ]) {
       const bad = await t.app.inject({ method: "GET", url: path, headers: { cookie } });
       assert.equal(bad.statusCode, 400, path);
     }
@@ -505,7 +541,9 @@ describe("Look up", () => {
     // hit the fake network, which has no routes here and would throw.
     const boundary = "----lookupboundary";
     const payload = Buffer.concat([
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="get_lucky.mp3"\r\nContent-Type: audio/mpeg\r\n\r\n`),
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="get_lucky.mp3"\r\nContent-Type: audio/mpeg\r\n\r\n`,
+      ),
       Buffer.alloc(64, 0),
       Buffer.from(`\r\n--${boundary}--\r\n`),
     ]);

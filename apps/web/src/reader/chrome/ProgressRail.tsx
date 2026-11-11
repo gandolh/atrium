@@ -257,11 +257,7 @@ export function ProgressRail({
           className={`pointer-events-none absolute bottom-0 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-reader-surface bg-reader-accent shadow transition-transform duration-150 group-hover:scale-110 group-focus-visible:scale-110 ${
             dragging ? "scale-125" : ""
           }`}
-          style={
-            reducedMotion
-              ? { left: `clamp(6px, ${shownPct}%, calc(100% - 6px))` }
-              : undefined
-          }
+          style={reducedMotion ? { left: `clamp(6px, ${shownPct}%, calc(100% - 6px))` } : undefined}
         />
       </div>
     </div>

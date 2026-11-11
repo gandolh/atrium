@@ -82,10 +82,7 @@ export function LibrarySearchField({
             Clear
           </button>
         ) : showHint ? (
-          <span
-            aria-hidden
-            className="rounded border border-line-soft px-1.5 py-0.5 font-ui text-xs text-ink-variant"
-          >
+          <span aria-hidden className="rounded border border-line-soft px-1.5 py-0.5 font-ui text-xs text-ink-variant">
             /
           </span>
         ) : null}

@@ -124,11 +124,7 @@ export async function apiFetch(
     } catch {
       body = undefined;
     }
-    throw new ApiError(
-      `Request to ${path} failed: ${response.status} ${response.statusText}`,
-      response.status,
-      body,
-    );
+    throw new ApiError(`Request to ${path} failed: ${response.status} ${response.statusText}`, response.status, body);
   }
 
   return response;

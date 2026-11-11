@@ -36,9 +36,7 @@ export function createPdfSearchProvider(doc: PDFDocumentProxy): SearchProvider {
           page = await doc.getPage(pageNum);
           const content = await page.getTextContent();
           // Join text items with spaces; PDF text items are word/line fragments.
-          const text = content.items
-            .map((item) => ("str" in item ? (item as TextItem).str : ""))
-            .join(" ");
+          const text = content.items.map((item) => ("str" in item ? (item as TextItem).str : "")).join(" ");
           const haystack = text.toLowerCase();
 
           let from = 0;

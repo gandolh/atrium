@@ -159,9 +159,9 @@ test("\\noindent suppresses the indent of the paragraph it opens", () => {
 // --- structure --------------------------------------------------------------
 
 test("sections number and nest, and reset their subordinates", () => {
-  const headings = blocks(
-    "\\section{A}\\subsection{A1}\\subsubsection{A1a}\\section{B}\\subsection{B1}",
-  ).filter((b): b is HeadingBlock => b.kind === "heading");
+  const headings = blocks("\\section{A}\\subsection{A1}\\subsubsection{A1a}\\section{B}\\subsection{B1}").filter(
+    (b): b is HeadingBlock => b.kind === "heading",
+  );
   assert.deepEqual(
     headings.map((h) => `${h.level}:${h.number}`),
     ["section:1", "subsection:1.1", "subsubsection:1.1.1", "section:2", "subsection:2.1"],
@@ -409,7 +409,10 @@ test("a file that includes itself is stopped rather than looping", () => {
   // off that code — could suppress a real budget exhaustion later in the same
   // run, silently truncating the document with nothing to say why.
   const hit = result.diagnostics.find((d) => d.construct === "\\input");
-  assert.ok(hit !== undefined, `expected a diagnostic about the self-include, got ${JSON.stringify(result.diagnostics)}`);
+  assert.ok(
+    hit !== undefined,
+    `expected a diagnostic about the self-include, got ${JSON.stringify(result.diagnostics)}`,
+  );
   assert.equal(hit.code, "syntax");
   assert.equal(hit.severity, "error");
   assert.ok(!result.diagnostics.some((d) => d.code === "budget-exceeded"));
@@ -470,9 +473,7 @@ test("an unimplemented environment is `unsupported`, an unknown one is `undefine
   // so a valid one (as this fixture is) now sets quietly instead. `longtable`
   // is still genuinely unsupported.
   assert.deepEqual(codes(build("\\begin{longtable}{ll}a\\end{longtable}").diagnostics), ["unsupported"]);
-  assert.deepEqual(codes(build("\\begin{frobnicate}a\\end{frobnicate}").diagnostics), [
-    "undefined-environment",
-  ]);
+  assert.deepEqual(codes(build("\\begin{frobnicate}a\\end{frobnicate}").diagnostics), ["undefined-environment"]);
 });
 
 test("an unimplemented command is `unsupported`, an unknown one is `undefined-command`", () => {
@@ -493,19 +494,14 @@ test("TeX programming says so, and says it is permanent", () => {
 
 test("a package outside the allowlist is unsupported, and geometry is recorded", () => {
   const result = build("a", "\\usepackage{tikz}\\usepackage[margin=1in]{geometry}\n");
-  assert.ok(
-    result.diagnostics.some((d) => d.code === "unsupported" && d.construct === "\\usepackage{tikz}"),
-  );
+  assert.ok(result.diagnostics.some((d) => d.code === "unsupported" && d.construct === "\\usepackage{tikz}"));
   assert.deepEqual(result.document.packages, [
     { name: "geometry", options: "margin=1in", loc: { file: "main.tex", line: 2, column: 18 } },
   ]);
 });
 
 test("a class other than article is unsupported", () => {
-  const result = buildDocument(
-    { "main.tex": "\\documentclass{book}\\begin{document}a\\end{document}" },
-    "main.tex",
-  );
+  const result = buildDocument({ "main.tex": "\\documentclass{book}\\begin{document}a\\end{document}" }, "main.tex");
   assert.ok(result.diagnostics.some((d) => d.code === "unsupported" && /article/.test(d.message)));
 });
 

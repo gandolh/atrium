@@ -89,7 +89,12 @@ describe("an upload that does not finish leaves nothing behind", () => {
 
     req.destroy();
     const clean = await eventually(() => entries(LIBRARY_FILES_DIR).join() === before.join());
-    assert.ok(clean, `left behind: ${entries(LIBRARY_FILES_DIR).filter((n) => !before.includes(n)).join(", ")}`);
+    assert.ok(
+      clean,
+      `left behind: ${entries(LIBRARY_FILES_DIR)
+        .filter((n) => !before.includes(n))
+        .join(", ")}`,
+    );
   });
 
   it("a failing insert leaves no file and no cover", async () => {

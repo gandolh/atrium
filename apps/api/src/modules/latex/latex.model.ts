@@ -87,13 +87,8 @@ export async function listLatexProjects(profileId: string): Promise<LatexProject
     .orderBy("updated_at", "desc")) as LatexProjectRow[];
 }
 
-export async function getLatexProject(
-  profileId: string,
-  id: string,
-): Promise<LatexProjectRow | undefined> {
-  return (await knex("latex_projects").where({ id, profile_id: profileId }).first()) as
-    | LatexProjectRow
-    | undefined;
+export async function getLatexProject(profileId: string, id: string): Promise<LatexProjectRow | undefined> {
+  return (await knex("latex_projects").where({ id, profile_id: profileId }).first()) as LatexProjectRow | undefined;
 }
 
 export async function insertLatexProject(row: LatexProjectRow): Promise<void> {
@@ -128,13 +123,8 @@ export async function touchLatexProject(id: string, now: string): Promise<void> 
   await knex("latex_projects").where({ id }).update({ updated_at: now });
 }
 
-export async function setLatexCompileStatus(
-  id: string,
-  status: CompileStatus,
-): Promise<boolean> {
-  const changed = await knex("latex_projects")
-    .where({ id })
-    .update({ compile_status: status });
+export async function setLatexCompileStatus(id: string, status: CompileStatus): Promise<boolean> {
+  const changed = await knex("latex_projects").where({ id }).update({ compile_status: status });
   return changed > 0;
 }
 
@@ -149,10 +139,7 @@ export async function setLatexCompileStatus(
  * racing second publish cannot silently re-point the draft and strand the first
  * book's versions.
  */
-export async function setLatexPublishedBook(
-  id: string,
-  bookId: string | null,
-): Promise<boolean> {
+export async function setLatexPublishedBook(id: string, bookId: string | null): Promise<boolean> {
   const changed = await knex("latex_projects")
     .where({ id })
     .andWhere((builder) => {
@@ -181,9 +168,7 @@ export async function deleteLatexProject(profileId: string, id: string): Promise
  * a household sharing one machine shares the CPU the engine runs on. Oldest
  * first so a refusal names the compile that has been running longest.
  */
-export async function getRunningLatexCompile(
-  subject: string,
-): Promise<LatexProjectRow | undefined> {
+export async function getRunningLatexCompile(subject: string): Promise<LatexProjectRow | undefined> {
   return (await knex({ lp: "latex_projects" })
     .join({ p: "profiles" }, "p.id", "lp.profile_id")
     .select("lp.*")
@@ -202,18 +187,12 @@ export async function listDocumentVersions(bookId: string): Promise<DocumentVers
 }
 
 export async function getDocumentVersion(id: string): Promise<DocumentVersionRow | undefined> {
-  return (await knex("document_versions").where({ id }).first()) as
-    | DocumentVersionRow
-    | undefined;
+  return (await knex("document_versions").where({ id }).first()) as DocumentVersionRow | undefined;
 }
 
-export async function getLatestDocumentVersion(
-  bookId: string,
-): Promise<DocumentVersionRow | undefined> {
-  return (await knex("document_versions")
-    .where({ book_id: bookId })
-    .orderBy("version_no", "desc")
-    .first()) as DocumentVersionRow | undefined;
+export async function getLatestDocumentVersion(bookId: string): Promise<DocumentVersionRow | undefined> {
+  return (await knex("document_versions").where({ book_id: bookId }).orderBy("version_no", "desc").first()) as
+    DocumentVersionRow | undefined;
 }
 
 export async function countDocumentVersions(bookId: string): Promise<number> {
@@ -229,10 +208,7 @@ export async function countDocumentVersions(bookId: string): Promise<number> {
  * rather than in this process: the loser violates `document_versions_book_no`
  * and throws instead of quietly overwriting the winner.
  */
-export async function appendDocumentVersion(
-  bookId: string,
-  now: string,
-): Promise<DocumentVersionRow> {
+export async function appendDocumentVersion(bookId: string, now: string): Promise<DocumentVersionRow> {
   const id = randomUUID();
   await knex.raw(
     `INSERT INTO document_versions (id, book_id, version_no, published_at)

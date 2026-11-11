@@ -1,24 +1,10 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import {
-  detectFileType,
-  librarySortSchema,
-  updateProgressSchema,
-  type FileType,
-} from "@ebook-reader/shared";
-import {
-  coverOwnerId,
-  coverPathFor,
-  filePathFor,
-  versionPdfPathFor,
-} from "../../common/paths.js";
+import { detectFileType, librarySortSchema, updateProgressSchema, type FileType } from "@ebook-reader/shared";
+import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor } from "../../common/paths.js";
 import { getDocumentVersion } from "../latex/latex.model.js";
-import {
-  getProfile,
-  getProfileProgress,
-  upsertProfileProgress,
-} from "../profiles/profiles.model.js";
+import { getProfile, getProfileProgress, upsertProfileProgress } from "../profiles/profiles.model.js";
 import { toLibraryBook } from "./library.mapper.js";
 import { getBook, touchOpened } from "./library.model.js";
 import {
@@ -115,9 +101,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   app.get("/library", async (request: FastifyRequest, reply: FastifyReply) => {
     const profile = request.authProfile;
     if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
-    const sort = librarySortSchema
-      .catch("recent")
-      .parse((request.query as { sort?: string } | undefined)?.sort);
+    const sort = librarySortSchema.catch("recent").parse((request.query as { sort?: string } | undefined)?.sort);
     return reply.send(await listLibraryForProfile(profile.id, sort));
   });
 
@@ -188,9 +172,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     try {
       ({ size, mtimeMs } = await stat(filePath));
     } catch {
-      return reply
-        .status(404)
-        .send({ error: version ? "Version file not found." : "Book file not found." });
+      return reply.status(404).send({ error: version ? "Version file not found." : "Book file not found." });
     }
 
     // `no-cache` makes the browser revalidate on every open, but a matching
@@ -212,10 +194,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     // one), and deriving the ETag from the identity its path comes from is what
     // stops v2 being served out of a cache entry filled by v3.
     const etag = version ? `"${version.id}"` : `W/"${size}-${Math.trunc(mtimeMs)}"`;
-    reply
-      .header("Cache-Control", "private, no-cache")
-      .header("ETag", etag)
-      .header("Accept-Ranges", "bytes");
+    reply.header("Cache-Control", "private, no-cache").header("ETag", etag).header("Accept-Ranges", "bytes");
     if (request.headers["if-none-match"] === etag) {
       return reply.status(304).send();
     }
@@ -430,9 +409,7 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
     const result = await requestConvert(row, query?.force === "1");
     switch (result.kind) {
       case "started":
-        return reply
-          .status(202)
-          .send({ convertedBookId: result.convertedBookId, targetFormat: result.targetFormat });
+        return reply.status(202).send({ convertedBookId: result.convertedBookId, targetFormat: result.targetFormat });
       case "busy":
         return reply.status(409).send({ error: result.message });
       case "unsupported":

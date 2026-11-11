@@ -37,9 +37,7 @@ function build(body: string, files: Record<string, string> = {}, bib = ""): Buil
 
 /** The blocks, with a guarantee about which diagnostics were tolerated. */
 function blocksOf(result: BuildResult, allow: readonly string[] = []): Block[] {
-  const unexpected = result.diagnostics.filter(
-    (d) => d.severity === "error" && !allow.includes(d.construct ?? ""),
-  );
+  const unexpected = result.diagnostics.filter((d) => d.severity === "error" && !allow.includes(d.construct ?? ""));
   assert.deepEqual(
     unexpected.map((d) => `${d.construct ?? "-"}: ${d.message}`),
     [],
@@ -111,7 +109,8 @@ test("an @article entry resolves and formats with journal, volume, number and pa
 });
 
 test("an @book entry formats with publisher and year", () => {
-  const bib = "@book{gof,\n  author = {Gamma, Helm, Johnson and Vlissides},\n  title = {Design Patterns},\n  publisher = {Addison-Wesley},\n  year = {1994},\n}\n";
+  const bib =
+    "@book{gof,\n  author = {Gamma, Helm, Johnson and Vlissides},\n  title = {Design Patterns},\n  publisher = {Addison-Wesley},\n  year = {1994},\n}\n";
   const result = build("\\cite{gof}", { "refs.bib": bib }, "\\bibliography{refs}\n");
   const block = bibBlock(result);
   assert.match(entryTexts(block)[0]!, /Design Patterns/);
@@ -153,7 +152,7 @@ test("@string defines a macro, and # concatenates it with literal text", () => {
 });
 
 test("an undefined @string name is a warning, not a crash, and resolves to empty", () => {
-  const bib = '@article{k, title = {T}, journal = undefinedmacro, year = {2000}}';
+  const bib = "@article{k, title = {T}, journal = undefinedmacro, year = {2000}}";
   const result = build("\\cite{k}", { "refs.bib": bib }, "\\bibliography{refs}\n");
   assert.ok(result.diagnostics.some((d) => d.code === "undefined-reference" && /undefinedmacro/.test(d.message)));
   // No crash, and the entry still formats with what it does have.
@@ -254,7 +253,11 @@ test("thebibliography prints every \\bibitem, numbered, regardless of citation",
 // --- \citet: the textual form ------------------------------------------------
 
 test("\\citet prepends a short author name before the bracket", () => {
-  const single = build("\\citet{k}", { "refs.bib": "@misc{k,author={Donald E. Knuth},title={T}}" }, "\\bibliography{refs}\n");
+  const single = build(
+    "\\citet{k}",
+    { "refs.bib": "@misc{k,author={Donald E. Knuth},title={T}}" },
+    "\\bibliography{refs}\n",
+  );
   assert.equal(single.citations[0]!.text, "Knuth [1]");
   const two = build(
     "\\citet{k}",
@@ -304,7 +307,7 @@ test("a duplicate key in one .bib is a diagnostic, and the first definition wins
 test("a malformed .bib never throws and always leaves at least one diagnostic", () => {
   const malformed = [
     "@article{k, title = {unterminated brace value",
-    "@article{k2 title = \"missing comma after key\"}",
+    '@article{k2 title = "missing comma after key"}',
     "@article{k3, title}",
     "@article{k4, = {no field name}}",
     "@misc{k5, note = {unterminated",
@@ -343,7 +346,7 @@ test("a name resolved as bare or with .bib both work", () => {
 
 test("the same document and .bib produce byte-identical diagnostics and citation text on every run", () => {
   const bib = [
-    "@string{acm = \"ACM\"}",
+    '@string{acm = "ACM"}',
     "@article{a,author={A. One},title={T1},journal=acm,year={2001}}",
     "@misc{b,title={T2},crossref={a}}",
   ].join("\n");
@@ -377,7 +380,10 @@ Known \\cite{k}, unknown \\cite{ghost}.
     "main.tex",
     { fonts },
   );
-  assert.equal(result.diagnostics.some((d) => d.code === "internal"), false);
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "internal"),
+    false,
+  );
   const text = result.pages
     .flatMap((page) => page.items)
     .filter((item) => item.kind === "glyphrun")
@@ -416,15 +422,26 @@ function glyphRuns(result: ReturnType<typeof compile>): { text: string; x: numbe
 }
 
 /** The one glyph run whose text is exactly `text` — fails loudly if there is not exactly one. */
-function runWithText(result: ReturnType<typeof compile>, text: string): { text: string; x: number; y: number; width: number } {
+function runWithText(
+  result: ReturnType<typeof compile>,
+  text: string,
+): { text: string; x: number; y: number; width: number } {
   const hits = glyphRuns(result).filter((item) => item.text === text);
-  assert.equal(hits.length, 1, `expected exactly one glyph run with text ${JSON.stringify(text)}, found ${hits.length}`);
+  assert.equal(
+    hits.length,
+    1,
+    `expected exactly one glyph run with text ${JSON.stringify(text)}, found ${hits.length}`,
+  );
   return hits[0]!;
 }
 
 test("a widestLabel measured to fit sets the label flush with the margin, not spilling past it", () => {
   const result = compile({ "main.tex": encoder.encode(widestLabelSource("999", "999")) }, "main.tex", { fonts });
-  assert.equal(result.diagnostics.some((d) => d.severity === "error"), false, "unexpected error diagnostics");
+  assert.equal(
+    result.diagnostics.some((d) => d.severity === "error"),
+    false,
+    "unexpected error diagnostics",
+  );
 
   const heading = runWithText(result, "References");
   const label = runWithText(result, "[999]");
@@ -454,8 +471,14 @@ test("a widestLabel measured to fit sets the label flush with the margin, not sp
 test("a {9} bibliography is visibly tighter than a {999} one, by exactly the measured label width", () => {
   const narrow = compile({ "main.tex": encoder.encode(widestLabelSource("9", "9")) }, "main.tex", { fonts });
   const wide = compile({ "main.tex": encoder.encode(widestLabelSource("999", "999")) }, "main.tex", { fonts });
-  assert.equal(narrow.diagnostics.some((d) => d.severity === "error"), false);
-  assert.equal(wide.diagnostics.some((d) => d.severity === "error"), false);
+  assert.equal(
+    narrow.diagnostics.some((d) => d.severity === "error"),
+    false,
+  );
+  assert.equal(
+    wide.diagnostics.some((d) => d.severity === "error"),
+    false,
+  );
 
   const narrowLabel = runWithText(narrow, "[9]");
   const narrowEntry = runWithText(narrow, "Zzyzxqx");

@@ -289,9 +289,7 @@ export async function renderNotePdf(title: string, pages: NotePage[]): Promise<U
   doc.setProducer("Atrium");
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
-  const sheets: NotePage[] = pages.length
-    ? pages
-    : [{ strokes: [], texts: [], template: "blank" }];
+  const sheets: NotePage[] = pages.length ? pages : [{ strokes: [], texts: [], template: "blank" }];
   for (const notePage of sheets) {
     drawNotePage(doc.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT]), notePage, font);
   }

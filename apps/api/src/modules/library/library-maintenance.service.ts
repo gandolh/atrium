@@ -147,10 +147,7 @@ export async function sweepOrphanThumbnails(
   }
 
   if (keep.size === 0) {
-    log.warn(
-      { rows: rows.length, deleted: 0 },
-      "orphan thumbnail sweep: empty keep-set, refusing to sweep, deleted 0",
-    );
+    log.warn({ rows: rows.length, deleted: 0 }, "orphan thumbnail sweep: empty keep-set, refusing to sweep, deleted 0");
     return 0;
   }
 
@@ -175,10 +172,7 @@ export async function sweepOrphanThumbnails(
     if (keep.has(path)) continue;
     if (!THUMBNAIL_FILENAME.test(entry.name)) {
       foreign += 1;
-      log.info(
-        { file: entry.name },
-        "orphan thumbnail sweep: not a <id>.jpg name, leaving it alone",
-      );
+      log.info({ file: entry.name }, "orphan thumbnail sweep: not a <id>.jpg name, leaving it alone");
       continue;
     }
     try {
@@ -193,9 +187,6 @@ export async function sweepOrphanThumbnails(
 
   // Logged unconditionally, zero included: this runs unattended and deletes
   // files, so every boot has to leave a line saying what it did.
-  log.info(
-    { deleted, kept: keep.size, foreign, failed, scanned: entries.length },
-    "orphan thumbnail sweep: done",
-  );
+  log.info({ deleted, kept: keep.size, foreign, failed, scanned: entries.length }, "orphan thumbnail sweep: done");
   return deleted;
 }

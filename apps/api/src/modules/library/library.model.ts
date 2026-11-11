@@ -63,9 +63,7 @@ export async function listBooks(sort: LibrarySort): Promise<BookRow[]> {
     return (await query.orderByRaw("b.title COLLATE NOCASE ASC")) as BookRow[];
   }
   if (sort === "author") {
-    return (await query.orderByRaw(
-      "b.author COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC",
-    )) as BookRow[];
+    return (await query.orderByRaw("b.author COLLATE NOCASE ASC, b.title COLLATE NOCASE ASC")) as BookRow[];
   }
   // "Recent" orders by the most recent activity on EITHER half of a convert
   // pair. Opening the converted twin touches only that row, which is hidden
@@ -153,11 +151,7 @@ export async function setBookMetadata(
  * and v1's byte size forever, which is a card describing a file it is no longer
  * serving.
  */
-export async function updatePublishedBook(
-  id: string,
-  title: string,
-  sizeBytes: number,
-): Promise<void> {
+export async function updatePublishedBook(id: string, title: string, sizeBytes: number): Promise<void> {
   await knex("books").where({ id }).update({ title, size_bytes: sizeBytes });
 }
 
@@ -173,9 +167,7 @@ export async function updatePublishedBook(
  * there is nothing left to say the file was ever there.
  */
 export async function getConvertedBook(sourceBookId: string): Promise<BookRow | undefined> {
-  return (await selectBooks().where("b.converted_from", sourceBookId).first()) as
-    | BookRow
-    | undefined;
+  return (await selectBooks().where("b.converted_from", sourceBookId).first()) as BookRow | undefined;
 }
 
 /**
@@ -291,11 +283,7 @@ export async function claimConvertSlot(id: string, now: string): Promise<boolean
  * `convert_started_at` is left alone: the run it timed did happen, and the next
  * `markConvertRunning` overwrites it.
  */
-export async function setConvertStatus(
-  id: string,
-  status: ConvertStatus,
-  error: string | null = null,
-): Promise<void> {
+export async function setConvertStatus(id: string, status: ConvertStatus, error: string | null = null): Promise<void> {
   await knex("books").where({ id }).update({ convert_status: status, convert_error: error });
 }
 
@@ -305,9 +293,7 @@ export async function setConvertStatus(
  * rather than a switch to a row that is gone.
  */
 export async function resetConvert(id: string): Promise<void> {
-  await knex("books")
-    .where({ id })
-    .update({ convert_status: "none", convert_error: null, convert_started_at: null });
+  await knex("books").where({ id }).update({ convert_status: "none", convert_error: null, convert_started_at: null });
 }
 
 /**
@@ -325,8 +311,6 @@ export async function resetConvert(id: string): Promise<void> {
  * knows about children this process spawned, the DB knows about the row.
  */
 export async function getRunningConvert(): Promise<BookRow | undefined> {
-  return (await selectBooks()
-    .where("b.convert_status", "running")
-    .orderBy("b.convert_started_at", "asc")
-    .first()) as BookRow | undefined;
+  return (await selectBooks().where("b.convert_status", "running").orderBy("b.convert_started_at", "asc").first()) as
+    BookRow | undefined;
 }

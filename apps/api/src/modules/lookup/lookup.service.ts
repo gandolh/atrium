@@ -57,10 +57,7 @@ export type LookupApplyResult =
   | Upstream;
 
 export type LookupThumbnailResult =
-  | { ok: true; bytes: Buffer }
-  | { ok: false; reason: "BAD_REF" }
-  | { ok: false; reason: "NO_COVER" }
-  | Upstream;
+  { ok: true; bytes: Buffer } | { ok: false; reason: "BAD_REF" } | { ok: false; reason: "NO_COVER" } | Upstream;
 
 function coverUrl(source: LookupSource, ref: string, size: "thumb" | "full"): string {
   return source === "musicbrainz" ? coverArtArchiveUrl(ref, size) : openLibraryCoverUrl(ref, size);

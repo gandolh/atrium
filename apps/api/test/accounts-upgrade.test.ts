@@ -24,11 +24,10 @@ async function seedUser(args: string[], env: Record<string, string>) {
   // Not a test process of its own: without this the child would report to the runner.
   delete childEnv.NODE_TEST_CONTEXT;
   try {
-    const { stdout, stderr } = await run(
-      process.execPath,
-      ["--import", "tsx", "src/scripts/seed-user.ts", ...args],
-      { cwd: API_ROOT, env: childEnv },
-    );
+    const { stdout, stderr } = await run(process.execPath, ["--import", "tsx", "src/scripts/seed-user.ts", ...args], {
+      cwd: API_ROOT,
+      env: childEnv,
+    });
     return { code: 0, stdout, stderr };
   } catch (error) {
     const failed = error as { code: number; stdout: string; stderr: string };
@@ -104,7 +103,10 @@ describe("upgrading to local accounts", () => {
     assert.equal(user?.role, "member");
     const cookie = String(res.headers["set-cookie"]).split(";")[0]!;
     const profiles = await t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } });
-    assert.deepEqual(profiles.json().map((p: { id: string }) => p.id), ["p-owner"]);
+    assert.deepEqual(
+      profiles.json().map((p: { id: string }) => p.id),
+      ["p-owner"],
+    );
   });
 
   it("--set-password on a username that does not exist fails and creates nothing", async () => {

@@ -33,17 +33,17 @@
  * sets the matching --ifm-* one, and `.sl-markdown-content` is `.markdown`.
  */
 
-@import '@fontsource/newsreader/400.css';
-@import '@fontsource/newsreader/600.css';
-@import '@fontsource/archivo/400.css';
-@import '@fontsource/archivo/500.css';
-@import '@fontsource/archivo/600.css';
+@import "@fontsource/newsreader/400.css";
+@import "@fontsource/newsreader/600.css";
+@import "@fontsource/archivo/400.css";
+@import "@fontsource/archivo/500.css";
+@import "@fontsource/archivo/600.css";
 
 :root {
-  --font-display: 'Newsreader', Georgia, serif;
-  --font-reading: 'Newsreader', Georgia, serif;
-  --font-ui: 'Archivo', system-ui, sans-serif;
-  --font-code: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: "Newsreader", Georgia, serif;
+  --font-reading: "Newsreader", Georgia, serif;
+  --font-ui: "Archivo", system-ui, sans-serif;
+  --font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Kind tints — the one decorative move in the system. */
   --tint-book: #efe9dd;
@@ -62,7 +62,7 @@
 
 /* --- Light (canonical, from design.md) ---------------------------------- */
 :root,
-:root[data-theme='light'] {
+:root[data-theme="light"] {
   color-scheme: light;
 
   --paper: #f7f5f2;
@@ -111,7 +111,7 @@
 }
 
 /* --- Dark (warm, not neutral — design.md says why) ---------------------- */
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   color-scheme: dark;
 
   --paper: #141310;
@@ -179,7 +179,7 @@
 
 /* "You are here". Not .menu__link--active: Infima puts that on the parent
    category of the current page as well. */
-.menu__link[aria-current='page'] {
+.menu__link[aria-current="page"] {
   font-weight: 600;
 }
 
@@ -279,7 +279,7 @@
 
 /* The classic theme sets admonition titles in capitals; the Starlight site's
    were sentence case, and the synced pages' titles are file paths. */
-.theme-admonition [class*='admonitionHeading'] {
+.theme-admonition [class*="admonitionHeading"] {
   text-transform: none;
   font-weight: 600;
 }

@@ -127,9 +127,5 @@ export interface FontProvider {
 // is a hoisted function declaration, initialised before any module body runs.
 
 export { createFontHandle } from "./fontkit-handle.ts";
-export {
-  LATIN_MODERN_FACE_IDS,
-  createLatinModernProvider,
-  latinModernFaceId,
-} from "./latin-modern.ts";
+export { LATIN_MODERN_FACE_IDS, createLatinModernProvider, latinModernFaceId } from "./latin-modern.ts";
 export type { LatinModernBytes, LatinModernFaceId } from "./latin-modern.ts";

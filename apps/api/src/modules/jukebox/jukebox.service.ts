@@ -249,11 +249,7 @@ async function retireCurrent(op: Op): Promise<void> {
  * Make `track` current under a new `play_id`. A Playlist Track moves the
  * cursor unless `moveCursor` says otherwise (Previous with shuffle on).
  */
-async function startTrack(
-  op: Op,
-  pick: NextPick,
-  options: { retire: boolean; moveCursor?: boolean },
-): Promise<void> {
+async function startTrack(op: Op, pick: NextPick, options: { retire: boolean; moveCursor?: boolean }): Promise<void> {
   if (options.retire) await retireCurrent(op);
   const moveCursor = options.moveCursor ?? pick.fromPlaylist;
   await patch(op, {
@@ -317,7 +313,11 @@ async function next(op: Op): Promise<void> {
 async function replayCurrent(op: Op): Promise<boolean> {
   const track = op.row.current_book_id === null ? undefined : op.playlist.byId.get(op.row.current_book_id);
   if (!track) return false;
-  await startTrack(op, { track, fromPlaylist: op.row.current_from_playlist === 1 }, { retire: false, moveCursor: false });
+  await startTrack(
+    op,
+    { track, fromPlaylist: op.row.current_from_playlist === 1 },
+    { retire: false, moveCursor: false },
+  );
   return true;
 }
 
@@ -607,10 +607,7 @@ export async function clearQueue(guildId: string): Promise<Player> {
  * cascade removes anyway. The row goes in the same transaction, so nothing can
  * make the Track current again between letting go of it and deleting it.
  */
-export async function deleteTrack(
-  bookId: string,
-  deleteRow: (trx: Knex.Transaction) => Promise<void>,
-): Promise<void> {
+export async function deleteTrack(bookId: string, deleteRow: (trx: Knex.Transaction) => Promise<void>): Promise<void> {
   const now = new Date();
   let wrote = false;
   await knex.transaction(async (trx) => {

@@ -18,7 +18,10 @@ describe("publishing releases positions on the version it supersedes", () => {
   const inject = (method: "GET" | "POST" | "PUT" | "PATCH", url: string, extra: Record<string, unknown> = {}) =>
     t.app.inject({ method, url, ...extra, headers: { cookie, ...((extra.headers as object) ?? {}) } });
   const publish = async (body: string) => {
-    await inject("PUT", `/latex/${project}/files/main.tex`, { headers: { "content-type": "text/plain" }, payload: document(body) });
+    await inject("PUT", `/latex/${project}/files/main.tex`, {
+      headers: { "content-type": "text/plain" },
+      payload: document(body),
+    });
     const res = await inject("POST", `/latex/${project}/publish`);
     assert.ok([200, 201].includes(res.statusCode), res.body);
     return res.json() as { book: { id: string }; version: { id: string } };

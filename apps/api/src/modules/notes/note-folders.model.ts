@@ -34,13 +34,8 @@ export async function listNoteFolders(profileId: string): Promise<NoteFolderRow[
     .orderByRaw("name COLLATE NOCASE")) as NoteFolderRow[];
 }
 
-export async function getNoteFolder(
-  profileId: string,
-  id: string,
-): Promise<NoteFolderRow | undefined> {
-  return (await knex("note_folders").where({ id, profile_id: profileId }).first()) as
-    | NoteFolderRow
-    | undefined;
+export async function getNoteFolder(profileId: string, id: string): Promise<NoteFolderRow | undefined> {
+  return (await knex("note_folders").where({ id, profile_id: profileId }).first()) as NoteFolderRow | undefined;
 }
 
 export async function insertNoteFolder(row: NoteFolderRow): Promise<void> {
@@ -53,9 +48,7 @@ async function folderOn(
   profileId: string,
   id: string,
 ): Promise<NoteFolderRow | undefined> {
-  return (await db("note_folders").where({ id, profile_id: profileId }).first()) as
-    | NoteFolderRow
-    | undefined;
+  return (await db("note_folders").where({ id, profile_id: profileId }).first()) as NoteFolderRow | undefined;
 }
 
 /**
@@ -83,9 +76,7 @@ async function wouldCycle(
 }
 
 export type UpdateNoteFolderResult =
-  | { ok: true; folder: NoteFolderRow }
-  | { ok: false; reason: "NOT_FOUND" }
-  | { ok: false; reason: "CYCLE" };
+  { ok: true; folder: NoteFolderRow } | { ok: false; reason: "NOT_FOUND" } | { ok: false; reason: "CYCLE" };
 
 /**
  * Rename and/or re-parent a folder, the cycle check and the write as **one
@@ -145,12 +136,8 @@ export async function deleteNoteFolder(profileId: string, id: string): Promise<b
   const folder = await getNoteFolder(profileId, id);
   if (!folder) return false;
   await knex.transaction(async (trx) => {
-    await trx("note_folders")
-      .where({ parent_id: id, profile_id: profileId })
-      .update({ parent_id: folder.parent_id });
-    await trx("notes")
-      .where({ folder_id: id, profile_id: profileId })
-      .update({ folder_id: folder.parent_id });
+    await trx("note_folders").where({ parent_id: id, profile_id: profileId }).update({ parent_id: folder.parent_id });
+    await trx("notes").where({ folder_id: id, profile_id: profileId }).update({ folder_id: folder.parent_id });
     await trx("note_folders").where({ id, profile_id: profileId }).delete();
   });
   return true;
@@ -172,17 +159,10 @@ export async function deleteNoteFolder(profileId: string, id: string): Promise<b
  * Lives in the folders model rather than the notes one because the folder
  * constraint is what forces the two to travel together.
  */
-export async function reassignNotes(
-  fromProfileId: string,
-  toProfileId: string,
-): Promise<number> {
+export async function reassignNotes(fromProfileId: string, toProfileId: string): Promise<number> {
   return knex.transaction(async (trx): Promise<number> => {
-    await trx("note_folders")
-      .where({ profile_id: fromProfileId })
-      .update({ profile_id: toProfileId });
-    const moved = await trx("notes")
-      .where({ profile_id: fromProfileId })
-      .update({ profile_id: toProfileId });
+    await trx("note_folders").where({ profile_id: fromProfileId }).update({ profile_id: toProfileId });
+    const moved = await trx("notes").where({ profile_id: fromProfileId }).update({ profile_id: toProfileId });
     return moved;
   });
 }

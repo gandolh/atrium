@@ -265,7 +265,10 @@ describe("the Jukebox API", () => {
     await report(g);
     const playing = await control(g, { action: "playTrack", bookId: "t2" });
     await control(g, { action: "stop" });
-    const res = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: playing.playId, reason: "ended" });
+    const res = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, {
+      playId: playing.playId,
+      reason: "ended",
+    });
     assert.deepEqual(res.body, { play: null });
     const p = await player(g);
     assert.equal(p.state, "idle");
@@ -405,7 +408,11 @@ describe("the Jukebox API", () => {
     assert.equal(p.state, "idle");
     assert.equal(p.track, null);
     assert.equal(
-      await knex("jukebox_commands").where("guild_id", g).count({ n: "*" }).first().then((row) => Number(row?.n)),
+      await knex("jukebox_commands")
+        .where("guild_id", g)
+        .count({ n: "*" })
+        .first()
+        .then((row) => Number(row?.n)),
       0,
       "nothing was queued for the bot",
     );
@@ -528,7 +535,10 @@ describe("the Jukebox API", () => {
     await control(g, { action: "playTrack", bookId: "t1" });
 
     const plays = await failRepeatedly(g, 5);
-    assert.ok(plays.slice(0, 4).every((play) => play !== null), "the first four failures move on");
+    assert.ok(
+      plays.slice(0, 4).every((play) => play !== null),
+      "the first four failures move on",
+    );
     assert.equal(plays[4], null, "the fifth stops");
     const p = await player(g);
     assert.equal(p.state, "idle");
@@ -554,7 +564,10 @@ describe("the Jukebox API", () => {
     const ended = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId, reason: "ended" });
     assert.ok(ended.body.play);
     const plays = await failRepeatedly(g, 4);
-    assert.ok(plays.every((play) => play !== null), "four more failures are not five in a row");
+    assert.ok(
+      plays.every((play) => play !== null),
+      "four more failures are not five in a row",
+    );
     const p = await player(g);
     assert.equal(p.state, "playing");
     assert.equal(p.failure, null);
@@ -624,7 +637,10 @@ describe("the Jukebox API", () => {
     assert.equal(command.track?.id, "y3");
     assert.equal(command.playId, p.playId);
     // The bot's advance for the deleted Track's play is stale.
-    const late = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: playing.playId, reason: "ended" });
+    const late = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, {
+      playId: playing.playId,
+      reason: "ended",
+    });
     assert.equal(late.body.stale, true);
   });
 
@@ -642,7 +658,10 @@ describe("the Jukebox API", () => {
     assert.equal(p.track?.id, "t1", "the Queue Track plays on");
     assert.equal(p.playId, fromQueue.playId);
     assert.equal(await cursorOf(g), "t3");
-    assert.deepEqual(p.upcoming.map((track) => track.id), ["y3", "y4"]);
+    assert.deepEqual(
+      p.upcoming.map((track) => track.id),
+      ["y3", "y4"],
+    );
 
     const next = await send(bot, "POST", `/jukebox/bot/players/${g}/advance`, { playId: p.playId, reason: "ended" });
     assert.equal(next.body.play.track.id, "y3");

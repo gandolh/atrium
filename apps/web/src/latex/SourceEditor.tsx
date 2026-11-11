@@ -1,11 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  Compartment,
-  EditorState,
-  StateEffect,
-  StateField,
-  type Extension,
-} from "@codemirror/state";
+import { Compartment, EditorState, StateEffect, StateField, type Extension } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -19,12 +13,7 @@ import {
   type DecorationSet,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import {
-  StreamLanguage,
-  bracketMatching,
-  indentOnInput,
-  indentUnit,
-} from "@codemirror/language";
+import { StreamLanguage, bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
 import { stex } from "@codemirror/legacy-modes/mode/stex";
 
 import type { Theme } from "../store/reader-store";
@@ -99,9 +88,7 @@ const revealField = StateField.define<DecorationSet>({
       next =
         effect.value === null
           ? Decoration.none
-          : Decoration.set([
-              Decoration.line({ class: "cm-atrium-reveal" }).range(effect.value),
-            ]);
+          : Decoration.set([Decoration.line({ class: "cm-atrium-reveal" }).range(effect.value)]);
     }
     return next;
   },
@@ -236,10 +223,7 @@ export function SourceEditor({
 
   useEffect(() => {
     view.current?.dispatch({
-      effects: readOnlyCompartment.reconfigure([
-        EditorState.readOnly.of(readOnly),
-        EditorView.editable.of(!readOnly),
-      ]),
+      effects: readOnlyCompartment.reconfigure([EditorState.readOnly.of(readOnly), EditorView.editable.of(!readOnly)]),
     });
   }, [readOnly]);
 
@@ -257,10 +241,7 @@ export function SourceEditor({
     const pos = line.from + column;
     instance.dispatch({
       selection: { anchor: pos },
-      effects: [
-        EditorView.scrollIntoView(pos, { y: "center" }),
-        setRevealLine.of(line.from),
-      ],
+      effects: [EditorView.scrollIntoView(pos, { y: "center" }), setRevealLine.of(line.from)],
     });
     instance.focus();
   }, [reveal, docKey]);

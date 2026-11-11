@@ -59,11 +59,7 @@ export function ThemePicker() {
               >
                 Aa
               </span>
-              <span
-                className={`text-[11px] ${
-                  selected ? "font-medium text-reader-fg" : "text-reader-fg/60"
-                }`}
-              >
+              <span className={`text-[11px] ${selected ? "font-medium text-reader-fg" : "text-reader-fg/60"}`}>
                 {t.label}
               </span>
             </button>

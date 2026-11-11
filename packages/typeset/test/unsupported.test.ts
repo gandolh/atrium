@@ -341,7 +341,11 @@ test("\\usepackage for one of the five accepted packages is an info, not an erro
     const result = compileSource(
       `\\documentclass{article}\n\\usepackage{${name}}\n\\begin{document}\nx\n\\end{document}\n`,
     );
-    assert.ok(!result.diagnostics.some((d) => d.code === "unsupported" && d.severity === "error" && d.construct === `\\usepackage{${name}}`));
+    assert.ok(
+      !result.diagnostics.some(
+        (d) => d.code === "unsupported" && d.severity === "error" && d.construct === `\\usepackage{${name}}`,
+      ),
+    );
     assert.ok(result.pdf !== null, `\\usepackage{${name}} should not block compilation`);
   }
   // `geometry` genuinely changes output (margins), so it alone carries no
@@ -409,31 +413,25 @@ test("\\renewcommand of a formatting hook (\\labelenumii) reports `unsupported`"
  * errors, names `\input`, points at the line the token is really on, and
  * withholds the PDF.
  */
-test(
-  "\\input inside a macro definition is diagnosed, not silently dropped",
-  () => {
-    // \newcommand{\startinput}{\input}  ...  \startinput{other}
-    // The parser does not know \startinput's arity, so `{other}` is never
-    // attached as \input's argument until after expansion splices \input in —
-    // at which point \input and the sibling group are separate nodes, which
-    // is the shape meant to reach applyCommand's "input" branch.
-    const src =
-      "\\documentclass{article}\n\\newcommand{\\startinput}{\\input}\n\\begin{document}\n\\startinput{other}\n\\end{document}\n";
-    const result = compileSource(src);
-    const hit = result.diagnostics.find((d) => d.construct === "\\input");
-    assert.ok(
-      hit !== undefined,
-      `\\input was dropped without a diagnostic, got: ${JSON.stringify(result.diagnostics)}`,
-    );
-    assert.equal(hit.severity, "error");
-    assert.equal(hit.code, "syntax");
-    // Line 2 is the \newcommand body, where the bare \input actually sits —
-    // not line 4 where \startinput is called. A diagnostic that pointed at the
-    // call site would be pointing at source that does not contain the problem.
-    assert.equal(hit.line, 2);
-    assert.equal(result.pdf, null);
-  },
-);
+test("\\input inside a macro definition is diagnosed, not silently dropped", () => {
+  // \newcommand{\startinput}{\input}  ...  \startinput{other}
+  // The parser does not know \startinput's arity, so `{other}` is never
+  // attached as \input's argument until after expansion splices \input in —
+  // at which point \input and the sibling group are separate nodes, which
+  // is the shape meant to reach applyCommand's "input" branch.
+  const src =
+    "\\documentclass{article}\n\\newcommand{\\startinput}{\\input}\n\\begin{document}\n\\startinput{other}\n\\end{document}\n";
+  const result = compileSource(src);
+  const hit = result.diagnostics.find((d) => d.construct === "\\input");
+  assert.ok(hit !== undefined, `\\input was dropped without a diagnostic, got: ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(hit.severity, "error");
+  assert.equal(hit.code, "syntax");
+  // Line 2 is the \newcommand body, where the bare \input actually sits —
+  // not line 4 where \startinput is called. A diagnostic that pointed at the
+  // call site would be pointing at source that does not contain the problem.
+  assert.equal(hit.line, 2);
+  assert.equal(result.pdf, null);
+});
 
 // --- 5. warning-severity: the engine has no clock ---------------------------
 
@@ -447,7 +445,9 @@ test("\\today is a warning, not an error, and does not block compilation", () =>
 });
 
 test("\\maketitle with no \\date is a warning, not an error", () => {
-  const result = compileSource("\\documentclass{article}\n\\title{T}\n\\begin{document}\n\\maketitle\n\\end{document}\n");
+  const result = compileSource(
+    "\\documentclass{article}\n\\title{T}\n\\begin{document}\n\\maketitle\n\\end{document}\n",
+  );
   const hit = result.diagnostics.find((d) => d.construct === "\\maketitle" && d.code === "unsupported");
   assert.ok(hit !== undefined);
   assert.equal(hit.severity, "warning");

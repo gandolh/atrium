@@ -120,9 +120,7 @@ test("a \\pageref to a label that never reaches a page is reported", () => {
   // `\label` in the preamble never becomes vertical material, so its marker is
   // never placed — the case `resolvePageNumbers` exists to report.
   const files = {
-    "main.tex": encode(
-      "\\documentclass{article}\n\\begin{document}\n\\pageref{nowhere}\n\\end{document}\n",
-    ),
+    "main.tex": encode("\\documentclass{article}\n\\begin{document}\n\\pageref{nowhere}\n\\end{document}\n"),
   };
   const result = compile(files, "main.tex", { fonts });
   assert.ok(result.diagnostics.some((d) => d.code === "undefined-reference"));
@@ -132,9 +130,7 @@ test("a \\pageref to a label that never reaches a page is reported", () => {
 
 test("a footnote lands at the foot of the page its mark is on", () => {
   const filler = "Filler text that pushes the mark down the page. ".repeat(40);
-  const { files, entrypoint } = project(
-    `${filler}\n\nA sentence with a note\\footnote{The note itself.} in it.`,
-  );
+  const { files, entrypoint } = project(`${filler}\n\nA sentence with a note\\footnote{The note itself.} in it.`);
   const result = compile(files, entrypoint, { fonts });
   assert.ok(result.pages.length >= 1);
 

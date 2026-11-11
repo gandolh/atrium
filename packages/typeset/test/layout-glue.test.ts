@@ -1,15 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  INF_BAD,
-  badness,
-  computeGlueSet,
-  glue,
-  hpack,
-  kern,
-  measure,
-  setWidth,
-} from "../src/layout/index.ts";
+import { INF_BAD, badness, computeGlueSet, glue, hpack, kern, measure, setWidth } from "../src/layout/index.ts";
 import type { HBox, HNode, RuleNode } from "../src/layout/index.ts";
 
 /**

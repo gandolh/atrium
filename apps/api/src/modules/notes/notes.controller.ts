@@ -93,9 +93,7 @@ export function registerNotesRoutes(app: FastifyInstance): void {
       .header("Content-Type", "application/pdf")
       .header(
         "Content-Disposition",
-        `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(
-          `${note.title || "note"}.pdf`,
-        )}`,
+        `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(`${note.title || "note"}.pdf`)}`,
       )
       .send(Buffer.from(bytes));
   });

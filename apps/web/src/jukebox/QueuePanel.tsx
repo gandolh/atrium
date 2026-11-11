@@ -69,7 +69,9 @@ export function QueuePanel({
             <li key={entry.id} className="flex items-center gap-3 px-3 py-2.5">
               <TrackArt book={booksById.get(entry.track.id)} className="w-10" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-ui text-sm font-semibold tracking-[-0.01em] text-ink">{entry.track.title}</p>
+                <p className="truncate font-ui text-sm font-semibold tracking-[-0.01em] text-ink">
+                  {entry.track.title}
+                </p>
                 {trackByline(entry.track.artist, entry.track.album) && (
                   <p className="truncate font-ui text-xs text-ink-variant">
                     {trackByline(entry.track.artist, entry.track.album)}
@@ -94,7 +96,11 @@ export function QueuePanel({
                 >
                   <DownIcon className="h-4 w-4" />
                 </RemoteButton>
-                <RemoteButton size="sm" label={`Remove ${entry.track.title} from the queue`} onClick={() => onRemove(entry.id)}>
+                <RemoteButton
+                  size="sm"
+                  label={`Remove ${entry.track.title} from the queue`}
+                  onClick={() => onRemove(entry.id)}
+                >
                   <CloseIcon className="h-4 w-4" />
                 </RemoteButton>
               </div>

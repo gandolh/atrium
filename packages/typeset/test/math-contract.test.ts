@@ -103,10 +103,7 @@ function assertDeclined(body: string, construct: string): Diagnostic {
     `${construct} was reported as undefined — it is real LaTeX this engine declined, which is \`unsupported\` (D38)`,
   );
   const hit = result.diagnostics.find((d) => d.code === "unsupported" && d.construct === construct);
-  assert.ok(
-    hit !== undefined,
-    `${construct} did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`,
-  );
+  assert.ok(hit !== undefined, `${construct} did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
   assert.equal(hit.severity, "error");
   assert.match(hit.message, / — /, `${construct}'s diagnostic carries no detail saying why`);
   assert.ok(hit.line > 0, `${construct}'s diagnostic has no line`);
@@ -253,9 +250,9 @@ test("a matrix, an array and growing delimiters ride inside the TeX, not as bloc
 // --- 3. the equation counter, \label and \ref --------------------------------
 
 test("equation numbers run straight through the document, as article.cls numbers them", () => {
-  const blocks = blocksOf(
-    "\\begin{equation}a\\end{equation}\n\\section{S}\n\\begin{equation}b\\end{equation}",
-  ).filter((b): b is DisplayMathBlock => b.kind === "displaymath");
+  const blocks = blocksOf("\\begin{equation}a\\end{equation}\n\\section{S}\n\\begin{equation}b\\end{equation}").filter(
+    (b): b is DisplayMathBlock => b.kind === "displaymath",
+  );
   assert.deepEqual(
     blocks.map((b) => b.lines[0]!.number),
     ["1", "2"],
@@ -507,9 +504,7 @@ test("every In-list math name is in a table, and resolves to something that is n
 test("every name the Out list fixtures use is a table row, so none of them can drift to undefined", () => {
   for (const entry of OUT_LIST) {
     const bare = entry.construct.startsWith("\\") ? entry.construct.slice(1) : entry.construct;
-    const spec = entry.construct.startsWith("\\")
-      ? BUILTIN_COMMANDS[bare]
-      : BUILTIN_ENVIRONMENTS[bare];
+    const spec = entry.construct.startsWith("\\") ? BUILTIN_COMMANDS[bare] : BUILTIN_ENVIRONMENTS[bare];
     assert.ok(spec !== undefined, `${entry.construct} has no row`);
     assert.equal(spec.role, "unsupported", `${entry.construct}'s row is not a refusal`);
   }

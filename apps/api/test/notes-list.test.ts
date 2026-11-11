@@ -66,14 +66,26 @@ describe("the notes list never loads the ink", () => {
 
   it("a profile with notes refuses deletion with its note count; an empty one deletes", async () => {
     const create = async (name: string) => {
-      const res = await t.app.inject({ method: "POST", url: "/profiles", headers: { cookie }, payload: { name, color: "rose" } });
+      const res = await t.app.inject({
+        method: "POST",
+        url: "/profiles",
+        headers: { cookie },
+        payload: { name, color: "rose" },
+      });
       assert.equal(res.statusCode, 201, res.body);
       return res.json().id as string;
     };
     const withNotes = await create("Has notes");
     const at = "2026-01-01T00:00:00.000Z";
     await knex("notes").insert(
-      [1, 2].map((n) => ({ id: `theirs-${n}`, profile_id: withNotes, title: `N${n}`, data: "[]", created_at: at, updated_at: at })),
+      [1, 2].map((n) => ({
+        id: `theirs-${n}`,
+        profile_id: withNotes,
+        title: `N${n}`,
+        data: "[]",
+        created_at: at,
+        updated_at: at,
+      })),
     );
     const refused = await t.app.inject({ method: "DELETE", url: `/profiles/${withNotes}`, headers: { cookie } });
     assert.equal(refused.statusCode, 409, refused.body);

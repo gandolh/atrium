@@ -91,8 +91,7 @@ export function groupBooks(books: LibraryBook[], groupBy: LibraryGroup): BookGro
   const groups: BookGroup[] = Array.from(byKey, ([key, { label, books: groupBooksList }]) => ({
     key,
     label,
-    books:
-      groupBy === "series" ? orderBySeriesIndex(groupBooksList) : groupBooksList,
+    books: groupBy === "series" ? orderBySeriesIndex(groupBooksList) : groupBooksList,
   }));
 
   groups.sort((a, b) => {

@@ -775,7 +775,7 @@ function appendFeasible(
     const group = uniform ? -1 : (keys[i] as number) >> 2;
     let j = i;
     let minimum = Infinity;
-    while (j < keys.length && (uniform || ((keys[j] as number) >> 2) === group)) {
+    while (j < keys.length && (uniform || (keys[j] as number) >> 2 === group)) {
       const f = best.get(keys[j] as number) as Feasible;
       if (f.totalDemerits < minimum) minimum = f.totalDemerits;
       j++;
@@ -854,13 +854,7 @@ function assemble(
  * into the background while breaking. Leaving them out here would set the glue
  * against a different width than the one the breaker optimised.
  */
-function packLine(
-  list: HList,
-  from: Candidate,
-  to: Candidate,
-  target: number,
-  params: LineBreakParams,
-): PackReport {
+function packLine(list: HList, from: Candidate, to: Candidate, target: number, params: LineBreakParams): PackReport {
   const content: HNode[] = [];
   if (params.leftSkip.natural !== 0 || params.leftSkip.stretch !== 0 || params.leftSkip.shrink !== 0) {
     content.push(cloneGlue(params.leftSkip));
@@ -884,12 +878,7 @@ function cloneGlue(g: Glue): Glue {
   };
 }
 
-function reportLine(
-  into: Diagnostic[],
-  report: PackReport,
-  line: number,
-  params: LineBreakParams,
-): void {
+function reportLine(into: Diagnostic[], report: PackReport, line: number, params: LineBreakParams): void {
   if (report.overfull > params.hfuzz) {
     into.push(
       warning(
@@ -909,12 +898,7 @@ function reportLine(
   // from it. Any infinite stretch — the last line's `\parfillskip`, a ragged
   // `\rightskip` — raises the order and rightly says nothing.
   const set = report.box.glueSet;
-  if (
-    set !== null &&
-    set.order === 0 &&
-    report.natural < report.box.width &&
-    report.badness > params.hbadness
-  ) {
+  if (set !== null && set.order === 0 && report.natural < report.box.width && report.badness > params.hbadness) {
     into.push(
       warning(
         "underfull-box",
@@ -936,12 +920,7 @@ function pt(value: number): string {
  * prevent — but `compile()` promises never to throw, and "no lines at all"
  * would be a silent loss of the paragraph, which is worse than an ugly one.
  */
-function lastResort(
-  list: HList,
-  widths: LineWidths,
-  params: LineBreakParams,
-  steps: number,
-): LineBreakResult {
+function lastResort(list: HList, widths: LineWidths, params: LineBreakParams, steps: number): LineBreakResult {
   const target = lineWidthAt(widths, 1);
   const report = hpack(list.slice(), target);
   const diagnostics: Diagnostic[] = [];

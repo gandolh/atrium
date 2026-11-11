@@ -30,8 +30,7 @@ import {
  */
 
 export type SearchResult =
-  | { ok: true; data: CatalogSearchResponse; cached: boolean }
-  | { ok: false; reason: "UPSTREAM"; cause: unknown };
+  { ok: true; data: CatalogSearchResponse; cached: boolean } | { ok: false; reason: "UPSTREAM"; cause: unknown };
 
 export type ImportResult =
   | { ok: true; row: NewBookRow }
@@ -63,10 +62,7 @@ export async function searchCatalog(params: CatalogSearchParams): Promise<Search
  * such book, no EPUB edition, an EPUB over the upload cap, and the network. The
  * caller maps each to its status code.
  */
-export async function importGutenbergBook(
-  gutenbergId: number,
-  log: FastifyBaseLogger,
-): Promise<ImportResult> {
+export async function importGutenbergBook(gutenbergId: number, log: FastifyBaseLogger): Promise<ImportResult> {
   // 1. Resolve metadata + the EPUB URL via Gutendex.
   let resolved;
   try {

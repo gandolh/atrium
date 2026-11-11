@@ -1,13 +1,6 @@
 import type { Diagnostic, SourceRef } from "../diagnostics.ts";
 import { warning } from "../diagnostics.ts";
-import type {
-  DocumentLength,
-  Inline,
-  TableBlock,
-  TableColumnAlign,
-  TableRow,
-  TableRule,
-} from "../doc/model.ts";
+import type { DocumentLength, Inline, TableBlock, TableColumnAlign, TableRow, TableRule } from "../doc/model.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { FontSize, LengthContext, PageDesign } from "./design.ts";

@@ -1,9 +1,5 @@
 import { z } from "zod";
-import type {
-  CatalogBook,
-  CatalogSearchParams,
-  CatalogSearchResponse,
-} from "@ebook-reader/shared";
+import type { CatalogBook, CatalogSearchParams, CatalogSearchResponse } from "@ebook-reader/shared";
 import { GUTENDEX_BASE_URL } from "../../common/config.js";
 
 /**
@@ -100,9 +96,7 @@ function coverUrlFrom(formats: Record<string, string>): string | null {
  * build); the `.images` preference is defensive in case more ever appear.
  */
 function epubUrlFrom(formats: Record<string, string>): string | null {
-  const epubs = Object.entries(formats).filter(([mime]) =>
-    mime.startsWith("application/epub+zip"),
-  );
+  const epubs = Object.entries(formats).filter(([mime]) => mime.startsWith("application/epub+zip"));
   if (epubs.length === 0) return null;
   const images = epubs.find(([, url]) => url.includes(".images"));
   return (images ?? epubs[0])[1];
@@ -177,9 +171,7 @@ export async function fetchCatalog(params: CatalogSearchParams): Promise<Catalog
  * mapped catalog book plus the raw EPUB URL (needed for the download, which the
  * mapped shape doesn't carry). null when Gutendex knows no such id.
  */
-export async function resolveGutenbergBook(
-  id: number,
-): Promise<{ book: CatalogBook; epubUrl: string | null } | null> {
+export async function resolveGutenbergBook(id: number): Promise<{ book: CatalogBook; epubUrl: string | null } | null> {
   const url = gutendexBooksUrl();
   url.searchParams.set("ids", String(id));
   const res = await fetch(url.toString(), {

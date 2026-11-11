@@ -17,30 +17,33 @@
  *
  * Styling hooks (`.doc-diagram*`) are defined per project in src/css/custom.css.
  */
-import useBaseUrl from '@docusaurus/useBaseUrl'
+import useBaseUrl from "@docusaurus/useBaseUrl";
 
 interface Props {
   /** File stem under static/diagrams/, e.g. "architecture". */
-  name: string
+  name: string;
   /** Accessible title for the frame. */
-  title: string
+  title: string;
   /** Prose below the frame. Say what to look at, not what it is. */
-  caption?: string
+  caption?: string;
   /** Frame height in px. */
-  height?: number
+  height?: number;
 }
 
 export default function Diagram({ name, title, caption, height = 760 }: Props) {
-  const src = useBaseUrl(`/diagrams/${name}.html`)
+  const src = useBaseUrl(`/diagrams/${name}.html`);
   return (
     <figure className="doc-diagram">
       <iframe className="doc-diagram__frame" src={src} title={title} height={height} loading="lazy" />
       {caption && (
         <figcaption className="doc-diagram__caption">
-          {caption} — <a href={src} target="_blank" rel="noopener">open full screen</a>, where search,
-          tracing and the guided views are usable.
+          {caption} —{" "}
+          <a href={src} target="_blank" rel="noopener">
+            open full screen
+          </a>
+          , where search, tracing and the guided views are usable.
         </figcaption>
       )}
     </figure>
-  )
+  );
 }

@@ -235,17 +235,7 @@ export interface Marker {
 
 /** What may appear in a paragraph. */
 export type HNode =
-  | GlyphNode
-  | HBox
-  | VBox
-  | RuleNode
-  | ImageNode
-  | MathNode
-  | Glue
-  | Kern
-  | Penalty
-  | Discretionary
-  | Marker;
+  GlyphNode | HBox | VBox | RuleNode | ImageNode | MathNode | Glue | Kern | Penalty | Discretionary | Marker;
 /** What may appear in a column. No discretionaries: nothing hyphenates vertically. */
 export type VNode = HBox | VBox | RuleNode | Glue | Kern | Penalty | Marker;
 

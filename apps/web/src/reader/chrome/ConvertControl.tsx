@@ -68,8 +68,7 @@ function ConvertedBookSwitch({ book, sourceId }: { book: LibraryBook; sourceId: 
       }
     >
       <p className="text-sm text-reader-fg/80">
-        You're reading the converted {labelFor(book.format)} — the original {labelFor(sourceFormat)}{" "}
-        is one tap away.
+        You're reading the converted {labelFor(book.format)} — the original {labelFor(sourceFormat)} is one tap away.
       </p>
       {/* design.md "accent means state only, never a button fill": ink-filled
           primary, matching the system's one solid-button style. */}
@@ -242,8 +241,8 @@ function SourceBookControl({ book }: { book: LibraryBook }) {
       {current.convertStatus === "running" && (
         <>
           <p className="text-sm text-reader-fg/80 motion-safe:animate-pulse">
-            Converting to {labelFor(targetFormat)}… this can take a while — Calibre works through
-            it in the background. Come back anytime; the button keeps checking on its own.
+            Converting to {labelFor(targetFormat)}… this can take a while — Calibre works through it in the background.
+            Come back anytime; the button keeps checking on its own.
           </p>
           <button
             type="button"
@@ -281,9 +280,7 @@ function SourceBookControl({ book }: { book: LibraryBook }) {
 
       {current.convertStatus === "failed" && (
         <>
-          <p className="text-sm text-danger">
-            {current.convertError ?? "The conversion failed."}
-          </p>
+          <p className="text-sm text-danger">{current.convertError ?? "The conversion failed."}</p>
           <button
             type="button"
             disabled={start.isPending}

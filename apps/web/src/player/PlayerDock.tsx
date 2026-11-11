@@ -5,13 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { coverUrl } from "../lib/library-api";
 import { useMotionTransition } from "../lib/motion";
 import { usePlaybackStore, type PlaybackItem } from "../store/playback-store";
-import {
-  IconButton,
-  PlayPauseButton,
-  ScrubTrack,
-  SkipButton,
-  TimeReadout,
-} from "./transport";
+import { IconButton, PlayPauseButton, ScrubTrack, SkipButton, TimeReadout } from "./transport";
 
 /**
  * The persistent player dock (design.md "Components" → "Player
@@ -132,9 +126,7 @@ function DockTitle({ item }: { item: PlaybackItem }) {
       >
         {item.title}
       </Link>
-      <p className="truncate text-xs text-ink-variant">
-        {item.author ?? (item.kind === "audio" ? "Music" : "Video")}
-      </p>
+      <p className="truncate text-xs text-ink-variant">{item.author ?? (item.kind === "audio" ? "Music" : "Video")}</p>
     </div>
   );
 }

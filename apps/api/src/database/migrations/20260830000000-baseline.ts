@@ -53,7 +53,6 @@ const BOOK_COLUMNS: Record<string, string> = {
   convert_started_at: "TEXT",
 };
 
-
 /**
  * Give every `users` row with no profile a `Default` one — **the legacy shape**.
  *
@@ -590,14 +589,10 @@ async function createLateIndexes(knex: Knex): Promise<void> {
   // with no way to reach it. SQLite treats NULLs as distinct in a unique index,
   // so every ordinary (non-derived) book is unaffected. Doubles as the index
   // the ON DELETE CASCADE lookup wants.
-  await knex.raw(
-    "CREATE UNIQUE INDEX IF NOT EXISTS books_converted_from ON books(converted_from)",
-  );
+  await knex.raw("CREATE UNIQUE INDEX IF NOT EXISTS books_converted_from ON books(converted_from)");
 
   // Created after the profile rebuild, never with the table: on a pre-brief-35
   // database `notes.profile_id` does not exist until step 3 has run. The old
   // `notes_user_updated` index dies with the table that rebuild drops.
-  await knex.raw(
-    "CREATE INDEX IF NOT EXISTS notes_profile_updated ON notes(profile_id, updated_at DESC)",
-  );
+  await knex.raw("CREATE INDEX IF NOT EXISTS notes_profile_updated ON notes(profile_id, updated_at DESC)");
 }

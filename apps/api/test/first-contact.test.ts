@@ -26,9 +26,7 @@ describe("first contact", () => {
   it("five concurrent first requests still produce one profile, and no 500", async () => {
     const cookie = await t.signIn("subject-burst");
     const responses = await Promise.all(
-      Array.from({ length: 5 }, () =>
-        t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } }),
-      ),
+      Array.from({ length: 5 }, () => t.app.inject({ method: "GET", url: "/profiles", headers: { cookie } })),
     );
     assert.deepEqual(
       responses.map((r) => r.statusCode),

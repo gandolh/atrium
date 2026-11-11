@@ -120,9 +120,7 @@ test("the dump rounds to three decimals and normalises negative zero", () => {
 test("a non-finite dimension is printed, not rounded away", () => {
   const result: CompileResult = {
     pdf: null,
-    pages: [
-      { number: 1, width: 612, height: 792, items: [{ kind: "rule", x: NaN, y: 0, width: 1, height: 1 }] },
-    ],
+    pages: [{ number: 1, width: 612, height: 792, items: [{ kind: "rule", x: NaN, y: 0, width: 1, height: 1 }] }],
     diagnostics: [],
     stats: { pages: 1, steps: 0, bytes: 0 },
   };
@@ -171,7 +169,8 @@ test("compareDump handles insertions and deletions, not just replacements", () =
 
 test("a missing golden fails with the blessing instructions", () => {
   assert.throws(
-    () => checkGolden("does-not-exist", "anything\n", { goldenDir: mkdtempSync(join(tmpdir(), "typeset-")), bless: false }),
+    () =>
+      checkGolden("does-not-exist", "anything\n", { goldenDir: mkdtempSync(join(tmpdir(), "typeset-")), bless: false }),
     /UPDATE_GOLDEN=1/,
   );
 });
@@ -185,8 +184,5 @@ test("blessing writes the golden, and the written golden then matches", () => {
 
   // The round trip is the point: what blessing writes is what checking accepts.
   assert.doesNotThrow(() => checkGolden("blessed", dump, { goldenDir, bless: false }));
-  assert.throws(
-    () => checkGolden("blessed", `${dump}extra\n`, { goldenDir, bless: false }),
-    /golden mismatch/,
-  );
+  assert.throws(() => checkGolden("blessed", `${dump}extra\n`, { goldenDir, bless: false }), /golden mismatch/);
 });

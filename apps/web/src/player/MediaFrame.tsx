@@ -38,17 +38,11 @@ export function MediaFrame({
           <span className="hidden sm:inline">Library</span>
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-lg leading-tight font-semibold text-reader-fg">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="truncate text-sm text-reader-fg/60">{subtitle}</p>
-          ) : null}
+          <h1 className="truncate font-display text-lg leading-tight font-semibold text-reader-fg">{title}</h1>
+          {subtitle ? <p className="truncate text-sm text-reader-fg/60">{subtitle}</p> : null}
         </div>
       </header>
-      <main className="flex flex-1 flex-col items-center justify-center px-5 py-8">
-        {children}
-      </main>
+      <main className="flex flex-1 flex-col items-center justify-center px-5 py-8">{children}</main>
     </div>
   );
 }
@@ -56,13 +50,7 @@ export function MediaFrame({
 function BackIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M15 5l-7 7 7 7"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

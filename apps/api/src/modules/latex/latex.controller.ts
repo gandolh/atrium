@@ -13,13 +13,7 @@ import {
   latexProjectSchema,
 } from "@ebook-reader/shared";
 import { DOCUMENT_VERSIONS_DIR } from "../../common/config.js";
-import {
-  coverPathFor,
-  filePathFor,
-  projectDirFor,
-  versionPdfPathFor,
-  versionZipPathFor,
-} from "../../common/paths.js";
+import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor, versionZipPathFor } from "../../common/paths.js";
 import { toLibraryBook } from "../library/library.mapper.js";
 import { deleteBook, getBook, insertBook } from "../library/library.model.js";
 import { deleteBookWithArtifacts } from "../library/library.service.js";
@@ -92,8 +86,7 @@ import { removeProjectTree } from "./project-tree.service.js";
 
 export function registerLatexRoutes(app: FastifyInstance): void {
   /** The wildcard segment of a `files/*` route — already decoded by Fastify, exactly once. */
-  const wildcard = (request: FastifyRequest): string =>
-    (request.params as Record<string, string>)["*"] ?? "";
+  const wildcard = (request: FastifyRequest): string => (request.params as Record<string, string>)["*"] ?? "";
 
   // --- Projects --------------------------------------------------------------
 
@@ -176,9 +169,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     );
     if (!ok) return reply.status(404).send({ error: "NOT_FOUND" });
     // Re-read rather than reconstruct: COALESCE decided which columns changed.
-    return reply.send(
-      latexProjectSchema.parse(toLatexProject((await getLatexProject(pid(request), project.id))!)),
-    );
+    return reply.send(latexProjectSchema.parse(toLatexProject((await getLatexProject(pid(request), project.id))!)));
   });
 
   /**
@@ -224,7 +215,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
 
     await cancelAndSettleLatexCompile(project.id);
 
-    if (!await deleteLatexProject(pid(request), project.id)) {
+    if (!(await deleteLatexProject(pid(request), project.id))) {
       return reply.status(404).send({ error: "NOT_FOUND" });
     }
     // `projectDirFor` asserts the id's shape; it came from the row, so it is a
@@ -288,8 +279,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
       if (content === null) {
         return reply.status(400).send({
           error: "INVALID_REQUEST",
-          message:
-            "Send the file contents as a text/plain body, or as JSON `{ \"content\": \"...\" }`.",
+          message: 'Send the file contents as a text/plain body, or as JSON `{ "content": "..." }`.',
         });
       }
 
@@ -353,9 +343,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
     if (refuseUnaccountablePath(reply, confined.relativePath, "path")) return reply;
 
     if (!request.isMultipart()) {
-      return reply
-        .status(400)
-        .send({ error: "INVALID_REQUEST", message: "Send the file as a multipart upload." });
+      return reply.status(400).send({ error: "INVALID_REQUEST", message: "Send the file as a multipart upload." });
     }
     const data = await request.file();
     if (!data) {
@@ -867,7 +855,7 @@ export function registerLatexRoutes(app: FastifyInstance): void {
       // inserted is an orphan with nothing on disk yet — delete it and tell the
       // client to publish again, which will now see the winner's book and
       // append a version to it. A 500 here would leave the orphan behind.
-      if (!await setLatexPublishedBook(project.id, bookId)) {
+      if (!(await setLatexPublishedBook(project.id, bookId))) {
         await deleteBook(bookId);
         return reply.status(409).send({
           error: "PUBLISH_RACED",
@@ -990,38 +978,35 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * alone, so without that comparison one book's URL could delete another's
    * version. A mismatch is a 404, never a 403: it must not confirm the id.
    */
-  app.delete(
-    "/library/:id/versions/:versionId",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { id, versionId } = request.params as { id: string; versionId: string };
-      const book = await getBook(id);
-      if (!book) return reply.status(404).send({ error: "Book not found." });
-      const version = await getDocumentVersion(versionId);
-      if (!version || version.book_id !== id) {
-        return reply.status(404).send({ error: "Version not found." });
-      }
+  app.delete("/library/:id/versions/:versionId", async (request: FastifyRequest, reply: FastifyReply) => {
+    const { id, versionId } = request.params as { id: string; versionId: string };
+    const book = await getBook(id);
+    if (!book) return reply.status(404).send({ error: "Book not found." });
+    const version = await getDocumentVersion(versionId);
+    if (!version || version.book_id !== id) {
+      return reply.status(404).send({ error: "Version not found." });
+    }
 
-      const wasLatest = (await getLatestDocumentVersion(id))?.id === version.id;
-      await deleteDocumentVersion(version.id);
-      await rm(versionPdfPathFor(version.id), { force: true });
-      await rm(versionZipPathFor(version.id), { force: true });
+    const wasLatest = (await getLatestDocumentVersion(id))?.id === version.id;
+    await deleteDocumentVersion(version.id);
+    await rm(versionPdfPathFor(version.id), { force: true });
+    await rm(versionZipPathFor(version.id), { force: true });
 
-      if (await countDocumentVersions(id) === 0) {
-        await deleteBookWithArtifacts(book, request.log);
-        return reply.status(204).send();
-      }
-
-      if (wasLatest) {
-        const latest = (await getLatestDocumentVersion(id))!;
-        try {
-          await writeLibraryArtifacts(id, await readFile(versionPdfPathFor(latest.id)), book.title, request);
-        } catch (err) {
-          // The version rows are already correct; only the convenience copy is
-          // stale. Logged rather than raised — the delete really did happen.
-          request.log.warn({ err, bookId: id }, "version delete: library file could not follow the new newest version");
-        }
-      }
+    if ((await countDocumentVersions(id)) === 0) {
+      await deleteBookWithArtifacts(book, request.log);
       return reply.status(204).send();
-    },
-  );
+    }
+
+    if (wasLatest) {
+      const latest = (await getLatestDocumentVersion(id))!;
+      try {
+        await writeLibraryArtifacts(id, await readFile(versionPdfPathFor(latest.id)), book.title, request);
+      } catch (err) {
+        // The version rows are already correct; only the convenience copy is
+        // stale. Logged rather than raised — the delete really did happen.
+        request.log.warn({ err, bookId: id }, "version delete: library file could not follow the new newest version");
+      }
+    }
+    return reply.status(204).send();
+  });
 }

@@ -78,10 +78,7 @@ declare module "fontkit" {
      * OpenType features on (`true`) or off (`false`); omitting it lets the
      * shaper pick the script's defaults, which includes `liga` and `kern`.
      */
-    layout(
-      input: string | readonly FontkitGlyph[],
-      features?: Readonly<Record<string, boolean>>,
-    ): FontkitGlyphRun;
+    layout(input: string | readonly FontkitGlyph[], features?: Readonly<Record<string, boolean>>): FontkitGlyphRun;
   }
 
   /** Parses the header only; tables are decoded lazily on first access. */

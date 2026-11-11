@@ -43,9 +43,7 @@ function scheduleHide(idleMs: number = HIDE_DELAY_MS) {
   }, idleMs);
 }
 
-export function useAutoHideChrome(
-  options: { idleMs?: number; enabled?: boolean } = {},
-): () => void {
+export function useAutoHideChrome(options: { idleMs?: number; enabled?: boolean } = {}): () => void {
   const { idleMs = HIDE_DELAY_MS, enabled = true } = options;
   const setChromeVisible = useReaderStore((s) => s.setChromeVisible);
   const idleMsRef = useRef(idleMs);

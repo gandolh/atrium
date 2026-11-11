@@ -55,15 +55,7 @@ export function SkipButton({ direction }: { direction: "back" | "forward" }) {
 }
 
 /** A quiet, transparent icon control — the secondary button of the transport. */
-export function IconButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
+export function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -126,13 +118,7 @@ export function ScrubTrack({ className = "" }: { className?: string }) {
  * pushes the two figures to the ends of their row — the full-surface layout,
  * where the readout sits under a full-width scrub track.
  */
-export function TimeReadout({
-  className = "",
-  split,
-}: {
-  className?: string;
-  split?: boolean;
-}) {
+export function TimeReadout({ className = "", split }: { className?: string; split?: boolean }) {
   const currentTime = usePlaybackStore((s) => s.currentTime);
   const storeDuration = usePlaybackStore((s) => s.duration);
   const itemDuration = usePlaybackStore((s) => s.item?.durationSeconds ?? null);
@@ -184,11 +170,7 @@ function SkipIcon({ className, flip }: { className?: string; flip?: boolean }) {
       aria-hidden
       style={flip ? { transform: "scaleX(-1)" } : undefined}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 5a7 7 0 1 1-6.6 4.7M12 5 8.6 2.4M12 5 8.6 7.6"
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5a7 7 0 1 1-6.6 4.7M12 5 8.6 2.4M12 5 8.6 7.6" />
     </svg>
   );
 }

@@ -47,8 +47,7 @@ export function PlaylistPanel({
     <section aria-label="Playlist" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className={SECTION_HEAD}>
-          Playlist{" "}
-          <span className="font-ui text-sm font-medium text-ink-variant tabular-nums">{tracks.length}</span>
+          Playlist <span className="font-ui text-sm font-medium text-ink-variant tabular-nums">{tracks.length}</span>
         </h3>
         <button
           type="button"
@@ -65,7 +64,10 @@ export function PlaylistPanel({
 
       <UploadZone variant="ambient" audioOnly onFiles={upload.add} busy={upload.busy} browseRef={browse} />
       {upload.failed.length > 0 && (
-        <p role="alert" className="rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger"
+        >
           Couldn't add: {upload.failed.join(", ")}
         </p>
       )}
@@ -163,7 +165,12 @@ function PlaylistRow({
       ) : (
         <div className="flex shrink-0 items-center">
           {onPlay && (
-            <RemoteButton size="sm" label={`Play ${track.title} now`} onClick={() => onPlay(track.id)} disabled={offline}>
+            <RemoteButton
+              size="sm"
+              label={`Play ${track.title} now`}
+              onClick={() => onPlay(track.id)}
+              disabled={offline}
+            >
               <PlayIcon className="h-4 w-4" />
             </RemoteButton>
           )}
@@ -172,7 +179,11 @@ function PlaylistRow({
               <RemoteButton size="sm" label={`Play ${track.title} next`} onClick={() => onQueue(track.id, "next")}>
                 <QueueNextIcon className="h-4 w-4" />
               </RemoteButton>
-              <RemoteButton size="sm" label={`Add ${track.title} to the queue`} onClick={() => onQueue(track.id, "end")}>
+              <RemoteButton
+                size="sm"
+                label={`Add ${track.title} to the queue`}
+                onClick={() => onQueue(track.id, "end")}
+              >
                 <QueueAddIcon className="h-4 w-4" />
               </RemoteButton>
             </>

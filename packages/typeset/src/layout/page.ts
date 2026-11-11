@@ -537,9 +537,7 @@ export function buildPages(list: VList, opts: PageBuildOptions): PageBuildResult
 
 /** `\skip\footins` plus `\footnoterule`'s own kerns and the rule itself. */
 function footnoteBlockOverhead(design: PageDesign): number {
-  return (
-    design.footnoteSkip + design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow
-  );
+  return design.footnoteSkip + design.footnoteRuleAbove + design.footnoteRuleThickness + design.footnoteRuleBelow;
 }
 
 /**
@@ -1067,7 +1065,13 @@ function placeHNodes(
       case "rule":
         // A rule's `y` is its top edge and it grows downward, so a rule with a
         // negative height (an underline) is drawn below the baseline.
-        items.push({ kind: "rule", x: pen, y: baseline - node.height, width: node.width, height: node.height + node.depth });
+        items.push({
+          kind: "rule",
+          x: pen,
+          y: baseline - node.height,
+          width: node.width,
+          height: node.height + node.depth,
+        });
         pen += node.width;
         break;
       // An image sits on the baseline (`ImageNode.depth` is always 0), so its

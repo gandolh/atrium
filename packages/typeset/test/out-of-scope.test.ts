@@ -124,23 +124,23 @@ test("the subcaption package's \\subcaption command reports `unsupported`, namin
  * precisely to catch a float whose content quietly disappeared. Both
  * diagnostics are asserted, not just the first.
  */
-test(
-  "subfigure inside a figure reports `unsupported` naming the subcaption package, and the emptied figure warns separately",
-  () => {
-    const result = compileSource(
-      doc("\\begin{figure}\n\\begin{subfigure}{0.5\\textwidth}\nx\n\\end{subfigure}\n\\end{figure}"),
-    );
-    const sub = unsupportedFor(result, "subfigure");
-    assert.ok(sub !== undefined, `did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
-    assert.equal(sub.severity, "error");
-    assert.match(sub.message, /subcaption/);
+test("subfigure inside a figure reports `unsupported` naming the subcaption package, and the emptied figure warns separately", () => {
+  const result = compileSource(
+    doc("\\begin{figure}\n\\begin{subfigure}{0.5\\textwidth}\nx\n\\end{subfigure}\n\\end{figure}"),
+  );
+  const sub = unsupportedFor(result, "subfigure");
+  assert.ok(sub !== undefined, `did not report unsupported — got: ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(sub.severity, "error");
+  assert.match(sub.message, /subcaption/);
 
-    const empty = result.diagnostics.find((d) => d.code === "syntax" && d.construct === "figure");
-    assert.ok(empty !== undefined, `the enclosing figure did not warn about being empty — got: ${JSON.stringify(result.diagnostics)}`);
-    assert.equal(empty.severity, "warning");
-    assert.match(empty.message, /empty/);
-  },
-);
+  const empty = result.diagnostics.find((d) => d.code === "syntax" && d.construct === "figure");
+  assert.ok(
+    empty !== undefined,
+    `the enclosing figure did not warn about being empty — got: ${JSON.stringify(result.diagnostics)}`,
+  );
+  assert.equal(empty.severity, "warning");
+  assert.match(empty.message, /empty/);
+});
 
 // --- \rotatebox -------------------------------------------------------------
 

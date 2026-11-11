@@ -144,11 +144,7 @@ export function formatBibliography(request: BibliographyBlock, ctx: BibContext):
 }
 
 /** `\bibliography{a,b}`: parse every named `.bib`, then print what was cited. */
-function formatBibfile(
-  request: BibliographyBlock,
-  ctx: BibContext,
-  table: Map<string, ResolvedEntry>,
-): Block[] {
+function formatBibfile(request: BibliographyBlock, ctx: BibContext, table: Map<string, ResolvedEntry>): Block[] {
   if (request.bibFiles.length === 0) {
     // Already a `syntax` error from `applyBibliographyCommand` (no argument at
     // all) — this is not a *second* report of the same fact, it is the fact
@@ -743,7 +739,12 @@ function readValue(s: Scanner, ctx: BibContext, strings: ReadonlyMap<string, str
         const resolved = strings.get(token.toLowerCase());
         if (resolved === undefined) {
           ctx.diagnostics.push(
-            warning("undefined-reference", here(s), `@string name "${token}" is not defined; treated as empty`, "@string"),
+            warning(
+              "undefined-reference",
+              here(s),
+              `@string name "${token}" is not defined; treated as empty`,
+              "@string",
+            ),
           );
           piece = "";
         } else {

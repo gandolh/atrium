@@ -89,18 +89,17 @@ test("a step budget large enough for the document produces no budget diagnostic"
  * per-node step costs that are not this test's business to know.
  */
 test("no double-report when the document-building stage is the one that runs out", () => {
-    const { files, entrypoint } = smallDocument();
-    for (let budget = 10; budget <= 800; budget += 5) {
-      const result = compile(files, entrypoint, { fonts, stepBudget: budget });
-      const diags = budgetDiagnostics(result);
-      assert.ok(
-        diags.length <= 1,
-        `stepBudget=${budget}: expected at most one budget-exceeded diagnostic, got ` +
-          `${diags.length}: ${JSON.stringify(diags.map((d) => d.message))}`,
-      );
-    }
-  },
-);
+  const { files, entrypoint } = smallDocument();
+  for (let budget = 10; budget <= 800; budget += 5) {
+    const result = compile(files, entrypoint, { fonts, stepBudget: budget });
+    const diags = budgetDiagnostics(result);
+    assert.ok(
+      diags.length <= 1,
+      `stepBudget=${budget}: expected at most one budget-exceeded diagnostic, got ` +
+        `${diags.length}: ${JSON.stringify(diags.map((d) => d.message))}`,
+    );
+  }
+});
 
 // --- infinite macro recursion -------------------------------------------
 
@@ -115,20 +114,17 @@ test("a self-referential macro (\\x -> \\x) terminates with a diagnostic, never 
   assert.ok(elapsed < 2000, `expected the recursion to be caught quickly, took ${elapsed.toFixed(1)}ms`);
 });
 
-test(
-  "a doubling macro (\\l -> \\l\\l) terminates well under a second — pins the 17s splice regression",
-  () => {
-    const src = "\\documentclass{article}\n\\newcommand{\\l}{\\l\\l}\n\\begin{document}\n\\l\n\\end{document}\n";
-    const t0 = performance.now();
-    const result = compile({ "main.tex": encode(src) }, "main.tex", { fonts });
-    const elapsed = performance.now() - t0;
-    assert.equal(result.pdf, null);
-    assert.equal(budgetDiagnostics(result).length, 1);
-    // A splice-based expansion once took 17 seconds on this exact input; the
-    // pushback-queue design (see macro/expand.ts) is what keeps this fast.
-    assert.ok(elapsed < 1000, `doubling macro took ${elapsed.toFixed(1)}ms — expected well under 1000ms`);
-  },
-);
+test("a doubling macro (\\l -> \\l\\l) terminates well under a second — pins the 17s splice regression", () => {
+  const src = "\\documentclass{article}\n\\newcommand{\\l}{\\l\\l}\n\\begin{document}\n\\l\n\\end{document}\n";
+  const t0 = performance.now();
+  const result = compile({ "main.tex": encode(src) }, "main.tex", { fonts });
+  const elapsed = performance.now() - t0;
+  assert.equal(result.pdf, null);
+  assert.equal(budgetDiagnostics(result).length, 1);
+  // A splice-based expansion once took 17 seconds on this exact input; the
+  // pushback-queue design (see macro/expand.ts) is what keeps this fast.
+  assert.ok(elapsed < 1000, `doubling macro took ${elapsed.toFixed(1)}ms — expected well under 1000ms`);
+});
 
 test("a doubling macro is stopped by the pending-node cap before the step budget is even reached", () => {
   // With the engine's generous default 5,000,000-step budget, `\l -> \l\l`
@@ -137,7 +133,10 @@ test("a doubling macro is stopped by the pending-node cap before the step budget
   // regardless of how large `stepBudget` is configured.
   const src = "\\documentclass{article}\n\\newcommand{\\l}{\\l\\l}\n\\begin{document}\n\\l\n\\end{document}\n";
   const result = compile({ "main.tex": encode(src) }, "main.tex", { fonts });
-  assert.ok(result.stats.steps < 5_000_000, `expected to stop well short of the step budget, got ${result.stats.steps}`);
+  assert.ok(
+    result.stats.steps < 5_000_000,
+    `expected to stop well short of the step budget, got ${result.stats.steps}`,
+  );
   assert.match(result.diagnostics[0]!.message, /unread nodes/);
 });
 
@@ -244,25 +243,24 @@ test("a signal is polled repeatedly at step boundaries, not read once at the sta
  * because they reach the duplicate through different fields (`remaining`
  * versus `signal.aborted`), and a future change could plausibly fix one only. */
 test("no double-report when cancellation lands while the document-building stage is flushing blocks", () => {
-    const { files, entrypoint } = smallDocument();
-    for (let threshold = 10; threshold <= 800; threshold += 5) {
-      let reads = 0;
-      const signal = {
-        get aborted() {
-          reads++;
-          return reads > threshold;
-        },
-      };
-      const result = compile(files, entrypoint, { fonts, signal });
-      const diags = budgetDiagnostics(result);
-      assert.ok(
-        diags.length <= 1,
-        `threshold=${threshold}: expected at most one budget-exceeded diagnostic, got ` +
-          `${diags.length}: ${JSON.stringify(diags.map((d) => d.message))}`,
-      );
-    }
-  },
-);
+  const { files, entrypoint } = smallDocument();
+  for (let threshold = 10; threshold <= 800; threshold += 5) {
+    let reads = 0;
+    const signal = {
+      get aborted() {
+        reads++;
+        return reads > threshold;
+      },
+    };
+    const result = compile(files, entrypoint, { fonts, signal });
+    const diags = budgetDiagnostics(result);
+    assert.ok(
+      diags.length <= 1,
+      `threshold=${threshold}: expected at most one budget-exceeded diagnostic, got ` +
+        `${diags.length}: ${JSON.stringify(diags.map((d) => d.message))}`,
+    );
+  }
+});
 
 // --- determinism (in-process; see determinism.test.ts for cross-process) ---
 
@@ -285,10 +283,7 @@ test("repeated in-process compiles of the same source are byte-identical", () =>
 
 /** A document that costs more to lay out than to build, carrying a non-budget error. */
 function selfIncludingDocument(): { files: Record<string, Uint8Array>; buildCost: number; fullCost: number } {
-  const filler = Array.from(
-    { length: 60 },
-    (_, i) => `Filler paragraph ${i} with enough words here.`,
-  ).join("\n\n");
+  const filler = Array.from({ length: 60 }, (_, i) => `Filler paragraph ${i} with enough words here.`).join("\n\n");
   const src = `\\documentclass{article}\\begin{document}\\input{main}\n${filler}\n\\end{document}`;
   const files = { "main.tex": new TextEncoder().encode(src) };
   const full = compile(files, "main.tex", { fonts });
@@ -310,10 +305,7 @@ test("a non-budget error does not suppress a genuine layout-budget diagnostic", 
   for (let budget = buildCost + 50; budget < fullCost; budget += 100) {
     const result = compile(files, "main.tex", { fonts, stepBudget: budget });
     const codes = result.diagnostics.map((d) => d.code);
-    assert.ok(
-      codes.includes("syntax"),
-      `budget ${budget}: the self-include should still be reported, got [${codes}]`,
-    );
+    assert.ok(codes.includes("syntax"), `budget ${budget}: the self-include should still be reported, got [${codes}]`);
     assert.equal(
       codes.filter((c) => c === "budget-exceeded").length,
       1,
@@ -327,10 +319,9 @@ test("a stopped budget does not invent undefined-reference errors", () => {
   // had stopped, so it resolved against a truncated marker map and reported
   // every label in the unreached tail as "never placed on a page" — an invented
   // error about a perfectly good label, on top of the real failure.
-  const filler = Array.from(
-    { length: 60 },
-    (_, i) => `Filler paragraph ${i} with enough words to take up room.`,
-  ).join("\n\n");
+  const filler = Array.from({ length: 60 }, (_, i) => `Filler paragraph ${i} with enough words to take up room.`).join(
+    "\n\n",
+  );
   const src =
     `\\documentclass{article}\\begin{document}\\section{A}\\label{a}\n${filler}\n` +
     `\\section{B}\\label{b}\n${filler}\nSee \\pageref{a} and \\pageref{b}.\\end{document}`;

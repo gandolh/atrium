@@ -94,13 +94,7 @@ export async function deleteNote(profileId: string, id: string): Promise<boolean
 }
 
 /** File a note into a folder, or to the root when `folderId` is null. */
-export async function setNoteFolder(
-  profileId: string,
-  id: string,
-  folderId: string | null,
-): Promise<boolean> {
-  const changed = await knex("notes")
-    .where({ id, profile_id: profileId })
-    .update({ folder_id: folderId });
+export async function setNoteFolder(profileId: string, id: string, folderId: string | null): Promise<boolean> {
+  const changed = await knex("notes").where({ id, profile_id: profileId }).update({ folder_id: folderId });
   return changed > 0;
 }

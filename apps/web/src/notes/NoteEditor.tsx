@@ -121,13 +121,9 @@ function storedTitle(title: string): string {
  * Whether a recovered copy holds exactly what the server has. `readNoteStash`
  * returns the pages in the shape the API's answer has, so JSON compares them.
  */
-function sameNote(
-  copy: { title: string; pages: NotePage[] },
-  server: { title: string; pages: NotePage[] },
-): boolean {
+function sameNote(copy: { title: string; pages: NotePage[] }, server: { title: string; pages: NotePage[] }): boolean {
   return (
-    storedTitle(copy.title) === storedTitle(server.title) &&
-    JSON.stringify(copy.pages) === JSON.stringify(server.pages)
+    storedTitle(copy.title) === storedTitle(server.title) && JSON.stringify(copy.pages) === JSON.stringify(server.pages)
   );
 }
 
@@ -199,11 +195,7 @@ function ruleLines(template: PageTemplate): { horizontal: number[]; vertical: nu
 }
 
 function xmlEscape(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /**
@@ -267,9 +259,7 @@ function pageToSvg(page: NotePage): string {
   // multi-pass nib emits several paths, in their own order, inside that.
   for (const stroke of page.strokes) {
     for (const layer of strokeLayers(stroke)) {
-      parts.push(
-        `<path d="${layer.d}" fill="${xmlEscape(stroke.color)}" fill-opacity="${layer.opacity}"/>`,
-      );
+      parts.push(`<path d="${layer.d}" fill="${xmlEscape(stroke.color)}" fill-opacity="${layer.opacity}"/>`);
     }
   }
 
@@ -306,7 +296,10 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 /** A filesystem-safe name from the note title. */
 function exportFilename(title: string, suffix: string): string {
-  const base = title.replace(/["\\/:*?<>|]/g, "").trim().slice(0, 80);
+  const base = title
+    .replace(/["\\/:*?<>|]/g, "")
+    .trim()
+    .slice(0, 80);
   return `${base || "note"}${suffix}`;
 }
 
@@ -687,8 +680,12 @@ export function NoteEditor({ id }: { id: string }) {
             {saveStatus === "failing" ? "Not saved — retrying" : ""}
           </span>
           <div className="flex items-center gap-1">
-            <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>↶</IconBtn>
-            <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>↷</IconBtn>
+            <IconBtn label="Undo" disabled={!canUndo} onClick={undo}>
+              ↶
+            </IconBtn>
+            <IconBtn label="Redo" disabled={!canRedo} onClick={redo}>
+              ↷
+            </IconBtn>
             <ExportControl
               exporting={exporting}
               onExportPdf={exportPdf}
@@ -711,9 +708,8 @@ export function NoteEditor({ id }: { id: string }) {
             brings the note back under the cap and a save succeeds. */}
         {saveStatus === "too-large" && (
           <p role="alert" className="px-4 pb-2 font-ui text-xs text-danger">
-            This note is too large to save. Your latest changes are only on this
-            screen. Remove some ink, or move pages into a new note, and it will
-            save again.
+            This note is too large to save. Your latest changes are only on this screen. Remove some ink, or move pages
+            into a new note, and it will save again.
           </p>
         )}
 
@@ -900,10 +896,7 @@ function NoteSheet({
   const toNorm = useCallback((clientX: number, clientY: number): [number, number] => {
     const rect = ref.current!.getBoundingClientRect();
     // Divide both axes by width so the aspect ratio is preserved (y ∈ 0..ASPECT).
-    return [
-      roundTo((clientX - rect.left) / rect.width, 4),
-      roundTo((clientY - rect.top) / rect.width, 4),
-    ];
+    return [roundTo((clientX - rect.left) / rect.width, 4), roundTo((clientY - rect.top) / rect.width, 4)];
   }, []);
 
   const eraseAt = useCallback(
@@ -1001,86 +994,83 @@ function NoteSheet({
 
   return (
     <>
-    <div
-      ref={ref}
-      className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-card border border-line-soft shadow-l1"
-      style={{
-        height,
-        // The sheet is a fixed light paper in every theme (see the header note),
-        // so this token is deliberately not remapped by `data-theme`.
-        background: "var(--note-sheet)",
-        cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
-        transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-        transformOrigin: "0 0",
-        transition:
-          animating && !reducedMotion ? `transform 180ms ${EASE_PAPER_CSS}` : "none",
-        willChange: "transform",
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endStroke}
-      onPointerCancel={endStroke}
-      onPointerLeave={(e) => {
-        if (drawing.current && e.pointerId === activePointer.current) endStroke();
-      }}
-    >
-      <PageBackground template={page.template} />
-
-      <svg
-        viewBox={`0 0 ${STROKE_VB} ${STROKE_VB * PAGE_ASPECT}`}
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 h-full w-full"
+      <div
+        ref={ref}
+        className="relative w-full max-w-3xl shrink-0 touch-none overflow-hidden rounded-card border border-line-soft shadow-l1"
+        style={{
+          height,
+          // The sheet is a fixed light paper in every theme (see the header note),
+          // so this token is deliberately not remapped by `data-theme`.
+          background: "var(--note-sheet)",
+          cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
+          transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
+          transformOrigin: "0 0",
+          transition: animating && !reducedMotion ? `transform 180ms ${EASE_PAPER_CSS}` : "none",
+          willChange: "transform",
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endStroke}
+        onPointerCancel={endStroke}
+        onPointerLeave={(e) => {
+          if (drawing.current && e.pointerId === activePointer.current) endStroke();
+        }}
       >
-        {page.strokes.map((s, i) => (
-          <InkStroke key={i} stroke={s} />
-        ))}
-        {live && live.length > 0 && (
-          <InkStroke
-            stroke={{
-              tool: isInkTool(tool) ? tool : "pen",
-              color,
-              size: tool === "highlighter" ? thickness * HIGHLIGHTER_SCALE : thickness,
-              points: live,
-            }}
+        <PageBackground template={page.template} />
+
+        <svg
+          viewBox={`0 0 ${STROKE_VB} ${STROKE_VB * PAGE_ASPECT}`}
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+        >
+          {page.strokes.map((s, i) => (
+            <InkStroke key={i} stroke={s} />
+          ))}
+          {live && live.length > 0 && (
+            <InkStroke
+              stroke={{
+                tool: isInkTool(tool) ? tool : "pen",
+                color,
+                size: tool === "highlighter" ? thickness * HIGHLIGHTER_SCALE : thickness,
+                points: live,
+              }}
+            />
+          )}
+        </svg>
+
+        {page.texts.map((box) => (
+          <TextBoxView
+            key={box.id}
+            box={box}
+            width={width}
+            editable={tool === "text"}
+            onBeginChange={onBeginChange}
+            onChange={(patch) =>
+              onMutatePage((p) => ({
+                ...p,
+                texts: p.texts.map((t) => (t.id === box.id ? { ...t, ...patch } : t)),
+              }))
+            }
+            onRemove={() => onMutatePage((p) => ({ ...p, texts: p.texts.filter((t) => t.id !== box.id) }))}
           />
-        )}
-      </svg>
+        ))}
+      </div>
 
-      {page.texts.map((box) => (
-        <TextBoxView
-          key={box.id}
-          box={box}
-          width={width}
-          editable={tool === "text"}
-          onBeginChange={onBeginChange}
-          onChange={(patch) =>
-            onMutatePage((p) => ({
-              ...p,
-              texts: p.texts.map((t) => (t.id === box.id ? { ...t, ...patch } : t)),
-            }))
-          }
-          onRemove={() =>
-            onMutatePage((p) => ({ ...p, texts: p.texts.filter((t) => t.id !== box.id) }))
-          }
-        />
-      ))}
-    </div>
-
-    {/* Reset-zoom affordance — only while pinched in. It used to sit at
+      {/* Reset-zoom affordance — only while pinched in. It used to sit at
         `bottom-28` to clear a fixed bottom tool bar; the Notes destination moved that bar
         into the sticky block above the sheet, so the offset now only has to
         clear the player dock, which may or may not be present. */}
-    {zoomed && (
-      <button
-        type="button"
-        onClick={resetZoom}
-        style={{ bottom: "calc(1rem + var(--dock-height, 0px))" }}
-        className="fixed right-4 z-30 flex items-center gap-1.5 rounded-chip border border-line-soft/60 bg-paper/95 px-3 py-1.5 font-ui text-xs font-medium text-ink-variant shadow-l1 backdrop-blur-sm transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-        aria-label="Reset zoom"
-      >
-        <span aria-hidden="true">⤢</span> {Math.round(transform.scale * 100)}%
-      </button>
-    )}
+      {zoomed && (
+        <button
+          type="button"
+          onClick={resetZoom}
+          style={{ bottom: "calc(1rem + var(--dock-height, 0px))" }}
+          className="fixed right-4 z-30 flex items-center gap-1.5 rounded-chip border border-line-soft/60 bg-paper/95 px-3 py-1.5 font-ui text-xs font-medium text-ink-variant shadow-l1 backdrop-blur-sm transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+          aria-label="Reset zoom"
+        >
+          <span aria-hidden="true">⤢</span> {Math.round(transform.scale * 100)}%
+        </button>
+      )}
     </>
   );
 }
@@ -1407,7 +1397,11 @@ function Toolbar({
   };
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-line-soft/50 px-4 py-2.5">
-      <div role="radiogroup" aria-label="Tool" className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5">
+      <div
+        role="radiogroup"
+        aria-label="Tool"
+        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      >
         <NibSlot
           nib={nib}
           active={tool === nib}
@@ -1454,7 +1448,11 @@ function Toolbar({
         ))}
       </div>
 
-      <div role="radiogroup" aria-label="Thickness" className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5">
+      <div
+        role="radiogroup"
+        aria-label="Thickness"
+        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      >
         {THICKNESS.map((_, i) => (
           <button
             key={i}
@@ -1473,7 +1471,11 @@ function Toolbar({
       </div>
 
       {/* Page background — a per-page property (blank / ruled / grid). */}
-      <div role="radiogroup" aria-label="Page background" className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5">
+      <div
+        role="radiogroup"
+        aria-label="Page background"
+        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      >
         {PAGE_TEMPLATES.map((value: PageTemplate) => {
           const active = template === value;
           const { label, glyph } = templates[value];
@@ -1562,7 +1564,11 @@ function ExportControl({
     reducedMotion ? "" : "transition"
   }`;
   return (
-    <div className="ml-1 flex items-center gap-0.5 rounded-chip bg-paper-low px-1 py-0.5" role="group" aria-label="Export">
+    <div
+      className="ml-1 flex items-center gap-0.5 rounded-chip bg-paper-low px-1 py-0.5"
+      role="group"
+      aria-label="Export"
+    >
       <span aria-hidden="true" className="pl-1.5 pr-0.5 font-ui text-xs text-ink-variant/70">
         ↓
       </span>

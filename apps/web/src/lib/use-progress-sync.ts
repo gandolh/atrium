@@ -5,12 +5,7 @@ import { useReaderStore, type ReaderLocation } from "../store/reader-store";
 import { ApiError } from "./api-client";
 import { useAuthStore } from "./auth";
 import { updateProgress } from "./library-api";
-import {
-  deleteLocalProgress,
-  listPendingProgress,
-  markLocalProgressSynced,
-  putLocalProgress,
-} from "./offline-store";
+import { deleteLocalProgress, listPendingProgress, markLocalProgressSynced, putLocalProgress } from "./offline-store";
 
 /**
  * Persists reading progress back to the library, per-user (D24). Watches the
@@ -224,9 +219,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
     const belongsToActiveProfile = targetProfileId === activeProfileId;
     const row = belongsToActiveProfile ? byId.get(p.id) : undefined;
     const alreadyOnServer =
-      row != null &&
-      (row.locator ?? null) === p.locator &&
-      Math.abs(row.progress - p.progress) < FRACTION_EPSILON;
+      row != null && (row.locator ?? null) === p.locator && Math.abs(row.progress - p.progress) < FRACTION_EPSILON;
     if (alreadyOnServer) {
       // Server already holds this position — just clear the pending flag. Keyed
       // by the record's OWN profile (`p.profileId`), not `targetProfileId`:
@@ -265,13 +258,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
       // today's behaviour and sends its locator.
       const versioned = byId.get(p.id)?.source === "latex";
       const locator = p.versionId != null || !versioned ? p.locator : null;
-      await updateProgress(
-        p.id,
-        p.progress,
-        locator,
-        targetProfileId ?? undefined,
-        p.versionId ?? undefined,
-      );
+      await updateProgress(p.id, p.progress, locator, targetProfileId ?? undefined, p.versionId ?? undefined);
       await markLocalProgressSynced(p.id, p.profileId, p.updatedAt);
     } catch (err) {
       // A 404 here means the profile-scoped PATCH couldn't resolve a target:
@@ -307,10 +294,7 @@ async function doFlushPendingProgress(rows: LibraryBook[]): Promise<void> {
  * Nothing is lost by waiting: react-query refetches on reconnect, `isOffline`
  * flips back to false with real rows, and this effect re-runs and flushes then.
  */
-export function useReconnectProgressSync(
-  rows: LibraryBook[] | undefined,
-  isOffline: boolean,
-): void {
+export function useReconnectProgressSync(rows: LibraryBook[] | undefined, isOffline: boolean): void {
   useEffect(() => {
     if (!rows || isOffline) return;
     void flushPendingProgress(rows);

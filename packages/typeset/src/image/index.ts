@@ -208,9 +208,7 @@ export function placeImage(image: ImageInline, ctx: ImageContext): HBox | null {
   }
   if (found.kind === "missing") {
     const detail =
-      image.path.length === 0
-        ? "no file name was given"
-        : `\`${image.path}\` is not one of the project's files`;
+      image.path.length === 0 ? "no file name was given" : `\`${image.path}\` is not one of the project's files`;
     return report(
       error("missing-file", image.loc, `\\includegraphics cannot find its image — ${detail}`, "\\includegraphics"),
       `missing:${image.path}`,
@@ -356,11 +354,7 @@ export function placedImageSize(
  * `placeImage` re-homes them onto the `\includegraphics` line. Returns `null`
  * after reporting an error; never throws.
  */
-export function decodeImage(
-  bytes: Uint8Array,
-  path: string,
-  diagnostics: Diagnostic[],
-): DecodedImage | null {
+export function decodeImage(bytes: Uint8Array, path: string, diagnostics: Diagnostic[]): DecodedImage | null {
   const at = wholeFile(path);
   const signature = sniff(bytes);
 
@@ -383,11 +377,7 @@ export function decodeImage(
       return null;
     case "other":
       diagnostics.push(
-        unsupported(
-          at,
-          "\\includegraphics",
-          `\`${path}\` is ${signature.format}; only PNG and JPEG are implemented`,
-        ),
+        unsupported(at, "\\includegraphics", `\`${path}\` is ${signature.format}; only PNG and JPEG are implemented`),
       );
       return null;
   }
@@ -790,7 +780,8 @@ function readJpeg(bytes: Uint8Array, path: string, diagnostics: Diagnostic[]): J
     // segment, so there is no length to skip.
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0xd8) continue;
     if (marker === 0xd9) break;
-    if (offset + 2 > bytes.length) return corrupt(`the segment at byte ${offset} has no length (the file is truncated)`);
+    if (offset + 2 > bytes.length)
+      return corrupt(`the segment at byte ${offset} has no length (the file is truncated)`);
     const length = readU16(bytes, offset);
     if (length < 2) return corrupt(`the segment at byte ${offset} declares a ${length}-byte length`);
     if (offset + length > bytes.length) {
@@ -1200,12 +1191,7 @@ function splitPngAlpha(png: PngFile, channels: number, inflate: Inflate): ImageS
  * modulo 256 — that is how the filters are defined, and it is why a 16-bit
  * image needs no separate case here.
  */
-export function unfilterScanlines(
-  raw: Uint8Array,
-  width: number,
-  height: number,
-  bytesPerPixel: number,
-): Uint8Array {
+export function unfilterScanlines(raw: Uint8Array, width: number, height: number, bytesPerPixel: number): Uint8Array {
   const stride = width * bytesPerPixel;
   const out = new Uint8Array(height * stride);
   let at = 0;

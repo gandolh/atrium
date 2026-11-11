@@ -44,9 +44,7 @@ function run(body: string, opts: Parameters<typeof compile>[2] = {}): CompileRes
  * foot of it.
  */
 function glyphRuns(page: Page): GlyphRun[] {
-  return page.items.filter(
-    (i): i is GlyphRun => i.kind === "glyphrun" && i.y <= design.marginTop + design.textHeight,
-  );
+  return page.items.filter((i): i is GlyphRun => i.kind === "glyphrun" && i.y <= design.marginTop + design.textHeight);
 }
 
 function rules(page: Page): Extract<PlacedItem, { kind: "rule" }>[] {
@@ -61,9 +59,7 @@ function r(x: number): number {
 // --- column types ------------------------------------------------------------
 
 test("l, c and r columns align their content against a wider row in the same column", () => {
-  const result = run(
-    "\\begin{tabular}{lcr}\nx & x & x \\\\\nwideword & wideword & wideword\n\\end{tabular}",
-  );
+  const result = run("\\begin{tabular}{lcr}\nx & x & x \\\\\nwideword & wideword & wideword\n\\end{tabular}");
   const page = result.pages[0] as Page;
   const runs = glyphRuns(page);
   const short = runs.filter((g) => g.text === "x").sort((a, b) => a.x - b.x);
@@ -122,10 +118,10 @@ test("| rules and \\hline draw as rule items, sized from the kernel's own tabcol
   const a = runs.find((g) => g.text === "a")!;
   const b = runs.find((g) => g.text === "b")!;
   const sortedVerticals = verticals.sort((x, y) => x.x - y.x);
-  assert.ok(sortedVerticals[0]!.x <= a.x, "left border sits left of \"a\"");
-  assert.ok(a.x < sortedVerticals[1]!.x, "\"a\" sits left of the interior rule");
-  assert.ok(sortedVerticals[1]!.x < b.x, "interior rule sits left of \"b\"");
-  assert.ok(b.x + b.width <= sortedVerticals[2]!.x + 0.01, "\"b\" sits left of the right border");
+  assert.ok(sortedVerticals[0]!.x <= a.x, 'left border sits left of "a"');
+  assert.ok(a.x < sortedVerticals[1]!.x, '"a" sits left of the interior rule');
+  assert.ok(sortedVerticals[1]!.x < b.x, 'interior rule sits left of "b"');
+  assert.ok(b.x + b.width <= sortedVerticals[2]!.x + 0.01, '"b" sits left of the right border');
 });
 
 test("a row that stops short of the last column still gets that column's slot and its rules", () => {
@@ -134,9 +130,7 @@ test("a row that stops short of the last column still gets that column's slot an
   // regression this guards is the row's HBox ending at its last written cell,
   // which put the table's right-hand border partway across the grid and dropped
   // every vertical rule beyond the short row.
-  const result = run(
-    "\\begin{tabular}{|l|l|l|}\n\\hline\naaa & bbb & ccc \\\\\nxxx \\\\\n\\hline\n\\end{tabular}",
-  );
+  const result = run("\\begin{tabular}{|l|l|l|}\n\\hline\naaa & bbb & ccc \\\\\nxxx \\\\\n\\hline\n\\end{tabular}");
   const page = result.pages[0] as Page;
   const verticals = rules(page).filter((rule) => r(rule.width) === r(ARRAY_RULE_WIDTH));
 
@@ -156,13 +150,15 @@ test("a row that stops short of the last column still gets that column's slot an
   // above it, rather than stopping where the short row's content ran out.
   const horizontals = rules(page).filter((rule) => r(rule.width) !== r(ARRAY_RULE_WIDTH));
   const right = full[3]!;
-  assert.equal(r(right.x + right.width), r(horizontals[0]!.x + horizontals[0]!.width), "right border is at the table's edge");
+  assert.equal(
+    r(right.x + right.width),
+    r(horizontals[0]!.x + horizontals[0]!.width),
+    "right border is at the table's edge",
+  );
 });
 
 test("\\cline draws only under the columns it names, not across the table's own borders", () => {
-  const result = run(
-    "\\begin{tabular}{|l|l|l|}\na & b & c \\\\\n\\cline{2-2}\nd & e & f\n\\end{tabular}",
-  );
+  const result = run("\\begin{tabular}{|l|l|l|}\na & b & c \\\\\n\\cline{2-2}\nd & e & f\n\\end{tabular}");
   const page = result.pages[0] as Page;
   const rs = rules(page);
   // 4 verticals per row (left border, two interior rules, right border) for
@@ -218,9 +214,12 @@ test("TableCell.override wins over the column spec for a cell's alignment, even 
   const runs = glyphRuns(page)
     .filter((g) => g.text === "ab")
     .sort((a, b) => a.y - b.y);
-  assert.equal(runs.length, 2, "one overridden \"ab\" and one plain \"ab\"");
+  assert.equal(runs.length, 2, 'one overridden "ab" and one plain "ab"');
   const [overridden, plain] = runs as [GlyphRun, GlyphRun];
-  assert.ok(overridden.x > plain.x + 10, "the \\multicolumn{1}{r}{...} cell is right-aligned, not left like its column");
+  assert.ok(
+    overridden.x > plain.x + 10,
+    "the \\multicolumn{1}{r}{...} cell is right-aligned, not left like its column",
+  );
 });
 
 // --- overfull ------------------------------------------------------------------

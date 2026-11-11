@@ -127,9 +127,7 @@ export function dumpResult(result: CompileResult, entrypoint: string): string {
           `  math    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}  ${quote(item.source)}`,
         );
       } else {
-        out.push(
-          `  rule    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}`,
-        );
+        out.push(`  rule    x=${col(item.x)} y=${col(item.y)} w=${col(item.width)} h=${col(item.height)}`);
       }
     }
   }

@@ -24,9 +24,7 @@ export function useDevSampleEpub(enabled: boolean): File | null {
       const res = await fetch(sampleUrl);
       const blob = await res.blob();
       if (!cancelled) {
-        setFile(
-          new File([blob], "sample.epub", { type: "application/epub+zip" }),
-        );
+        setFile(new File([blob], "sample.epub", { type: "application/epub+zip" }));
       }
     })();
     return () => {

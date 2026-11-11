@@ -51,7 +51,5 @@ export function isUniqueViolation(err: unknown): boolean {
  */
 export function isForeignKeyViolation(err: unknown): boolean {
   const codes = errorCodes(err);
-  return (
-    codes.includes("SQLITE_CONSTRAINT_TRIGGER") || codes.includes("SQLITE_CONSTRAINT_FOREIGNKEY")
-  );
+  return codes.includes("SQLITE_CONSTRAINT_TRIGGER") || codes.includes("SQLITE_CONSTRAINT_FOREIGNKEY");
 }

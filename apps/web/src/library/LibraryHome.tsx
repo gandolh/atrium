@@ -1,13 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  LIBRARY_SORTS,
-  MEDIA_KINDS,
-  type LibraryBook,
-  type LibrarySort,
-  type MediaKind,
-} from "@ebook-reader/shared";
+import { LIBRARY_SORTS, MEDIA_KINDS, type LibraryBook, type LibrarySort, type MediaKind } from "@ebook-reader/shared";
 
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { useDeleteBook, useLibraryList, useOfflineDownload, useUploadQueue } from "../lib/use-library";
@@ -63,8 +57,7 @@ const KIND_LABELS: Record<MediaKind, string> = {
  * even numbers at every breakpoint so a two-slot tile can never orphan a
  * single-slot column at the end of a row.
  */
-const GRID =
-  "grid grid-flow-row-dense grid-cols-2 items-start gap-x-gutter gap-y-8 sm:grid-cols-4 xl:grid-cols-6";
+const GRID = "grid grid-flow-row-dense grid-cols-2 items-start gap-x-gutter gap-y-8 sm:grid-cols-4 xl:grid-cols-6";
 
 /** Video tiles are landscape — two column slots wide (see `GRID`). */
 function cellSpan(book: LibraryBook): string | undefined {
@@ -235,10 +228,7 @@ export function LibraryHome() {
     <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-page py-8 text-ink">
       <AppHeader
         caption={
-          <StorageCaption
-            storage={offlineDownload.storage}
-            downloadedCount={offlineDownload.downloaded.length}
-          />
+          <StorageCaption storage={offlineDownload.storage} downloadedCount={offlineDownload.downloaded.length} />
         }
         search={
           // No point offering search over an empty library — mirrors the
@@ -248,7 +238,9 @@ export function LibraryHome() {
               value={searchInput}
               onChange={setSearchInput}
               resultsSummary={
-                trimmedQuery ? `${visible.length} ${visible.length === 1 ? "result" : "results"} for ${trimmedQuery}` : undefined
+                trimmedQuery
+                  ? `${visible.length} ${visible.length === 1 ? "result" : "results"} for ${trimmedQuery}`
+                  : undefined
               }
             />
           )
@@ -299,7 +291,10 @@ export function LibraryHome() {
       )}
 
       {uploads.failed.length > 0 && (
-        <p role="alert" className="-mt-4 rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger">
+        <p
+          role="alert"
+          className="-mt-4 rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger"
+        >
           {uploads.failed.length === 1
             ? `Upload failed: ${uploads.failed[0]}. Is the API running? Please try again.`
             : `Couldn't add ${uploads.failed.length} files: ${uploads.failed.join(", ")}. Is the API running? Please try again.`}
@@ -371,8 +366,8 @@ export function LibraryHome() {
             <div className="flex flex-col gap-1.5">
               <p className="font-display text-2xl font-medium text-ink">Nothing here yet</p>
               <p className="max-w-md text-ink-variant">
-                Add a book, a track or a video and it shows up here as a cover — or import a free
-                classic from Project Gutenberg.
+                Add a book, a track or a video and it shows up here as a cover — or import a free classic from Project
+                Gutenberg.
               </p>
             </div>
             <div className="w-full max-w-xl">
@@ -398,7 +393,9 @@ export function LibraryHome() {
           // is "show everything". Cross-library search: a search names what it searched
           // rather than reusing the bare kind-only copy.
           <EmptyState
-            title={trimmedQuery ? "No matches" : kind ? `No ${KIND_LABELS[kind].toLowerCase()} yet` : "Nothing here yet"}
+            title={
+              trimmedQuery ? "No matches" : kind ? `No ${KIND_LABELS[kind].toLowerCase()} yet` : "Nothing here yet"
+            }
             body={
               trimmedQuery
                 ? `Nothing in your library matches “${trimmedQuery}”${kind ? ` in ${KIND_LABELS[kind].toLowerCase()}` : ""}.`

@@ -1,10 +1,5 @@
 import type { Knex } from "knex";
-import {
-  createAccounts,
-  createSqliteStore,
-  type Accounts,
-  type SqliteHandle,
-} from "../../vendor/ward/ward-auth.js";
+import { createAccounts, createSqliteStore, type Accounts, type SqliteHandle } from "../../vendor/ward/ward-auth.js";
 import { knex } from "./knex.js";
 
 /**

@@ -544,7 +544,10 @@ export interface AspectRatio {
 
 function parsePreserveAspectRatio(raw: string | undefined): AspectRatio | null {
   if (raw === undefined) return { align: "xMidYMid", slice: false };
-  const parts = raw.trim().split(/\s+/).filter((p) => p !== "");
+  const parts = raw
+    .trim()
+    .split(/\s+/)
+    .filter((p) => p !== "");
   // The `defer` keyword only means anything on `<image>`, which is not in the
   // subset; accepting and dropping it here would be the one place this file
   // ignores something, so it is simply not accepted.
@@ -602,14 +605,7 @@ export function viewBoxMatrix(viewBox: SvgViewBox, box: SvgTargetBox, ratio: Asp
     else if (ratio.align.includes("YMax")) alignY = slackY;
   }
 
-  return [
-    sx,
-    0,
-    0,
-    -sy,
-    box.x + alignX - viewBox.minX * sx,
-    box.y + box.height - alignY + viewBox.minY * sy,
-  ];
+  return [sx, 0, 0, -sy, box.x + alignX - viewBox.minX * sx, box.y + box.height - alignY + viewBox.minY * sy];
 }
 
 /* ------------------------------------------------------------- transforms */
@@ -879,9 +875,7 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
         x = ox + a[2]!;
         y = oy + a[3]!;
       }
-      sink.out.push(
-        `${emitPoint(sink, x1, y1)} ${emitPoint(sink, x2, y2)} ${emitPoint(sink, x, y)} c`,
-      );
+      sink.out.push(`${emitPoint(sink, x1, y1)} ${emitPoint(sink, x2, y2)} ${emitPoint(sink, x, y)} c`);
       sink.drew = true;
       cx = x;
       cy = y;
@@ -916,9 +910,7 @@ function emitPathData(d: string, sink: PathSink, at: SourceRef): Diagnostic[] {
       const y1 = cy + (2 / 3) * (qy - cy);
       const x2 = x + (2 / 3) * (qx - x);
       const y2 = y + (2 / 3) * (qy - y);
-      sink.out.push(
-        `${emitPoint(sink, x1, y1)} ${emitPoint(sink, x2, y2)} ${emitPoint(sink, x, y)} c`,
-      );
+      sink.out.push(`${emitPoint(sink, x1, y1)} ${emitPoint(sink, x2, y2)} ${emitPoint(sink, x, y)} c`);
       sink.drew = true;
       cx = x;
       cy = y;
@@ -981,8 +973,7 @@ function parseColor(raw: string): [number, number, number] | null {
   const match = RGB_HEX.exec(raw.trim());
   if (match === null) return null;
   const body = match[1]!;
-  const expanded =
-    body.length === 3 ? `${body[0]!}${body[0]!}${body[1]!}${body[1]!}${body[2]!}${body[2]!}` : body;
+  const expanded = body.length === 3 ? `${body[0]!}${body[0]!}${body[1]!}${body[1]!}${body[2]!}${body[2]!}` : body;
   return [
     Number.parseInt(expanded.slice(0, 2), 16) / 255,
     Number.parseInt(expanded.slice(2, 4), 16) / 255,
@@ -1044,7 +1035,7 @@ function paintShape(paint: Paint, geometry: string[], state: WalkState): void {
       unsupported(
         state.at,
         "a stroked SVG shape",
-        "this engine fills SVG geometry only; MathJax paints its outlines with `stroke-width=\"0\"`",
+        'this engine fills SVG geometry only; MathJax paints its outlines with `stroke-width="0"`',
       ),
     );
     return;
@@ -1097,7 +1088,7 @@ function walk(element: SvgElement, ctm: SvgMatrix, inherited: Paint, state: Walk
       unsupported(
         state.at,
         "the SVG `<use>` element",
-        "MathJax is configured with `svg: { fontCache: \"none\" }`, which inlines glyph outlines, so a `<use>` should be impossible — this engine resolves no references and would otherwise drop the glyph silently",
+        'MathJax is configured with `svg: { fontCache: "none" }`, which inlines glyph outlines, so a `<use>` should be impossible — this engine resolves no references and would otherwise drop the glyph silently',
       ),
     );
     return;

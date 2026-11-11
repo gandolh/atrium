@@ -103,10 +103,7 @@ export const LOOKUP_FIELDS = ["title", "author", "series", "seriesIndex", "cover
 export type LookupField = (typeof LOOKUP_FIELDS)[number];
 
 /** The candidate's value behind a field: null means it has nothing to offer there. */
-export function lookupFieldValue(
-  candidate: LookupCandidate,
-  field: LookupField,
-): string | number | null {
+export function lookupFieldValue(candidate: LookupCandidate, field: LookupField): string | number | null {
   return field === "cover" ? candidate.coverRef : candidate[field];
 }
 

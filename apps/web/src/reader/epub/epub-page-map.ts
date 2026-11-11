@@ -61,14 +61,12 @@ export function stageSize(rendition: Rendition): StageSize {
     };
   };
   const s = m.manager?.stage?.stageSize?.();
-  const width =
-    m.manager?.layout?.pageWidth ?? m.manager?.layout?.width ?? s?.width ?? -1;
+  const width = m.manager?.layout?.pageWidth ?? m.manager?.layout?.width ?? s?.width ?? -1;
   const height = m.manager?.layout?.height ?? s?.height ?? -1;
   return { width, height };
 }
 
-const raf = () =>
-  new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 40)));
+const raf = () => new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 40)));
 
 /**
  * Wait until the visible reader's stage stops changing, then return its size.
@@ -206,10 +204,7 @@ export interface LocationLike {
  * jump backward then forward (e.g. 33 → 25 → 36). The event payload is the
  * settled position, so the count moves monotonically.
  */
-export function bookPageFromLocation(
-  loc: LocationLike | null | undefined,
-  map: EpubPageMap,
-): number | null {
+export function bookPageFromLocation(loc: LocationLike | null | undefined, map: EpubPageMap): number | null {
   const idx = loc?.start?.index;
   if (typeof idx !== "number") return null;
   const displayedPage = loc?.start?.displayed?.page ?? 1;

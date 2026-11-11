@@ -70,11 +70,7 @@ export interface BuildResult {
   resolvePageNumbers(pages: ReadonlyMap<string, number>): Diagnostic[];
 }
 
-export function buildDocument(
-  files: SourceFiles,
-  entrypoint: string,
-  options: BuildDocumentOptions = {},
-): BuildResult {
+export function buildDocument(files: SourceFiles, entrypoint: string, options: BuildDocumentOptions = {}): BuildResult {
   const diagnostics: Diagnostic[] = [];
   const budget = createBudget(options.stepBudget ?? DEFAULT_STEP_BUDGET, options.signal ?? null);
   const st = createBuildState(entrypoint, diagnostics, budget);
@@ -97,20 +93,14 @@ export function buildDocument(
   // reached it would bury the one diagnostic that explains the failure.
   if (!hasDocumentEnvironment && !budget.stopped) {
     diagnostics.push(
-      error(
-        "syntax",
-        wholeFile(entrypoint),
-        "no \\begin{document} — the whole file was treated as the document body",
-      ),
+      error("syntax", wholeFile(entrypoint), "no \\begin{document} — the whole file was treated as the document body"),
     );
   }
 
   const strays = readPreamble(preamble, st);
   for (const block of walkBlocks(strays, st, DEFAULT_TEXT_STYLE)) {
     if (block.kind === "marker") continue;
-    diagnostics.push(
-      error("syntax", block.loc, "content before \\begin{document} is not typeset", "preamble"),
-    );
+    diagnostics.push(error("syntax", block.loc, "content before \\begin{document} is not typeset", "preamble"));
   }
   if (st.documentClass === null && !budget.stopped) {
     diagnostics.push(

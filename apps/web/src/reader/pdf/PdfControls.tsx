@@ -76,11 +76,7 @@ export function PdfViewControls({
           <FitWidthIcon />
         </ToolbarButton>
       </span>
-      <ToolbarButton
-        label="Invert colors (dark)"
-        onClick={onToggleInvert}
-        active={inverted}
-      >
+      <ToolbarButton label="Invert colors (dark)" onClick={onToggleInvert} active={inverted}>
         <InvertIcon />
       </ToolbarButton>
       {settingsTrigger}
@@ -105,8 +101,7 @@ const stroke = {
 
 const MinusIcon = () => icon(<path d="M5 12h14" {...stroke} />);
 const PlusIcon = () => icon(<path d="M12 5v14M5 12h14" {...stroke} />);
-const FitWidthIcon = () =>
-  icon(<path d="M3 12h18M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" {...stroke} />);
+const FitWidthIcon = () => icon(<path d="M3 12h18M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" {...stroke} />);
 const InvertIcon = () =>
   icon(
     <>
@@ -114,8 +109,7 @@ const InvertIcon = () =>
       <path d="M12 3a9 9 0 000 18z" fill="currentColor" />
     </>,
   );
-const TocIcon = () =>
-  icon(<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...stroke} />);
+const TocIcon = () => icon(<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...stroke} />);
 const SearchIcon = () =>
   icon(
     <>

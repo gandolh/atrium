@@ -70,11 +70,7 @@ function resumeLocation(locator: string | null, format: LibraryBook["format"]): 
  * position (D31 as revised by D35), so a leftover entry from another profile
  * would open the book at someone else's page.
  */
-function cachedLibraryRow(
-  client: QueryClient,
-  profileId: string | null,
-  bookId: string,
-): LibraryBook | null {
+function cachedLibraryRow(client: QueryClient, profileId: string | null, bookId: string): LibraryBook | null {
   for (const [, data] of client.getQueriesData<LibraryBook[]>({
     queryKey: libraryProfileKey(profileId),
   })) {
@@ -124,9 +120,7 @@ export function useHydrateBook(bookId: string | undefined, kind: MediaKind = "bo
   // URL that isn't already the loaded book. Media never lives in `loadedFile`
   // (no in-memory File), so it hydrates whenever there's a `bookId` — it just
   // needs the row.
-  const needsHydrate = isMedia
-    ? Boolean(bookId)
-    : Boolean(bookId) && (!loadedFile || loadedBookId !== bookId);
+  const needsHydrate = isMedia ? Boolean(bookId) : Boolean(bookId) && (!loadedFile || loadedBookId !== bookId);
 
   // Built through `libraryKey`, never spelled out: a hand-written
   // `["library", "recent"]` here would be a SEPARATE cache entry with no

@@ -145,11 +145,7 @@ export interface CompileResult {
 }
 
 /** The shape of `compile`. Test harnesses and later stages take one of these. */
-export type CompileFn = (
-  files: Record<string, Uint8Array>,
-  entrypoint: string,
-  opts?: CompileOptions,
-) => CompileResult;
+export type CompileFn = (files: Record<string, Uint8Array>, entrypoint: string, opts?: CompileOptions) => CompileResult;
 
 /**
  * Turn a LaTeX project into a PDF.
@@ -225,9 +221,7 @@ function compileProject(
     return {
       pdf: null,
       pages: [],
-      diagnostics: [
-        error("missing-file", wholeFile(entrypoint), `entrypoint \`${entrypoint}\` is not in the project`),
-      ],
+      diagnostics: [error("missing-file", wholeFile(entrypoint), `entrypoint \`${entrypoint}\` is not in the project`)],
       stats: { pages: 0, steps: 0, bytes: 0 },
     };
   }
@@ -269,8 +263,7 @@ function compileProject(
   // and swallowed a *genuine* layout exhaustion entirely — a silently truncated
   // document with nothing saying why, which is the exact opposite of D38.
   // `steps` and `aborted` say what actually happened and cannot collide.
-  budget.reported =
-    build.steps >= opts.stepBudget || (opts.signal !== null && opts.signal.aborted);
+  budget.reported = build.steps >= opts.stepBudget || (opts.signal !== null && opts.signal.aborted);
   const design = documentDesign(build.document, entrypoint, diagnostics);
   // One shaper for the whole compile, reused across every layout pass: line
   // breaking re-measures constantly, the font layer has no cache, and a second
@@ -371,7 +364,17 @@ function layoutDocument(
     // `opts.math` is `null` for every caller that sets no mathematics, and the
     // layout context carries it exactly as it carries `files`: an input the
     // engine was handed, never one it went and found.
-    const ctx = createLayoutContext(design, fonts, shaper, budget, passDiagnostics, entrypoint, known, files, opts.math);
+    const ctx = createLayoutContext(
+      design,
+      fonts,
+      shaper,
+      budget,
+      passDiagnostics,
+      entrypoint,
+      known,
+      files,
+      opts.math,
+    );
     const list = buildVerticalList(build.document, ctx);
     const built = buildPages(list, {
       design,

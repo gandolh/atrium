@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  isLookupCoverRef,
-  lookupCandidateSchema,
-  type LookupCandidate,
-} from "@ebook-reader/shared";
+import { isLookupCoverRef, lookupCandidateSchema, type LookupCandidate } from "@ebook-reader/shared";
 import { fetchJson } from "./lookup-http.js";
 
 /**
@@ -59,11 +55,7 @@ function toCandidate(doc: OpenLibraryDoc): LookupCandidate | null {
  * and ranks well, and it copes with a filename's leftovers, so the two are
  * simply joined.
  */
-export async function searchOpenLibrary(
-  title: string,
-  author: string,
-  limit: number,
-): Promise<LookupCandidate[]> {
+export async function searchOpenLibrary(title: string, author: string, limit: number): Promise<LookupCandidate[]> {
   const url = new URL(OPEN_LIBRARY_SEARCH_URL);
   url.searchParams.set("q", [title, author].filter(Boolean).join(" "));
   url.searchParams.set("limit", String(limit));

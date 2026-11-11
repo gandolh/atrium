@@ -229,12 +229,7 @@ export function baseFontName(font: FontSubset): string {
 export function fontBBox(font: FontSubset): number[] {
   const upem = font.handle.unitsPerEm;
   const { minX, minY, maxX, maxY } = font.kitFont.bbox;
-  return [
-    toGlyphSpace(minX, upem),
-    toGlyphSpace(minY, upem),
-    toGlyphSpace(maxX, upem),
-    toGlyphSpace(maxY, upem),
-  ];
+  return [toGlyphSpace(minX, upem), toGlyphSpace(minY, upem), toGlyphSpace(maxX, upem), toGlyphSpace(maxY, upem)];
 }
 
 /** Used by the document-id hash, which must not depend on object numbering. */

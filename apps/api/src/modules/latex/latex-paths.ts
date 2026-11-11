@@ -154,10 +154,7 @@ function normalizeRelative(untrustedPath: string): ConfinedPath | string {
   // rule covers `C:\Windows\system32`, UNC `\\server\share`, and a Windows
   // client's `figures\plot.png` — see the module doc.
   if (trimmed.includes("\\")) {
-    return reject(
-      "backslash",
-      "Path contains a backslash. Use forward slashes; project paths are POSIX-style.",
-    );
+    return reject("backslash", "Path contains a backslash. Use forward slashes; project paths are POSIX-style.");
   }
   // A drive letter with a forward slash (`C:/Windows`) is not caught by the
   // backslash rule and is not `isAbsolute` on Linux, but it is unmistakably an
@@ -177,20 +174,14 @@ function normalizeRelative(untrustedPath: string): ConfinedPath | string {
     return reject("empty", "Path resolves to the project root, not a file.");
   }
   if (normalized === ".." || normalized.startsWith(`..${sep}`)) {
-    return reject(
-      "traversal",
-      "Path escapes the project directory. `..` segments are not allowed.",
-    );
+    return reject("traversal", "Path escapes the project directory. `..` segments are not allowed.");
   }
   // Belt and braces: no `..` may survive anywhere. `normalize` should have left
   // interior ones only in the leading position, but this check does not depend
   // on that being true of every Node version.
   const segments = normalized.split(sep);
   if (segments.includes("..")) {
-    return reject(
-      "traversal",
-      "Path escapes the project directory. `..` segments are not allowed.",
-    );
+    return reject("traversal", "Path escapes the project directory. `..` segments are not allowed.");
   }
   if (segments.some((s) => s.length > MAX_SEGMENT_LENGTH)) {
     return reject("too-long", `A path segment exceeds ${MAX_SEGMENT_LENGTH} characters.`);
@@ -243,10 +234,7 @@ async function realpathOfExistingPrefix(dir: string): Promise<string> {
  * cannot distinguish that safe case from a dangling symlink (see the module
  * doc); this walk can, and refuses the latter.
  */
-export async function confinePathUnder(
-  rootDir: string,
-  untrustedPath: string,
-): Promise<ConfinedPath> {
+export async function confinePathUnder(rootDir: string, untrustedPath: string): Promise<ConfinedPath> {
   const lexical = normalizeRelative(untrustedPath);
   if (typeof lexical !== "string") return lexical;
 
@@ -279,28 +267,19 @@ export async function confinePathUnder(
         // A link whose target does not exist. Refused rather than treated as
         // "not created yet": a write would follow it and create the file at
         // wherever it points, which is the arbitrary-write case.
-        return reject(
-          "dangling-symlink",
-          "Path passes through a symlink whose target cannot be resolved.",
-        );
+        return reject("dangling-symlink", "Path passes through a symlink whose target cannot be resolved.");
       }
     } else {
       cursor = next;
     }
 
     if (!isStrictlyInside(rootReal, cursor)) {
-      return reject(
-        "escapes-root",
-        "Path resolves outside the project directory (symlink or traversal).",
-      );
+      return reject("escapes-root", "Path resolves outside the project directory (symlink or traversal).");
     }
   }
 
   if (!isStrictlyInside(rootReal, cursor)) {
-    return reject(
-      "escapes-root",
-      "Path resolves outside the project directory (symlink or traversal).",
-    );
+    return reject("escapes-root", "Path resolves outside the project directory (symlink or traversal).");
   }
 
   return { ok: true, relativePath: lexical, absolutePath: cursor };
@@ -318,10 +297,7 @@ export async function confinePathUnder(
  * `projectDirFor` asserts its shape, since a malformed id would move the
  * confinement root rather than escape it.
  */
-export async function confineProjectPath(
-  projectId: string,
-  untrustedPath: string,
-): Promise<ConfinedPath> {
+export async function confineProjectPath(projectId: string, untrustedPath: string): Promise<ConfinedPath> {
   // `projectDirFor` THROWS on a non-UUID, by design — it is the trusted-input
   // half of this pair and refusing to build a path from junk is correct there.
   // But this function's whole contract is that a bad input comes back as a

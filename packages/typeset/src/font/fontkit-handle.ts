@@ -236,7 +236,7 @@ function clustersFor(text: string, glyphs: readonly FontkitGlyph[]): number[] | 
 /** UTF-16 index of each code point, so astral characters count once. */
 function codePointStarts(text: string): number[] {
   const starts: number[] = [];
-  for (let i = 0; i < text.length; ) {
+  for (let i = 0; i < text.length;) {
     starts.push(i);
     i += text.codePointAt(i)! > 0xffff ? 2 : 1;
   }
@@ -252,8 +252,9 @@ function codePointStarts(text: string): number[] {
 function spreadClusters(text: string, count: number): number[] {
   const starts = codePointStarts(text);
   if (starts.length === 0 || count === 0) return new Array<number>(count).fill(0);
-  return Array.from({ length: count }, (_, i) =>
-    starts[Math.min(starts.length - 1, Math.floor((i * starts.length) / count))]!,
+  return Array.from(
+    { length: count },
+    (_, i) => starts[Math.min(starts.length - 1, Math.floor((i * starts.length) / count))]!,
   );
 }
 

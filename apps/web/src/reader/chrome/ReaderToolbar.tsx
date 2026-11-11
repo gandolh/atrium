@@ -92,9 +92,7 @@ export function ReaderToolbar({
             Default `stretch` makes the item fill the track instead; flex
             `justify-end` right-aligns the content inside it, and `min-w-0` +
             `overflow-hidden` make the truncating chapter label actually shrink. */}
-        <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden">
-          {rightControls}
-        </div>
+        <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden">{rightControls}</div>
       </div>
     </div>
   );

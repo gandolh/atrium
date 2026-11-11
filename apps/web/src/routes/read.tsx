@@ -181,7 +181,16 @@ function BookReader() {
     }
     resolvedIdRef.current = { requested: book, resolved: winner };
     return winner;
-  }, [book, libraryQuery.data, libraryQuery.isError, libraryQuery.isPaused, partnerId, partnerRowQuery.data, sourceRow, loadedBookId]);
+  }, [
+    book,
+    libraryQuery.data,
+    libraryQuery.isError,
+    libraryQuery.isPaused,
+    partnerId,
+    partnerRowQuery.data,
+    sourceRow,
+    loadedBookId,
+  ]);
 
   // Cover-card clicks navigate here immediately; this hook is the
   // single download path for both that and refresh / direct visits (D24).
@@ -246,8 +255,7 @@ function BookReader() {
   const file = loadedFile ?? devFile;
   // Prefer the store's detected format; fall back to the URL param. When a dev
   // sample is in play, infer the format from which sample loaded.
-  const effectiveFormat =
-    loadedFormat ?? format ?? (devFile ? (devWantsEpub ? "epub" : "pdf") : null);
+  const effectiveFormat = loadedFormat ?? format ?? (devFile ? (devWantsEpub ? "epub" : "pdf") : null);
 
   if (!file) {
     // Having a `?book=` to open IS the opening state. `hydrate.status` is still
@@ -505,15 +513,7 @@ function OpeningErrorState({
  * under `prefers-reduced-motion` (lib/motion.ts) — no separate reduced-motion
  * branch needed here.
  */
-function BookCoverTile({
-  book,
-  bookId,
-  dimmed,
-}: {
-  book: LibraryBook | null;
-  bookId?: string;
-  dimmed?: boolean;
-}) {
+function BookCoverTile({ book, bookId, dimmed }: { book: LibraryBook | null; bookId?: string; dimmed?: boolean }) {
   const [imgFailed, setImgFailed] = useState(false);
   const transition = useMotionTransition("expand");
   // `bookId` (the URL's `?book=`) wins over `book.id` — needed for two

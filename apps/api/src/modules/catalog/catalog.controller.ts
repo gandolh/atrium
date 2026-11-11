@@ -28,9 +28,7 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
     }
     request.log.info(
       { cached: result.cached },
-      result.cached
-        ? "catalog cache hit (served from TTL cache)"
-        : "catalog cache miss (fetched from Gutendex)",
+      result.cached ? "catalog cache hit (served from TTL cache)" : "catalog cache miss (fetched from Gutendex)",
     );
     return reply.send(result.data);
   });

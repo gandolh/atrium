@@ -63,9 +63,7 @@ function handoffPositionFor(item: PlaybackItem): number {
   return state.item?.id === item.id ? state.currentTime : 0;
 }
 
-export function usePlaybackElement<T extends HTMLMediaElement>(
-  item: PlaybackItem,
-): PlaybackElementBinding<T> {
+export function usePlaybackElement<T extends HTMLMediaElement>(item: PlaybackItem): PlaybackElementBinding<T> {
   const {
     mediaRef,
     onLoadedMetadata: progressLoadedMetadata,

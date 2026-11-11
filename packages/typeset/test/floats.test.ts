@@ -92,9 +92,7 @@ function only(result: CompileResult, word: string): Sighting {
  * is predictable without pinning a font metric: roughly `lines * 12pt`.
  */
 function bulk(lines: number, tag: string): string {
-  return Array.from({ length: lines }, (_, i) => `${tag}${i} some words of filler on one single line.`).join(
-    "\n\n",
-  );
+  return Array.from({ length: lines }, (_, i) => `${tag}${i} some words of filler on one single line.`).join("\n\n");
 }
 
 function float(kind: "figure" | "table", placement: string, caption: string, lines = 1): string {
@@ -150,7 +148,10 @@ test("[p] gives the float a page of its own, and that page carries no prose", ()
   // Nothing but the float and the folio: a float page is not a text page with
   // a picture on it, it is a page LaTeX gave up the text on.
   const words = glyphRuns(result.pages[1] as Page).map((run) => run.text);
-  assert.deepEqual(words.filter((w) => /Opening|Closing/.test(w)), []);
+  assert.deepEqual(
+    words.filter((w) => /Opening|Closing/.test(w)),
+    [],
+  );
   // `\@fptop`/`\@fpbot` are equal infinite stretch, so the block is centred.
   const first = only(result, "Delta0");
   assert.ok(first.y > BODY_TOP + 100, `float page material starts at ${first.y}, not centred`);

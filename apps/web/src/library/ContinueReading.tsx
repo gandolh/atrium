@@ -31,20 +31,12 @@ const MAX_ESTIMATED_MINUTES = 20 * 60;
  * Renders nothing when no candidate exists (empty library, nothing started,
  * or everything finished) — the shelf grid is the hero in that case.
  */
-export function ContinueReading({
-  books,
-  onOpen,
-}: {
-  books: LibraryBook[];
-  onOpen: (book: LibraryBook) => void;
-}) {
+export function ContinueReading({ books, onOpen }: { books: LibraryBook[]; onOpen: (book: LibraryBook) => void }) {
   if (books.length === 0) return null;
 
   return (
     <section aria-label="Continue" className="flex flex-col gap-3">
-      <h2 className="font-ui text-xs font-semibold tracking-[0.15em] text-ink-variant uppercase">
-        Continue
-      </h2>
+      <h2 className="font-ui text-xs font-semibold tracking-[0.15em] text-ink-variant uppercase">Continue</h2>
       <div className="grid grid-cols-1 gap-gutter sm:grid-cols-3">
         {books.map((book) => (
           <ResumeCard key={book.id} book={book} onOpen={onOpen} />
@@ -54,13 +46,7 @@ export function ContinueReading({
   );
 }
 
-function ResumeCard({
-  book,
-  onOpen,
-}: {
-  book: LibraryBook;
-  onOpen: (book: LibraryBook) => void;
-}) {
+function ResumeCard({ book, onOpen }: { book: LibraryBook; onOpen: (book: LibraryBook) => void }) {
   const [imgFailed, setImgFailed] = useState(false);
   const kind = book.kind ?? "book";
   const pct = Math.round(book.progress * 100);
@@ -76,7 +62,9 @@ function ResumeCard({
       aria-label={`Resume ${book.title}${remaining ? `, ${remaining}` : ""}`}
       className="group flex w-full items-center gap-4 rounded-card border border-line-soft bg-paper-raised p-3 text-left shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift focus-visible:outline-2 focus-visible:outline-accent"
     >
-      <span className={`relative block ${thumbAspect} w-16 shrink-0 overflow-hidden rounded-cover bg-paper-container shadow-[0_8px_16px_-6px_rgba(28,27,27,0.18)] ring-1 ring-line-soft/40`}>
+      <span
+        className={`relative block ${thumbAspect} w-16 shrink-0 overflow-hidden rounded-cover bg-paper-container shadow-[0_8px_16px_-6px_rgba(28,27,27,0.18)] ring-1 ring-line-soft/40`}
+      >
         <CoverArt book={book} imgFailed={imgFailed} onImgError={() => setImgFailed(true)} />
       </span>
 
@@ -86,9 +74,7 @@ function ResumeCard({
         <span className="line-clamp-1 font-ui text-base leading-snug font-semibold tracking-[-0.01em] text-ink">
           {book.title}
         </span>
-        {book.author && (
-          <span className="truncate text-sm text-ink-variant">{book.author}</span>
-        )}
+        {book.author && <span className="truncate text-sm text-ink-variant">{book.author}</span>}
 
         <span className="mt-1 flex items-center gap-2.5">
           <span className="h-[3px] max-w-40 flex-1 overflow-hidden rounded-full bg-ink/10">
@@ -140,10 +126,7 @@ export function formatTimeRemaining(book: LibraryBook): string {
       ? book.durationSeconds != null
         ? book.durationSeconds / 60
         : null
-      : Math.min(
-          MAX_ESTIMATED_MINUTES,
-          (book.sizeBytes / ASSUMED_BYTES_PER_PAGE) * ASSUMED_MINUTES_PER_PAGE,
-        );
+      : Math.min(MAX_ESTIMATED_MINUTES, (book.sizeBytes / ASSUMED_BYTES_PER_PAGE) * ASSUMED_MINUTES_PER_PAGE);
 
   if (totalMinutes == null) return "In progress";
 

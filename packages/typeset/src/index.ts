@@ -26,16 +26,7 @@ export type {
   ResolvedCompileOptions,
 } from "./compile.ts";
 
-export {
-  diagnostic,
-  error,
-  warning,
-  info,
-  unsupported,
-  internalError,
-  hasErrors,
-  wholeFile,
-} from "./diagnostics.ts";
+export { diagnostic, error, warning, info, unsupported, internalError, hasErrors, wholeFile } from "./diagnostics.ts";
 export type { Diagnostic, DiagnosticCode, DiagnosticSeverity, SourceRef } from "./diagnostics.ts";
 
 export { glue, kern, penalty, naturalSize, INFINITE_PENALTY, EJECT_PENALTY } from "./layout/model.ts";
@@ -106,14 +97,7 @@ export type { LayoutContext, PreparedFootnote } from "./layout/vlist.ts";
  * `@ebook-reader/typeset` still costs a caller who sets no mathematics nothing.
  */
 export { createMathRenderer } from "./math/index.ts";
-export type {
-  MathGeometry,
-  MathRenderer,
-  MathRequest,
-  MathResult,
-  MathRun,
-  MathViewBox,
-} from "./math/index.ts";
+export type { MathGeometry, MathRenderer, MathRequest, MathResult, MathRun, MathViewBox } from "./math/index.ts";
 /** Placing a rendered run: `ex` to points, the baseline, and the display skips. */
 export { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, exHeight, setDisplayMath, setMathRun } from "./layout/math.ts";
 export type { DisplayMathContext, MathContext, SetDisplay } from "./layout/math.ts";

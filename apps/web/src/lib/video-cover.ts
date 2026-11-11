@@ -532,10 +532,7 @@ interface RvfcCapable {
 function nextFrame(video: HTMLVideoElement): Promise<void> {
   const request = (video as HTMLVideoElement & Partial<RvfcCapable>).requestVideoFrameCallback;
   if (typeof request !== "function") return sleep(REPAINT_WAIT_MS);
-  return Promise.race([
-    new Promise<void>((resolve) => request.call(video, () => resolve())),
-    sleep(REPAINT_WAIT_MS),
-  ]);
+  return Promise.race([new Promise<void>((resolve) => request.call(video, () => resolve())), sleep(REPAINT_WAIT_MS)]);
 }
 
 function sleep(ms: number): Promise<void> {

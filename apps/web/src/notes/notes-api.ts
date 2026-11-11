@@ -35,10 +35,7 @@ export async function createNote(title?: string): Promise<Note> {
   return noteSchema.parse(await res.json());
 }
 
-export async function updateNote(
-  id: string,
-  fields: { title?: string; pages?: NotePage[] },
-): Promise<Note> {
+export async function updateNote(id: string, fields: { title?: string; pages?: NotePage[] }): Promise<Note> {
   const res = await apiFetch(`/notes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -74,10 +71,7 @@ export async function fetchNoteFolders(): Promise<NoteFolder[]> {
   return noteFolderListSchema.parse(await res.json());
 }
 
-export async function createNoteFolder(
-  name: string,
-  parentId: string | null = null,
-): Promise<NoteFolder> {
+export async function createNoteFolder(name: string, parentId: string | null = null): Promise<NoteFolder> {
   const res = await apiFetch("/note-folders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

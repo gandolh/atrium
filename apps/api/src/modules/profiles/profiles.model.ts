@@ -108,9 +108,7 @@ export async function getProfile(id: string): Promise<ProfileRow | undefined> {
 }
 
 export async function getDefaultProfile(subject: string): Promise<ProfileRow | undefined> {
-  return (await knex("profiles").where({ subject, is_default: 1 }).first()) as
-    | ProfileRow
-    | undefined;
+  return (await knex("profiles").where({ subject, is_default: 1 }).first()) as ProfileRow | undefined;
 }
 
 export async function countProfiles(subject: string): Promise<number> {
@@ -123,10 +121,7 @@ export async function createProfile(row: ProfileRow): Promise<void> {
 }
 
 /** COALESCE lets a name-only or colour-only PATCH leave the other intact. */
-export async function updateProfile(
-  id: string,
-  fields: { name?: string; color?: ProfileColor },
-): Promise<boolean> {
+export async function updateProfile(id: string, fields: { name?: string; color?: ProfileColor }): Promise<boolean> {
   const changed = await knex("profiles")
     .where({ id })
     .update({
@@ -166,8 +161,7 @@ export async function deleteProfile(id: string): Promise<boolean> {
  */
 export async function getProfilePreferences(id: string): Promise<string | null | undefined> {
   const row = (await knex("profiles").select("preferences").where({ id }).first()) as
-    | { preferences: string | null }
-    | undefined;
+    { preferences: string | null } | undefined;
   return row === undefined ? undefined : row.preferences;
 }
 
@@ -189,8 +183,7 @@ export async function updateProfilePreferences(
 ): Promise<string | undefined> {
   return knex.transaction(async (trx) => {
     const row = (await trx("profiles").select("preferences").where({ id }).first()) as
-      | { preferences: string | null }
-      | undefined;
+      { preferences: string | null } | undefined;
     if (row === undefined) return undefined;
     const next = merge(row.preferences);
     await trx("profiles").where({ id }).update({ preferences: next });
@@ -206,10 +199,7 @@ export async function listProfileProgress(profileId: string): Promise<ProfilePro
     .where({ profile_id: profileId })) as ProfileProgressRow[];
 }
 
-export async function getProfileProgress(
-  profileId: string,
-  bookId: string,
-): Promise<ProfileProgressRow | undefined> {
+export async function getProfileProgress(profileId: string, bookId: string): Promise<ProfileProgressRow | undefined> {
   return (await knex("reading_progress")
     .select(...PROGRESS_COLUMNS)
     .where({ profile_id: profileId, book_id: bookId })

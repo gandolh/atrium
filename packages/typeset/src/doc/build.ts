@@ -251,12 +251,7 @@ function pushBlock(sink: Sink, block: Block, indentNext = true): void {
 
 // --- entry points for a node list ------------------------------------------
 
-export function walkBlocks(
-  nodes: readonly LatexNode[],
-  st: BuildState,
-  style: TextStyle,
-  depth = 0,
-): Block[] {
+export function walkBlocks(nodes: readonly LatexNode[], st: BuildState, style: TextStyle, depth = 0): Block[] {
   const sink = createSink(style);
   emitNodes(nodes, sink, st, depth);
   flush(sink);
@@ -287,9 +282,7 @@ export function walkInlines(
       out.push({ kind: "marker", name: block.name, loc: block.loc });
       continue;
     }
-    st.diagnostics.push(
-      error("syntax", block.loc, `a ${block.kind} cannot appear in ${where}`, where),
-    );
+    st.diagnostics.push(error("syntax", block.loc, `a ${block.kind} cannot appear in ${where}`, where));
   }
   return out;
 }
@@ -392,13 +385,7 @@ function emitNodes(nodes: readonly LatexNode[], sink: Sink, st: BuildState, dept
   }
 }
 
-function applyUnknown(
-  originalType: string,
-  raw: string,
-  at: SourceRef,
-  sink: Sink,
-  st: BuildState,
-): void {
+function applyUnknown(originalType: string, raw: string, at: SourceRef, sink: Sink, st: BuildState): void {
   if (originalType === "verbatim") {
     pushBlock(sink, { kind: "verbatim", lines: verbatimLines(raw), loc: at });
     return;
@@ -488,13 +475,7 @@ function applyFontDelta(
   return { font, underline };
 }
 
-function applySection(
-  cmd: CommandNode,
-  level: HeadingLevel,
-  sink: Sink,
-  st: BuildState,
-  depth: number,
-): void {
+function applySection(cmd: CommandNode, level: HeadingLevel, sink: Sink, st: BuildState, depth: number): void {
   const at = cmd.loc.start;
   const titleArg = mandatoryArgument(cmd);
   if (titleArg === null) {
@@ -576,13 +557,17 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
           ),
         );
       }
-      pushBlock(sink, {
-        kind: "title",
-        title: st.title ?? [],
-        author: st.author ?? [],
-        date: st.date,
-        loc: at,
-      }, false);
+      pushBlock(
+        sink,
+        {
+          kind: "title",
+          title: st.title ?? [],
+          author: st.author ?? [],
+          date: st.date,
+          loc: at,
+        },
+        false,
+      );
       return;
     }
     case "tableofcontents":
@@ -615,7 +600,12 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
       const style = arg === null ? "" : plainText(arg.content).trim();
       if (style.length === 0) {
         st.diagnostics.push(
-          error("syntax", at, "\\bibliographystyle needs a style name, e.g. \\bibliographystyle{plain}", "\\bibliographystyle"),
+          error(
+            "syntax",
+            at,
+            "\\bibliographystyle needs a style name, e.g. \\bibliographystyle{plain}",
+            "\\bibliographystyle",
+          ),
         );
       } else {
         st.bibliographyStyle = style;
@@ -715,15 +705,11 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
       return;
     }
     case "item":
-      st.diagnostics.push(
-        error("syntax", at, "\\item appears outside itemize, enumerate or description", "\\item"),
-      );
+      st.diagnostics.push(error("syntax", at, "\\item appears outside itemize, enumerate or description", "\\item"));
       return;
     case "linebreak":
       if (cmd.args.some((a) => a.bracket === "[")) {
-        st.diagnostics.push(
-          unsupported(at, "\\\\[...]", "extra vertical space on a line break is not implemented"),
-        );
+        st.diagnostics.push(unsupported(at, "\\\\[...]", "extra vertical space on a line break is not implemented"));
       }
       emit(sink, { kind: "linebreak", loc: at });
       return;
@@ -735,7 +721,12 @@ function applySpecial(id: SpecialId, cmd: CommandNode, sink: Sink, st: BuildStat
       return;
     case "today":
       st.diagnostics.push(
-        warning("unsupported", at, "this engine performs no I/O and has no clock, so \\today prints nothing", "\\today"),
+        warning(
+          "unsupported",
+          at,
+          "this engine performs no I/O and has no clock, so \\today prints nothing",
+          "\\today",
+        ),
       );
       return;
     // `\input`/`\include` have no case here — see the comment on their
@@ -821,13 +812,7 @@ function applyEnvironment(env: EnvironmentNode, sink: Sink, st: BuildState, dept
   }
 }
 
-function applyList(
-  env: EnvironmentNode,
-  variant: ListVariant,
-  sink: Sink,
-  st: BuildState,
-  depth: number,
-): void {
+function applyList(env: EnvironmentNode, variant: ListVariant, sink: Sink, st: BuildState, depth: number): void {
   const at = env.loc.start;
   const listDepth = st.listDepth + 1;
   const variantDepth = st.variantDepth[variant] + 1;
@@ -1063,9 +1048,7 @@ function readFloatPlacement(env: EnvironmentNode, st: BuildState): FloatPlacemen
       );
       continue;
     }
-    st.diagnostics.push(
-      error("syntax", at, `\`${char}\` is not a float placement letter; use h, t, b or p`, env.name),
-    );
+    st.diagnostics.push(error("syntax", at, `\`${char}\` is not a float placement letter; use h, t, b or p`, env.name));
   }
   if (letters.length === 0) {
     st.diagnostics.push(
@@ -1155,11 +1138,7 @@ function readImageSizing(nodes: readonly LatexNode[], at: SourceRef, st: BuildSt
       continue;
     }
     st.diagnostics.push(
-      unsupported(
-        at,
-        `\\includegraphics[${key}=...]`,
-        "only the width=, height= and scale= keys are implemented",
-      ),
+      unsupported(at, `\\includegraphics[${key}=...]`, "only the width=, height= and scale= keys are implemented"),
     );
   }
   if (sizing.scale !== null && (sizing.width !== null || sizing.height !== null)) {
@@ -1288,19 +1267,12 @@ function applyTabular(env: EnvironmentNode, sink: Sink, st: BuildState, depth: n
   let spec: TableColumnSpec = { columns: [], rulesAfter: 0 };
   if (specArg === undefined) {
     st.diagnostics.push(
-      error(
-        "syntax",
-        at,
-        `\`${env.name}\` needs a column specification, e.g. \\begin{${env.name}}{lcr}`,
-        env.name,
-      ),
+      error("syntax", at, `\`${env.name}\` needs a column specification, e.g. \\begin{${env.name}}{lcr}`, env.name),
     );
   } else {
     spec = readColumnSpec(specArg.content, at, env.name, st);
     if (spec.columns.length === 0) {
-      st.diagnostics.push(
-        error("syntax", at, `\`${env.name}\`'s column specification declares no columns`, env.name),
-      );
+      st.diagnostics.push(error("syntax", at, `\`${env.name}\`'s column specification declares no columns`, env.name));
     }
   }
   const { rows, rulesBelow } = readTableBody(env, spec, st, depth);
@@ -1444,12 +1416,7 @@ interface TableBody {
  * values are still split on `&` defensively: nothing in the parser's contract
  * promises the separator always gets a node of its own.
  */
-function readTableBody(
-  env: EnvironmentNode,
-  spec: TableColumnSpec,
-  st: BuildState,
-  depth: number,
-): TableBody {
+function readTableBody(env: EnvironmentNode, spec: TableColumnSpec, st: BuildState, depth: number): TableBody {
   const rows: TableRow[] = [];
   let pendingRules: TableRule[] = [];
   let cells: TableCell[] = [];
@@ -1573,12 +1540,7 @@ function readTableBody(
         if (spanning === null) continue;
         if (cellNodes.some((n) => n.type !== "whitespace" && n.type !== "comment")) {
           st.diagnostics.push(
-            error(
-              "syntax",
-              node.loc.start,
-              "\\multicolumn must be the first thing in its cell",
-              "\\multicolumn",
-            ),
+            error("syntax", node.loc.start, "\\multicolumn must be the first thing in its cell", "\\multicolumn"),
           );
           continue;
         }
@@ -1641,9 +1603,7 @@ function readCline(
   }
   const match = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(text);
   if (match === null) {
-    st.diagnostics.push(
-      error("syntax", at, `\\cline{${text.trim()}} is not a column range like 2-3`, "\\cline"),
-    );
+    st.diagnostics.push(error("syntax", at, `\\cline{${text.trim()}} is not a column range like 2-3`, "\\cline"));
     return { rule: null, skip };
   }
   const from = Number(match[1]);
@@ -1651,12 +1611,7 @@ function readCline(
   const columns = spec.columns.length;
   if (from < 1 || to < from || (columns > 0 && to > columns)) {
     st.diagnostics.push(
-      error(
-        "syntax",
-        at,
-        `\\cline{${from}-${to}} is outside this \`${env.name}\`'s ${columns} columns`,
-        "\\cline",
-      ),
+      error("syntax", at, `\\cline{${from}-${to}} is outside this \`${env.name}\`'s ${columns} columns`, "\\cline"),
     );
     return { rule: null, skip };
   }
@@ -1723,12 +1678,7 @@ const CITATION_STYLES: Readonly<Record<"cite" | "citep" | "citet" | "nocite", Ci
  * each prints is filled in by `resolveCitations` in `doc/bib.ts` during the same
  * second pass `\ref` already uses.
  */
-function applyCitation(
-  id: "cite" | "citep" | "citet" | "nocite",
-  cmd: CommandNode,
-  sink: Sink,
-  st: BuildState,
-): void {
+function applyCitation(id: "cite" | "citep" | "citet" | "nocite", cmd: CommandNode, sink: Sink, st: BuildState): void {
   const at = cmd.loc.start;
   const arg = mandatoryArgument(cmd);
   const keys = (arg === null ? "" : plainText(arg.content))
@@ -1736,9 +1686,7 @@ function applyCitation(
     .map((key) => key.trim())
     .filter((key) => key.length > 0);
   if (keys.length === 0) {
-    st.diagnostics.push(
-      error("syntax", at, `\\${cmd.name} needs at least one citation key`, `\\${cmd.name}`),
-    );
+    st.diagnostics.push(error("syntax", at, `\\${cmd.name} needs at least one citation key`, `\\${cmd.name}`));
   }
   const citation: CitationInline = {
     kind: "citation",
@@ -1863,9 +1811,7 @@ function applyBibliographyCommand(cmd: CommandNode, sink: Sink, st: BuildState):
     .map((name) => name.trim())
     .filter((name) => name.length > 0);
   if (bibFiles.length === 0) {
-    st.diagnostics.push(
-      error("syntax", at, "\\bibliography needs at least one .bib file name", "\\bibliography"),
-    );
+    st.diagnostics.push(error("syntax", at, "\\bibliography needs at least one .bib file name", "\\bibliography"));
   }
   const block: BibliographyBlock = {
     kind: "bibliography",
@@ -1901,12 +1847,7 @@ function applyThebibliography(env: EnvironmentNode, sink: Sink, st: BuildState, 
   const widestLabel = widestArg === undefined ? "" : plainText(widestArg.content).trim();
   if (widestLabel.length === 0) {
     st.diagnostics.push(
-      error(
-        "syntax",
-        at,
-        `\`${env.name}\` needs its widest-label argument, e.g. \\begin{${env.name}}{9}`,
-        env.name,
-      ),
+      error("syntax", at, `\`${env.name}\` needs its widest-label argument, e.g. \\begin{${env.name}}{9}`, env.name),
     );
   }
   const entries: BibItem[] = [];
@@ -1958,7 +1899,8 @@ function buildBibItem(cmd: CommandNode, st: BuildState, depth: number): BibItem 
   const bodyNodes = last !== undefined && last.bracket === null ? last.content : [];
   return {
     key,
-    label: optional === undefined ? null : walkInlines(optional.content, st, DEFAULT_TEXT_STYLE, "\\bibitem[...]", depth),
+    label:
+      optional === undefined ? null : walkInlines(optional.content, st, DEFAULT_TEXT_STYLE, "\\bibitem[...]", depth),
     content: walkBlocks(bodyNodes, st, DEFAULT_TEXT_STYLE, depth),
     loc: at,
   };
@@ -2082,9 +2024,7 @@ function buildDisplay(
   for (const raw of rawLines) {
     // `\nonumber`/`\notag` suppress *this line's* number and nothing else —
     // which is why the counter is stepped per line rather than per display.
-    const suppressed = raw.nodes.some(
-      (n) => n.type === "command" && (n.name === "nonumber" || n.name === "notag"),
-    );
+    const suppressed = raw.nodes.some((n) => n.type === "command" && (n.name === "nonumber" || n.name === "notag"));
     const lineNumbered = numbered && !suppressed;
     let number: string | null = null;
     let marker: string | null = null;
@@ -2265,7 +2205,11 @@ function gateMathContent(nodes: readonly LatexNode[], st: BuildState, construct:
         // there is no sane TeX to print back for it, so it is refused here
         // rather than silently flattened into the formula.
         st.diagnostics.push(
-          unsupported(node.loc.start, construct, `a ${node.originalType} construct inside math has no meaning to hand a math renderer`),
+          unsupported(
+            node.loc.start,
+            construct,
+            `a ${node.originalType} construct inside math has no meaning to hand a math renderer`,
+          ),
         );
         break;
       default:
@@ -2410,9 +2354,7 @@ function readDocumentClass(cmd: CommandNode, st: BuildState): void {
   }
   st.documentClass = name;
   if (name !== "article") {
-    st.diagnostics.push(
-      unsupported(at, `\\documentclass{${name}}`, "only the article class is implemented"),
-    );
+    st.diagnostics.push(unsupported(at, `\\documentclass{${name}}`, "only the article class is implemented"));
   }
 }
 
@@ -2440,7 +2382,9 @@ function readPackage(cmd: CommandNode, st: BuildState): void {
     }
     const noop = ALLOWED_PACKAGES[name];
     if (noop !== null && noop !== undefined) {
-      st.diagnostics.push(info("unsupported", at, `\\usepackage{${name}} has no effect — ${noop}`, `\\usepackage{${name}}`));
+      st.diagnostics.push(
+        info("unsupported", at, `\\usepackage{${name}} has no effect — ${noop}`, `\\usepackage{${name}}`),
+      );
     }
     st.packages.push({ name, options, loc: at });
   }

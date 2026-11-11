@@ -81,7 +81,10 @@ export function JukeboxPage() {
             <QuietSelect
               label="Server"
               value={player.guildId}
-              options={list.map((p) => ({ value: p.guildId, label: p.online ? p.guildName : `${p.guildName} (offline)` }))}
+              options={list.map((p) => ({
+                value: p.guildId,
+                label: p.online ? p.guildName : `${p.guildName} (offline)`,
+              }))}
               onChange={setSelectedId}
             />
           )}
@@ -98,7 +101,10 @@ export function JukeboxPage() {
       </div>
 
       {players.isLoading ? (
-        <div className="h-64 rounded-card border border-line-soft bg-paper-container/40 motion-safe:animate-pulse" aria-hidden />
+        <div
+          className="h-64 rounded-card border border-line-soft bg-paper-container/40 motion-safe:animate-pulse"
+          aria-hidden
+        />
       ) : players.isError && !players.data ? (
         <Notice title="Couldn't load the Jukebox">
           The API may be offline.{" "}
@@ -144,7 +150,10 @@ export function JukeboxPage() {
       )}
 
       {error && (
-        <p role="alert" className="rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger"
+        >
           {error}
         </p>
       )}
@@ -155,9 +164,7 @@ export function JukeboxPage() {
         offline={!player?.online}
         upload={{ add: uploads.add, busy: uploads.progress !== null, busyLabel: uploadLabel, failed: uploads.failed }}
         onPlay={
-          guildId
-            ? (bookId) => control.mutate({ guildId, args: { action: "playTrack", bookId } }, report)
-            : undefined
+          guildId ? (bookId) => control.mutate({ guildId, args: { action: "playTrack", bookId } }, report) : undefined
         }
         onQueue={guildId ? (bookId, at) => addToQueue.mutate({ guildId, args: { bookId, at } }, report) : undefined}
         onDelete={remove}

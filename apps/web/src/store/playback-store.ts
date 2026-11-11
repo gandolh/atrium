@@ -91,10 +91,7 @@ export interface PlaybackState {
    * dock title of a paused track must return to its surface without secretly
    * resuming it, and must not restart a playing one.
    */
-  load: (
-    item: PlaybackItem,
-    options?: { autoplay?: boolean; output?: PlaybackOutput },
-  ) => void;
+  load: (item: PlaybackItem, options?: { autoplay?: boolean; output?: PlaybackOutput }) => void;
   play: () => void;
   pause: () => void;
   toggle: () => void;
@@ -188,9 +185,7 @@ export const usePlaybackStore = create<PlaybackState>((set) => ({
     ),
 
   releaseSurface: (itemId) =>
-    set((state) =>
-      state.item?.id === itemId && state.output === "surface" ? { output: "dock" } : {},
-    ),
+    set((state) => (state.item?.id === itemId && state.output === "surface" ? { output: "dock" } : {})),
 
   setVolume: (volume) => set({ volume: Math.min(Math.max(volume, 0), 1), muted: false }),
   toggleMuted: () => set((state) => ({ muted: !state.muted })),

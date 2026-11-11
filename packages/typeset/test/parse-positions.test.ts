@@ -68,15 +68,21 @@ test("line and column are 1-based and track a multi-line document", () => {
 
 test("column resets to 1 on every new line, and every node names the given file", () => {
   const { root } = parseLatex("ab\ncd", "chapters/one.tex");
-  const second = root.find((n) => n.type === "text" && n.value === "cd") as { loc: { start: { file: string; line: number; column: number } } } | undefined;
+  const second = root.find((n) => n.type === "text" && n.value === "cd") as
+    { loc: { start: { file: string; line: number; column: number } } } | undefined;
   assert.ok(second);
   assert.deepEqual(second.loc.start, { file: "chapters/one.tex", line: 2, column: 1 });
 });
 
 test("a command deep inside nested environments still gets its real line, not the environment's", () => {
-  const src = ["\\begin{itemize}", "\\item outer", "\\begin{itemize}", "\\item inner", "\\end{itemize}", "\\end{itemize}"].join(
-    "\n",
-  );
+  const src = [
+    "\\begin{itemize}",
+    "\\item outer",
+    "\\begin{itemize}",
+    "\\item inner",
+    "\\end{itemize}",
+    "\\end{itemize}",
+  ].join("\n");
   const { root, diagnostics } = parseLatex(src, "x.tex");
   assert.deepEqual(diagnostics, []);
   const outer = root[0] as EnvironmentNode;

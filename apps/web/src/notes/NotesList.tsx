@@ -197,9 +197,7 @@ export function NotesList() {
             )}
 
             {rows.length === 0 && (
-              <p className="px-4 py-6 text-center font-ui text-xs text-ink-variant">
-                Nothing here yet.
-              </p>
+              <p className="px-4 py-6 text-center font-ui text-xs text-ink-variant">Nothing here yet.</p>
             )}
           </div>
         )}
@@ -750,9 +748,7 @@ function readCollapsed(profileId: string | null): ReadonlySet<string> {
  * convenience, not shared state, and it must never be something a failed write
  * can break the page over — hence the try/catch on both sides.
  */
-function useCollapsedFolders(
-  profileId: string | null,
-): [ReadonlySet<string>, (id: string) => void] {
+function useCollapsedFolders(profileId: string | null): [ReadonlySet<string>, (id: string) => void] {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
 
   // Re-read on a profile switch: the previous profile's folded branches say
@@ -799,11 +795,7 @@ function NoteGlyph() {
 function FolderGlyph() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3.5 6.5h6l2 2.5h9v9.5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 6.5h6l2 2.5h9v9.5a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z" />
     </svg>
   );
 }

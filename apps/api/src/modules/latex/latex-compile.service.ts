@@ -9,13 +9,14 @@ import {
   type Diagnostic,
   type LatexCompileResult,
 } from "@ebook-reader/shared";
-import {
-  LATEX_MAX_OUTPUT_BYTES,
-  LATEX_MAX_PROJECT_BYTES,
-  LATEX_TIMEOUT_MS,
-} from "../../common/config.js";
+import { LATEX_MAX_OUTPUT_BYTES, LATEX_MAX_PROJECT_BYTES, LATEX_TIMEOUT_MS } from "../../common/config.js";
 import { projectDirFor } from "../../common/paths.js";
-import { getRunningLatexCompile, setLatexCompileStatus, touchLatexProject, type LatexProjectRow } from "./latex.model.js";
+import {
+  getRunningLatexCompile,
+  setLatexCompileStatus,
+  touchLatexProject,
+  type LatexProjectRow,
+} from "./latex.model.js";
 // Types only. `latex-worker.ts` is loaded as a *thread entry point* from a
 // `file:` URL and is never imported as a module — see `runEngineInWorker`.
 import type { LatexWorkerRequest, LatexWorkerResponse } from "./latex-worker.js";
@@ -331,7 +332,11 @@ async function readProjectTree(projectDir: string): Promise<ProjectTree> {
       if (count >= MAX_TREE_FILES) {
         truncated = true;
         diagnostics.push(
-          wholeProject(`the project has more than ${MAX_TREE_FILES} files; the rest were not read`, "error", "limit-exceeded"),
+          wholeProject(
+            `the project has more than ${MAX_TREE_FILES} files; the rest were not read`,
+            "error",
+            "limit-exceeded",
+          ),
         );
         return;
       }
@@ -625,10 +630,7 @@ export type StartLatexCompileResult =
  * `subject` is the account (the local user's id, D58), not the profile: `getRunningLatexCompile`
  * joins through `profiles.subject` for the same reason (D35, D53).
  */
-export async function startLatexCompile(
-  project: LatexProjectRow,
-  subject: string,
-): Promise<StartLatexCompileResult> {
+export async function startLatexCompile(project: LatexProjectRow, subject: string): Promise<StartLatexCompileResult> {
   // Before anything READS the durable half, finish writing it. A
   // status write that failed earlier left some row on `running` with nothing
   // running, and the guard below cannot tell that row from a live compile — so
@@ -1579,11 +1581,7 @@ async function ensureBuildDir(projectId: string): Promise<void> {
   await mkdir(latexBuildDirFor(projectId), { recursive: true });
 }
 
-async function persistOutcome(
-  projectId: string,
-  outcome: LatexCompileResult,
-  pdf: Uint8Array | null,
-): Promise<void> {
+async function persistOutcome(projectId: string, outcome: LatexCompileResult, pdf: Uint8Array | null): Promise<void> {
   await ensureBuildDir(projectId);
 
   const stored: z.infer<typeof storedOutcomeSchema> = {
@@ -1683,12 +1681,7 @@ export async function removeLatexBuildArtifacts(projectId: string): Promise<void
  * entrypoint was compiled, how long it took, and what it cost against the step
  * budget. The structured diagnostics remain the record; this is for reading.
  */
-function renderLog(
-  job: CompileJob,
-  diagnostics: Diagnostic[],
-  stats: EngineStats | null,
-  elapsedMs: number,
-): string {
+function renderLog(job: CompileJob, diagnostics: Diagnostic[], stats: EngineStats | null, elapsedMs: number): string {
   const lines: string[] = [
     "Atrium typesetting engine",
     `project:    ${job.project.title}`,
@@ -1716,7 +1709,12 @@ function renderLog(
 function formatDiagnostic(d: Diagnostic): string {
   // `line: 0` is the contract's "no single line". Printing `file:0:` would look
   // like a real position and send a click to the top of the wrong file.
-  const where = d.file === "" ? "<project>" : d.line === 0 ? d.file : `${d.file}:${d.line}${d.column === undefined ? "" : `:${d.column}`}`;
+  const where =
+    d.file === ""
+      ? "<project>"
+      : d.line === 0
+        ? d.file
+        : `${d.file}:${d.line}${d.column === undefined ? "" : `:${d.column}`}`;
   const code = d.code === undefined ? "" : ` [${d.code}]`;
   return `${where}: ${d.severity}: ${d.message}${code}`;
 }

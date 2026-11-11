@@ -67,9 +67,7 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
       try {
         const file = await fetchBookFile(book, undefined, versionId);
         const initialLocation = preserveLocation ? pageFromLocator(book.locator) : null;
-        useReaderStore
-          .getState()
-          .setLoadedBook(file, book.format as Format, book.id, initialLocation, versionId);
+        useReaderStore.getState().setLoadedBook(file, book.format as Format, book.id, initialLocation, versionId);
       } catch {
         setActionError("Couldn't open that version.");
       } finally {
@@ -208,9 +206,7 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
           }`}
           aria-label="Choose a version"
         >
-          <span className="tabular-nums">
-            Version {data.versions.find((v) => v.id === activeId)?.versionNo ?? "…"}
-          </span>
+          <span className="tabular-nums">Version {data.versions.find((v) => v.id === activeId)?.versionNo ?? "…"}</span>
           <ChevronIcon open={open} />
         </Popover.Trigger>
         <Popover.Portal>
@@ -262,8 +258,7 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
  * the newest id as a FALLBACK from a deleted version, which is a version
  * mismatch, and decision 10 starts those at page 0. */
 function pickDefaultVersion(data: LibraryVersionsResult): string {
-  const stillPresent =
-    data.currentVersionId !== null && data.versions.some((v) => v.id === data.currentVersionId);
+  const stillPresent = data.currentVersionId !== null && data.versions.some((v) => v.id === data.currentVersionId);
   return stillPresent ? (data.currentVersionId as string) : data.versions[0].id;
 }
 

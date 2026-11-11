@@ -98,13 +98,7 @@ export {
   catalogSearchResponseSchema,
   importRequestSchema,
 } from "./catalog.js";
-export type {
-  CatalogSort,
-  CatalogSearchParams,
-  CatalogBook,
-  CatalogSearchResponse,
-  ImportRequest,
-} from "./catalog.js";
+export type { CatalogSort, CatalogSearchParams, CatalogBook, CatalogSearchResponse, ImportRequest } from "./catalog.js";
 
 /*
  * The auth contract is gone (2026-09-06). Atrium authenticates nobody: Ward

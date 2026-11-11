@@ -50,7 +50,10 @@ export function LatexList() {
         <h2 className="font-display text-3xl font-semibold text-ink">LaTeX</h2>
 
         {isLoading ? (
-          <div className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70" aria-hidden>
+          <div
+            className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70"
+            aria-hidden
+          >
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
                 <div className="h-9 w-9 shrink-0 motion-safe:animate-pulse rounded-cover bg-paper-container" />
@@ -125,7 +128,10 @@ function ProjectRow({
 }) {
   return (
     <div className="group relative flex items-center gap-3 border-l-2 border-l-transparent px-3.5 py-2.5 transition-colors hover:border-l-accent hover:bg-paper-raised focus-within:border-l-accent focus-within:bg-paper-raised">
-      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-paper-container text-ink-variant">
+      <span
+        aria-hidden
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-paper-container text-ink-variant"
+      >
         <ProjectGlyph />
       </span>
       <button

@@ -55,9 +55,7 @@ export function LatexFileTree({
   return (
     <div className="flex h-full w-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <h3 className="font-ui text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-variant">
-          Files
-        </h3>
+        <h3 className="font-ui text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-variant">Files</h3>
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -84,9 +82,7 @@ export function LatexFileTree({
 
       <ul className="min-h-0 flex-1 list-none overflow-y-auto border-y border-line-soft/60 py-1">
         {tree.length === 0 ? (
-          <li className="px-3 py-6 text-center font-ui text-xs text-ink-variant">
-            This project has no files yet.
-          </li>
+          <li className="px-3 py-6 text-center font-ui text-xs text-ink-variant">This project has no files yet.</li>
         ) : (
           tree.map((node) => (
             <TreeRow
@@ -306,18 +302,10 @@ function FileRow({
               Main
             </RowAction>
           )}
-          <RowAction
-            label={`Rename ${node.name}`}
-            onClick={() => setMode("renaming")}
-            disabled={busy}
-          >
+          <RowAction label={`Rename ${node.name}`} onClick={() => setMode("renaming")} disabled={busy}>
             Rename
           </RowAction>
-          <RowAction
-            label={`Delete ${node.name}`}
-            onClick={() => setMode("confirming")}
-            disabled={busy}
-          >
+          <RowAction label={`Delete ${node.name}`} onClick={() => setMode("confirming")} disabled={busy}>
             Delete
           </RowAction>
         </span>

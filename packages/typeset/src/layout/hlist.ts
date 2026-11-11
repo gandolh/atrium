@@ -198,13 +198,7 @@ export function textToHList(text: string, style: TextFace, opts: TextRunOptions 
 }
 
 /** One word, split at any hyphens the author typed so a break may follow them. */
-function appendWord(
-  out: HList,
-  word: string,
-  style: TextFace,
-  shaper: Shaper,
-  exHyphenPenalty: number,
-): void {
+function appendWord(out: HList, word: string, style: TextFace, shaper: Shaper, exHyphenPenalty: number): void {
   let start = 0;
   for (let i = 0; i < word.length; i++) {
     if (word[i] !== "-") continue;
@@ -259,9 +253,6 @@ export function isFinished(hlist: HList): boolean {
   const last = hlist[hlist.length - 1] as HNode;
   const before = hlist[hlist.length - 2] as HNode;
   return (
-    last.kind === "glue" &&
-    last.stretchOrder > 0 &&
-    before.kind === "penalty" &&
-    before.penalty >= INFINITE_PENALTY
+    last.kind === "glue" && last.stretchOrder > 0 && before.kind === "penalty" && before.penalty >= INFINITE_PENALTY
   );
 }

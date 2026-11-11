@@ -41,7 +41,14 @@ import { setTable } from "./table.ts";
 import type { Budget } from "../macro/budget.ts";
 import { spend } from "../macro/budget.ts";
 import type { FontSize, PageDesign } from "./design.ts";
-import { HEADING_DESIGN, itemizeLabel, listSpacing, parseDimension, tocIndent, TOC_PAGE_NUMBER_WIDTH_EM } from "./design.ts";
+import {
+  HEADING_DESIGN,
+  itemizeLabel,
+  listSpacing,
+  parseDimension,
+  tocIndent,
+  TOC_PAGE_NUMBER_WIDTH_EM,
+} from "./design.ts";
 import { hpack, measure as measureNodes } from "./glue.ts";
 import type { Shaper, TextFace } from "./hlist.ts";
 import { fontSpacing, paragraphIndent, shapeRun, spaceGlue, textToHList } from "./hlist.ts";
@@ -578,13 +585,7 @@ function sameStyle(a: TextStyle, b: TextStyle): boolean {
 /** TeX's default rule thickness; `\underline` draws with it at every size. */
 const RULE_THICKNESS = 0.4;
 
-function appendStyledText(
-  out: HList,
-  text: string,
-  style: TextStyle,
-  ctx: LayoutContext,
-  size: number,
-): void {
+function appendStyledText(out: HList, text: string, style: TextStyle, ctx: LayoutContext, size: number): void {
   const face = resolveFace(ctx, style.font, size);
   if (face === null) return;
   const nodes = textToHList(text, face, { shaper: ctx.shaper });
@@ -600,11 +601,7 @@ function appendStyledText(
   const drop = 0.12 * size;
   out.push(
     hpack(
-      [
-        inner,
-        kern(-inner.width),
-        { kind: "rule", width: inner.width, height: -drop, depth: drop + RULE_THICKNESS },
-      ],
+      [inner, kern(-inner.width), { kind: "rule", width: inner.width, height: -drop, depth: drop + RULE_THICKNESS }],
       "natural",
     ).box,
   );
@@ -702,7 +699,11 @@ function bodyEnv(design: PageDesign): BlockEnv {
   };
 }
 
-function breakOptions(ctx: LayoutContext, at: SourceRef, extra: Partial<LineBreakParams> = {}): Partial<LineBreakParams> {
+function breakOptions(
+  ctx: LayoutContext,
+  at: SourceRef,
+  extra: Partial<LineBreakParams> = {},
+): Partial<LineBreakParams> {
   return {
     at,
     shaper: ctx.shaper,
@@ -752,7 +753,7 @@ function layoutHeading(block: HeadingBlock, col: Column, ctx: LayoutContext, env
   const design = ctx.design;
   const spec = HEADING_DESIGN[block.level];
   const size = design.sizes[spec.size];
-  const ex = (parseDimension("1ex", design.sizes.normalsize.size) ?? 0);
+  const ex = parseDimension("1ex", design.sizes.normalsize.size) ?? 0;
 
   pushPenalty(col, design.secPenalty);
   addVspace(col, spec.beforeEx * ex, ex / 2, ex / 5);
@@ -1308,11 +1309,7 @@ function pushTocEntry(
 
   const prefix: HNode[] = [];
   if (entry.number !== null) {
-    const face = resolveFace(
-      ctx,
-      { family: "serif", weight: bold ? "bold" : "regular", slant: "upright" },
-      size.size,
-    );
+    const face = resolveFace(ctx, { family: "serif", weight: bold ? "bold" : "regular", slant: "upright" }, size.size);
     if (face !== null) {
       prefix.push(hpack([shapeRun(face, entry.number, ctx.shaper), glue(0, 1, 0, 1, 0)], numberWidth).box);
     }
@@ -1587,12 +1584,7 @@ function imageContext(ctx: LayoutContext, size: number, measure: number): ImageC
  * that will be placed somewhere else entirely, so it must not inherit the
  * running `\prevdepth` or contribute interline glue to the main list.
  */
-function setBlocksAsVList(
-  blocks: readonly Block[],
-  ctx: LayoutContext,
-  env: BlockEnv,
-  measure: number,
-): VList {
+function setBlocksAsVList(blocks: readonly Block[], ctx: LayoutContext, env: BlockEnv, measure: number): VList {
   const col = newColumn(ctx.design);
   layoutBlocks(blocks, col, ctx, { ...env, measure, left: 0 });
   return col.list;

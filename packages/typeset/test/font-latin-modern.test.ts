@@ -2,11 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import {
-  LATIN_MODERN_FACE_IDS,
-  createLatinModernProvider,
-  latinModernFaceId,
-} from "../src/index.ts";
+import { LATIN_MODERN_FACE_IDS, createLatinModernProvider, latinModernFaceId } from "../src/index.ts";
 import type { FontFamily, FontRequest, FontSlant, FontWeight } from "../src/index.ts";
 import { latinModernFontDir, loadLatinModernBytes } from "../node/fonts.ts";
 
@@ -127,5 +123,8 @@ test("latin modern: the loader finds its assets from wherever it runs", () => {
   // The module is executed both as TypeScript source under `node --test` and,
   // once built, from `dist/` — the directory search is what makes both work,
   // and this is the assertion that notices when the output layout moves.
-  assert.equal(join(latinModernFontDir(), "lmroman10-regular.otf").endsWith("assets/fonts/lmroman10-regular.otf"), true);
+  assert.equal(
+    join(latinModernFontDir(), "lmroman10-regular.otf").endsWith("assets/fonts/lmroman10-regular.otf"),
+    true,
+  );
 });

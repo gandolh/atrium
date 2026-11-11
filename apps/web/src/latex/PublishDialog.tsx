@@ -173,8 +173,7 @@ export function PublishDialog({
                 {compileFailure ? (
                   <div className="-mx-6 flex flex-col gap-2">
                     <p className="px-6 font-ui text-sm text-ink-variant">
-                      This document doesn't compile, so there's nothing to publish. Fix these
-                      first, then publish again.
+                      This document doesn't compile, so there's nothing to publish. Fix these first, then publish again.
                     </p>
                     <DiagnosticsPanel result={compileFailure} loading={false} onJump={onDiagnosticJump} />
                   </div>
@@ -185,11 +184,8 @@ export function PublishDialog({
                       <span className="font-semibold text-ink tabular-nums">
                         version {publish.data.version.versionNo}
                       </span>{" "}
-                      of{" "}
-                      <span className="font-semibold text-ink">
-                        &ldquo;{publish.data.book.title}&rdquo;
-                      </span>{" "}
-                      in your library.
+                      of <span className="font-semibold text-ink">&ldquo;{publish.data.book.title}&rdquo;</span> in your
+                      library.
                     </p>
                     <Link
                       to="/read"
@@ -205,8 +201,8 @@ export function PublishDialog({
                   </p>
                 ) : saveFailed ? (
                   <p role="alert" className="font-ui text-sm text-danger">
-                    Your latest changes couldn't be saved, so this would publish an older draft.
-                    Nothing was published — try again.
+                    Your latest changes couldn't be saved, so this would publish an older draft. Nothing was published —
+                    try again.
                   </p>
                 ) : null}
               </div>

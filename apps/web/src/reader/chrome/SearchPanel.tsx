@@ -148,14 +148,10 @@ export function SearchPanel({
               </p>
             )}
             {searching && (
-              <p className="px-2 py-4 text-sm text-reader-fg/60 motion-safe:animate-pulse">
-                Searching the whole book…
-              </p>
+              <p className="px-2 py-4 text-sm text-reader-fg/60 motion-safe:animate-pulse">Searching the whole book…</p>
             )}
             {!searching && results !== null && results.length === 0 && (
-              <p className="px-2 py-4 text-sm text-reader-fg/60">
-                No matches for “{executedQueryRef.current}”.
-              </p>
+              <p className="px-2 py-4 text-sm text-reader-fg/60">No matches for “{executedQueryRef.current}”.</p>
             )}
             {!searching && results !== null && results.length > 0 && (
               <>
@@ -166,14 +162,11 @@ export function SearchPanel({
                   {results.map((match, i) => {
                     // Group results under a chapter header when the label
                     // changes (results arrive in book order).
-                    const showGroup =
-                      match.label && match.label !== results[i - 1]?.label;
+                    const showGroup = match.label && match.label !== results[i - 1]?.label;
                     return (
                       <li key={i}>
                         {showGroup && (
-                          <p className="truncate px-2 pb-1 pt-3 text-xs font-medium text-reader-fg/60">
-                            {match.label}
-                          </p>
+                          <p className="truncate px-2 pb-1 pt-3 text-xs font-medium text-reader-fg/60">{match.label}</p>
                         )}
                         <button
                           type="button"
@@ -225,12 +218,7 @@ function emphasizeQuery(excerpt: string, query: string) {
 function CloseIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 6l12 12M18 6L6 18"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
+      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
     </svg>
   );
 }

@@ -9,11 +9,7 @@ import { useEffect } from "react";
  * events originating from inputs/editable surfaces so it never fights typing in
  * the (future) search box.
  */
-export function usePageNavKeys(options: {
-  onPrev: () => void;
-  onNext: () => void;
-  enabled?: boolean;
-}) {
+export function usePageNavKeys(options: { onPrev: () => void; onNext: () => void; enabled?: boolean }) {
   const { onPrev, onNext, enabled = true } = options;
 
   useEffect(() => {
@@ -21,12 +17,7 @@ export function usePageNavKeys(options: {
 
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
         return;
       }
 

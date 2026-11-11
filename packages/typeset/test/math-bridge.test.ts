@@ -80,8 +80,8 @@ test("inline math renders to a self-contained SVG with placement geometry", () =
   // neither `<use>` nor `<defs>`, and its failure mode is drawing nothing where
   // a glyph should be, so this is asserted rather than assumed (settled call §2).
   assert.ok(run.svg.includes("<path"), "glyphs must be inlined as <path> data");
-  assert.ok(!run.svg.includes("<use"), "fontCache:\"none\" must leave no <use> to resolve");
-  assert.ok(!run.svg.includes("<defs"), "fontCache:\"none\" must leave no <defs> to resolve");
+  assert.ok(!run.svg.includes("<use"), 'fontCache:"none" must leave no <use> to resolve');
+  assert.ok(!run.svg.includes("<defs"), 'fontCache:"none" must leave no <defs> to resolve');
 
   // Geometry is in `ex` — a property of the surrounding text font, which this
   // subsystem does not know. `x^2` is a superscript on the baseline: a little
@@ -303,7 +303,11 @@ test("every out-of-subset construct is refused, and with the right code", () => 
     { tex: "\\text{\\pounds 100}", code: "unsupported", construct: "\\pounds" },
     // And the genuine typo, which must NOT be dressed up as `unsupported`.
     { tex: "\\notacommand{x}", code: "undefined-command", construct: "\\notacommand" },
-    { tex: "\\begin{notanenvironment}x\\end{notanenvironment}", code: "undefined-environment", construct: "notanenvironment" },
+    {
+      tex: "\\begin{notanenvironment}x\\end{notanenvironment}",
+      code: "undefined-environment",
+      construct: "notanenvironment",
+    },
   ];
   for (const { tex, code, construct } of cases) {
     const result = renderer.render({ tex, display: true, at: AT });
@@ -382,7 +386,10 @@ test("geometry that cannot be read is an engine error, never a guessed box", () 
   // The document cannot cause this — it would mean MathJax's output shape moved
   // under a version bump. A guessed baseline is the silent wrong answer D38
   // exists to prevent, so the failure is `internal` and there is no geometry.
-  const noUnits = readMathGeometry('<svg style="vertical-align: -1.5em;" width="2ex" height="3ex" viewBox="0 0 1 1">', AT);
+  const noUnits = readMathGeometry(
+    '<svg style="vertical-align: -1.5em;" width="2ex" height="3ex" viewBox="0 0 1 1">',
+    AT,
+  );
   assert.equal(noUnits.geometry, null);
   assert.deepEqual(codesOf(noUnits.diagnostics), ["internal"]);
   assert.match(noUnits.diagnostics[0]?.message ?? "", /vertical-align/);
@@ -397,7 +404,10 @@ test("geometry that cannot be read is an engine error, never a guessed box", () 
 
   // A bare `0` is a length, not a missing value: `0ex` and `0` are the same, and
   // it is what MathJax writes for a run that sits exactly on the baseline.
-  const flat = readMathGeometry('<svg style="vertical-align: 0;" width="2.5ex" height="1ex" viewBox="0 -442 572 453">', AT);
+  const flat = readMathGeometry(
+    '<svg style="vertical-align: 0;" width="2.5ex" height="1ex" viewBox="0 -442 572 453">',
+    AT,
+  );
   assert.deepEqual(flat.diagnostics, []);
   assert.deepEqual(flat.geometry, {
     verticalAlignEx: 0,

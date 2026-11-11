@@ -133,9 +133,6 @@ export function detectFileType(name: string, mime?: string): FileType | null {
 }
 
 /** Validate a file size (bytes) against a given limit (bytes, inclusive). */
-export function isFileSizeValid(
-  sizeBytes: number,
-  maxBytes: number = DEFAULT_MAX_UPLOAD_BYTES,
-): boolean {
+export function isFileSizeValid(sizeBytes: number, maxBytes: number = DEFAULT_MAX_UPLOAD_BYTES): boolean {
   return sizeBytes >= 0 && sizeBytes <= maxBytes;
 }

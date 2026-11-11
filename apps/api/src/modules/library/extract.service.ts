@@ -82,11 +82,7 @@ export interface ExtractedMeta {
 }
 
 /** Normalize a cover image buffer to a JPEG thumbnail at the given geometry. */
-async function toJpegThumbnail(
-  image: Buffer,
-  width: number,
-  height: number,
-): Promise<Buffer | null> {
+async function toJpegThumbnail(image: Buffer, width: number, height: number): Promise<Buffer | null> {
   try {
     return await sharp(image, { limitInputPixels: MAX_COVER_PIXELS })
       .resize(width, height, { fit: "cover", position: "top" })
@@ -169,11 +165,7 @@ function tagAttr(tagText: string, attr: string): string | null {
  * `tagAttr`) for which `matches` is true, then read `readAttr` off that same
  * tag text.
  */
-function findMetaAttr(
-  source: string,
-  matches: (tagText: string) => boolean,
-  readAttr: string,
-): string | null {
+function findMetaAttr(source: string, matches: (tagText: string) => boolean, readAttr: string): string | null {
   for (const m of source.matchAll(/<meta\b[^>]*>/gi)) {
     if (matches(m[0])) return tagAttr(m[0], readAttr);
   }
@@ -301,26 +293,16 @@ function findCoverHref(opf: string): string | null {
 function findSeries(opf: string): { series: string | null; seriesIndex: number | null } {
   // Calibre: <meta name="calibre:series" content="..."> (+ ..._index). Attribute
   // order within the tag is irrelevant — findMetaAttr matches the whole tag first.
-  const calibreSeries = findMetaAttr(
-    opf,
-    (tag) => tagAttr(tag, "name") === "calibre:series",
-    "content",
-  );
+  const calibreSeries = findMetaAttr(opf, (tag) => tagAttr(tag, "name") === "calibre:series", "content");
   if (calibreSeries) {
-    const idx = findMetaAttr(
-      opf,
-      (tag) => tagAttr(tag, "name") === "calibre:series_index",
-      "content",
-    );
+    const idx = findMetaAttr(opf, (tag) => tagAttr(tag, "name") === "calibre:series_index", "content");
     return { series: calibreSeries, seriesIndex: parseSeriesIndex(idx) };
   }
 
   // EPUB 3: <meta property="belongs-to-collection" id="c1">Name</meta>, with
   // a refining <meta refines="#c1" property="collection-type">series</meta>
   // and an optional <meta refines="#c1" property="group-position">N</meta>.
-  for (const m of opf.matchAll(
-    /<meta\b([^>]*)\bproperty="belongs-to-collection"([^>]*)>([\s\S]*?)<\/meta>/gi,
-  )) {
+  for (const m of opf.matchAll(/<meta\b([^>]*)\bproperty="belongs-to-collection"([^>]*)>([\s\S]*?)<\/meta>/gi)) {
     const attrs = `${m[1]} ${m[2]}`;
     const name = decodeXmlText(m[3] ?? "");
     if (!name) continue;
@@ -360,9 +342,7 @@ async function extractEpub(fileBytes: Buffer, fallbackTitle: string): Promise<Ex
       const opf = opfEntry ? readEntry(opfEntry, MAX_OPF_BYTES).toString("utf8") : "";
       title = firstMatch(opf, /<dc:title[^>]*>([\s\S]*?)<\/dc:title>/i) ?? fallbackTitle;
       author = firstMatch(opf, /<dc:creator[^>]*>([\s\S]*?)<\/dc:creator>/i);
-      subjects = normalizeSubjects(
-        allMatches(opf, /<dc:subject[^>]*>([\s\S]*?)<\/dc:subject>/gi),
-      );
+      subjects = normalizeSubjects(allMatches(opf, /<dc:subject[^>]*>([\s\S]*?)<\/dc:subject>/gi));
       ({ series, seriesIndex } = findSeries(opf));
 
       const coverHref = findCoverHref(opf);
@@ -458,11 +438,7 @@ const MEDIA_MIME: Partial<Record<FileType, string>> = {
  * Best-effort: a parse failure returns the filename title with everything else
  * null/empty, so a bad file never fails the upload.
  */
-async function extractMedia(
-  fileBytes: Buffer,
-  format: FileType,
-  fallbackTitle: string,
-): Promise<ExtractedMeta> {
+async function extractMedia(fileBytes: Buffer, format: FileType, fallbackTitle: string): Promise<ExtractedMeta> {
   let title = fallbackTitle;
   let author: string | null = null;
   let series: string | null = null;
@@ -485,10 +461,7 @@ async function extractMedia(
       if (tagTitle) title = tagTitle;
       author = common.artist?.trim() || null;
       series = common.album?.trim() || null;
-      seriesIndex =
-        typeof common.track?.no === "number" && Number.isFinite(common.track.no)
-          ? common.track.no
-          : null;
+      seriesIndex = typeof common.track?.no === "number" && Number.isFinite(common.track.no) ? common.track.no : null;
       subjects = normalizeSubjects(common.genre ?? []);
     }
 
@@ -509,11 +482,7 @@ async function extractMedia(
 // --- entry -------------------------------------------------------------------
 
 /** Extract title/author/series/subjects/cover/duration for a stored file. Never throws. */
-export async function extractMeta(
-  fileBytes: Buffer,
-  format: FileType,
-  originalName: string,
-): Promise<ExtractedMeta> {
+export async function extractMeta(fileBytes: Buffer, format: FileType, originalName: string): Promise<ExtractedMeta> {
   const fallbackTitle =
     basename(originalName)
       .replace(/\.(epub|pdf|mp3|mp4|webm)$/i, "")
@@ -521,9 +490,7 @@ export async function extractMeta(
 
   switch (kindForFormat(format)) {
     case "book":
-      return format === "epub"
-        ? extractEpub(fileBytes, fallbackTitle)
-        : extractPdf(fileBytes, fallbackTitle);
+      return format === "epub" ? extractEpub(fileBytes, fallbackTitle) : extractPdf(fileBytes, fallbackTitle);
     case "audio":
     case "video":
       return extractMedia(fileBytes, format, fallbackTitle);

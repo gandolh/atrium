@@ -46,9 +46,7 @@ function build(body: string, preamble = "", files: Record<string, string> = {}):
 
 /** The blocks, with a guarantee about which diagnostics were tolerated. */
 function blocksOf(result: BuildResult, allow: readonly string[] = []): Block[] {
-  const unexpected = result.diagnostics.filter(
-    (d) => d.severity === "error" && !allow.includes(d.construct ?? ""),
-  );
+  const unexpected = result.diagnostics.filter((d) => d.severity === "error" && !allow.includes(d.construct ?? ""));
   assert.deepEqual(
     unexpected.map((d) => `${d.construct ?? "-"}: ${d.message}`),
     [],
@@ -115,7 +113,10 @@ test("a float with no [...] gets the class default, marked as not explicit", () 
 });
 
 test("the starred forms are floats that know they span", () => {
-  for (const [name, floatClass] of [["figure*", "figure"], ["table*", "table"]] as const) {
+  for (const [name, floatClass] of [
+    ["figure*", "figure"],
+    ["table*", "table"],
+  ] as const) {
     const float = blocksOf(build(`\\begin{${name}}\nx\n\\end{${name}}`))[0] as FloatBlock;
     assert.equal(float.spanning, true, name);
     assert.equal(float.floatClass, floatClass);
@@ -186,7 +187,10 @@ test("captions number per float class, independently of each other", () => {
 
 test("a caption is a block inside the float, in the position it was written", () => {
   const float = blocksOf(build("\\begin{figure}\nAbove.\n\\caption{Below}\n\\end{figure}"))[0] as FloatBlock;
-  assert.deepEqual(float.content.map((b) => b.kind), ["paragraph", "caption"]);
+  assert.deepEqual(
+    float.content.map((b) => b.kind),
+    ["paragraph", "caption"],
+  );
   const caption = float.content[1] as CaptionBlock;
   assert.equal(caption.number, "1");
   assert.equal(caption.floatClass, "figure");
@@ -201,9 +205,7 @@ test("a \\label after a \\caption refers to the caption's number, through the ex
   assert.equal(result.document.labels.get("fig:a")?.text, "1");
   const prose = result.document.blocks[1] as ParagraphBlock;
   assert.equal(textOf(prose.content), "See 1 and ??.");
-  assert.ok(
-    result.diagnostics.some((d) => d.code === "undefined-reference" && /fig:missing/.test(d.message)),
-  );
+  assert.ok(result.diagnostics.some((d) => d.code === "undefined-reference" && /fig:missing/.test(d.message)));
 });
 
 test("a \\label inside the caption's own argument gets the caption's number too", () => {
@@ -244,15 +246,16 @@ test("\\caption[short] and \\caption* are each their own diagnostic", () => {
 
 test("\\listoffigures and \\listoftables become blocks naming their class", () => {
   const blocks = blocksOf(build("\\listoffigures\n\\listoftables"));
-  assert.deepEqual(blocks.map((b) => b.kind), ["listof", "listof"]);
+  assert.deepEqual(
+    blocks.map((b) => b.kind),
+    ["listof", "listof"],
+  );
   assert.equal((blocks[0] as ListOfBlock).floatClass, "figure");
   assert.equal((blocks[1] as ListOfBlock).floatClass, "table");
 });
 
 test("\\listoffigures sets a heading and each caption's number and text", () => {
-  const result = compileSource(
-    doc("\\listoffigures\n\\begin{figure}\\caption{The plot}\\end{figure}"),
-  );
+  const result = compileSource(doc("\\listoffigures\n\\begin{figure}\\caption{The plot}\\end{figure}"));
   const text = result.pages
     .flatMap((page) => page.items)
     .filter((item) => item.kind === "glyphrun")
@@ -310,10 +313,7 @@ test("scale beside an explicit size warns, because LaTeX resolves it silently", 
 });
 
 test("an unreadable length and an unknown key are each a diagnostic", () => {
-  assert.equal(
-    build("\\includegraphics[width=wide]{a}").diagnostics.filter((d) => d.code === "syntax").length,
-    1,
-  );
+  assert.equal(build("\\includegraphics[width=wide]{a}").diagnostics.filter((d) => d.code === "syntax").length, 1);
   const unknown = find(build("\\includegraphics[angle=90]{a}"), "\\includegraphics[angle=...]");
   assert.ok(unknown !== undefined);
   assert.equal(unknown.code, "unsupported");
@@ -378,12 +378,18 @@ test("cells split at & and rows at \\\\, with a trailing \\\\ not making an empt
 
 test("an escaped ampersand is content, not a cell separator", () => {
   const table = tableOf("\\begin{tabular}{ll}a\\&b & c\\end{tabular}");
-  assert.deepEqual(table.rows[0]!.cells.map((cell) => textOf(cell.content)), ["a&b", "c"]);
+  assert.deepEqual(
+    table.rows[0]!.cells.map((cell) => textOf(cell.content)),
+    ["a&b", "c"],
+  );
 });
 
 test("\\hline is collected above the row it precedes, and after the last row below the table", () => {
   const table = tableOf("\\begin{tabular}{l}\\hline\\hline\na \\\\\n\\hline\nb \\\\\n\\hline\n\\end{tabular}");
-  assert.deepEqual(table.rows.map((row) => row.rulesAbove.length), [2, 1]);
+  assert.deepEqual(
+    table.rows.map((row) => row.rulesAbove.length),
+    [2, 1],
+  );
   assert.equal(table.rulesBelow.length, 1);
   assert.deepEqual(table.rulesBelow[0]!.from, null);
 });
@@ -429,9 +435,7 @@ test("a row with fewer cells than the spec declares is legal LaTeX and stays qui
 
 test("a malformed column specification is a diagnostic per problem", () => {
   const unknown = build("\\begin{tabular}{lq}a&b\\end{tabular}");
-  assert.ok(
-    unknown.diagnostics.some((d) => d.code === "syntax" && /not a column type/.test(d.message)),
-  );
+  assert.ok(unknown.diagnostics.some((d) => d.code === "syntax" && /not a column type/.test(d.message)));
   const noWidth = build("\\begin{tabular}{lp}a&b\\end{tabular}");
   assert.ok(noWidth.diagnostics.some((d) => d.code === "syntax" && /needs a width/.test(d.message)));
   const badWidth = build("\\begin{tabular}{p{wide}}a\\end{tabular}");
@@ -443,9 +447,7 @@ test("a malformed column specification is a diagnostic per problem", () => {
   // given any following token it takes *that* as the specification instead, and
   // then reports it as an unknown column type.
   const missing = build("\\begin{tabular}\\end{tabular}");
-  assert.ok(
-    missing.diagnostics.some((d) => d.code === "syntax" && /needs a column specification/.test(d.message)),
-  );
+  assert.ok(missing.diagnostics.some((d) => d.code === "syntax" && /needs a column specification/.test(d.message)));
 });
 
 test("the array package's column types are `unsupported`, naming themselves", () => {
@@ -496,9 +498,7 @@ test("row spacing on \\\\ and a tabular's [t] alignment are each `unsupported`",
 
 test("block content in a cell is refused rather than silently relocated", () => {
   const result = build("\\begin{tabular}{l}\\begin{itemize}\\item x\\end{itemize}\\end{tabular}");
-  assert.ok(
-    result.diagnostics.some((d) => d.code === "syntax" && /cannot appear in a `tabular` cell/.test(d.message)),
-  );
+  assert.ok(result.diagnostics.some((d) => d.code === "syntax" && /cannot appear in a `tabular` cell/.test(d.message)));
 });
 
 // --- bibliography -----------------------------------------------------------
@@ -523,7 +523,10 @@ test("the \\cite family becomes citation inlines carrying the raw keys", () => {
 
 test("\\citep and \\citet adopt their keys even with no signature in the parser", () => {
   const result = build("\\citep{k} and \\citet{j}");
-  assert.deepEqual(result.citations.map((c) => c.keys.join("|")), ["k", "j"]);
+  assert.deepEqual(
+    result.citations.map((c) => c.keys.join("|")),
+    ["k", "j"],
+  );
   // The keys must not have been typeset as ordinary text.
   assert.doesNotMatch(textOf((result.document.blocks[0] as ParagraphBlock).content), /\bk\b/);
 });
@@ -567,7 +570,10 @@ test("thebibliography parses its \\bibitem entries, keys and labels", () => {
   const block = result.document.blocks.find((b) => b.kind === "bibliography") as BibliographyBlock;
   assert.equal(block.source, "thebibliography");
   assert.equal(block.widestLabel, "99");
-  assert.deepEqual(block.entries.map((e) => e.key), ["knuth", "gj"]);
+  assert.deepEqual(
+    block.entries.map((e) => e.key),
+    ["knuth", "gj"],
+  );
   assert.equal(textOf((block.entries[0]!.content[0] as ParagraphBlock).content), "Knuth, The TeXbook, 1984.");
   assert.equal(textOf(block.entries[1]!.label ?? []), "GJ79");
 });
@@ -751,7 +757,10 @@ beta & 22 \\\\
     .map((item) => (item.kind === "glyphrun" ? item.text : ""))
     .join(" ");
   assert.match(text, /Figure/);
-  assert.equal(result.diagnostics.some((d) => d.code === "internal"), false);
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "internal"),
+    false,
+  );
 });
 
 test("malformed brief-39 source never throws, whatever shape it is", () => {

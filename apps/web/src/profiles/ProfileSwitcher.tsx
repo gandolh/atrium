@@ -91,9 +91,7 @@ export function ProfileSwitcher() {
                 }`}
               >
                 <ColorSwatch color={profile.color} />
-                <span className="truncate">
-                  {pendingId === profile.id ? "Switching…" : profile.name}
-                </span>
+                <span className="truncate">{pendingId === profile.id ? "Switching…" : profile.name}</span>
               </button>
             );
           })}

@@ -86,9 +86,7 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  const lines = parsed.error.issues.map(
-    (issue) => `  - ${issue.path.join(".") || "(env)"}: ${issue.message}`,
-  );
+  const lines = parsed.error.issues.map((issue) => `  - ${issue.path.join(".") || "(env)"}: ${issue.message}`);
   // Fail fast: don't boot a half-configured server. Written to stderr directly
   // (the Fastify logger isn't up yet) and exit non-zero.
   console.error(
@@ -285,6 +283,4 @@ export const NOTE_MAX_BYTES = Math.floor(maxUploadBytesFromMb(NOTE_MAX_MB));
  * contract — an optional deploy override, like `LIBRARY_DATA_DIR`. The trailing
  * slash is trimmed so URL joins are predictable.
  */
-export const GUTENDEX_BASE_URL = (
-  process.env.GUTENDEX_BASE_URL?.trim() || "https://gutendex.com"
-).replace(/\/+$/, "");
+export const GUTENDEX_BASE_URL = (process.env.GUTENDEX_BASE_URL?.trim() || "https://gutendex.com").replace(/\/+$/, "");

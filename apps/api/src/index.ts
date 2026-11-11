@@ -15,10 +15,7 @@ import { initDatabase, logMigratedAccounts } from "./database/bootstrap.js";
 import { closeDatabase } from "./database/knex.js";
 import { isCalibreAvailable } from "./modules/library/calibre.service.js";
 import { cancelAllConverts, sweepInterruptedOutputs } from "./modules/library/convert.service.js";
-import {
-  backfillLibraryMetadata,
-  sweepOrphanThumbnails,
-} from "./modules/library/library-maintenance.service.js";
+import { backfillLibraryMetadata, sweepOrphanThumbnails } from "./modules/library/library-maintenance.service.js";
 import { cancelAllLatexCompiles } from "./modules/latex/latex-compile.service.js";
 import { createWardClient, wardClientOptionsFromEnv } from "../vendor/ward/ward-auth.js";
 

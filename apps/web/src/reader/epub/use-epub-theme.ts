@@ -45,22 +45,102 @@ import arLatinExt700 from "@fontsource/archivo/files/archivo-latin-ext-700-norma
 // theme's rule set (harmless to redeclare — the browser just reuses the cache).
 const EPUB_FONT_FACE_RULES = {
   "@font-face": [
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "400", src: `url(${nrLatin400}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "400", src: `url(${nrLatinExt400}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatin400Italic}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "italic", "font-weight": "400", src: `url(${nrLatinExt400Italic}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "500", src: `url(${nrLatin500}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "500", src: `url(${nrLatinExt500}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "600", src: `url(${nrLatin600}) format('woff2')` },
-    { "font-family": "'Newsreader'", "font-style": "normal", "font-weight": "600", src: `url(${nrLatinExt600}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatin400}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "400", src: `url(${arLatinExt400}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatin400Italic}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "italic", "font-weight": "400", src: `url(${arLatinExt400Italic}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "600", src: `url(${arLatin600}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "600", src: `url(${arLatinExt600}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "700", src: `url(${arLatin700}) format('woff2')` },
-    { "font-family": "'Archivo'", "font-style": "normal", "font-weight": "700", src: `url(${arLatinExt700}) format('woff2')` },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "400",
+      src: `url(${nrLatin400}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "400",
+      src: `url(${nrLatinExt400}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "italic",
+      "font-weight": "400",
+      src: `url(${nrLatin400Italic}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "italic",
+      "font-weight": "400",
+      src: `url(${nrLatinExt400Italic}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "500",
+      src: `url(${nrLatin500}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "500",
+      src: `url(${nrLatinExt500}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "600",
+      src: `url(${nrLatin600}) format('woff2')`,
+    },
+    {
+      "font-family": "'Newsreader'",
+      "font-style": "normal",
+      "font-weight": "600",
+      src: `url(${nrLatinExt600}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "400",
+      src: `url(${arLatin400}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "400",
+      src: `url(${arLatinExt400}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "italic",
+      "font-weight": "400",
+      src: `url(${arLatin400Italic}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "italic",
+      "font-weight": "400",
+      src: `url(${arLatinExt400Italic}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "600",
+      src: `url(${arLatin600}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "600",
+      src: `url(${arLatinExt600}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "700",
+      src: `url(${arLatin700}) format('woff2')`,
+    },
+    {
+      "font-family": "'Archivo'",
+      "font-style": "normal",
+      "font-weight": "700",
+      src: `url(${arLatinExt700}) format('woff2')`,
+    },
   ],
 };
 
@@ -250,13 +330,11 @@ export function useEpubTheme(rendition: Rendition | null) {
         busyRef.current = false;
         return;
       }
-      void redisplayAt(rendition, anchor.cfi, () => generationRef.current !== generation).finally(
-        () => {
-          if (generationRef.current !== generation) return;
-          anchor.landed = startCfi(rendition);
-          busyRef.current = false;
-        },
-      );
+      void redisplayAt(rendition, anchor.cfi, () => generationRef.current !== generation).finally(() => {
+        if (generationRef.current !== generation) return;
+        anchor.landed = startCfi(rendition);
+        busyRef.current = false;
+      });
     }, 180);
     return () => clearTimeout(nudge);
   }, [
@@ -310,11 +388,7 @@ function startCfi(rendition: Rendition): string | null {
  * second call finds the section already rendered and only scrolls, which is
  * exact.
  */
-async function redisplayAt(
-  rendition: Rendition,
-  cfi: string,
-  isStale: () => boolean,
-): Promise<void> {
+async function redisplayAt(rendition: Rendition, cfi: string, isStale: () => boolean): Promise<void> {
   try {
     (rendition as unknown as { clear(): void }).clear();
     await rendition.display(cfi);

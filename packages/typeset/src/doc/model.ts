@@ -147,13 +147,7 @@ export type DocumentLength =
   | { kind: "relative"; factor: number; of: LengthRegister };
 
 /** The `\...width`/`\...height` registers the engine reads in a length. */
-export type LengthRegister =
-  | "textwidth"
-  | "linewidth"
-  | "columnwidth"
-  | "textheight"
-  | "paperwidth"
-  | "paperheight";
+export type LengthRegister = "textwidth" | "linewidth" | "columnwidth" | "textheight" | "paperwidth" | "paperheight";
 
 /** The sizing keys of `\includegraphics[...]`, exactly as the source wrote them. */
 export interface ImageSizing {
@@ -615,15 +609,7 @@ export interface BibliographyBlock extends BlockBase {
  */
 export type DisplayMathVariant =
   /** `\[…\]` (and `$$…$$`, which the parser cannot tell apart from it). Never numbered. */
-  | "bracket"
-  | "equation"
-  | "equation*"
-  | "displaymath"
-  | "align"
-  | "align*"
-  | "gather"
-  | "gather*"
-  | "split";
+  "bracket" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*" | "split";
 
 /** The variants LaTeX numbers. The starred forms and `\[…\]` are the unnumbered ones. */
 const NUMBERED_DISPLAY_VARIANTS: ReadonlySet<DisplayMathVariant> = new Set<DisplayMathVariant>([
@@ -646,11 +632,7 @@ export function isNumberedDisplay(variant: DisplayMathVariant): boolean {
 /** The variants that carry several `\\`-separated lines, each numbered on its own. */
 export function isMultiLineDisplay(variant: DisplayMathVariant): boolean {
   return (
-    variant === "align" ||
-    variant === "align*" ||
-    variant === "gather" ||
-    variant === "gather*" ||
-    variant === "split"
+    variant === "align" || variant === "align*" || variant === "gather" || variant === "gather*" || variant === "split"
   );
 }
 

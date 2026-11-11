@@ -42,9 +42,7 @@ export function QuietSelect<T extends string>({
   if (stacked) {
     return (
       <label className="flex flex-col gap-1.5">
-        <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">
-          {label}
-        </span>
+        <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">{label}</span>
         {control}
       </label>
     );
@@ -62,14 +60,7 @@ export function QuietSelect<T extends string>({
 
 function ChevronGlyph({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      className={className}
-      aria-hidden
-    >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={className} aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
     </svg>
   );

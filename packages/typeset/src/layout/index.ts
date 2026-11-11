@@ -76,15 +76,7 @@ export { setTable } from "./table.ts";
 export type { TableContext } from "./table.ts";
 
 export { buildPages } from "./page.ts";
-export type {
-  GlyphRun,
-  Page,
-  PageBuildOptions,
-  PageBuildResult,
-  PlacedItem,
-  PlacedMath,
-  PlacedRule,
-} from "./page.ts";
+export type { GlyphRun, Page, PageBuildOptions, PageBuildResult, PlacedItem, PlacedMath, PlacedRule } from "./page.ts";
 
 /** Mathematics placement: `ex` to points, the baseline, the display skips. */
 export { ABOVE_DISPLAY_SKIP, BELOW_DISPLAY_SKIP, exHeight, setDisplayMath, setMathRun } from "./math.ts";

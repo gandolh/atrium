@@ -48,10 +48,7 @@ describe("check-and-write races", () => {
       updateFolder(profileId, b, { parentId: a }),
     ]);
     assert.ok(performance.now() - started < 5_000, "no wait on the pool");
-    assert.deepEqual(
-      results.map((r) => (r.ok ? "ok" : r.reason)).sort(),
-      ["CYCLE", "ok"],
-    );
+    assert.deepEqual(results.map((r) => (r.ok ? "ok" : r.reason)).sort(), ["CYCLE", "ok"]);
 
     const tree = await parents();
     assert.ok(tree[a] === null || tree[b] === null, `cycle: ${JSON.stringify(tree)}`);

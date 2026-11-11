@@ -309,11 +309,7 @@ export function tocIndent(design: PageDesign, level: HeadingLevel): { indent: nu
  * silently did nothing would produce a document with the wrong margins and no
  * sign of why (D38).
  */
-export function documentDesign(
-  document: LatexDocument,
-  file: string,
-  diagnostics: Diagnostic[],
-): PageDesign {
+export function documentDesign(document: LatexDocument, file: string, diagnostics: Diagnostic[]): PageDesign {
   const design = defaultDesign();
   // The `\documentclass` line itself when the document has one. `wholeFile` is
   // the fallback for a document that has none — which is an error in its own
@@ -374,12 +370,7 @@ function setPaper(design: PageDesign, width: number, height: number): void {
   design.textHeight = height - design.marginTop - bottom;
 }
 
-function applyGeometry(
-  design: PageDesign,
-  options: string,
-  loc: SourceRef,
-  diagnostics: Diagnostic[],
-): void {
+function applyGeometry(design: PageDesign, options: string, loc: SourceRef, diagnostics: Diagnostic[]): void {
   const em = design.sizes.normalsize.size;
   // Collected first and applied together: `margin=2cm,left=3cm` must end up
   // with a 3cm left margin whatever order the two arrive in.
@@ -403,7 +394,12 @@ function applyGeometry(
     const value = parseDimension(option.slice(eq + 1).trim(), em);
     if (value === null) {
       diagnostics.push(
-        warning("unsupported", loc, `geometry option \`${option}\` has no dimension this engine understands`, "geometry"),
+        warning(
+          "unsupported",
+          loc,
+          `geometry option \`${option}\` has no dimension this engine understands`,
+          "geometry",
+        ),
       );
       continue;
     }
@@ -485,7 +481,8 @@ function applyGeometry(
   design.marginLeft = left ?? design.marginLeft;
   design.marginTop = top ?? design.marginTop;
   design.textWidth =
-    textWidth ?? design.paperWidth - design.marginLeft - (right ?? design.paperWidth - design.marginLeft - design.textWidth);
+    textWidth ??
+    design.paperWidth - design.marginLeft - (right ?? design.paperWidth - design.marginLeft - design.textWidth);
   design.textHeight =
     textHeight ??
     design.paperHeight - design.marginTop - (bottom ?? design.paperHeight - design.marginTop - design.textHeight);

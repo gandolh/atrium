@@ -156,13 +156,15 @@ test("font: ligatures apply", () => {
   const ids = roman.glyphsForString("office");
   assert.equal(ids.length, 4);
 
-  const separate = roman.glyphsForString("o") .concat(
-    roman.glyphsForString("f"),
-    roman.glyphsForString("f"),
-    roman.glyphsForString("i"),
-    roman.glyphsForString("c"),
-    roman.glyphsForString("e"),
-  );
+  const separate = roman
+    .glyphsForString("o")
+    .concat(
+      roman.glyphsForString("f"),
+      roman.glyphsForString("f"),
+      roman.glyphsForString("i"),
+      roman.glyphsForString("c"),
+      roman.glyphsForString("e"),
+    );
   assert.equal(separate.length, 6);
   assert.notEqual(ids[1], separate[1], "the ligature must not be a plain 'f'");
 

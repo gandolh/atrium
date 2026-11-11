@@ -145,17 +145,9 @@ test("svg: H/h and V/v hold the other coordinate", () => {
 });
 
 test("svg: C/c control points ride the same transform as the endpoints", () => {
-  assert.deepEqual(ops(pathDoc("M0 0 C10 0 20 10 20 20")), [
-    "0 100 m",
-    "10 100 20 90 20 80 c",
-    "f",
-  ]);
+  assert.deepEqual(ops(pathDoc("M0 0 C10 0 20 10 20 20")), ["0 100 m", "10 100 20 90 20 80 c", "f"]);
   // The relative form has every one of the six numbers offset from (0,0).
-  assert.deepEqual(ops(pathDoc("M0 0 c10 0 20 10 20 20")), [
-    "0 100 m",
-    "10 100 20 90 20 80 c",
-    "f",
-  ]);
+  assert.deepEqual(ops(pathDoc("M0 0 c10 0 20 10 20 20")), ["0 100 m", "10 100 20 90 20 80 c", "f"]);
 });
 
 /**
@@ -175,11 +167,7 @@ test("svg: S reflects the previous cubic's second control point", () => {
 
 /** With no preceding cubic, `S`'s first control is the current point itself. */
 test("svg: S with no preceding cubic uses the current point", () => {
-  assert.deepEqual(ops(pathDoc("M10 10 S30 10 30 30")), [
-    "10 90 m",
-    "10 90 30 90 30 70 c",
-    "f",
-  ]);
+  assert.deepEqual(ops(pathDoc("M10 10 S30 10 30 30")), ["10 90 m", "10 90 30 90 30 70 c", "f"]);
 });
 
 /**
@@ -188,11 +176,7 @@ test("svg: S with no preceding cubic uses the current point", () => {
  * `p₀ = (0,0)`, `q = (30,0)`, `p₂ = (30,30)` those are `(20,0)` and `(30,10)`.
  */
 test("svg: Q becomes the equivalent cubic", () => {
-  assert.deepEqual(ops(pathDoc("M0 0 Q30 0 30 30")), [
-    "0 100 m",
-    "20 100 30 90 30 70 c",
-    "f",
-  ]);
+  assert.deepEqual(ops(pathDoc("M0 0 Q30 0 30 30")), ["0 100 m", "20 100 30 90 30 70 c", "f"]);
 });
 
 /** `T` reflects the previous *quadratic* control, then converts as `Q` does. */
@@ -215,13 +199,7 @@ test("svg: q and t are the relative forms", () => {
  * `(20,10)` where the pen visibly was.
  */
 test("svg: after Z the current point is the subpath's start", () => {
-  assert.deepEqual(ops(pathDoc("M10 10 L20 10 Z l10 0")), [
-    "10 90 m",
-    "20 90 l",
-    "h",
-    "20 90 l",
-    "f",
-  ]);
+  assert.deepEqual(ops(pathDoc("M10 10 L20 10 Z l10 0")), ["10 90 m", "20 90 l", "h", "20 90 l", "f"]);
 });
 
 test("svg: several subpaths fill as one shape", () => {
@@ -271,8 +249,7 @@ test("svg: nested transforms compose outermost-last", () => {
  * `translate(605,363) scale(0.707)`.
  */
 test("svg: a transform list composes leftmost-outermost", () => {
-  const listed =
-    `<svg viewBox="0 0 100 100"><g transform="translate(10,20) scale(2)"><path d="M5 5 L10 0"></path></g></svg>`;
+  const listed = `<svg viewBox="0 0 100 100"><g transform="translate(10,20) scale(2)"><path d="M5 5 L10 0"></path></g></svg>`;
   assert.deepEqual(ops(listed), ["20 70 m", "30 80 l", "f"]);
 });
 
@@ -286,10 +263,11 @@ test("svg: transform arguments accept commas or spaces", () => {
 
 /** `scale(s)` is `scale(s, s)` — the one-argument form MathJax actually writes. */
 test("svg: single-argument scale and translate", () => {
-  assert.deepEqual(
-    ops(`<svg viewBox="0 0 100 100"><g transform="scale(2)"><path d="M5 10 L0 0"></path></g></svg>`),
-    ["10 80 m", "0 100 l", "f"],
-  );
+  assert.deepEqual(ops(`<svg viewBox="0 0 100 100"><g transform="scale(2)"><path d="M5 10 L0 0"></path></g></svg>`), [
+    "10 80 m",
+    "0 100 l",
+    "f",
+  ]);
   // `translate(tx)` means `translate(tx, 0)`.
   assert.deepEqual(
     ops(`<svg viewBox="0 0 100 100"><g transform="translate(10)"><path d="M0 0 L0 0"></path></g></svg>`),
@@ -373,14 +351,7 @@ test("svg: currentColor emits no colour operator", () => {
 
 /** A concrete colour is bracketed by q/Q so it cannot leak into the page. */
 test("svg: a hex fill is set inside q/Q", () => {
-  assert.deepEqual(ops(pathDoc("M0 0 L10 10", ' fill="#f00"')), [
-    "q",
-    "1 0 0 rg",
-    "0 100 m",
-    "10 90 l",
-    "f",
-    "Q",
-  ]);
+  assert.deepEqual(ops(pathDoc("M0 0 L10 10", ' fill="#f00"')), ["q", "1 0 0 rg", "0 100 m", "10 90 l", "f", "Q"]);
 });
 
 test("svg: paint is inherited down the group tree", () => {
@@ -450,8 +421,7 @@ test("svg: <defs> is refused too — with fontCache none there is nothing to def
 });
 
 test("svg: <use> is refused even when other glyphs would have rendered", () => {
-  const svg =
-    `<svg viewBox="0 0 100 100"><path d="M0 0 L10 10"></path><use href="#g1"></use></svg>`;
+  const svg = `<svg viewBox="0 0 100 100"><path d="M0 0 L10 10"></path><use href="#g1"></use></svg>`;
   const d = refusal(svg);
   assert.equal(d.code, "unsupported");
   // Nothing at all is painted: half a formula is the silent wrong answer.
@@ -657,10 +627,7 @@ test("svg: a real MathJax x² puts the superscript above the base", () => {
   assert.ok(base.top <= 845 && script.top <= 845, `ink above the box: ${base.top}, ${script.top}`);
   // The superscript's top is far above the base's top. Flip the picture and
   // this inequality reverses.
-  assert.ok(
-    script.top > base.top + 300,
-    `superscript top ${script.top} should clear base top ${base.top} by 300+`,
-  );
+  assert.ok(script.top > base.top + 300, `superscript top ${script.top} should clear base top ${base.top} by 300+`);
   // And the superscript's baseline is above the base's baseline: MathJax's
   // `translate(605,363)` raises it by 363 font units.
   assert.ok(script.bottom > base.bottom + 300, `${script.bottom} vs ${base.bottom}`);

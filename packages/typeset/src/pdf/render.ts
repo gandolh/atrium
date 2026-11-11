@@ -101,7 +101,10 @@ export function renderPdf(pages: readonly Page[], options: RenderPdfOptions = {}
 }
 
 /** Faces used by the document, in first-use order, parsed once each. */
-function collectFonts(pages: readonly Page[], at: SourceRef): {
+function collectFonts(
+  pages: readonly Page[],
+  at: SourceRef,
+): {
   subsets: FontSubset[];
   registry: FontRegistry;
   diagnostics: Diagnostic[];
@@ -123,9 +126,7 @@ function collectFonts(pages: readonly Page[], at: SourceRef): {
         byId.set(item.font.id, subset);
       } catch (cause) {
         const detail = cause instanceof Error ? cause.message : String(cause);
-        diagnostics.push(
-          error("missing-font", at, `cannot embed the face \`${item.font.id}\` — ${detail}`),
-        );
+        diagnostics.push(error("missing-font", at, `cannot embed the face \`${item.font.id}\` — ${detail}`));
         // Remembered as failed so the same face is not retried once per run.
         byId.set(item.font.id, null);
       }
@@ -191,9 +192,7 @@ function embedFont(context: PDFContext, font: FontSubset, compress: boolean): PD
     },
     FontDescriptor: descriptorRef,
     DW: 1000,
-    W: widthsArray(font).map((entry) =>
-      Array.isArray(entry) ? entry.map(roundToOutput) : entry,
-    ),
+    W: widthsArray(font).map((entry) => (Array.isArray(entry) ? entry.map(roundToOutput) : entry)),
   };
   // Meaningless for a CFF-flavoured CIDFont, whose charset already maps CID to
   // glyph; only Type2 needs to be told the mapping is the identity.
@@ -201,9 +200,7 @@ function embedFont(context: PDFContext, font: FontSubset, compress: boolean): PD
   const cidFontRef = context.register(context.obj(cidFont));
 
   const cmap = toUnicodeCMapFor(font);
-  const toUnicodeRef = context.register(
-    compress ? context.flateStream(cmap) : context.stream(cmap),
-  );
+  const toUnicodeRef = context.register(compress ? context.flateStream(cmap) : context.stream(cmap));
 
   return context.register(
     context.obj({
@@ -319,9 +316,7 @@ function embedImageStream(context: PDFContext, stream: ImageStream, compress: bo
   if (stream.filter === null) {
     // Raw samples. `compress` off is what lets a test read a content stream
     // back; an uncompressed image stream is equally valid, just larger.
-    return context.register(
-      compress ? context.flateStream(stream.data, dict) : context.stream(stream.data, dict),
-    );
+    return context.register(compress ? context.flateStream(stream.data, dict) : context.stream(stream.data, dict));
   }
 
   dict.Filter = stream.filter;
@@ -348,11 +343,7 @@ function imageFingerprint(entry: EmbeddedImage): string {
   return `${entry.resourceName}:${entry.path}:${image.format}:${image.pixelWidth}x${image.pixelHeight}:${image.bytes.length}`;
 }
 
-function emit(
-  pages: readonly Page[],
-  options: RenderPdfOptions,
-  at: SourceRef,
-): RenderPdfResult {
+function emit(pages: readonly Page[], options: RenderPdfOptions, at: SourceRef): RenderPdfResult {
   const diagnostics: Diagnostic[] = [];
 
   if (pages.length === 0) {
@@ -429,10 +420,7 @@ function emit(
     ),
   );
 
-  context.assign(
-    pagesRef,
-    context.obj({ Type: "Pages", Kids: pageRefs, Count: pageRefs.length }),
-  );
+  context.assign(pagesRef, context.obj({ Type: "Pages", Kids: pageRefs, Count: pageRefs.length }));
   context.assign(catalogRef, context.obj({ Type: "Catalog", Pages: pagesRef }));
 
   const info: PdfDict = {
@@ -460,11 +448,7 @@ function emit(
   const cap = options.maxOutputBytes;
   if (cap !== undefined && plan.size > cap) {
     diagnostics.push(
-      error(
-        "limit-exceeded",
-        at,
-        `the PDF would be ${plan.size} bytes, over the ${cap}-byte maxOutputBytes cap`,
-      ),
+      error("limit-exceeded", at, `the PDF would be ${plan.size} bytes, over the ${cap}-byte maxOutputBytes cap`),
     );
     return { pdf: null, diagnostics };
   }

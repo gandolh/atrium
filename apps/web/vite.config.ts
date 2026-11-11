@@ -38,9 +38,7 @@ export default defineConfig(({ mode }) => {
   // Required var: fail the dev server / build fast rather than baking in an
   // undefined API base URL. Mirrors the API's config.ts contract.
   if (!env.VITE_API_URL) {
-    throw new Error(
-      "Missing required env var VITE_API_URL. Copy .env.example to .env at the repo root and set it.",
-    );
+    throw new Error("Missing required env var VITE_API_URL. Copy .env.example to .env at the repo root and set it.");
   }
 
   // Served under a sub-path in production (e.g. /ebook-reader/). Everything the
@@ -60,10 +58,7 @@ export default defineConfig(({ mode }) => {
   // auth + freshness stay server-driven). Regex-escaped; unanchored tail lets
   // the `?v=…` version query ride along.
   const apiUrl = new URL(env.VITE_API_URL);
-  const apiBase = (apiUrl.origin + apiUrl.pathname.replace(/\/+$/, "")).replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
+  const apiBase = (apiUrl.origin + apiUrl.pathname.replace(/\/+$/, "")).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const coverUrlPattern = new RegExp(`^${apiBase}/library/[^/]+/cover`);
 
   return {
@@ -92,8 +87,7 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: "Atrium",
           short_name: "Atrium",
-          description:
-            "Your personal library of books, music, and video — open and enjoy anywhere.",
+          description: "Your personal library of books, music, and video — open and enjoy anywhere.",
           // Standalone so the installed app drops the browser chrome and feels
           // like a native reader.
           display: "standalone",

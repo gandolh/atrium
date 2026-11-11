@@ -60,7 +60,13 @@ describe("Ward subjects become local users", () => {
       headers: { cookie: `atrium_session=${token}` },
     });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.json().map((p: { id: string }) => p.id).sort(), ["p-a", "p-a2"]);
+    assert.deepEqual(
+      res
+        .json()
+        .map((p: { id: string }) => p.id)
+        .sort(),
+      ["p-a", "p-a2"],
+    );
   });
 
   it("an account made after the move is never mistaken for a Ward subject", async () => {

@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type DragEvent as ReactDragEvent,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent as ReactDragEvent, type RefObject } from "react";
 import {
   detectFileType,
   EPUB_EXTENSIONS,
@@ -146,8 +139,7 @@ export function UploadZone({
   useEffect(() => {
     if (disabled) return;
     let depth = 0;
-    const hasFiles = (e: DragEvent) =>
-      Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
     const onEnter = (e: DragEvent) => {
       if (!hasFiles(e)) return;
       depth += 1;
@@ -207,10 +199,7 @@ export function UploadZone({
   // Full-screen "drop to add" overlay. pointer-events-none so the drop event
   // falls through to the window handler above rather than the overlay eating it.
   const overlay = windowDrag && !disabled && (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed inset-0 z-50 bg-paper/90 p-6 backdrop-blur-sm"
-    >
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-50 bg-paper/90 p-6 backdrop-blur-sm">
       <div className="grid h-full w-full place-items-center rounded-card border-2 border-dashed border-accent">
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-card bg-paper-container">
@@ -269,9 +258,7 @@ export function UploadZone({
         </span>
 
         <div className="flex flex-col gap-1">
-          <h2 className="font-display text-3xl font-medium text-ink">
-            {audioOnly ? "Add songs" : "Add to Library"}
-          </h2>
+          <h2 className="font-display text-3xl font-medium text-ink">{audioOnly ? "Add songs" : "Add to Library"}</h2>
           <p className="text-ink-variant">
             {disabled
               ? "Uploading requires a connection."
@@ -303,7 +290,11 @@ export function UploadZone({
 function UploadGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={className} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"
+      />
       <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5M12 18v-6M9.5 14.5 12 12l2.5 2.5" />
     </svg>
   );

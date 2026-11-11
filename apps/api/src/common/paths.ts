@@ -1,11 +1,6 @@
 import { join } from "node:path";
 import type { FileType } from "@ebook-reader/shared";
-import {
-  DOCUMENT_VERSIONS_DIR,
-  LATEX_PROJECTS_DIR,
-  LIBRARY_FILES_DIR,
-  THUMBNAILS_DIR,
-} from "./config.js";
+import { DOCUMENT_VERSIONS_DIR, LATEX_PROJECTS_DIR, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "./config.js";
 
 /**
  * Where a book's bytes live on disk (decisions.md D24/D25), derived from the

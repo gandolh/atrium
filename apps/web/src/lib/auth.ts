@@ -268,9 +268,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const profiles = await fetchProfiles();
 
       const stored = readStoredProfileId();
-      const remembered = FRESH_CHOICE_AT_BOOT
-        ? profiles.find((p) => p.id === stored)
-        : undefined;
+      const remembered = FRESH_CHOICE_AT_BOOT ? profiles.find((p) => p.id === stored) : undefined;
       const active = remembered ?? defaultProfile(profiles);
 
       writeStoredProfiles(profiles);

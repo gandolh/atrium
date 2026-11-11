@@ -338,8 +338,7 @@ export const KNOWN_UNSUPPORTED_ENVIRONMENTS: ReadonlyMap<string, string> = new M
 
 /** The head of a node's `data-latex`: what produced that node. */
 type Head =
-  | { readonly kind: "command"; readonly name: string }
-  | { readonly kind: "environment"; readonly name: string };
+  { readonly kind: "command"; readonly name: string } | { readonly kind: "environment"; readonly name: string };
 
 /**
  * `<tag attr="value" …>`, non-greedy on nothing. MathJax's serialiser always

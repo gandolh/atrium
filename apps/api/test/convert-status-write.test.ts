@@ -27,7 +27,8 @@ const needsCalibre = { skip: (await isCalibreAvailable()) ? false : "Calibre not
 async function fixturePdf(title: string): Promise<Buffer> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
-  for (let i = 0; i < 2; i++) doc.addPage([300, 400]).drawText(`${title} page ${i + 1}`, { x: 40, y: 340, size: 16, font });
+  for (let i = 0; i < 2; i++)
+    doc.addPage([300, 400]).drawText(`${title} page ${i + 1}`, { x: 40, y: 340, size: 16, font });
   return Buffer.from(await doc.save());
 }
 
@@ -85,31 +86,38 @@ describe("a failed conversion status write cannot wedge conversions", () => {
     await t.close();
   });
 
-  it("a job's terminal write hits SQLITE_BUSY: logged with its code, and the next book still converts", needsCalibre, async () => {
-    const broken = await upload("Broken");
-    const next = await upload("Next");
-    // No source file: Calibre fails fast (or is missing), and either way the job
-    // ends in a terminal `failed` write.
-    rmSync(filePathFor(broken, "pdf"));
+  it(
+    "a job's terminal write hits SQLITE_BUSY: logged with its code, and the next book still converts",
+    needsCalibre,
+    async () => {
+      const broken = await upload("Broken");
+      const next = await upload("Next");
+      // No source file: Calibre fails fast (or is missing), and either way the job
+      // ends in a terminal `failed` write.
+      rmSync(filePathFor(broken, "pdf"));
 
-    const started = await convert(broken);
-    assert.equal(started.statusCode, 202, started.body);
-    const release = holdWriteLock();
-    try {
-      await waitFor(() => errors.some((e) => e.includes(broken)), 30_000, "the parked write");
-    } finally {
-      release();
-    }
-    assert.match(errors.find((e) => e.includes(broken))!, /SQLITE_BUSY/);
-    assert.equal(await status(broken), "running", "the row is wedged until something replays it");
+      const started = await convert(broken);
+      assert.equal(started.statusCode, 202, started.body);
+      const release = holdWriteLock();
+      try {
+        await waitFor(() => errors.some((e) => e.includes(broken)), 30_000, "the parked write");
+      } finally {
+        release();
+      }
+      assert.match(
+        errors.find((e) => e.includes(broken))!,
+        /SQLITE_BUSY/,
+      );
+      assert.equal(await status(broken), "running", "the row is wedged until something replays it");
 
-    const accepted = await convert(next);
-    assert.equal(accepted.statusCode, 202, `another book was refused: ${accepted.body}`);
-    assert.equal(await status(broken), "failed");
+      const accepted = await convert(next);
+      assert.equal(accepted.statusCode, 202, `another book was refused: ${accepted.body}`);
+      assert.equal(await status(broken), "failed");
 
-    await waitFor(async () => (await status(next)) !== "running", 120_000, "the real conversion");
-    assert.ok(["ready", "poor"].includes(await status(next)), await status(next));
-  });
+      await waitFor(async () => (await status(next)) !== "running", 120_000, "the real conversion");
+      assert.ok(["ready", "poor"].includes(await status(next)), await status(next));
+    },
+  );
 
   it("a cancel whose reset hits SQLITE_BUSY answers, and the next convert clears it", needsCalibre, async () => {
     const book = await upload("Cancelled");
@@ -124,7 +132,10 @@ describe("a failed conversion status write cannot wedge conversions", () => {
       release();
     }
     assert.ok([200, 204].includes(res.statusCode), `cancel answered ${res.statusCode}: ${res.body}`);
-    assert.ok(errors.some((e) => e.includes(book) && e.includes("reset")), "the parked reset was logged");
+    assert.ok(
+      errors.some((e) => e.includes(book) && e.includes("reset")),
+      "the parked reset was logged",
+    );
 
     // The child is gone; wait until the in-process job has let go.
     await waitFor(async () => (await convert(other)).statusCode !== 409, 30_000, "the slot");

@@ -38,8 +38,7 @@ const notesKey = (profileId: string | null) => ["notes", profileId] as const;
 /** Single-note key. Carries the profile for the same reason the list does: a
  *  note id is unique, but serving a cached body after a switch would show the
  *  previous profile's work while its refetch 404s. */
-const noteKey = (profileId: string | null, id: string | undefined) =>
-  ["note", profileId, id] as const;
+const noteKey = (profileId: string | null, id: string | undefined) => ["note", profileId, id] as const;
 
 export function useNotesList() {
   const profileId = useActiveProfileId();
@@ -225,8 +224,7 @@ function useInvalidateTree() {
 export function useCreateFolder() {
   const invalidate = useInvalidateTree();
   return useMutation({
-    mutationFn: (vars: { name: string; parentId: string | null }) =>
-      createNoteFolder(vars.name, vars.parentId),
+    mutationFn: (vars: { name: string; parentId: string | null }) => createNoteFolder(vars.name, vars.parentId),
     onSuccess: invalidate,
   });
 }
@@ -254,8 +252,7 @@ export function useDeleteFolder() {
 export function useMoveNote() {
   const invalidate = useInvalidateTree();
   return useMutation({
-    mutationFn: (vars: { id: string; folderId: string | null }) =>
-      moveNote(vars.id, vars.folderId),
+    mutationFn: (vars: { id: string; folderId: string | null }) => moveNote(vars.id, vars.folderId),
     onSuccess: invalidate,
   });
 }

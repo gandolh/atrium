@@ -10,8 +10,7 @@ import { buildTestApp, type TestApp } from "./harness.js";
 // were `public, immutable` for a year under a URL that never changed, though a
 // re-publish and D40's setter both rewrite them in place.
 
-const document = (body: string) =>
-  `\\documentclass{article}\n\\begin{document}\n${body}\n\\end{document}\n`;
+const document = (body: string) => `\\documentclass{article}\n\\begin{document}\n${body}\n\\end{document}\n`;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

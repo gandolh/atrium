@@ -43,7 +43,12 @@ export function classifyTexError(message: string, at: SourceRef): Diagnostic {
     const name = command[1] ?? "";
     const declined = KNOWN_UNSUPPORTED_COMMANDS.get(name);
     if (declined !== undefined) return unsupported(at, name, declined);
-    return error("undefined-command", at, `${name} is not defined — no such math command, and nothing defined it`, name);
+    return error(
+      "undefined-command",
+      at,
+      `${name} is not defined — no such math command, and nothing defined it`,
+      name,
+    );
   }
 
   const environment = UNKNOWN_ENVIRONMENT.exec(message);

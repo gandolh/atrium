@@ -71,7 +71,9 @@ export function OfflineToggle({
         type="button"
         disabled={!canDownload}
         onClick={onDownload}
-        aria-label={canDownload ? `Retry offline download for ${bookTitle}` : "Offline download failed — requires connection"}
+        aria-label={
+          canDownload ? `Retry offline download for ${bookTitle}` : "Offline download failed — requires connection"
+        }
         title={canDownload ? "Download failed — tap to retry" : "Download failed — requires connection"}
         className={`${base} text-danger transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50`}
       >
@@ -86,7 +88,9 @@ export function OfflineToggle({
       type="button"
       disabled={!canDownload}
       onClick={onDownload}
-      aria-label={canDownload ? `Save ${bookTitle} for offline reading` : "Save for offline reading — requires connection"}
+      aria-label={
+        canDownload ? `Save ${bookTitle} for offline reading` : "Save for offline reading — requires connection"
+      }
       title={canDownload ? "Save for offline reading" : "Requires connection"}
       className={`${base} text-on-ink-fill opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-md:opacity-100`}
     >

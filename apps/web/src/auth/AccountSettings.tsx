@@ -269,12 +269,7 @@ function SignOut({ wardSession }: { wardSession: boolean }) {
   return (
     <Section title="Sign out" description="Atrium forgets this device's profile choice too.">
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          disabled={pending || out.pending}
-          onClick={() => void logout()}
-          className={PRIMARY}
-        >
+        <button type="button" disabled={pending || out.pending} onClick={() => void logout()} className={PRIMARY}>
           {pending ? "Signing out…" : "Sign out"}
         </button>
         {wardSession && (

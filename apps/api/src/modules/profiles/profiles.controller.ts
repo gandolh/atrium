@@ -41,10 +41,7 @@ export function registerProfileRoutes(app: FastifyInstance): void {
    * ownership comparison is the only thing standing between a guessed id and
    * another household's reading life.
    */
-  async function ownedProfile(
-    request: FastifyRequest,
-    reply: FastifyReply,
-  ): Promise<ProfileRow | null> {
+  async function ownedProfile(request: FastifyRequest, reply: FastifyReply): Promise<ProfileRow | null> {
     const { id } = request.params as { id?: string };
     const row = id ? await getProfile(id) : undefined;
     if (!row || row.subject !== accountId(request)) {
@@ -99,9 +96,7 @@ export function registerProfileRoutes(app: FastifyInstance): void {
 
     if (!result.ok) {
       if (result.reason === "HAS_NOTES") {
-        return reply
-          .status(409)
-          .send({ error: "PROFILE_HAS_NOTES", noteCount: result.noteCount });
+        return reply.status(409).send({ error: "PROFILE_HAS_NOTES", noteCount: result.noteCount });
       }
       return reply.status(400).send({ error: result.reason });
     }

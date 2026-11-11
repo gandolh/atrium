@@ -11,13 +11,7 @@ import { fetchCatalog, importCatalogBook, type CatalogQuery } from "./discover-a
 
 /** `queryKey` derived from the search params so each distinct query gets its own cache entry. */
 export function catalogKey(query: CatalogQuery) {
-  return [
-    "catalog",
-    query.q ?? "",
-    query.topic ?? "",
-    query.languages ?? "",
-    query.page ?? 1,
-  ] as const;
+  return ["catalog", query.q ?? "", query.topic ?? "", query.languages ?? "", query.page ?? 1] as const;
 }
 
 export function useCatalogSearch(query: CatalogQuery) {

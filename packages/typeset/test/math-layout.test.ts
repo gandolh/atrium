@@ -54,9 +54,7 @@ function runWithoutMath(body: string): CompileResult {
 type PlacedMathItem = Extract<PlacedItem, { kind: "math" }>;
 
 function mathItems(result: CompileResult): PlacedMathItem[] {
-  return result.pages.flatMap((page) =>
-    (page as Page).items.filter((i): i is PlacedMathItem => i.kind === "math"),
-  );
+  return result.pages.flatMap((page) => (page as Page).items.filter((i): i is PlacedMathItem => i.kind === "math"));
 }
 
 /**
@@ -65,9 +63,7 @@ function mathItems(result: CompileResult): PlacedMathItem[] {
  * page number at the foot of it. Same helper, same reason, as `tables.test.ts`.
  */
 function glyphRuns(page: Page): GlyphRun[] {
-  return page.items.filter(
-    (i): i is GlyphRun => i.kind === "glyphrun" && i.y <= design.marginTop + design.textHeight,
-  );
+  return page.items.filter((i): i is GlyphRun => i.kind === "glyphrun" && i.y <= design.marginTop + design.textHeight);
 }
 
 function pageText(result: CompileResult): string {
@@ -206,7 +202,11 @@ test("a display wider than the text width is a diagnostic, not a silent overrun"
   const result = run(`\\[ ${wide} y \\]`);
 
   const overfull = result.diagnostics.filter((d) => d.code === "overfull-box");
-  assert.equal(overfull.length, 1, `expected one overfull-box diagnostic, got ${result.diagnostics.length} diagnostics`);
+  assert.equal(
+    overfull.length,
+    1,
+    `expected one overfull-box diagnostic, got ${result.diagnostics.length} diagnostics`,
+  );
   assert.equal(overfull[0]!.severity, "warning", "an overrun is visible and fixable, so it warns rather than refusing");
   assert.match(overfull[0]!.message, /wider than/);
 
@@ -280,7 +280,11 @@ test("the widening did not become 'accept whatever MathJax renders'", () => {
 });
 
 test("the four admitted on 2026-08-29 render, and \\boldsymbol never reads as undefined", () => {
-  for (const body of ["\\begin{gather*}a = b \\\\ c = d\\end{gather*}", "$\\displaystyle\\frac{a}{b}$", "$\\boldsymbol{\\alpha}$"]) {
+  for (const body of [
+    "\\begin{gather*}a = b \\\\ c = d\\end{gather*}",
+    "$\\displaystyle\\frac{a}{b}$",
+    "$\\boldsymbol{\\alpha}$",
+  ]) {
     const result = run(body);
     assert.deepEqual(result.diagnostics, [], `${body} should set clean`);
     assert.ok(mathItems(result).length > 0, `${body} should actually place something`);

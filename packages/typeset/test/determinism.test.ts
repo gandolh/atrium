@@ -123,7 +123,9 @@ test("sanity: the harness actually detects a difference when there is one", () =
   );
   writeFileSync(
     join(dirB, "main.tex"),
-    enc.encode("\\documentclass{article}\n\\begin{document}\nA very different second document entirely.\n\\end{document}\n"),
+    enc.encode(
+      "\\documentclass{article}\n\\begin{document}\nA very different second document entirely.\n\\end{document}\n",
+    ),
   );
 
   const outA = compileInChildProcess(childPath, dirA, "main.tex");

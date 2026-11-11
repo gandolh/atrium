@@ -26,10 +26,7 @@ import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
  * accounts on its scratch database and, when it needs one, a Ward client over
  * a fake `fetch`. Without `wardClient` atrium has local accounts only.
  */
-export async function buildApp(options: {
-  accounts: Accounts;
-  wardClient?: WardClient;
-}): Promise<FastifyInstance> {
+export async function buildApp(options: { accounts: Accounts; wardClient?: WardClient }): Promise<FastifyInstance> {
   /*
    * No `?token=` log redaction: no credential ever reaches a URL. Cover
    * `<img>` tags used to carry the session token in the query string, because

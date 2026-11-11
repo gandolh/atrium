@@ -82,11 +82,7 @@ export function EpubSettings() {
                 >
                   Aa
                 </span>
-                <span
-                  className={`text-[11px] ${
-                    selected ? "font-medium text-reader-fg" : "text-reader-fg/60"
-                  }`}
-                >
+                <span className={`text-[11px] ${selected ? "font-medium text-reader-fg" : "text-reader-fg/60"}`}>
                   {f.label}
                 </span>
               </button>
@@ -133,9 +129,7 @@ export function EpubSettings() {
         min={LINE_SPACING.min}
         max={LINE_SPACING.max}
         step={0.1}
-        onValueChange={(lineSpacing) =>
-          setFontSettings({ lineSpacing: Math.round(lineSpacing * 10) / 10 })
-        }
+        onValueChange={(lineSpacing) => setFontSettings({ lineSpacing: Math.round(lineSpacing * 10) / 10 })}
         format={(v) => v.toFixed(1)}
       />
 

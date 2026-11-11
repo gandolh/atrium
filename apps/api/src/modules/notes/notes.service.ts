@@ -112,11 +112,7 @@ export async function removeNote(profileId: string, id: string): Promise<boolean
  * Both ids are resolved profile-scoped, so either one belonging to somebody
  * else is a miss and never a cross-profile file.
  */
-export async function moveNote(
-  profileId: string,
-  id: string,
-  folderId: string | null,
-): Promise<MoveNoteResult> {
+export async function moveNote(profileId: string, id: string, folderId: string | null): Promise<MoveNoteResult> {
   if (folderId !== null && !(await getNoteFolder(profileId, folderId))) {
     return { ok: false, reason: "NOT_FOUND" };
   }

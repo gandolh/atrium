@@ -192,10 +192,7 @@ async function inNotesStore<T>(
 }
 
 /** Record what the editor holds for a note that has not reached the server. */
-export function writeNoteStash(
-  owner: NoteStashOwner,
-  draft: { title: string; pages: NotePage[] },
-): Promise<void> {
+export function writeNoteStash(owner: NoteStashOwner, draft: { title: string; pages: NotePage[] }): Promise<void> {
   const record: StashedNote = { title: draft.title, pages: draft.pages, at: Date.now() };
   return inNotesStore("readwrite", (store) => {
     store.put(record, noteKey(owner));
@@ -215,8 +212,7 @@ export function writeNoteStash(
 export async function readNoteStash(owner: NoteStashOwner): Promise<StashedNote | null> {
   try {
     const raw = (await inNotesStore("readonly", (store) => store.get(noteKey(owner)))) as
-      | Partial<StashedNote>
-      | undefined;
+      Partial<StashedNote> | undefined;
     if (!raw || typeof raw.title !== "string" || typeof raw.at !== "number") return null;
     const pages = notePageSchema.array().safeParse(raw.pages);
     if (!pages.success) return null;

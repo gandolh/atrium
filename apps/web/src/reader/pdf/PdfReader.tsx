@@ -150,13 +150,10 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
     return () => ro.disconnect();
   }, []);
 
-  const onLoadSuccess = useCallback(
-    (doc: PDFDocumentProxy) => {
-      setNumPages(doc.numPages);
-      setPdfDoc(doc);
-    },
-    [],
-  );
+  const onLoadSuccess = useCallback((doc: PDFDocumentProxy) => {
+    setNumPages(doc.numPages);
+    setPdfDoc(doc);
+  }, []);
 
   // Read the first page's aspect ratio so scroll-mode placeholder slots (pages
   // outside the render window) get a realistic height. Most PDFs are uniform, so
@@ -187,10 +184,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
   // EPUB carries `metadata.title`, so we use what IS available — the file name
   // (extension stripped) — matching the EPUB header's book-title slot. Blank
   // renders gracefully if there's somehow no name.
-  const bookTitle = useMemo(
-    () => file.name.replace(/\.pdf$/i, "").trim() || null,
-    [file.name],
-  );
+  const bookTitle = useMemo(() => file.name.replace(/\.pdf$/i, "").trim() || null, [file.name]);
 
   // Running-header detail = the current section, mirroring EPUB's chapter label.
   // Derived from the outline the same way the rail ticks are: the last top-level
@@ -418,10 +412,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
   // "Invert colours" dark hack: toggle the theme between dark (inverted canvas)
   // and light. PDF has no sepia/full theming — this is the fixed-layout dark
   // mode (wiki/reader.md: PDF = "invert-only").
-  const onToggleInvert = useCallback(
-    () => setTheme(inverted ? "light" : "dark"),
-    [inverted, setTheme],
-  );
+  const onToggleInvert = useCallback(() => setTheme(inverted ? "light" : "dark"), [inverted, setTheme]);
 
   const onNavigateToc = useCallback(
     (entry: TocEntry) => {
@@ -433,10 +424,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
 
   // In-book search (additive): search-on-demand over the PDF.js text
   // layer. Provider is bound to the loaded document; jumping sets the page.
-  const searchProvider = useMemo(
-    () => (pdfDoc ? createPdfSearchProvider(pdfDoc) : null),
-    [pdfDoc],
-  );
+  const searchProvider = useMemo(() => (pdfDoc ? createPdfSearchProvider(pdfDoc) : null), [pdfDoc]);
   const onJumpToMatch = useCallback(
     (match: SearchMatch, query: string) => {
       if (typeof match.target === "number") {
@@ -453,11 +441,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
     if (!highlightQuery) return undefined;
     const needle = highlightQuery.toLowerCase();
     const escapeHtml = (s: string) =>
-      s
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
+      s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
     return ({ str }: { str: string }) => {
       const haystack = str.toLowerCase();
       let idx = haystack.indexOf(needle);
@@ -555,8 +539,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
                   <div className="flex min-h-full flex-col items-center gap-4 py-2">
                     {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => {
                       const active =
-                        n >= currentPage - PDF_SCROLL_WINDOW_BEFORE &&
-                        n <= currentPage + PDF_SCROLL_WINDOW_AFTER;
+                        n >= currentPage - PDF_SCROLL_WINDOW_BEFORE && n <= currentPage + PDF_SCROLL_WINDOW_AFTER;
                       return (
                         <div
                           key={n}
@@ -633,12 +616,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
           />
         )}
 
-        <TocDrawer
-          open={tocOpen}
-          onOpenChange={setTocOpen}
-          entries={tocEntries}
-          onNavigate={onNavigateToc}
-        />
+        <TocDrawer open={tocOpen} onOpenChange={setTocOpen} entries={tocEntries} onNavigate={onNavigateToc} />
 
         {searchProvider && (
           <SearchPanel
@@ -687,8 +665,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
                   >
                     <ThemePicker />
                     <p className="text-xs text-reader-fg/60">
-                      PDF is fixed-layout: "Dark" inverts the page colours; font
-                      controls are EPUB-only.
+                      PDF is fixed-layout: "Dark" inverts the page colours; font controls are EPUB-only.
                     </p>
                   </SettingsPopover>
                 }
@@ -712,19 +689,11 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
 }
 
 function LoadingState() {
-  return (
-    <div className="grid place-items-center py-20 text-sm text-reader-fg/60">
-      Loading PDF…
-    </div>
-  );
+  return <div className="grid place-items-center py-20 text-sm text-reader-fg/60">Loading PDF…</div>;
 }
 
 function ErrorState() {
-  return (
-    <div className="grid place-items-center py-20 text-sm text-red-500">
-      Failed to load PDF.
-    </div>
-  );
+  return <div className="grid place-items-center py-20 text-sm text-red-500">Failed to load PDF.</div>;
 }
 
 function SettingsIcon() {

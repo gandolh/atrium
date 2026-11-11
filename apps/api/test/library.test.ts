@@ -55,9 +55,15 @@ describe("library round trip", () => {
     });
     assert.equal(res.statusCode, 201, res.body);
     id = res.json().id;
-    assert.ok(entries(LIBRARY_FILES_DIR).some((name) => name.startsWith(id)), "file written to the scratch library");
+    assert.ok(
+      entries(LIBRARY_FILES_DIR).some((name) => name.startsWith(id)),
+      "file written to the scratch library",
+    );
     // Asserted so the delete test's "thumbnail removed" is not vacuous.
-    assert.ok(entries(THUMBNAILS_DIR).some((name) => name.startsWith(id)), "cover extracted to the scratch thumbnails");
+    assert.ok(
+      entries(THUMBNAILS_DIR).some((name) => name.startsWith(id)),
+      "cover extracted to the scratch thumbnails",
+    );
   });
 
   it("lists it", async () => {

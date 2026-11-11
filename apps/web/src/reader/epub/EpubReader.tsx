@@ -174,8 +174,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
   // "computing" = the background page-map walk is in flight (initial or a
   // layout-change recompute). It no longer gates the reader — the book stays
   // visible and interactive throughout; only the "Page N/M" badge waits on it.
-  const [pageMapStatus, setPageMapStatus] =
-    useState<"idle" | "computing" | "ready" | "failed">("idle");
+  const [pageMapStatus, setPageMapStatus] = useState<"idle" | "computing" | "ready" | "failed">("idle");
   // Bumped to force a page-map recompute (layout-affecting settings changed).
   const [recomputeToken, setRecomputeToken] = useState(0);
   // Skip the debounced recompute on the very first settings render.
@@ -299,12 +298,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     }
     const id = setTimeout(() => setRecomputeToken((t) => t + 1), 500);
     return () => clearTimeout(id);
-  }, [
-    fontSettings.size,
-    fontSettings.family,
-    fontSettings.lineSpacing,
-    fontSettings.margins,
-  ]);
+  }, [fontSettings.size, fontSettings.family, fontSettings.lineSpacing, fontSettings.margins]);
 
   // Recompute on viewport resize too (page counts are width-dependent).
   useEffect(() => {
@@ -320,7 +314,6 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
       window.removeEventListener("resize", onResize);
     };
   }, [pageMapStatus]);
-
 
   // Read the File into an ArrayBuffer once per file.
   useEffect(() => {
@@ -390,58 +383,61 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     [setCurrentLocation],
   );
 
-  const onGetRendition = useCallback((r: Rendition) => {
-    setRendition(r);
-    bookRef.current = r.book;
-    latestRenditionRef.current = r;
-    // Book title for the running header (best-effort).
-    r.book.loaded.metadata
-      .then((m) => setBookTitle(m?.title?.trim() || null))
-      .catch(() => {
-        /* header falls back to nothing */
-      });
-    // Generate coarse char-based locations in the background — these drive the
-    // % rail + seeking + chapter ticks (layout-independent). The book-wide PAGE
-    // count is built separately by the precompute walk below. Memoized per book:
-    // on a re-open we `load()` the saved CFI list (parse-only) instead of
-    // re-walking every section (measured ~4.7 s of background CPU).
-    const locKey = bookIdentity(file);
-    // The walk below is async; a fast pageMode toggle can remount ReactReader and
-    // hand us a fresh rendition before it resolves. Bail whenever `r` is no longer
-    // the current rendition so a stale walk can't cache against it or flip
-    // `locationsReady` for a torn-down reader.
-    const isCurrent = () => latestRenditionRef.current === r;
-    r.book.ready
-      .then(() => {
-        if (!isCurrent()) return;
-        const saved = locationsCache.get(locKey);
-        if (saved) {
-          const locations = r.book.locations as unknown as {
-            load(json: string): void;
-          };
-          locations.load(saved);
-          cacheSet(locationsCache, locKey, saved); // refresh recency
-          return;
-        }
-        return r.book.locations.generate(1000).then(() => {
-          if (!isCurrent()) return;
-          try {
-            const save = (r.book.locations as unknown as { save(): string }).save();
-            cacheSet(locationsCache, locKey, save);
-          } catch {
-            /* caching is best-effort */
-          }
+  const onGetRendition = useCallback(
+    (r: Rendition) => {
+      setRendition(r);
+      bookRef.current = r.book;
+      latestRenditionRef.current = r;
+      // Book title for the running header (best-effort).
+      r.book.loaded.metadata
+        .then((m) => setBookTitle(m?.title?.trim() || null))
+        .catch(() => {
+          /* header falls back to nothing */
         });
-      })
-      .then(() => {
-        if (!isCurrent()) return;
-        setLocationsReady(true);
-        refreshProgress(r);
-      })
-      .catch(() => {
-        /* rail falls back to spine percentage */
-      });
-  }, [refreshProgress, file]);
+      // Generate coarse char-based locations in the background — these drive the
+      // % rail + seeking + chapter ticks (layout-independent). The book-wide PAGE
+      // count is built separately by the precompute walk below. Memoized per book:
+      // on a re-open we `load()` the saved CFI list (parse-only) instead of
+      // re-walking every section (measured ~4.7 s of background CPU).
+      const locKey = bookIdentity(file);
+      // The walk below is async; a fast pageMode toggle can remount ReactReader and
+      // hand us a fresh rendition before it resolves. Bail whenever `r` is no longer
+      // the current rendition so a stale walk can't cache against it or flip
+      // `locationsReady` for a torn-down reader.
+      const isCurrent = () => latestRenditionRef.current === r;
+      r.book.ready
+        .then(() => {
+          if (!isCurrent()) return;
+          const saved = locationsCache.get(locKey);
+          if (saved) {
+            const locations = r.book.locations as unknown as {
+              load(json: string): void;
+            };
+            locations.load(saved);
+            cacheSet(locationsCache, locKey, saved); // refresh recency
+            return;
+          }
+          return r.book.locations.generate(1000).then(() => {
+            if (!isCurrent()) return;
+            try {
+              const save = (r.book.locations as unknown as { save(): string }).save();
+              cacheSet(locationsCache, locKey, save);
+            } catch {
+              /* caching is best-effort */
+            }
+          });
+        })
+        .then(() => {
+          if (!isCurrent()) return;
+          setLocationsReady(true);
+          refreshProgress(r);
+        })
+        .catch(() => {
+          /* rail falls back to spine percentage */
+        });
+    },
+    [refreshProgress, file],
+  );
 
   // Belt-and-braces for the badge: whichever finishes last — locations
   // generation or the first render — a `relocated` event re-reads progress, so
@@ -571,8 +567,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     if (!rendition) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft" || event.key === "PageUp") onPrev();
-      else if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ")
-        onNext();
+      else if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") onNext();
     };
     rendition.on("keydown", onKey);
     return () => rendition.off("keydown", onKey);
@@ -620,10 +615,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
       // clientX = the tap's real x in the app viewport.
       const frameRect = view?.frameElement?.getBoundingClientRect();
       const width = window.innerWidth;
-      const zone =
-        frameRect && width > 0
-          ? resolveTapZone((frameRect.left + e.clientX) / width)
-          : "toggle";
+      const zone = frameRect && width > 0 ? resolveTapZone((frameRect.left + e.clientX) / width) : "toggle";
       if (zone === "prev") onPrev();
       else if (zone === "next") onNext();
       else toggleChrome();
@@ -651,11 +643,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     const onTouchEnd = (e: TouchEvent) => {
       const t = e.changedTouches[0];
       if (!t || !startedAt) return;
-      const action = resolveSwipe(
-        t.screenX - startX,
-        t.screenY - startY,
-        performance.now() - startedAt,
-      );
+      const action = resolveSwipe(t.screenX - startX, t.screenY - startY, performance.now() - startedAt);
       startedAt = 0;
       if (action === "next") onNext();
       else if (action === "prev") onPrev();
@@ -884,61 +872,59 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
             can't blow the grid column out past the viewport — it's clipped
             here instead of widening the pane and the bars. */}
         <div className="relative min-h-0 min-w-0 overflow-hidden">
-        {/* One centered, measure-capped column — the page is the interface.
+          {/* One centered, measure-capped column — the page is the interface.
             `relative` is load-bearing: react-reader positions its reader area
             absolutely, and it must anchor to THIS capped box, not the
             full-width container. A wide cap + minimal padding lets the page
             fill the space (epub's own margins still keep the text readable). */}
-        <div
-          className="relative mx-auto h-full w-full max-w-measure px-2 py-5"
-          // Drives the scroll-mode horizontal-clip rule in globals.css (kills the
-          // scrollbar-induced stray horizontal scrollbar epub.js leaves in
-          // scrolled-doc). Paged mode needs epub.js's horizontal columns, so it
-          // is deliberately excluded.
-          data-reader-flow={isScroll ? "scroll" : "paged"}
-        >
-          <ReactReader
-            // Remount on flow change so epub.js recreates the rendition in the
-            // new mode (react-reader ignores epubOptions changes otherwise).
-            key={flow}
-            url={data}
-            // Before we have a CFI, start at spine index 0. Never let
-            // react-reader fall back to `toc[0].href` — nav-doc-relative hrefs
-            // don't resolve in the spine for books whose nav lives in a
-            // subdirectory ("No Section Found" → blank reader).
-            location={cfi ?? 0}
-            locationChanged={onLocationChanged}
-            getRendition={onGetRendition}
-            tocChanged={onTocChanged}
-            showToc={false}
-            swipeable={false}
-            // Passing ANY handleKeyPress disables react-reader's built-in
-            // arrow-key paging (a document-level keyup listener). Without
-            // this, one arrow press turns the page TWICE — once via our
-            // keydown handlers, once via theirs — a visible double-flip.
-            handleKeyPress={() => {}}
-            readerStyles={readerStyles}
-            loadingView={<SkeletonPage />}
-            epubOptions={{ flow, manager, spread: "none" }}
-          />
-          {/* Jump crossfade veil. Deliberately an overlay rather than opacity
+          <div
+            className="relative mx-auto h-full w-full max-w-measure px-2 py-5"
+            // Drives the scroll-mode horizontal-clip rule in globals.css (kills the
+            // scrollbar-induced stray horizontal scrollbar epub.js leaves in
+            // scrolled-doc). Paged mode needs epub.js's horizontal columns, so it
+            // is deliberately excluded.
+            data-reader-flow={isScroll ? "scroll" : "paged"}
+          >
+            <ReactReader
+              // Remount on flow change so epub.js recreates the rendition in the
+              // new mode (react-reader ignores epubOptions changes otherwise).
+              key={flow}
+              url={data}
+              // Before we have a CFI, start at spine index 0. Never let
+              // react-reader fall back to `toc[0].href` — nav-doc-relative hrefs
+              // don't resolve in the spine for books whose nav lives in a
+              // subdirectory ("No Section Found" → blank reader).
+              location={cfi ?? 0}
+              locationChanged={onLocationChanged}
+              getRendition={onGetRendition}
+              tocChanged={onTocChanged}
+              showToc={false}
+              swipeable={false}
+              // Passing ANY handleKeyPress disables react-reader's built-in
+              // arrow-key paging (a document-level keyup listener). Without
+              // this, one arrow press turns the page TWICE — once via our
+              // keydown handlers, once via theirs — a visible double-flip.
+              handleKeyPress={() => {}}
+              readerStyles={readerStyles}
+              loadingView={<SkeletonPage />}
+              epubOptions={{ flow, manager, spread: "none" }}
+            />
+            {/* Jump crossfade veil. Deliberately an overlay rather than opacity
               on the column itself: animating opacity on an ancestor of the
               epub iframe promotes it to a compositor layer that can cache
               stale pixels (theme changes stop repainting). */}
-          <div
-            aria-hidden="true"
-            className={`pointer-events-none absolute inset-0 bg-reader-bg transition-opacity duration-150 motion-reduce:transition-none ${
-              jumping ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        </div>
+            <div
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-0 bg-reader-bg transition-opacity duration-150 motion-reduce:transition-none ${
+                jumping ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          </div>
           {/* Page-flip edge bars — scoped to the content row so they cover only
               the reading area, not the toolbar. Paged mode only: the discrete
               left/right flip bars are a paginated affordance with no meaning in
               continuous scroll (and would hijack clicks along the margins). */}
-          {!isScroll && (
-            <PageNav onPrev={onPrev} onNext={onNext} canPrev canNext chromeVisible={chromeVisible} />
-          )}
+          {!isScroll && <PageNav onPrev={onPrev} onNext={onNext} canPrev canNext chromeVisible={chromeVisible} />}
         </div>
 
         <ProgressRail
@@ -984,9 +970,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
                     title="Reader settings"
                     trigger={
                       <ToolbarButton label="Reader settings">
-                        <span className="text-sm font-semibold leading-none tracking-tight">
-                          Aa
-                        </span>
+                        <span className="text-sm font-semibold leading-none tracking-tight">Aa</span>
                       </ToolbarButton>
                     }
                   >
@@ -1014,11 +998,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
                 // per-screen page in scrolled-doc). Hide the jump field and keep
                 // only the reflowable %-of-book chip (still driven by the char-
                 // based locations, so it — and resume — stay accurate).
-                <ProgressIndicator
-                  current={percent ?? 0}
-                  total={100}
-                  variant="percent"
-                />
+                <ProgressIndicator current={percent ?? 0} total={100} variant="percent" />
               ) : (
                 <PageJumpInput
                   current={bookPage}
@@ -1038,7 +1018,20 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
 /** Loading = a page taking shape: faint prose-line bars in the same measure-
  * capped column the text will land in (no spinner, no "Loading…" string). */
 function SkeletonPage() {
-  const widths = ["w-2/5", "w-full", "w-full", "w-11/12", "w-full", "w-4/5", "", "w-full", "w-full", "w-10/12", "w-full", "w-3/5"];
+  const widths = [
+    "w-2/5",
+    "w-full",
+    "w-full",
+    "w-11/12",
+    "w-full",
+    "w-4/5",
+    "",
+    "w-full",
+    "w-full",
+    "w-10/12",
+    "w-full",
+    "w-3/5",
+  ];
   return (
     <div
       role="status"
@@ -1049,10 +1042,7 @@ function SkeletonPage() {
         w === "" ? (
           <div key={i} className="h-3" />
         ) : (
-          <div
-            key={i}
-            className={`h-3.5 rounded-sm bg-reader-fg/10 motion-safe:animate-pulse ${w}`}
-          />
+          <div key={i} className={`h-3.5 rounded-sm bg-reader-fg/10 motion-safe:animate-pulse ${w}`} />
         ),
       )}
     </div>

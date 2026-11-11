@@ -25,9 +25,7 @@ export function resolveSpineHref(book: Book, href: string): string | null {
   }
 
   const items = spine.spineItems ?? [];
-  const match = items.find(
-    (item) => item.href === file || (item.href?.endsWith(`/${file}`) ?? false),
-  );
+  const match = items.find((item) => item.href === file || (item.href?.endsWith(`/${file}`) ?? false));
   if (match?.href) return anchor ? `${match.href}#${anchor}` : match.href;
 
   return null;

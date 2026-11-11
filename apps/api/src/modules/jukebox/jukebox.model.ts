@@ -76,10 +76,7 @@ export async function setQueueSortKey(db: Knex, entryId: number, sortKey: number
 
 /** Newest first. */
 export async function listHistoryRows(db: Knex, guildId: string, limit: number): Promise<HistoryRow[]> {
-  return (await db("jukebox_history")
-    .where("guild_id", guildId)
-    .orderBy("id", "desc")
-    .limit(limit)) as HistoryRow[];
+  return (await db("jukebox_history").where("guild_id", guildId).orderBy("id", "desc").limit(limit)) as HistoryRow[];
 }
 
 /** Record a Track that stopped being current, and keep the newest 100. */
@@ -116,7 +113,6 @@ export async function listCommandRowsAfter(db: Knex, after: number): Promise<Com
  */
 export async function commandSequence(db: Knex): Promise<number> {
   const row = (await db("sqlite_sequence").where("name", "jukebox_commands").first("seq")) as
-    | { seq: number }
-    | undefined;
+    { seq: number } | undefined;
   return row ? Number(row.seq) : 0;
 }

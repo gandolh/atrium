@@ -1,10 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyBaseLogger } from "fastify";
-import {
-  MAX_PROFILES_PER_ACCOUNT,
-  type Preferences,
-  type ProfileColor,
-} from "@ebook-reader/shared";
+import { MAX_PROFILES_PER_ACCOUNT, type Preferences, type ProfileColor } from "@ebook-reader/shared";
 import { projectDirFor } from "../../common/paths.js";
 import { isForeignKeyViolation, isUniqueViolation } from "../../database/errors.js";
 import { setSelectedProfile } from "./profile-selection.model.js";
@@ -44,9 +40,7 @@ export type CreateProfileResult =
   | { ok: false; reason: "LIMIT"; limit: number }
   | { ok: false; reason: "NAME_TAKEN" };
 
-export type UpdateProfileResult =
-  | { ok: true; profile: ProfileRow }
-  | { ok: false; reason: "NAME_TAKEN" };
+export type UpdateProfileResult = { ok: true; profile: ProfileRow } | { ok: false; reason: "NAME_TAKEN" };
 
 export type DeleteProfileResult =
   | { ok: true }
@@ -243,11 +237,7 @@ export async function deleteAccountProfile(
  * because they do not. That is exactly the D35 behaviour, kept in
  * `(subject, sid)`.
  */
-export async function activateProfile(
-  subject: string,
-  sid: string,
-  profile: ProfileRow,
-): Promise<void> {
+export async function activateProfile(subject: string, sid: string, profile: ProfileRow): Promise<void> {
   await setSelectedProfile(subject, sid, profile.id);
 }
 
@@ -265,10 +255,7 @@ export function readPreferences(profile: ProfileRow): Preferences {
  * Spread, not replace, so a key this server has never heard of — written by a
  * newer client on another device — survives the round trip.
  */
-export async function writePreferences(
-  profile: ProfileRow,
-  patch: Preferences,
-): Promise<Preferences> {
+export async function writePreferences(profile: ProfileRow, patch: Preferences): Promise<Preferences> {
   // Merged over the row as it is NOW, inside the model's transaction, not over
   // `profile.preferences`, a snapshot read before this request's awaits: two
   // concurrent PATCHes used to merge over the same snapshot and lose a key

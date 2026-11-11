@@ -62,8 +62,7 @@ function flagsFor(sourceFormat: FileType, targetFormat: FileType): readonly stri
  * Exported so a route or the status button can recognise this specific failure
  * instead of string-matching a sentence that may be reworded.
  */
-export const CALIBRE_MISSING_ERROR =
-  "Calibre (ebook-convert) is not installed on the server.";
+export const CALIBRE_MISSING_ERROR = "Calibre (ebook-convert) is not installed on the server.";
 
 /**
  * A **converted book**'s file: the same `library/<id>.<ext>` layout as an
@@ -506,11 +505,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
     } catch {
       // Exit 0 with nothing on disk: rare, but "success" with no file would
       // otherwise insert a row pointing at a path that isn't there.
-      await fail(
-        source.id,
-        job.targetPath,
-        "Calibre reported success but produced no file.",
-      );
+      await fail(source.id, job.targetPath, "Calibre reported success but produced no file.");
       return;
     }
 
@@ -552,11 +547,7 @@ async function finishJob(targetFormat: FileType, job: ConvertJob): Promise<void>
       // Unknown source (deleted mid-conversion) or the UNIQUE index on
       // `converted_from` (a conversion appeared while this one ran). Either
       // way the output is orphaned and must not be left on disk.
-      await fail(
-        source.id,
-        finalPath,
-        "The conversion finished but couldn't be saved. Try again.",
-      );
+      await fail(source.id, finalPath, "The conversion finished but couldn't be saved. Try again.");
       return;
     }
 
@@ -597,7 +588,7 @@ function failureMessage(stderr: string): string {
   const detail = stderr
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("File \"") && line !== "Traceback (most recent call last):")
+    .filter((line) => line.length > 0 && !line.startsWith('File "') && line !== "Traceback (most recent call last):")
     .pop();
   const base = "Calibre couldn't convert this book.";
   if (!detail) return base;

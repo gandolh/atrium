@@ -38,13 +38,7 @@ export interface KindChoice {
  * as you upload would be its own small confusion, and "Music 0" is honest
  * information about the library.
  */
-export function KindChips({
-  active,
-  choices,
-}: {
-  active?: MediaKind;
-  choices: KindChoice[];
-}) {
+export function KindChips({ active, choices }: { active?: MediaKind; choices: KindChoice[] }) {
   return (
     <nav aria-label="Filter by kind" className="flex flex-wrap items-center gap-2">
       {choices.map((choice) => {

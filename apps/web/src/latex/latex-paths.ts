@@ -19,20 +19,7 @@ import type { LatexFile } from "@ebook-reader/shared";
  * they describe the same set of files; if they ever drift, the worst case here
  * is a file that opens read-only, not a corrupted write.
  */
-const TEXT_EXTENSIONS = new Set([
-  "tex",
-  "bib",
-  "cls",
-  "sty",
-  "bst",
-  "txt",
-  "md",
-  "csv",
-  "json",
-  "log",
-  "yml",
-  "yaml",
-]);
+const TEXT_EXTENSIONS = new Set(["tex", "bib", "cls", "sty", "bst", "txt", "md", "csv", "json", "log", "yml", "yaml"]);
 
 /** Lowercased extension without the dot, or `""` for an extensionless path. */
 export function extensionOf(path: string): string {
@@ -93,9 +80,7 @@ export function buildFileTree(files: LatexFile[]): TreeNode[] {
     let prefix = "";
     for (let i = 0; i < segments.length - 1; i++) {
       prefix = prefix ? `${prefix}/${segments[i]}` : segments[i];
-      let dir = level.find(
-        (n): n is Extract<TreeNode, { kind: "dir" }> => n.kind === "dir" && n.name === segments[i],
-      );
+      let dir = level.find((n): n is Extract<TreeNode, { kind: "dir" }> => n.kind === "dir" && n.name === segments[i]);
       if (!dir) {
         dir = { kind: "dir", name: segments[i], path: prefix, children: [] };
         level.push(dir);

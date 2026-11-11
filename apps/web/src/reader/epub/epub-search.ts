@@ -55,10 +55,7 @@ function buildHrefLabels(toc: NavItem[]): Map<string, string> {
 }
 
 /** Look up a chapter label for a spine href, tolerating path-relative TOCs. */
-function labelForHref(
-  hrefLabels: Map<string, string>,
-  href: string | undefined,
-): string | undefined {
+function labelForHref(hrefLabels: Map<string, string>, href: string | undefined): string | undefined {
   if (!href) return undefined;
   const base = href.split("#")[0];
   return hrefLabels.get(base) ?? hrefLabels.get(base.split("/").pop() ?? "");

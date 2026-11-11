@@ -26,21 +26,10 @@ export function UpdateToast() {
 
   if (!needRefresh) return null;
 
-  return (
-    <UpdatePrompt
-      onReload={() => void updateServiceWorker(true)}
-      onDismiss={() => setNeedRefresh(false)}
-    />
-  );
+  return <UpdatePrompt onReload={() => void updateServiceWorker(true)} onDismiss={() => setNeedRefresh(false)} />;
 }
 
-function UpdatePrompt({
-  onReload,
-  onDismiss,
-}: {
-  onReload: () => void;
-  onDismiss: () => void;
-}) {
+function UpdatePrompt({ onReload, onDismiss }: { onReload: () => void; onDismiss: () => void }) {
   // Entrance: mount hidden + nudged down, then settle. A one-shot effect (this
   // subtree only mounts once `needRefresh` is true) drives the transition;
   // `motion-reduce` collapses it to an instant appearance.
@@ -64,9 +53,7 @@ function UpdatePrompt({
           shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
         }`}
       >
-        <p className="min-w-0 flex-1 font-ui text-sm text-ink">
-          A new version is available.
-        </p>
+        <p className="min-w-0 flex-1 font-ui text-sm text-ink">A new version is available.</p>
         <button
           type="button"
           onClick={onDismiss}

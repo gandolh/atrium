@@ -50,9 +50,7 @@ export function DiagnosticsPanel({ result, loading, onJump }: DiagnosticsPanelPr
   if (!result) {
     return (
       <PanelShell>
-        <p className="font-ui text-xs text-ink-variant">
-          Compile the project to see errors and warnings here.
-        </p>
+        <p className="font-ui text-xs text-ink-variant">Compile the project to see errors and warnings here.</p>
       </PanelShell>
     );
   }
@@ -138,22 +136,14 @@ export function DiagnosticsPanel({ result, loading, onJump }: DiagnosticsPanelPr
 /** One diagnostic. Clicking it jumps the editor straight to `file`/`line` —
  * the shared `Diagnostic` shape and `LatexJumpTarget` agree field-for-field
  * on purpose, so it is handed over unchanged. */
-function DiagnosticRow({
-  diagnostic,
-  onJump,
-}: {
-  diagnostic: Diagnostic;
-  onJump: (target: LatexJumpTarget) => void;
-}) {
+function DiagnosticRow({ diagnostic, onJump }: { diagnostic: Diagnostic; onJump: (target: LatexJumpTarget) => void }) {
   const isError = diagnostic.severity === "error";
   const badge = diagnosticBadge(diagnostic.code);
   return (
     <li>
       <button
         type="button"
-        onClick={() =>
-          onJump({ file: diagnostic.file, line: diagnostic.line, column: diagnostic.column })
-        }
+        onClick={() => onJump({ file: diagnostic.file, line: diagnostic.line, column: diagnostic.column })}
         className={`flex w-full flex-col items-start gap-0.5 rounded-card border-l-2 py-1 pl-2.5 pr-2 text-left transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-accent ${
           isError ? "border-l-danger" : "border-l-line"
         }`}
@@ -169,9 +159,7 @@ function DiagnosticRow({
             </span>
           )}
         </span>
-        <span className={`font-ui text-sm ${isError ? "text-ink" : "text-ink-variant"}`}>
-          {diagnostic.message}
-        </span>
+        <span className={`font-ui text-sm ${isError ? "text-ink" : "text-ink-variant"}`}>{diagnostic.message}</span>
       </button>
     </li>
   );
@@ -208,11 +196,7 @@ function nonErrorSummary(warnings: number, notes: number): string {
 
 /** Shared frame for the panel's loading / empty states. */
 function PanelShell({ children }: { children: ReactNode }) {
-  return (
-    <div className="shrink-0 border-t border-line-soft/60 bg-paper-low px-page py-3">
-      {children}
-    </div>
-  );
+  return <div className="shrink-0 border-t border-line-soft/60 bg-paper-low px-page py-3">{children}</div>;
 }
 
 /** A small rotating chevron for the two disclosures above. Reduced motion

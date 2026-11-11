@@ -209,10 +209,7 @@ export function logMigratedAccounts(
       ? "sign in with Ward, then set a password in Settings"
       : "Sign in with Ward is off, so it has no way in: set the WARD_OIDC_* variables and sign in " +
         `with Ward, or give it a password with seed:user --set-password and SEED_USERNAME=${username}`;
-    log.warn(
-      { subject, username },
-      `Ward subject ${subject} is now ${username} with no password: ${howIn}`,
-    );
+    log.warn({ subject, username }, `Ward subject ${subject} is now ${username} with no password: ${howIn}`);
   }
 }
 

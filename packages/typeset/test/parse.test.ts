@@ -75,11 +75,9 @@ test("\\newcommand carries its name, arg count and body as arguments", () => {
   assert.equal(bracketArgs[0]!.content.length, 1);
   assert.equal((bracketArgs[0]!.content[0] as { value: string }).value, "1");
   const nameArg = braceArgs.find((a) => a.content[0]?.type === "command");
-  assert.ok(nameArg, "the {\\x} slot maps its content as a CommandNode named \"x\"");
+  assert.ok(nameArg, 'the {\\x} slot maps its content as a CommandNode named "x"');
   assert.equal((nameArg!.content[0] as CommandNode).name, "x");
-  const bodyArg = braceArgs.find(
-    (a) => a.content.some((n) => n.type === "text" && n.value === "val"),
-  );
+  const bodyArg = braceArgs.find((a) => a.content.some((n) => n.type === "text" && n.value === "val"));
   assert.ok(bodyArg, "the {val: #1} slot is present with its literal text");
 });
 

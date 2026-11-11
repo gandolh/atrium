@@ -72,7 +72,11 @@ function decode(bytes: Uint8Array, name = "fig.png"): Decoded {
 /** The one decoded image a test expects, with its diagnostics asserted empty. */
 function decodeOk(name: string): DecodedImage {
   const { decoded, diagnostics } = decode(image(name), name);
-  assert.deepEqual(diagnostics.map((d) => d.message), [], `${name} produced diagnostics`);
+  assert.deepEqual(
+    diagnostics.map((d) => d.message),
+    [],
+    `${name} produced diagnostics`,
+  );
   assert.ok(decoded !== null, `${name} did not decode`);
   return decoded;
 }
@@ -626,19 +630,22 @@ test("an \\includegraphics is placed on the page at the size its keys ask for", 
   // Inside the text body, and on the first page.
   assert.ok(placed.x >= design.marginLeft - 0.01);
   assert.ok(placed.y >= design.marginTop - 0.01);
-  assert.equal(result.diagnostics.some((d) => d.code === "internal"), false);
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "internal"),
+    false,
+  );
 });
 
 test("every supported format reaches the page", () => {
   const body = IMAGE_FILES.map((name) => `\\includegraphics[width=1in]{${name}}\n`).join("");
   const result = compileBody(body);
   const images = placedImages(result.pages);
-  assert.deepEqual(
-    images.map((i) => i.path).sort(),
-    [...IMAGE_FILES].sort(),
-  );
+  assert.deepEqual(images.map((i) => i.path).sort(), [...IMAGE_FILES].sort());
   for (const placed of images) assert.equal(placed.width, 72);
-  assert.equal(result.diagnostics.some((d) => d.code === "internal"), false);
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "internal"),
+    false,
+  );
 });
 
 test("a missing image reports missing-file and the rest of the document still sets", () => {
@@ -665,7 +672,10 @@ test("a corrupt image inside a real document is a diagnostic, never a crash", ()
   const hit = result.diagnostics.find((d) => d.code === "syntax" && /broken\.png/.test(d.message));
   assert.ok(hit !== undefined, JSON.stringify(result.diagnostics));
   assert.equal(hit.construct, "\\includegraphics");
-  assert.equal(result.diagnostics.some((d) => d.code === "internal"), false);
+  assert.equal(
+    result.diagnostics.some((d) => d.code === "internal"),
+    false,
+  );
 });
 
 test("an image wider than the measure is an overfull box, which is the existing report", () => {
@@ -696,9 +706,7 @@ test("each image becomes one XObject, painted by scaling the unit square", () =>
 });
 
 test("the same file placed twice is one XObject and two Do operators", () => {
-  const result = compileBody(
-    "\\includegraphics[width=1in]{rgb8.png}\n\\includegraphics[width=2in]{rgb8.png}",
-  );
+  const result = compileBody("\\includegraphics[width=1in]{rgb8.png}\n\\includegraphics[width=2in]{rgb8.png}");
   assert.equal(placedImages(result.pages).length, 2);
   const text = asText(pdfFor(result, false));
   assert.equal((text.match(/\/Im0 Do/g) ?? []).length, 2);

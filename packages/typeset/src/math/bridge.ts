@@ -244,7 +244,11 @@ export async function createMathRenderer(): Promise<MathRenderer> {
         return {
           run: null,
           diagnostics: [
-            error("internal", at, `MathJax's container held ${children.length} children where exactly one <svg> was expected`),
+            error(
+              "internal",
+              at,
+              `MathJax's container held ${children.length} children where exactly one <svg> was expected`,
+            ),
           ],
         };
       }

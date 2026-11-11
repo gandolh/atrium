@@ -292,11 +292,7 @@ function openDb(): Promise<IDBDatabase> {
         // cursor is iterating. The old store is left behind on purpose (see
         // LEGACY_PROGRESS_STORE) — if this upgrade were to fail mid-way the
         // transaction aborts and the ORIGINAL rows are still there, untouched.
-        if (
-          event.oldVersion >= 1 &&
-          upgradeTx &&
-          db.objectStoreNames.contains(LEGACY_PROGRESS_STORE)
-        ) {
+        if (event.oldVersion >= 1 && upgradeTx && db.objectStoreNames.contains(LEGACY_PROGRESS_STORE)) {
           const legacy = upgradeTx.objectStore(LEGACY_PROGRESS_STORE);
           const cursorReq = legacy.openCursor();
           cursorReq.onsuccess = () => {
@@ -347,11 +343,7 @@ function openDb(): Promise<IDBDatabase> {
       // Idempotent by construction: a row that already has `progress` and no
       // `fraction` is left exactly as it is, so re-entering this step (or
       // meeting a row written by a v5 build) is a no-op rather than a rewrite.
-      if (
-        event.oldVersion >= 4 &&
-        upgradeTx &&
-        db.objectStoreNames.contains(PROFILE_PROGRESS_STORE)
-      ) {
+      if (event.oldVersion >= 4 && upgradeTx && db.objectStoreNames.contains(PROFILE_PROGRESS_STORE)) {
         const progressStore = upgradeTx.objectStore(PROFILE_PROGRESS_STORE);
         const cursorReq = progressStore.openCursor();
         cursorReq.onsuccess = () => {
@@ -575,9 +567,7 @@ export async function listOfflineBooks(profileId: string | null): Promise<Offlin
     // there beats a per-book lookup.
     return await tx([BOOKS_STORE, PROFILE_PROGRESS_STORE], "readonly", async (getStore) => {
       const all = (await reqDone(getStore(BOOKS_STORE).getAll())) as StoredBookMeta[];
-      const rows = (await reqDone(
-        getStore(PROFILE_PROGRESS_STORE).getAll(),
-      )) as StoredProgress[];
+      const rows = (await reqDone(getStore(PROFILE_PROGRESS_STORE).getAll())) as StoredProgress[];
       const byKey = new Map(rows.map((r) => [r.key, r]));
       return all
         .slice()
@@ -625,10 +615,7 @@ export async function listOfflineBooks(profileId: string | null): Promise<Offlin
  * Operates over BOOKS_STORE (metadata only, since v2) with a cursor, so the
  * blobs are never read or rewritten.
  */
-export async function refreshOfflineSnapshots(
-  books: LibraryBook[],
-  profileId: string | null,
-): Promise<void> {
+export async function refreshOfflineSnapshots(books: LibraryBook[], profileId: string | null): Promise<void> {
   if (!isOfflineSupported() || books.length === 0) return;
   const byId = new Map(books.map((b) => [b.id, b]));
   /** Ids that are downloaded AND present in the fetched list — the seed set. */
@@ -683,11 +670,7 @@ export async function refreshOfflineSnapshots(
         // hold no row — don't create an empty one.
         if (!existing && locator === null && fresh.progress <= 0) continue;
         // Already identical — skip the write so a steady state does no I/O.
-        if (
-          existing &&
-          existing.locator === locator &&
-          Math.abs(existing.progress - fresh.progress) < 1e-4
-        ) {
+        if (existing && existing.locator === locator && Math.abs(existing.progress - fresh.progress) < 1e-4) {
           continue;
         }
         await reqDone(
@@ -733,9 +716,7 @@ export async function getLocalProgress(
   try {
     return await tx(PROFILE_PROGRESS_STORE, "readonly", async (getStore) => {
       const store = getStore(PROFILE_PROGRESS_STORE);
-      let record = (await reqDone(store.get(progressKey(id, profileId)))) as
-        | StoredProgress
-        | undefined;
+      let record = (await reqDone(store.get(progressKey(id, profileId)))) as StoredProgress | undefined;
       if (!record && profileId) {
         record = (await reqDone(store.get(progressKey(id, null)))) as StoredProgress | undefined;
       }
@@ -802,11 +783,7 @@ export async function putLocalProgress(id: string, record: LocalProgress): Promi
  * spam). `profileId` is the profile the record was WRITTEN by (for a flushed
  * record, `LocalProgress.profileId`, not whoever is active now).
  */
-export async function markLocalProgressSynced(
-  id: string,
-  profileId: string | null,
-  updatedAt: number,
-): Promise<void> {
+export async function markLocalProgressSynced(id: string, profileId: string | null, updatedAt: number): Promise<void> {
   if (!isOfflineSupported()) return;
   try {
     await tx(PROFILE_PROGRESS_STORE, "readwrite", async (getStore) => {

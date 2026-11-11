@@ -35,9 +35,7 @@ export function usePdfOutline(doc: PDFDocumentProxy | null): TocEntry[] {
       // Resolve a node's `dest` (named string OR explicit array) to a 1-based
       // page number; `null` if it can't be resolved (we still list it, just
       // non-navigable).
-      const resolvePage = async (
-        dest: string | unknown[] | null,
-      ): Promise<number | null> => {
+      const resolvePage = async (dest: string | unknown[] | null): Promise<number | null> => {
         try {
           const explicit = typeof dest === "string" ? await doc.getDestination(dest) : dest;
           if (!Array.isArray(explicit) || explicit.length === 0) return null;

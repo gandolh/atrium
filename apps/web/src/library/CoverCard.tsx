@@ -248,7 +248,9 @@ export function CoverCard({
                     }}
                     title={lookupDisabled ? "Looking up requires a connection" : undefined}
                     className={`block w-full cursor-default px-3 py-2 text-left text-sm outline-none ${
-                      lookupDisabled ? "cursor-not-allowed text-ink-variant/60" : "text-ink data-[highlighted]:bg-paper-low"
+                      lookupDisabled
+                        ? "cursor-not-allowed text-ink-variant/60"
+                        : "text-ink data-[highlighted]:bg-paper-low"
                     }`}
                   >
                     {lookupDisabled ? "Look up (requires connection)" : "Look up…"}

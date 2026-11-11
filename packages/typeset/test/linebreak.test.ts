@@ -98,11 +98,7 @@ test("the same input gives byte-identical output, run after run", () => {
 
 test("the lines reassemble the paragraph, losing only the discarded spaces", () => {
   const result = breakParagraph(textToHList(GRIMM, style, { shaper }), 200, { shaper });
-  const set = result.lines
-    .map(lineText)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  const set = result.lines.map(lineText).join(" ").replace(/\s+/g, " ").trim();
   assert.equal(set, GRIMM);
 });
 
@@ -320,7 +316,8 @@ test("hfuzz keeps a hair's overflow quiet", () => {
 });
 
 test("emergency stretch trades overfull boxes for underfull ones", () => {
-  const text = "The typographical extravagance of independent hyphenation demonstrates unquestionably remarkable behaviour.";
+  const text =
+    "The typographical extravagance of independent hyphenation demonstrates unquestionably remarkable behaviour.";
   const tight = breakParagraph(textToHList(text, style, { shaper }), 100, { shaper });
   assert.equal(tight.pass, 2);
   assert.ok(tight.diagnostics.some((d) => d.code === "overfull-box"));
@@ -350,7 +347,10 @@ test("a fil rightskip is what ragged right is, and it leaves the spaces alone", 
       assert.equal(node.natural, spacing);
     }
   }
-  assert.ok(result.breaks.every((b) => b.badness === 0), "every ragged line is badness 0 by construction");
+  assert.ok(
+    result.breaks.every((b) => b.badness === 0),
+    "every ragged line is badness 0 by construction",
+  );
 });
 
 test("leftskip and rightskip are counted while breaking, not only when packing", () => {

@@ -114,11 +114,7 @@ export async function fetchLatexFileText(projectId: string, path: string): Promi
  * body, the server's copy becomes exactly what was sent, and there is no merge
  * or conflict path to reason about.
  */
-export async function writeLatexFile(
-  projectId: string,
-  path: string,
-  content: string,
-): Promise<LatexFile> {
+export async function writeLatexFile(projectId: string, path: string, content: string): Promise<LatexFile> {
   const res = await apiFetch(`/latex/${projectId}/files/${encodeProjectPath(path)}`, {
     method: "PUT",
     headers: { "Content-Type": "text/plain; charset=utf-8" },
@@ -138,11 +134,7 @@ export async function deleteLatexFile(projectId: string, path: string): Promise<
  * does not have to repoint it (but should refetch the project to see the new
  * value).
  */
-export async function renameLatexFile(
-  projectId: string,
-  from: string,
-  to: string,
-): Promise<LatexFile> {
+export async function renameLatexFile(projectId: string, from: string, to: string): Promise<LatexFile> {
   const res = await apiFetch(`/latex/${projectId}/rename`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -197,10 +189,7 @@ export async function cancelLatexProject(projectId: string): Promise<{ cancelled
  * state instead of an error banner.
  */
 function isNotCompiled(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    (error.body as { error?: string } | undefined)?.error === "NOT_COMPILED"
-  );
+  return error instanceof ApiError && (error.body as { error?: string } | undefined)?.error === "NOT_COMPILED";
 }
 
 /** `GET /latex/:id/log` — the last compile's result, or `null` if the project

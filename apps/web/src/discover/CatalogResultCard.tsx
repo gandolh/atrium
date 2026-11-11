@@ -19,13 +19,7 @@ import { useImportBook } from "./use-catalog";
  * state never leaks between cards — importing one book doesn't disturb the
  * "Add to library" affordance on any other.
  */
-export function CatalogResultCard({
-  book,
-  inLibrary,
-}: {
-  book: CatalogBook;
-  inLibrary: boolean;
-}) {
+export function CatalogResultCard({ book, inLibrary }: { book: CatalogBook; inLibrary: boolean }) {
   const importMutation = useImportBook();
   const author = book.authors[0] ?? "Unknown author";
   const [coverLoaded, setCoverLoaded] = useState(false);
@@ -56,10 +50,7 @@ export function CatalogResultCard({
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <p
-          title={book.title}
-          className="line-clamp-2 font-display text-base leading-snug font-semibold text-ink"
-        >
+        <p title={book.title} className="line-clamp-2 font-display text-base leading-snug font-semibold text-ink">
           {book.title}
         </p>
         <p title={author} className="truncate text-sm text-ink-variant">

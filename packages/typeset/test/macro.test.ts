@@ -152,8 +152,7 @@ test("a macro used inside a group or environment expands there too", () => {
 });
 
 test("recursion that terminates is fine — depth is not the limit, steps are", () => {
-  const source =
-    "\\newcommand{\\a}[1]{[#1]}\\newcommand{\\b}[1]{\\a{\\a{#1}}}\\newcommand{\\c}[1]{\\b{\\b{#1}}}\\c{q}";
+  const source = "\\newcommand{\\a}[1]{[#1]}\\newcommand{\\b}[1]{\\a{\\a{#1}}}\\newcommand{\\c}[1]{\\b{\\b{#1}}}\\c{q}";
   const { text } = expand(source);
   assert.equal(text, "[[[[q]]]]");
 });

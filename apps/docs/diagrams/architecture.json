@@ -3,42 +3,25 @@
   "diagram_type": "architecture",
   "meta": {
     "title": "Atrium — workspaces, storage, and the Ward boundary",
-    "viewBox": [
-      1060,
-      780
-    ],
+    "viewBox": [1060, 780],
     "quality_profile": "showcase",
     "views": [
       {
         "id": "request",
         "label": "A request",
-        "focus": [
-          "browser",
-          "caddy",
-          "web",
-          "api",
-          "db"
-        ],
+        "focus": ["browser", "caddy", "web", "api", "db"],
         "note": "The web app talks to the API cross-origin; the guard runs before any route."
       },
       {
         "id": "identity",
         "label": "Where identity comes from",
-        "focus": [
-          "ward",
-          "api",
-          "db"
-        ],
+        "focus": ["ward", "api", "db"],
         "note": "Atrium holds no accounts. A profile row carries an opaque subject and nothing else."
       },
       {
         "id": "authoring",
         "label": "Authoring",
-        "focus": [
-          "api",
-          "typeset",
-          "files"
-        ],
+        "focus": ["api", "typeset", "files"],
         "note": "The LaTeX engine performs no I/O — it is handed source and returns a document."
       }
     ]
@@ -49,28 +32,16 @@
       "type": "external",
       "label": "Browser",
       "sublabel": "installable PWA",
-      "pos": [
-        30,
-        370
-      ],
-      "size": [
-        130,
-        60
-      ]
+      "pos": [30, 370],
+      "size": [130, 60]
     },
     {
       "id": "caddy",
       "type": "cloud",
       "label": "Caddy",
       "sublabel": "gandolh.ro :443",
-      "pos": [
-        220,
-        370
-      ],
-      "size": [
-        140,
-        60
-      ]
+      "pos": [220, 370],
+      "size": [140, 60]
     },
     {
       "id": "web",
@@ -78,14 +49,8 @@
       "label": "apps/web",
       "sublabel": "React + Vite",
       "tag": "Reading Room",
-      "pos": [
-        460,
-        160
-      ],
-      "size": [
-        170,
-        60
-      ]
+      "pos": [460, 160],
+      "size": [170, 60]
     },
     {
       "id": "api",
@@ -93,14 +58,8 @@
       "label": "apps/api",
       "sublabel": "Fastify + Knex",
       "tag": "guard runs app-wide",
-      "pos": [
-        460,
-        370
-      ],
-      "size": [
-        170,
-        60
-      ]
+      "pos": [460, 370],
+      "size": [170, 60]
     },
     {
       "id": "ward",
@@ -108,81 +67,44 @@
       "label": "Ward",
       "sublabel": "identity, grants",
       "tag": "no accounts here",
-      "pos": [
-        440,
-        600
-      ],
-      "size": [
-        170,
-        60
-      ]
+      "pos": [440, 600],
+      "size": [170, 60]
     },
     {
       "id": "typeset",
       "type": "backend",
       "label": "packages/typeset",
       "sublabel": "LaTeX engine, worker thread",
-      "pos": [
-        800,
-        160
-      ],
-      "size": [
-        190,
-        60
-      ]
+      "pos": [800, 160],
+      "size": [190, 60]
     },
     {
       "id": "db",
       "type": "database",
       "label": "SQLite",
       "sublabel": "metadata, via Knex",
-      "pos": [
-        800,
-        370
-      ],
-      "size": [
-        170,
-        60
-      ]
+      "pos": [800, 370],
+      "size": [170, 60]
     },
     {
       "id": "files",
       "type": "database",
       "label": "Files on disk",
       "sublabel": "uploads, covers, output",
-      "pos": [
-        800,
-        600
-      ],
-      "size": [
-        170,
-        60
-      ]
+      "pos": [800, 600],
+      "size": [170, 60]
     }
   ],
   "boundaries": [
     {
       "kind": "region",
       "label": "One origin — sub-paths, no subdomains",
-      "wraps": [
-        "caddy",
-        "web",
-        "api",
-        "ward",
-        "typeset",
-        "db",
-        "files"
-      ]
+      "wraps": ["caddy", "web", "api", "ward", "typeset", "db", "files"]
     },
     {
       "kind": "security-group",
       "label": "atrium's own state",
-      "wraps": [
-        "api",
-        "db",
-        "files",
-        "typeset"
-      ]
+      "wraps": ["api", "db", "files", "typeset"]
     }
   ],
   "connections": [
@@ -215,10 +137,7 @@
       "label": "cross-origin, CORS enumerated",
       "fromSide": "bottom",
       "toSide": "top",
-      "labelAt": [
-        538,
-        234
-      ]
+      "labelAt": [538, 234]
     },
     {
       "id": "api-ward",
@@ -228,10 +147,7 @@
       "variant": "security",
       "fromSide": "bottom",
       "toSide": "top",
-      "labelAt": [
-        538,
-        470
-      ]
+      "labelAt": [538, 470]
     },
     {
       "id": "api-db",

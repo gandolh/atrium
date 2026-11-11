@@ -1,13 +1,4 @@
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import type { LatexFile } from "@ebook-reader/shared";
 
@@ -39,13 +30,7 @@ import {
   useUpdateLatexProject,
   useWriteLatexFile,
 } from "./use-latex";
-import {
-  clearStash,
-  readStash,
-  writeStash,
-  type StashOwner,
-  type StashedSource,
-} from "../lib/unsaved-stash";
+import { clearStash, readStash, writeStash, type StashOwner, type StashedSource } from "../lib/unsaved-stash";
 
 /**
  * The LaTeX editor at `/latex?project=<id>`.
@@ -79,9 +64,7 @@ import {
  * changes").
  */
 
-const SourceEditor = lazy(() =>
-  import("./SourceEditor").then((m) => ({ default: m.SourceEditor })),
-);
+const SourceEditor = lazy(() => import("./SourceEditor").then((m) => ({ default: m.SourceEditor })));
 
 /**
  * The autosave debounce, in milliseconds. **Matched to `notes/NoteEditor.tsx`,
@@ -215,9 +198,7 @@ export function LatexEditor({ id }: { id: string }) {
     checkedRef.current = checked;
     const stashed = readStash(owner, draftPath);
     if (stashed && stashed.text === text.data) clearStash(owner, draftPath);
-    setRecovered(
-      stashed && stashed.text !== text.data ? { path: draftPath, ...stashed } : null,
-    );
+    setRecovered(stashed && stashed.text !== text.data ? { path: draftPath, ...stashed } : null);
   }, [owner, draftPath, openPath, text.data]);
 
   // Copy every unsaved buffer to the device, except a file whose earlier copy
@@ -415,11 +396,8 @@ export function LatexEditor({ id }: { id: string }) {
   const entrypoint = project.data?.entrypoint ?? "main.tex";
   const pickDefault = useCallback(
     (candidates: readonly LatexFile[]): string | null =>
-      (
-        candidates.find((f) => f.path === entrypoint) ??
-        candidates.find((f) => isTextPath(f.path)) ??
-        candidates[0]
-      )?.path ?? null,
+      (candidates.find((f) => f.path === entrypoint) ?? candidates.find((f) => isTextPath(f.path)) ?? candidates[0])
+        ?.path ?? null,
     [entrypoint],
   );
   const listRef = useRef(fileList);
@@ -533,9 +511,7 @@ export function LatexEditor({ id }: { id: string }) {
             // still-invalidating cache and cheerfully re-open the file we just
             // deleted — which is exactly what it did before this line existed.
             setOpenPath((prev) =>
-              prev === path
-                ? pickRef.current((listRef.current ?? []).filter((f) => f.path !== path))
-                : prev,
+              prev === path ? pickRef.current((listRef.current ?? []).filter((f) => f.path !== path)) : prev,
             );
           },
         });
@@ -544,10 +520,7 @@ export function LatexEditor({ id }: { id: string }) {
     [deleteFile],
   );
 
-  const onSetEntrypoint = useCallback(
-    (path: string) => updateProject.mutate({ entrypoint: path }),
-    [updateProject],
-  );
+  const onSetEntrypoint = useCallback((path: string) => updateProject.mutate({ entrypoint: path }), [updateProject]);
 
   // The most recent failed action, whichever it was. One banner, real messages
   // (the routes answer with prose for every case reachable from here).
@@ -575,10 +548,7 @@ export function LatexEditor({ id }: { id: string }) {
     cancelCompile.reset();
   }, [write, renameFile, deleteFile, updateProject, compile, cancelCompile]);
 
-  const openFileRow = useMemo(
-    () => fileList?.find((f) => f.path === openPath) ?? null,
-    [fileList, openPath],
-  );
+  const openFileRow = useMemo(() => fileList?.find((f) => f.path === openPath) ?? null, [fileList, openPath]);
 
   /**
    * Whether `CompileButton` shows "Cancel" instead of "Compile" — **server
@@ -614,9 +584,7 @@ export function LatexEditor({ id }: { id: string }) {
     return (
       <Shell>
         <h1 className="font-display text-2xl font-semibold text-ink">Project not found</h1>
-        <p className="max-w-md text-ink-variant">
-          It may have been deleted, or it belongs to another profile.
-        </p>
+        <p className="max-w-md text-ink-variant">It may have been deleted, or it belongs to another profile.</p>
         <Link
           to="/latex"
           className="w-fit rounded-card border border-line-soft px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
@@ -645,12 +613,7 @@ export function LatexEditor({ id }: { id: string }) {
             placeholder="Untitled project"
             className="min-w-0 flex-1 rounded-card bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
           />
-          <SaveState
-            open={draft !== null}
-            dirty={dirty}
-            saving={write.isPending}
-            failed={write.isError}
-          />
+          <SaveState open={draft !== null} dirty={dirty} saving={write.isPending} failed={write.isError} />
 
           <CompileButton
             pending={compiling}
@@ -811,16 +774,14 @@ function SourcePane({
   if (!editable) {
     return (
       <PaneNotice title={basename(docKey)}>
-        {formatBytes(sizeBytes)} · figures and other binaries live in the project but are not
-        edited here. Rename or delete it from the tree, or reference it from your source.
+        {formatBytes(sizeBytes)} · figures and other binaries live in the project but are not edited here. Rename or
+        delete it from the tree, or reference it from your source.
       </PaneNotice>
     );
   }
   if (error) {
     return (
-      <PaneNotice title="Couldn't open that file">
-        {latexErrorMessage(error, "The file could not be read.")}
-      </PaneNotice>
+      <PaneNotice title="Couldn't open that file">{latexErrorMessage(error, "The file could not be read.")}</PaneNotice>
     );
   }
   if (loading || !draft || draft.path !== docKey) {
@@ -888,30 +849,12 @@ function SaveState({
   failed: boolean;
 }) {
   if (!open) return null;
-  const label = failed
-    ? "Not saved"
-    : saving
-      ? "Saving…"
-      : dirty
-        ? "Unsaved changes"
-        : "Saved";
-  return (
-    <span className={`shrink-0 font-ui text-xs ${failed ? "text-danger" : "text-ink-variant"}`}>
-      {label}
-    </span>
-  );
+  const label = failed ? "Not saved" : saving ? "Saving…" : dirty ? "Unsaved changes" : "Saved";
+  return <span className={`shrink-0 font-ui text-xs ${failed ? "text-danger" : "text-ink-variant"}`}>{label}</span>;
 }
 
 /** A phone pane tab. Active state is an accent underline — accent means state. */
-function PaneTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: string;
-}) {
+function PaneTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
   return (
     <button
       type="button"

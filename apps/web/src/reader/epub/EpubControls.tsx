@@ -28,11 +28,7 @@ export function EpubNavControls({
   return (
     <>
       {hasToc && (
-        <ToolbarButton
-          label={tocActive ? "Hide contents" : "Show contents"}
-          onClick={onOpenToc}
-          active={tocActive}
-        >
+        <ToolbarButton label={tocActive ? "Hide contents" : "Show contents"} onClick={onOpenToc} active={tocActive}>
           <TocIcon />
         </ToolbarButton>
       )}
@@ -67,8 +63,7 @@ const stroke = {
   strokeLinejoin: "round" as const,
 };
 
-const TocIcon = () =>
-  icon(<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...stroke} />);
+const TocIcon = () => icon(<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" {...stroke} />);
 const SearchIcon = () =>
   icon(
     <>

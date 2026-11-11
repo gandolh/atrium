@@ -153,9 +153,7 @@ export function Discover() {
           className="flex flex-1 items-end gap-3 sm:max-w-md"
         >
           <label className="flex flex-1 flex-col gap-1.5">
-            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">
-              Search
-            </span>
+            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">Search</span>
             <input
               type="search"
               value={searchInput}
@@ -178,10 +176,7 @@ export function Discover() {
             label="Topic"
             value={topic}
             onChange={setTopic}
-            options={[
-              { value: "", label: "All topics" },
-              ...CATALOG_TOPICS.map((t) => ({ value: t, label: t })),
-            ]}
+            options={[{ value: "", label: "All topics" }, ...CATALOG_TOPICS.map((t) => ({ value: t, label: t }))]}
           />
           <QuietSelect
             stacked
@@ -259,11 +254,7 @@ function CatalogResults({
         }`}
       >
         {data.results.map((book) => (
-          <CatalogResultCard
-            key={`${book.id}-${page}`}
-            book={book}
-            inLibrary={inLibraryIds.has(String(book.id))}
-          />
+          <CatalogResultCard key={`${book.id}-${page}`} book={book} inLibrary={inLibraryIds.has(String(book.id))} />
         ))}
       </div>
 

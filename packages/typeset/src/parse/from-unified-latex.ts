@@ -76,7 +76,6 @@ function environmentName(raw: string | { content: string }): string {
   return "[unknown-environment-name]";
 }
 
-
 /**
  * TeX's tokenizer, not any macro's own semantics, decides whether a space
  * survives after `\name`: a *control word* (`\` followed by one or more

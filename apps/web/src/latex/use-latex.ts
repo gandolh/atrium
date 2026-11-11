@@ -31,8 +31,7 @@ import {
  * this is the second line of defence for a cache that survives anyway.
  */
 const latexProjectsKey = (profileId: string | null) => ["latex-projects", profileId] as const;
-const latexProjectKey = (profileId: string | null, id: string | undefined) =>
-  ["latex-project", profileId, id] as const;
+const latexProjectKey = (profileId: string | null, id: string | undefined) => ["latex-project", profileId, id] as const;
 
 export function useLatexProjects() {
   const profileId = useActiveProfileId();
@@ -125,11 +124,8 @@ export function useDeleteLatexProject() {
  */
 const latexFilesKey = (profileId: string | null, projectId: string | undefined) =>
   ["latex-files", profileId, projectId] as const;
-const latexFileKey = (
-  profileId: string | null,
-  projectId: string | undefined,
-  path: string | null,
-) => ["latex-file", profileId, projectId, path] as const;
+const latexFileKey = (profileId: string | null, projectId: string | undefined, path: string | null) =>
+  ["latex-file", profileId, projectId, path] as const;
 
 /** The project's file tree. */
 export function useLatexFiles(projectId: string | undefined) {
@@ -174,8 +170,7 @@ export function useWriteLatexFile(projectId: string) {
   const qc = useQueryClient();
   const profileId = useActiveProfileId();
   return useMutation({
-    mutationFn: ({ path, content }: { path: string; content: string }) =>
-      writeLatexFile(projectId, path, content),
+    mutationFn: ({ path, content }: { path: string; content: string }) => writeLatexFile(projectId, path, content),
     onSuccess: (file, { path, content }) => {
       // **A successful write must make the cached text agree with what was
       // written.** Without this the file-text cache kept the PRE-EDIT bytes
@@ -223,8 +218,7 @@ export function useRenameLatexFile(projectId: string) {
   const qc = useQueryClient();
   const profileId = useActiveProfileId();
   return useMutation({
-    mutationFn: ({ from, to }: { from: string; to: string }) =>
-      renameLatexFile(projectId, from, to),
+    mutationFn: ({ from, to }: { from: string; to: string }) => renameLatexFile(projectId, from, to),
     onSuccess: (file, { from }) => {
       // Carry the already-loaded text across to the new key rather than
       // re-fetching bytes a rename did not change. Read before the remove.

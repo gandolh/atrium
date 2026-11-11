@@ -12,13 +12,7 @@ import {
   type LibrarySort,
 } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../common/config.js";
-import {
-  coverOwnerId,
-  coverPathFor,
-  filePathFor,
-  versionPdfPathFor,
-  versionZipPathFor,
-} from "../../common/paths.js";
+import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor, versionZipPathFor } from "../../common/paths.js";
 import { deleteTrack } from "../jukebox/jukebox.service.js";
 import { listDocumentVersions } from "../latex/latex.model.js";
 import { getProfileProgress, listProfileProgress } from "../profiles/profiles.model.js";
@@ -46,13 +40,9 @@ import type { BookRow, NewBookRow } from "./library.types.js";
  * what happens to bytes and rows.
  */
 
-export type UploadResult =
-  | { ok: true; book: LibraryBook }
-  | { ok: false; reason: "TOO_LARGE" };
+export type UploadResult = { ok: true; book: LibraryBook } | { ok: false; reason: "TOO_LARGE" };
 
-export type SetCoverResult =
-  | { ok: true }
-  | { ok: false; reason: "NOT_AN_IMAGE" };
+export type SetCoverResult = { ok: true } | { ok: false; reason: "NOT_AN_IMAGE" };
 
 // --- Upload ------------------------------------------------------------------
 
@@ -169,27 +159,20 @@ export async function uploadBook(
  * decides which position the card shows. Costs nothing: both rows are already
  * in the map.
  */
-export async function listLibraryForProfile(
-  profileId: string,
-  sort: LibrarySort,
-): Promise<LibraryBook[]> {
+export async function listLibraryForProfile(profileId: string, sort: LibrarySort): Promise<LibraryBook[]> {
   const [rows, progress] = await Promise.all([listBooks(sort), listProfileProgress(profileId)]);
   const progressByBook = new Map(progress.map((p) => [p.book_id, p]));
 
   return rows.map((row) => {
     const own = progressByBook.get(row.id);
     const twin = row.converted_to ? progressByBook.get(row.converted_to) : undefined;
-    const newer =
-      twin && (!own || (twin.updated_at ?? "") > (own.updated_at ?? "")) ? twin : own;
+    const newer = twin && (!own || (twin.updated_at ?? "") > (own.updated_at ?? "")) ? twin : own;
     return toLibraryBook(row, newer ?? { progress: 0, locator: null });
   });
 }
 
 /** One book as this profile sees it, or undefined. */
-export async function getBookForProfile(
-  profileId: string,
-  id: string,
-): Promise<LibraryBook | undefined> {
+export async function getBookForProfile(profileId: string, id: string): Promise<LibraryBook | undefined> {
   const row = await getBook(id);
   if (!row) return undefined;
   const progress = await getProfileProgress(profileId, id);
@@ -305,9 +288,7 @@ export async function requestConvert(row: BookRow, force: boolean) {
   return startConvert(row);
 }
 
-export type CancelConvertResult =
-  | { ok: true; what: "cancelled" | "deleted" }
-  | { ok: false; reason: "NOTHING_TO_DO" };
+export type CancelConvertResult = { ok: true; what: "cancelled" | "deleted" } | { ok: false; reason: "NOTHING_TO_DO" };
 
 /**
  * Cancel a running conversion, or delete a finished one. `id` is always the
@@ -345,10 +326,7 @@ export async function cancelOrDeleteConversion(id: string): Promise<CancelConver
  * that can drift: every rule below was learned the hard way, and a second copy
  * would relearn them.
  */
-export async function deleteBookWithArtifacts(
-  row: BookRow,
-  log: FastifyBaseLogger,
-): Promise<void> {
+export async function deleteBookWithArtifacts(row: BookRow, log: FastifyBaseLogger): Promise<void> {
   const id = row.id;
 
   // The LaTeX editor / D39: `document_versions.book_id` is ON DELETE CASCADE, so the
@@ -422,9 +400,6 @@ export async function deleteBookWithArtifacts(
     await rm(versionZipPathFor(version.id), { force: true });
   }
   if (versions.length > 0) {
-    log.info(
-      { bookId: id, versions: versions.length },
-      "deleted a published document and its versions",
-    );
+    log.info({ bookId: id, versions: versions.length }, "deleted a published document and its versions");
   }
 }

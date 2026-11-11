@@ -1,9 +1,5 @@
 import type { Knex } from "knex";
-import {
-  UsernameTakenError,
-  createWardIdentities,
-  type Accounts,
-} from "../../vendor/ward/ward-auth.js";
+import { UsernameTakenError, createWardIdentities, type Accounts } from "../../vendor/ward/ward-auth.js";
 import { knex } from "./knex.js";
 
 /**

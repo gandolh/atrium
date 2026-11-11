@@ -42,8 +42,8 @@ export function ManageProfiles() {
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-3xl font-semibold text-ink">Profiles</h1>
           <p className="font-ui text-sm text-ink-variant">
-            Up to {MAX_PROFILES_PER_ACCOUNT} people in this account, each with their own reading
-            progress, notes and settings.{" "}
+            Up to {MAX_PROFILES_PER_ACCOUNT} people in this account, each with their own reading progress, notes and
+            settings.{" "}
             <span className="tabular-nums">
               {profiles.length} of {MAX_PROFILES_PER_ACCOUNT}
             </span>
@@ -195,9 +195,7 @@ function ProfileRow({
       <ColorSwatch color={profile.color} large />
       <div className="min-w-0 flex-1">
         <p className="truncate font-ui text-sm font-semibold text-ink">{profile.name}</p>
-        {profile.isDefault && (
-          <p className="font-ui text-xs text-ink-variant">Default — can&rsquo;t be deleted</p>
-        )}
+        {profile.isDefault && <p className="font-ui text-xs text-ink-variant">Default — can&rsquo;t be deleted</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1">
         <button
@@ -275,10 +273,7 @@ function CreateProfileForm({
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="flex flex-col gap-3 rounded-card border border-line-soft/70 p-4"
-    >
+    <form onSubmit={submit} className="flex flex-col gap-3 rounded-card border border-line-soft/70 p-4">
       <label className="flex flex-col gap-1.5">
         <span className="font-ui text-sm font-medium text-ink-variant">Name</span>
         <input
@@ -407,9 +402,9 @@ function DeleteProfileDialog({
         ) : (
           <p className="mt-2 font-ui text-sm text-ink-variant">
             <span className="font-semibold text-ink">{profile.name}</span> has{" "}
-            <span className="tabular-nums">{noteCount}</span> note{noteCount === 1 ? "" : "s"}. Deleting
-            will move {noteCount === 1 ? "it" : "them"} to <span className="font-semibold text-ink">{defaultName}</span>.
-            Reading progress is still permanently removed.
+            <span className="tabular-nums">{noteCount}</span> note{noteCount === 1 ? "" : "s"}. Deleting will move{" "}
+            {noteCount === 1 ? "it" : "them"} to <span className="font-semibold text-ink">{defaultName}</span>. Reading
+            progress is still permanently removed.
           </p>
         )}
 

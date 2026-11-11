@@ -1,10 +1,4 @@
-import type {
-  DisplayMathVariant,
-  FloatClass,
-  FontSelection,
-  HeadingLevel,
-  ListVariant,
-} from "../doc/model.ts";
+import type { DisplayMathVariant, FloatClass, FontSelection, HeadingLevel, ListVariant } from "../doc/model.ts";
 
 /**
  * The builtin command and environment tables.
@@ -98,7 +92,8 @@ export type BuiltinSpec =
  * the engine reads LaTeX-shaped documents, it does not execute TeX, and no
  * later work changes that (D38).
  */
-const TEX_PROGRAMMING = "the engine reads LaTeX-shaped documents and does not execute TeX; this is permanently out of scope";
+const TEX_PROGRAMMING =
+  "the engine reads LaTeX-shaped documents and does not execute TeX; this is permanently out of scope";
 
 function texProgramming(): BuiltinSpec {
   return { role: "unsupported", detail: TEX_PROGRAMMING };
@@ -155,66 +150,302 @@ function unimplemented(detail: string): BuiltinSpec {
  */
 export const MATH_COMMANDS: readonly string[] = [
   // Structures: fractions, radicals, binomials, over/underbraces, big operators.
-  "frac", "dfrac", "tfrac", "binom", "dbinom", "tbinom", "sqrt",
-  "overbrace", "underbrace", "overline", "overrightarrow", "overleftarrow",
-  "sum", "prod", "coprod", "int", "iint", "iiint", "oint", "bigcup", "bigcap",
-  "bigoplus", "bigotimes", "bigvee", "bigwedge", "bigsqcup",
+  "frac",
+  "dfrac",
+  "tfrac",
+  "binom",
+  "dbinom",
+  "tbinom",
+  "sqrt",
+  "overbrace",
+  "underbrace",
+  "overline",
+  "overrightarrow",
+  "overleftarrow",
+  "sum",
+  "prod",
+  "coprod",
+  "int",
+  "iint",
+  "iiint",
+  "oint",
+  "bigcup",
+  "bigcap",
+  "bigoplus",
+  "bigotimes",
+  "bigvee",
+  "bigwedge",
+  "bigsqcup",
   // Limits in both styles — the In list names "sums/products/integrals with
   // limits in both inline and display style", which is what these four control.
-  "limits", "nolimits", "displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle",
+  "limits",
+  "nolimits",
+  "displaystyle",
+  "textstyle",
+  "scriptstyle",
+  "scriptscriptstyle",
   // Accents.
-  "hat", "widehat", "bar", "vec", "dot", "ddot", "tilde", "widetilde",
-  "check", "breve", "acute", "grave", "mathring",
+  "hat",
+  "widehat",
+  "bar",
+  "vec",
+  "dot",
+  "ddot",
+  "tilde",
+  "widetilde",
+  "check",
+  "breve",
+  "acute",
+  "grave",
+  "mathring",
   // Delimiters that grow.
-  "left", "right", "middle",
-  "big", "Big", "bigg", "Bigg",
-  "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr", "Biggl", "Biggr",
-  "bigm", "Bigm", "biggm", "Biggm",
-  "langle", "rangle", "lvert", "rvert", "lVert", "rVert", "vert", "Vert",
-  "lfloor", "rfloor", "lceil", "rceil", "backslash",
+  "left",
+  "right",
+  "middle",
+  "big",
+  "Big",
+  "bigg",
+  "Bigg",
+  "bigl",
+  "bigr",
+  "Bigl",
+  "Bigr",
+  "biggl",
+  "biggr",
+  "Biggl",
+  "Biggr",
+  "bigm",
+  "Bigm",
+  "biggm",
+  "Biggm",
+  "langle",
+  "rangle",
+  "lvert",
+  "rvert",
+  "lVert",
+  "rVert",
+  "vert",
+  "Vert",
+  "lfloor",
+  "rfloor",
+  "lceil",
+  "rceil",
+  "backslash",
   // Math alphabets. The In list names five; `\mathsf` and `\mathtt` ride along
   // because they are LaTeX's own standard alphabets, set in faces this engine
   // already ships, and the Out list's "custom math alphabets" is about
   // `\DeclareMathAlphabet` and package faces like `\mathscr`, not these.
-  "mathbb", "mathcal", "mathrm", "mathbf", "mathit", "mathsf", "mathtt", "mathnormal",
-  "boldsymbol", "text",
+  "mathbb",
+  "mathcal",
+  "mathrm",
+  "mathbf",
+  "mathit",
+  "mathsf",
+  "mathtt",
+  "mathnormal",
+  "boldsymbol",
+  "text",
   // Named operators (`\log`, `\sin`, …) — LaTeX's fixed set, not
   // `\DeclareMathOperator`'s, which is on the Out list.
-  "log", "ln", "lg", "exp", "sin", "cos", "tan", "sec", "csc", "cot",
-  "arcsin", "arccos", "arctan", "sinh", "cosh", "tanh", "coth",
-  "det", "dim", "gcd", "hom", "ker", "deg", "arg", "max", "min", "sup", "inf",
-  "lim", "liminf", "limsup", "Pr", "bmod", "pmod", "mod",
+  "log",
+  "ln",
+  "lg",
+  "exp",
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "arcsin",
+  "arccos",
+  "arctan",
+  "sinh",
+  "cosh",
+  "tanh",
+  "coth",
+  "det",
+  "dim",
+  "gcd",
+  "hom",
+  "ker",
+  "deg",
+  "arg",
+  "max",
+  "min",
+  "sup",
+  "inf",
+  "lim",
+  "liminf",
+  "limsup",
+  "Pr",
+  "bmod",
+  "pmod",
+  "mod",
   // Greek.
-  "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta", "eta",
-  "theta", "vartheta", "iota", "kappa", "lambda", "mu", "nu", "xi", "pi",
-  "varpi", "rho", "varrho", "sigma", "varsigma", "tau", "upsilon", "phi",
-  "varphi", "chi", "psi", "omega",
-  "Gamma", "Delta", "Theta", "Lambda", "Xi", "Pi", "Sigma", "Upsilon", "Phi",
-  "Psi", "Omega",
+  "alpha",
+  "beta",
+  "gamma",
+  "delta",
+  "epsilon",
+  "varepsilon",
+  "zeta",
+  "eta",
+  "theta",
+  "vartheta",
+  "iota",
+  "kappa",
+  "lambda",
+  "mu",
+  "nu",
+  "xi",
+  "pi",
+  "varpi",
+  "rho",
+  "varrho",
+  "sigma",
+  "varsigma",
+  "tau",
+  "upsilon",
+  "phi",
+  "varphi",
+  "chi",
+  "psi",
+  "omega",
+  "Gamma",
+  "Delta",
+  "Theta",
+  "Lambda",
+  "Xi",
+  "Pi",
+  "Sigma",
+  "Upsilon",
+  "Phi",
+  "Psi",
+  "Omega",
   // Relations.
-  "leq", "le", "geq", "ge", "neq", "ne", "equiv", "sim", "simeq", "approx",
-  "cong", "propto", "ll", "gg", "subset", "supset", "subseteq", "supseteq",
-  "in", "ni", "notin", "perp", "parallel", "mid", "prec", "succ", "preceq",
-  "succeq", "asymp", "doteq", "models", "vdash", "dashv", "leqslant", "geqslant",
+  "leq",
+  "le",
+  "geq",
+  "ge",
+  "neq",
+  "ne",
+  "equiv",
+  "sim",
+  "simeq",
+  "approx",
+  "cong",
+  "propto",
+  "ll",
+  "gg",
+  "subset",
+  "supset",
+  "subseteq",
+  "supseteq",
+  "in",
+  "ni",
+  "notin",
+  "perp",
+  "parallel",
+  "mid",
+  "prec",
+  "succ",
+  "preceq",
+  "succeq",
+  "asymp",
+  "doteq",
+  "models",
+  "vdash",
+  "dashv",
+  "leqslant",
+  "geqslant",
   // Binary operators and the rest of the symbol sweep.
-  "times", "div", "pm", "mp", "cdot", "cdots", "vdots", "ddots",
-  "ast", "star", "circ", "bullet", "oplus", "ominus", "otimes", "oslash",
-  "odot", "cap", "cup", "sqcup", "sqcap", "setminus", "wedge", "vee",
-  "land", "lor", "neg", "lnot", "forall", "exists", "nexists", "nabla",
-  "partial", "infty", "emptyset", "varnothing", "hbar", "ell", "Re", "Im",
-  "aleph", "angle", "triangle", "surd", "top", "bot", "prime", "colon",
+  "times",
+  "div",
+  "pm",
+  "mp",
+  "cdot",
+  "cdots",
+  "vdots",
+  "ddots",
+  "ast",
+  "star",
+  "circ",
+  "bullet",
+  "oplus",
+  "ominus",
+  "otimes",
+  "oslash",
+  "odot",
+  "cap",
+  "cup",
+  "sqcup",
+  "sqcap",
+  "setminus",
+  "wedge",
+  "vee",
+  "land",
+  "lor",
+  "neg",
+  "lnot",
+  "forall",
+  "exists",
+  "nexists",
+  "nabla",
+  "partial",
+  "infty",
+  "emptyset",
+  "varnothing",
+  "hbar",
+  "ell",
+  "Re",
+  "Im",
+  "aleph",
+  "angle",
+  "triangle",
+  "surd",
+  "top",
+  "bot",
+  "prime",
+  "colon",
   // Arrows.
-  "to", "gets", "rightarrow", "leftarrow", "leftrightarrow",
-  "Rightarrow", "Leftarrow", "Leftrightarrow",
-  "longrightarrow", "longleftarrow", "longleftrightarrow",
-  "Longrightarrow", "Longleftarrow", "Longleftrightarrow",
-  "mapsto", "longmapsto", "hookrightarrow", "hookleftarrow",
-  "uparrow", "downarrow", "updownarrow", "Uparrow", "Downarrow",
-  "nearrow", "searrow", "swarrow", "nwarrow", "implies", "impliedby", "iff",
+  "to",
+  "gets",
+  "rightarrow",
+  "leftarrow",
+  "leftrightarrow",
+  "Rightarrow",
+  "Leftarrow",
+  "Leftrightarrow",
+  "longrightarrow",
+  "longleftarrow",
+  "longleftrightarrow",
+  "Longrightarrow",
+  "Longleftarrow",
+  "Longleftrightarrow",
+  "mapsto",
+  "longmapsto",
+  "hookrightarrow",
+  "hookleftarrow",
+  "uparrow",
+  "downarrow",
+  "updownarrow",
+  "Uparrow",
+  "Downarrow",
+  "nearrow",
+  "searrow",
+  "swarrow",
+  "nwarrow",
+  "implies",
+  "impliedby",
+  "iff",
   // Math-mode spacing and numbering control. `\nonumber`/`\notag` are In
   // because the engine implements the numbering they suppress — `doc/build.ts`
   // reads them off the line and leaves `MathLine.number` null.
-  "quad", "qquad", "nonumber", "notag",
+  "quad",
+  "qquad",
+  "nonumber",
+  "notag",
 ];
 
 /**
@@ -272,7 +503,8 @@ export const DECLINED_MATH_COMMANDS: Readonly<Record<string, string>> = {
   DeclareSymbolFont: "custom math alphabets are on brief 40's Out list",
   DeclareMathSymbol: "custom math alphabets are on brief 40's Out list",
   mathscr: "\\mathscr needs a script face this engine does not ship; custom math alphabets are on brief 40's Out list",
-  mathfrak: "\\mathfrak needs a fraktur face this engine does not ship; custom math alphabets are on brief 40's Out list",
+  mathfrak:
+    "\\mathfrak needs a fraktur face this engine does not ship; custom math alphabets are on brief 40's Out list",
   // mathtools.
   DeclarePairedDelimiter: "the mathtools package is on brief 40's Out list",
   coloneqq: "the mathtools package is on brief 40's Out list",
@@ -307,17 +539,20 @@ export const DECLINED_MATH_COMMANDS: Readonly<Record<string, string>> = {
   // would otherwise print a number this engine's equation counter never
   // issued, which is silently-wrong output rather than a missing feature.
   tag: "manual equation tags (\\tag) are outside brief 40's In list; an equation's number comes from the equation counter",
-  eqref: "amsmath's \\eqref is outside brief 40's In list; \\ref to an equation prints its number without the parentheses",
+  eqref:
+    "amsmath's \\eqref is outside brief 40's In list; \\ref to an equation prints its number without the parentheses",
   intertext: "amsmath's \\intertext is outside brief 40's In list",
   substack: "amsmath's \\substack is outside brief 40's In list",
-  numberwithin: "amsmath's \\numberwithin is outside brief 40's In list; equations are numbered straight through the document, as article.cls numbers them",
+  numberwithin:
+    "amsmath's \\numberwithin is outside brief 40's In list; equations are numbered straight through the document, as article.cls numbers them",
 };
 
 /** Math environments the math work declines, and why. Same contract as the commands above. */
 export const DECLINED_MATH_ENVIRONMENTS: Readonly<Record<string, string>> = {
   // The Out list names `cases` outright: "cases beyond what array gives".
   // MathJax renders it cleanly; it is refused anyway (D41 §5).
-  cases: "brief 40's Out list names cases: an array inside \\left\\{ … \\right. sets the same thing (D41 §5 — MathJax renders cases, and the engine declines it anyway so the supported subset stays knowable)",
+  cases:
+    "brief 40's Out list names cases: an array inside \\left\\{ … \\right. sets the same thing (D41 §5 — MathJax renders cases, and the engine declines it anyway so the supported subset stays knowable)",
   dcases: "the mathtools package is on brief 40's Out list, and cases is on it too",
   rcases: "the mathtools package is on brief 40's Out list, and cases is on it too",
   // amsmath displays outside the In list, which is align, align*, gather,
@@ -338,7 +573,6 @@ export const DECLINED_MATH_ENVIRONMENTS: Readonly<Record<string, string>> = {
   CD: "commutative diagrams are on brief 40's Out list",
   xy: "commutative diagrams are on brief 40's Out list",
 };
-
 
 /**
  * The `math-only` rows for every In-list math command, generated from
@@ -532,10 +766,18 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   // column, where `doc/build.ts` reads the register out of the raw nodes
   // without ever consulting this table. On its own it is a length register,
   // and length registers are out of scope.
-  textwidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
-  linewidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
-  columnwidth: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
-  textheight: unimplemented("length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width"),
+  textwidth: unimplemented(
+    "length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width",
+  ),
+  linewidth: unimplemented(
+    "length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width",
+  ),
+  columnwidth: unimplemented(
+    "length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width",
+  ),
+  textheight: unimplemented(
+    "length registers are out of scope, except as \\includegraphics's width=/height= and a p{} column's width",
+  ),
   setlength: unimplemented("length registers are out of scope"),
   addtolength: unimplemented("length registers are out of scope"),
   newcounter: unimplemented("user counters are out of scope for brief 37"),
@@ -548,7 +790,9 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   part: unimplemented("part-level sectioning is out of scope for brief 37"),
   index: unimplemented("index packages are out of scope"),
   glossary: unimplemented("glossary packages are out of scope"),
-  newtheorem: unimplemented("theorem environments are out of scope for brief 37, and \\newtheorem is on brief 40's Out list"),
+  newtheorem: unimplemented(
+    "theorem environments are out of scope for brief 37, and \\newtheorem is on brief 40's Out list",
+  ),
   usetikzlibrary: unimplemented("TikZ/pgf is out of scope"),
   theoremstyle: unimplemented("theorem environments are on brief 40's Out list"),
   newtheoremstyle: unimplemented("theorem environments are on brief 40's Out list"),
@@ -571,8 +815,12 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
   rotatebox: unimplemented("graphicx's \\rotatebox is out of scope for brief 39; images are placed unrotated"),
   toprule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
   midrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
-  bottomrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
-  cmidrule: unimplemented("the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented"),
+  bottomrule: unimplemented(
+    "the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented",
+  ),
+  cmidrule: unimplemented(
+    "the booktabs package is out of scope for brief 39; only \\hline and \\cline are implemented",
+  ),
   multirow: unimplemented("the multirow package is out of scope for brief 39; every cell spans exactly one row"),
   // `subcaption` (the package's per-image `\subcaption` command) is here;
   // its `subfigure` *environment* is the matching row in
@@ -613,11 +861,7 @@ export const BUILTIN_COMMANDS: Readonly<Record<string, BuiltinSpec>> = {
 };
 
 /** The commands that *define* macros. Handled by the expander, never the builder. */
-export const DEFINITION_COMMANDS: ReadonlySet<string> = new Set([
-  "newcommand",
-  "renewcommand",
-  "providecommand",
-]);
+export const DEFINITION_COMMANDS: ReadonlySet<string> = new Set(["newcommand", "renewcommand", "providecommand"]);
 
 /**
  * Names whose redefinition would change counter or list-label formatting.
@@ -741,8 +985,15 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   // open math mode), while an environment's body is parsed as ordinary
   // content. Admitting it means re-parsing that body in math mode, which is
   // a parser change, not a widening. Refused with the spelling that works.
-  math: { role: "unsupported", detail: "this engine reads inline math as $…$ or \\(…\\); the math environment would need its body re-parsed in math mode, so write \\(…\\) instead" },
-  eqnarray: { role: "unsupported", detail: "eqnarray is deprecated even in LaTeX and is not on brief 40's In list; align sets the same thing" },
+  math: {
+    role: "unsupported",
+    detail:
+      "this engine reads inline math as $…$ or \\(…\\); the math environment would need its body re-parsed in math mode, so write \\(…\\) instead",
+  },
+  eqnarray: {
+    role: "unsupported",
+    detail: "eqnarray is deprecated even in LaTeX and is not on brief 40's In list; align sets the same thing",
+  },
   center: { role: "unsupported", detail: "centred text is out of scope for brief 37" },
   flushleft: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },
   flushright: { role: "unsupported", detail: "ragged text is out of scope for brief 37" },
@@ -764,8 +1015,14 @@ export const BUILTIN_ENVIRONMENTS: Readonly<Record<string, EnvironmentSpec>> = {
   // was told `lemma` is not a thing, when what is true is that the math work lists
   // theorem environments on its Out list. `\newtheorem` itself is a row in
   // `BUILTIN_COMMANDS` and reports the same way.
-  theorem: { role: "unsupported", detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list" },
-  proof: { role: "unsupported", detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list" },
+  theorem: {
+    role: "unsupported",
+    detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list",
+  },
+  proof: {
+    role: "unsupported",
+    detail: "theorem environments are out of scope for brief 37, and are on brief 40's Out list",
+  },
   lemma: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
   corollary: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
   proposition: { role: "unsupported", detail: "theorem environments are on brief 40's Out list" },
@@ -779,9 +1036,7 @@ export function lookupCommand(name: string): BuiltinSpec | undefined {
 }
 
 export function lookupEnvironment(name: string): EnvironmentSpec | undefined {
-  return Object.prototype.hasOwnProperty.call(BUILTIN_ENVIRONMENTS, name)
-    ? BUILTIN_ENVIRONMENTS[name]
-    : undefined;
+  return Object.prototype.hasOwnProperty.call(BUILTIN_ENVIRONMENTS, name) ? BUILTIN_ENVIRONMENTS[name] : undefined;
 }
 
 /** Whether the engine has *heard of* a command, whatever it does with it. */

@@ -53,9 +53,10 @@ export const STAGGER_MS = 20;
 export type MotionMoment = keyof typeof MOTION_MS;
 
 /** `MOTION_MS` in seconds — Motion's `Transition.duration` unit. */
-export const MOTION_S = Object.fromEntries(
-  Object.entries(MOTION_MS).map(([k, v]) => [k, v / 1000]),
-) as Record<MotionMoment, number>;
+export const MOTION_S = Object.fromEntries(Object.entries(MOTION_MS).map(([k, v]) => [k, v / 1000])) as Record<
+  MotionMoment,
+  number
+>;
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -105,10 +106,7 @@ export function usePrefersReducedMotion(): boolean {
  * @param overrides merged last, so a call site can add `delay`, `layout`, etc.
  *   (`duration`/`ease` in here still lose to the reduced-motion collapse)
  */
-export function useMotionTransition(
-  moment: MotionMoment = "hover",
-  overrides?: Transition,
-): Transition {
+export function useMotionTransition(moment: MotionMoment = "hover", overrides?: Transition): Transition {
   const reduced = usePrefersReducedMotion();
   return motionTransition(moment, reduced, overrides);
 }
@@ -117,11 +115,7 @@ export function useMotionTransition(
  * Non-hook twin of {@link useMotionTransition}, for code that already knows the
  * preference (a parent passing it down, or an imperative timeline).
  */
-export function motionTransition(
-  moment: MotionMoment,
-  reduced: boolean,
-  overrides?: Transition,
-): Transition {
+export function motionTransition(moment: MotionMoment, reduced: boolean, overrides?: Transition): Transition {
   if (reduced) return { ...overrides, duration: 0, delay: 0 };
   return { duration: MOTION_S[moment], ease: [...EASE_PAPER], ...overrides };
 }

@@ -44,10 +44,7 @@ export const knex: Knex = knexFactory({
   pool: {
     min: 1,
     max: 1,
-    afterCreate(
-      connection: { pragma(source: string): unknown },
-      done: (err: Error | null, conn: unknown) => void,
-    ) {
+    afterCreate(connection: { pragma(source: string): unknown }, done: (err: Error | null, conn: unknown) => void) {
       try {
         // WAL survives from the previous driver — it is a property of the file,
         // not the connection — but it is set here so a brand-new database gets

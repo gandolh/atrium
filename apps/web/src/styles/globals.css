@@ -301,8 +301,7 @@
      is downloaded), so design.md's "two families, self-hosted, no CDN" rule is
      untouched: no third *brand* face joins Newsreader and Archivo. Defined
      here so the editor resolves a token like everything else. */
-  --font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
-    "Liberation Mono", monospace;
+  --font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
   /* Radii: 4px default, 2px artwork, 20px chips — nothing else. */
   --radius-card: 4px;

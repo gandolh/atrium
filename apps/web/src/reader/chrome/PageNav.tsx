@@ -55,7 +55,13 @@ export function PageNav({
 }) {
   return (
     <>
-      <FlipButton side="left" label="Previous page" onClick={onPrev} disabled={!canPrev} chromeVisible={chromeVisible} />
+      <FlipButton
+        side="left"
+        label="Previous page"
+        onClick={onPrev}
+        disabled={!canPrev}
+        chromeVisible={chromeVisible}
+      />
       <FlipButton side="right" label="Next page" onClick={onNext} disabled={!canNext} chromeVisible={chromeVisible} />
     </>
   );

@@ -69,8 +69,9 @@ function editorTheme(dark: boolean): Extension {
       },
       ".cm-activeLine": { backgroundColor: ACTIVE_LINE },
       ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--ink)" },
-      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection":
-        { backgroundColor: SELECTION },
+      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+        backgroundColor: SELECTION,
+      },
       ".cm-selectionMatch": { backgroundColor: SELECTION_MATCH },
       ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
         backgroundColor: "var(--paper-container)",

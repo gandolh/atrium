@@ -47,13 +47,8 @@ export interface ProfileSelectionRow {
 }
 
 /** The profile this device last activated, or undefined for "never chosen". */
-export async function getSelectedProfileId(
-  subject: string,
-  sid: string,
-): Promise<string | undefined> {
-  const row = (await knex("profile_selections").where({ subject, sid }).first()) as
-    | ProfileSelectionRow
-    | undefined;
+export async function getSelectedProfileId(subject: string, sid: string): Promise<string | undefined> {
+  const row = (await knex("profile_selections").where({ subject, sid }).first()) as ProfileSelectionRow | undefined;
   return row?.profile_id;
 }
 
@@ -61,11 +56,7 @@ export async function getSelectedProfileId(
  * Record this device's choice. Upsert, because activating is idempotent and a
  * person switching back and forth must not accumulate rows.
  */
-export async function setSelectedProfile(
-  subject: string,
-  sid: string,
-  profileId: string,
-): Promise<void> {
+export async function setSelectedProfile(subject: string, sid: string, profileId: string): Promise<void> {
   await knex("profile_selections")
     .insert({
       subject,

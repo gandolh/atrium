@@ -243,18 +243,14 @@ export function buildPageContent(
   // and reported there as the author's error, with the line it is on. Anything
   // still reaching here is a `PageDesign` no document asked for: an engine bug.
   if (!allFinite([page.width, page.height]) || page.width <= 0 || page.height <= 0) {
-    diagnostics.push(
-      error("internal", at, `page ${page.number} has a non-finite or empty media box`),
-    );
+    diagnostics.push(error("internal", at, `page ${page.number} has a non-finite or empty media box`));
     return { stream: "", diagnostics };
   }
 
   for (const item of page.items) {
     if (item.kind === "rule") {
       if (!allFinite([item.x, item.y, item.width, item.height])) {
-        diagnostics.push(
-          error("internal", at, `page ${page.number} carries a rule with a non-finite dimension`),
-        );
+        diagnostics.push(error("internal", at, `page ${page.number} carries a rule with a non-finite dimension`));
         continue;
       }
       if (item.width === 0 || item.height === 0) continue;
@@ -264,9 +260,7 @@ export function buildPageContent(
 
     if (item.kind === "image") {
       if (!allFinite([item.x, item.y, item.width, item.height])) {
-        diagnostics.push(
-          error("internal", at, `page ${page.number} carries an image with a non-finite dimension`),
-        );
+        diagnostics.push(error("internal", at, `page ${page.number} carries an image with a non-finite dimension`));
         continue;
       }
       // A zero-sized image paints nothing, and `placeImage` refuses to produce
@@ -286,9 +280,7 @@ export function buildPageContent(
 
     if (item.kind === "math") {
       if (!allFinite([item.x, item.y, item.width, item.height])) {
-        diagnostics.push(
-          error("internal", at, `page ${page.number} carries a math run with a non-finite dimension`),
-        );
+        diagnostics.push(error("internal", at, `page ${page.number} carries a math run with a non-finite dimension`));
         continue;
       }
       // A zero-extent formula paints nothing and would divide the viewBox
@@ -301,9 +293,7 @@ export function buildPageContent(
     }
 
     if (!allFinite([item.x, item.y, item.size])) {
-      diagnostics.push(
-        error("internal", at, `page ${page.number} carries a glyph run with a non-finite position`),
-      );
+      diagnostics.push(error("internal", at, `page ${page.number} carries a glyph run with a non-finite position`));
       continue;
     }
     // A zero or negative size would divide by zero in the `TJ` adjustment and

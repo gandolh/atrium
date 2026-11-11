@@ -4,15 +4,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  PDFArray,
-  PDFDict,
-  PDFDocument,
-  PDFName,
-  PDFNumber,
-  PDFStream,
-  decodePDFRawStream,
-} from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFStream, decodePDFRawStream } from "pdf-lib";
 import type { PDFRawStream, PDFRef } from "pdf-lib";
 import { createLatinModernProvider } from "../src/font/handle.ts";
 import type { FontHandle } from "../src/font/handle.ts";
@@ -123,8 +115,7 @@ function parseFonts(doc: PDFDocument, pageIndex = 0): Map<string, ParsedFont> {
     const cid = doc.context.lookup(descendants.get(0), PDFDict);
     const descriptor = doc.context.lookup(cid.get(PDFName.of("FontDescriptor")), PDFDict);
 
-    const fileRef =
-      descriptor.get(PDFName.of("FontFile3")) ?? descriptor.get(PDFName.of("FontFile2"));
+    const fileRef = descriptor.get(PDFName.of("FontFile3")) ?? descriptor.get(PDFName.of("FontFile2"));
     const fileStream = doc.context.lookup(fileRef, PDFStream) as PDFRawStream;
 
     const widths = new Map<number, number>();

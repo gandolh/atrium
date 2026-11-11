@@ -266,8 +266,7 @@ export const useReaderStore = create<ReaderState>((set) => ({
       chromeHoldCount: state.chromeHoldCount + 1,
       chromeVisible: true,
     })),
-  releaseChromeHold: () =>
-    set((state) => ({ chromeHoldCount: Math.max(0, state.chromeHoldCount - 1) })),
+  releaseChromeHold: () => set((state) => ({ chromeHoldCount: Math.max(0, state.chromeHoldCount - 1) })),
   setPageMode: (pageMode) =>
     set(() => {
       persistPreference({ pageMode });
@@ -293,13 +292,8 @@ export const useReaderStore = create<ReaderState>((set) => ({
       initialLocation: null,
       loadedVersionId: null,
     }),
-  setLoadedBook: (
-    loadedFile,
-    loadedFormat,
-    loadedBookId,
-    initialLocation = null,
-    loadedVersionId = null,
-  ) => set({ loadedFile, loadedFormat, loadedBookId, initialLocation, loadedVersionId, progressFraction: null }),
+  setLoadedBook: (loadedFile, loadedFormat, loadedBookId, initialLocation = null, loadedVersionId = null) =>
+    set({ loadedFile, loadedFormat, loadedBookId, initialLocation, loadedVersionId, progressFraction: null }),
   setLoadedVersionId: (loadedVersionId) => set({ loadedVersionId }),
   setProgressFraction: (progressFraction) => set({ progressFraction }),
   setZoom: (zoom) => set({ zoom }),

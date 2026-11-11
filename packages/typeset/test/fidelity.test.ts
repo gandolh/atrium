@@ -61,7 +61,11 @@ test("a character with no glyph in the font is a warning naming the character an
   const result = run("Hello 中 world");
   assert.ok(result.pdf !== null, "one exotic character should not refuse the whole document a PDF");
   const hits = result.diagnostics.filter((d) => d.code === "missing-font" && d.severity === "warning");
-  assert.equal(hits.length, 1, `expected exactly one missing-glyph warning, got: ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(
+    hits.length,
+    1,
+    `expected exactly one missing-glyph warning, got: ${JSON.stringify(result.diagnostics)}`,
+  );
   const hit = hits[0]!;
   assert.match(hit.message, /中/, "the diagnostic should name the character");
   assert.match(hit.message, /U\+4E2D/, "the diagnostic should name the codepoint");
@@ -91,7 +95,11 @@ test("a footnote taller than the page is placed anyway, but reports an overfull-
   const result = run(`A line with a mark\\footnote{${sentence.repeat(80)}}.`);
   assert.ok(result.pdf !== null, "a page rendering badly is not a reason to refuse the whole document a PDF");
   const hits = result.diagnostics.filter((d) => d.code === "overfull-box" && d.construct === "\\footnote");
-  assert.equal(hits.length, 1, `expected exactly one footnote-overflow warning, got: ${JSON.stringify(result.diagnostics)}`);
+  assert.equal(
+    hits.length,
+    1,
+    `expected exactly one footnote-overflow warning, got: ${JSON.stringify(result.diagnostics)}`,
+  );
   assert.equal(hits[0]!.severity, "warning");
   assert.match(hits[0]!.message, /footnote 1/);
   assert.match(hits[0]!.message, /taller than/);
@@ -124,7 +132,8 @@ test("the ToC bolds section entries but not subsection or subsubsection entries,
 
 test("the ToC draws dotted leaders for subsection and below, but none for section", () => {
   const result = run(
-    "\\tableofcontents\n\\section{One}\n\\subsection{Two}\n" + "Some body text so every heading has something to number.",
+    "\\tableofcontents\n\\section{One}\n\\subsection{Two}\n" +
+      "Some body text so every heading has something to number.",
   );
   const toc = glyphRuns(result.pages[0]!);
   const oneY = toc.find((g) => g.text === "One")!.y;
@@ -190,8 +199,8 @@ test("a description term long enough to wrap returns wrapped lines to the item's
   }
   const lines = [...byY.entries()].sort((a, b) => a[0] - b[0]);
   assert.ok(lines.length >= 2, "a term this long should wrap onto at least a second line");
-  const firstLineX = Math.min(...(lines[0]![1].map((g) => g.x)));
-  const secondLineX = Math.min(...(lines[1]![1].map((g) => g.x)));
+  const firstLineX = Math.min(...lines[0]![1].map((g) => g.x));
+  const secondLineX = Math.min(...lines[1]![1].map((g) => g.x));
   assert.ok(secondLineX > firstLineX, "the wrapped line should sit further right, at the item's ordinary indent");
 });
 
@@ -258,9 +267,7 @@ test("a ToC entry prints the page its heading is set on, several pages later", (
   const toc = glyphRuns(result.pages[0]!);
   const entry = toc.find((g) => g.text === "Target" && g.size <= 12);
   assert.ok(entry, "the ToC should list the section at normalsize");
-  const folio = toc
-    .filter((g) => g.y === entry.y && g.x > entry.x)
-    .sort((a, b) => b.x - a.x)[0];
+  const folio = toc.filter((g) => g.y === entry.y && g.x > entry.x).sort((a, b) => b.x - a.x)[0];
   assert.equal(folio?.text, String(target));
 });
 
@@ -289,7 +296,10 @@ test("a \\footnote genuinely inside another footnote reports that, and its mark 
   assert.match(hits[0]!.message, /inside another footnote/);
   assert.match(hits[0]!.message, /the mark is set/);
   const page = glyphRuns(result.pages[0]!);
-  assert.ok(page.some((g) => g.text === "Outer"), "the outer note is still set at the foot of the page");
+  assert.ok(
+    page.some((g) => g.text === "Outer"),
+    "the outer note is still set at the foot of the page",
+  );
   assert.ok(!page.some((g) => g.text === "Inner"), "the nested note's text is not placed, as the diagnostic says");
 });
 
@@ -305,10 +315,7 @@ test("an \\item whose body starts with a nested list keeps its own label, on a l
   const inner = page.find((g) => g.text === "inner")!;
   assert.ok(dash && inner, "the nested item should still be set");
   assert.equal(dash.y, inner.y, "the nested label sits beside the nested item's first line");
-  assert.ok(
-    bullets[0]!.y < dash.y,
-    "LaTeX gives the stranded outer label a line of its own, above the nested list",
-  );
+  assert.ok(bullets[0]!.y < dash.y, "LaTeX gives the stranded outer label a line of its own, above the nested list");
   assert.ok(bullets[0]!.x < dash.x, "and it hangs in the outer list's margin");
 });
 
@@ -341,11 +348,22 @@ test("list spacing carries size10.clo's stretch and shrink, not just the natural
 
 test("the glue between two list items is the \\itemsep the design computed, stretch and shrink included", () => {
   const build = buildDocument(
-    { "main.tex": "\\documentclass{article}\n\\begin{document}\n\\begin{itemize}\\item one\\item two\\end{itemize}\n\\end{document}\n" },
+    {
+      "main.tex":
+        "\\documentclass{article}\n\\begin{document}\n\\begin{itemize}\\item one\\item two\\end{itemize}\n\\end{document}\n",
+    },
     "main.tex",
   );
   const design = defaultDesign();
-  const ctx = createLayoutContext(design, fonts, createShaper(), createBudget(1_000_000, null), [], "main.tex", new Map());
+  const ctx = createLayoutContext(
+    design,
+    fonts,
+    createShaper(),
+    createBudget(1_000_000, null),
+    [],
+    "main.tex",
+    new Map(),
+  );
   const list = buildVerticalList(build.document, ctx);
 
   const spacing = listSpacing(design, 1);

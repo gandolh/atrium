@@ -11,29 +11,13 @@ import {
   type LatexFile,
   type LatexProject,
 } from "@ebook-reader/shared";
-import {
-  LATEX_MAX_PROJECT_BYTES,
-  LIBRARY_FILES_DIR,
-  THUMBNAILS_DIR,
-} from "../../common/config.js";
-import {
-  coverPathFor,
-  filePathFor,
-  projectDirFor,
-  versionPdfPathFor,
-} from "../../common/paths.js";
+import { LATEX_MAX_PROJECT_BYTES, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../../common/config.js";
+import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor } from "../../common/paths.js";
 import { extractMeta } from "../library/extract.service.js";
 import { updatePublishedBook } from "../library/library.model.js";
-import {
-  isBuildArtifactPath,
-  writeAtomic,
-} from "./latex-compile.service.js";
+import { isBuildArtifactPath, writeAtomic } from "./latex-compile.service.js";
 import { confineProjectPath, type ConfinedPath } from "./latex-paths.js";
-import {
-  getLatexProject,
-  type DocumentVersionRow,
-  type LatexProjectRow,
-} from "./latex.model.js";
+import { getLatexProject, type DocumentVersionRow, type LatexProjectRow } from "./latex.model.js";
 
 /**
  * The `/latex` domain logic — wire shapes, the working tree, path
@@ -382,9 +366,7 @@ export async function pruneEmptyDirs(projectId: string, absoluteFile: string): P
  * instead, which costs an inline preview of a format the engine cannot draw
  * until the figures, tables and bibliography work anyway.
  */
-const TEXT_EXTENSIONS = new Set([
-  "tex", "bib", "cls", "sty", "bst", "txt", "md", "csv", "json", "log", "yml", "yaml",
-]);
+const TEXT_EXTENSIONS = new Set(["tex", "bib", "cls", "sty", "bst", "txt", "md", "csv", "json", "log", "yml", "yaml"]);
 const BINARY_CONTENT_TYPES: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
@@ -445,10 +427,7 @@ export const uid = (request: FastifyRequest): string => request.auth!.user.id;
  * check — and a project on a sibling profile of the same account is
  * indistinguishable from one that does not exist, which is the point.
  */
-export async function requireProject(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<LatexProjectRow | null> {
+export async function requireProject(request: FastifyRequest, reply: FastifyReply): Promise<LatexProjectRow | null> {
   const { id } = request.params as { id?: string };
   const row = id ? await getLatexProject(pid(request), id) : undefined;
   if (!row) {
@@ -482,9 +461,7 @@ export async function confinedOr400(
 ): Promise<Extract<ConfinedPath, { ok: true }> | null> {
   const confined = await confineProjectPath(projectId, untrustedPath);
   if (!confined.ok) {
-    void reply
-      .status(400)
-      .send({ error: "INVALID_PATH", field, reason: confined.reason, message: confined.message });
+    void reply.status(400).send({ error: "INVALID_PATH", field, reason: confined.reason, message: confined.message });
     return null;
   }
   if (refuseArtifacts && isBuildArtifactPath(confined.relativePath)) {
@@ -522,11 +499,7 @@ export async function confinedOr400(
  * delete: a path that predates this guard must still be readable and, above
  * all, removable.
  */
-export function refuseUnaccountablePath(
-  reply: FastifyReply,
-  relativePath: string,
-  field: string,
-): boolean {
+export function refuseUnaccountablePath(reply: FastifyReply, relativePath: string, field: string): boolean {
   if (relativePath.split("/").length <= MAX_PATH_SEGMENTS) return false;
   void reply.status(400).send({
     error: "INVALID_PATH",
@@ -547,10 +520,7 @@ export function refuseUnaccountablePath(
  * the fix is structural (move files up, delete some) rather than "free up
  * space".
  */
-export async function accountedFilesOr409(
-  reply: FastifyReply,
-  projectId: string,
-): Promise<LatexFile[] | null> {
+export async function accountedFilesOr409(reply: FastifyReply, projectId: string): Promise<LatexFile[] | null> {
   const walked = await walkProjectTree(projectId);
   if (walked.truncated !== null) {
     void reply.status(409).send({

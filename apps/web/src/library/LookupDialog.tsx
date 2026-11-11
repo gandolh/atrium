@@ -109,9 +109,10 @@ export function LookupDialog({
     apply.reset();
     setPicked(candidate);
     setTicked(
-      Object.fromEntries(
-        LOOKUP_FIELDS.map((field) => [field, offered(candidate, field, noCover)]),
-      ) as Record<LookupField, boolean>,
+      Object.fromEntries(LOOKUP_FIELDS.map((field) => [field, offered(candidate, field, noCover)])) as Record<
+        LookupField,
+        boolean
+      >,
     );
   };
 
@@ -166,10 +167,7 @@ export function LookupDialog({
                 </button>
               </form>
 
-              <div
-                aria-busy={searching}
-                className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-3 py-3"
-              >
+              <div aria-busy={searching} className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-3 py-3">
                 <SearchState
                   searching={searching}
                   error={search.isError ? search.error : null}
@@ -188,7 +186,11 @@ export function LookupDialog({
                         >
                           <Thumb
                             kind={kind}
-                            src={candidate.coverRef && !noCover.has(candidate.coverRef) ? lookupCoverUrl(source, candidate.coverRef) : null}
+                            src={
+                              candidate.coverRef && !noCover.has(candidate.coverRef)
+                                ? lookupCoverUrl(source, candidate.coverRef)
+                                : null
+                            }
                             onError={() => candidate.coverRef && markNoCover(candidate.coverRef)}
                           />
                           <span className="min-w-0 flex-1">
@@ -249,7 +251,9 @@ export function LookupDialog({
                             kind={kind}
                             tone="new"
                             text={newText(picked, field)}
-                            image={field === "cover" && picked.coverRef ? lookupCoverUrl(source, picked.coverRef) : null}
+                            image={
+                              field === "cover" && picked.coverRef ? lookupCoverUrl(source, picked.coverRef) : null
+                            }
                             onImageError={() => picked.coverRef && markNoCover(picked.coverRef)}
                           />
                         </span>
@@ -309,7 +313,8 @@ function describe(candidate: LookupCandidate, kind: "audio" | "book"): string {
   const parts: string[] = [];
   if (candidate.author) parts.push(candidate.author);
   if (candidate.series) parts.push(candidate.series);
-  if (candidate.seriesIndex !== null) parts.push(kind === "audio" ? `track ${candidate.seriesIndex}` : `#${candidate.seriesIndex}`);
+  if (candidate.seriesIndex !== null)
+    parts.push(kind === "audio" ? `track ${candidate.seriesIndex}` : `#${candidate.seriesIndex}`);
   if (candidate.year !== null) parts.push(String(candidate.year));
   return parts.join(" · ") || "No details";
 }
@@ -379,14 +384,7 @@ function Thumb({
   onError?: () => void;
   large?: boolean;
 }) {
-  const box =
-    kind === "audio"
-      ? large
-        ? "h-20 w-20"
-        : "h-14 w-14"
-      : large
-        ? "h-[90px] w-[60px]"
-        : "h-[60px] w-10";
+  const box = kind === "audio" ? (large ? "h-20 w-20" : "h-14 w-14") : large ? "h-[90px] w-[60px]" : "h-[60px] w-10";
   const tint = kind === "audio" ? "bg-tint-music" : "bg-tint-book";
   return (
     <span aria-hidden className={`block shrink-0 overflow-hidden rounded-cover border border-line-soft ${tint} ${box}`}>

@@ -249,7 +249,12 @@ function readDefinition(cmd: CommandNode, ctx: ExpandContext): void {
   const brackets = cmd.args.filter((a) => a.bracket === "[");
   if (braces.length < 2) {
     ctx.diagnostics.push(
-      error("syntax", at, `\\${cmd.name} needs a command name and a body, e.g. \\${cmd.name}{\\x}{...}`, `\\${cmd.name}`),
+      error(
+        "syntax",
+        at,
+        `\\${cmd.name} needs a command name and a body, e.g. \\${cmd.name}{\\x}{...}`,
+        `\\${cmd.name}`,
+      ),
     );
     return;
   }
@@ -259,7 +264,12 @@ function readDefinition(cmd: CommandNode, ctx: ExpandContext): void {
   const named = nameArg.content.find((n) => n.type === "command");
   if (named === undefined || named.type !== "command") {
     ctx.diagnostics.push(
-      error("syntax", at, `\\${cmd.name} expects a command name in its first argument, e.g. \\${cmd.name}{\\x}{...}`, `\\${cmd.name}`),
+      error(
+        "syntax",
+        at,
+        `\\${cmd.name} expects a command name in its first argument, e.g. \\${cmd.name}{\\x}{...}`,
+        `\\${cmd.name}`,
+      ),
     );
     return;
   }
@@ -326,12 +336,7 @@ function plainText(nodes: readonly LatexNode[]): string {
 
 // --- gathering arguments from siblings -------------------------------------
 
-function gatherArguments(
-  cmd: CommandNode,
-  stream: Stream,
-  def: MacroDefinition,
-  ctx: ExpandContext,
-): LatexNode[][] {
+function gatherArguments(cmd: CommandNode, stream: Stream, def: MacroDefinition, ctx: ExpandContext): LatexNode[][] {
   /*
    * A macro that shadows a command the parser *does* have a signature for
    * (`\renewcommand{\emph}[1]{...}`) arrives with its arguments already
@@ -588,7 +593,12 @@ function splitParameters(node: TextNode, def: MacroDefinition, ctx: ExpandContex
       continue;
     }
     ctx.diagnostics.push(
-      error("syntax", def.definedAt, `\\${def.name}: \`#\` must be followed by a digit 1–9 or by another \`#\``, `\\${def.name}`),
+      error(
+        "syntax",
+        def.definedAt,
+        `\\${def.name}: \`#\` must be followed by a digit 1–9 or by another \`#\``,
+        `\\${def.name}`,
+      ),
     );
     literal += "#";
   }

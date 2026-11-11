@@ -3,42 +3,25 @@
   "diagram_type": "dataflow",
   "meta": {
     "title": "Upload → store → read, and the two things that branch off it",
-    "viewBox": [
-      1080,
-      780
-    ],
+    "viewBox": [1080, 780],
     "quality_profile": "showcase",
     "views": [
       {
         "id": "main",
         "label": "The main path",
-        "focus": [
-          "upload",
-          "validate",
-          "extract",
-          "blobs",
-          "reader"
-        ],
+        "focus": ["upload", "validate", "extract", "blobs", "reader"],
         "note": "A file is validated, has its metadata and cover pulled out, and becomes a library row."
       },
       {
         "id": "convert",
         "label": "Conversion",
-        "focus": [
-          "rows",
-          "calibre",
-          "versions"
-        ],
+        "focus": ["rows", "calibre", "versions"],
         "note": "Calibre produces a LINKED row, never a replacement — both formats stay in the library."
       },
       {
         "id": "scoped",
         "label": "What is per-profile",
-        "focus": [
-          "rows",
-          "progress",
-          "reader"
-        ],
+        "focus": ["rows", "progress", "reader"],
         "note": "The library is shared; only progress, notes and preferences are profile-scoped."
       }
     ]
@@ -204,10 +187,7 @@
       "label": "linked row",
       "classification": "never a replacement",
       "route": "straight",
-      "labelAt": [
-        700,
-        660
-      ]
+      "labelAt": [700, 660]
     },
     {
       "id": "f-read",
@@ -224,10 +204,7 @@
       "label": "position",
       "classification": "per profile",
       "variant": "security",
-      "labelAt": [
-        960,
-        340
-      ]
+      "labelAt": [960, 340]
     }
   ],
   "cards": [

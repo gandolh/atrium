@@ -58,8 +58,7 @@ const EMPTY_SUMMARIES: OfflineBookSummary[] = [];
  * what we want — an upload or an import changes the shared library for every
  * profile, not just the active one.
  */
-export const libraryKey = (profileId: string | null, sort: LibrarySort) =>
-  ["library", profileId, sort] as const;
+export const libraryKey = (profileId: string | null, sort: LibrarySort) => ["library", profileId, sort] as const;
 /** Prefix matching every sort variant of ONE profile's library list. */
 export const libraryProfileKey = (profileId: string | null) => ["library", profileId] as const;
 /**
@@ -534,10 +533,7 @@ export function useOfflineDownload(): OfflineDownloadManager {
     [inFlight, offline.data],
   );
 
-  const progressOf = useCallback(
-    (id: string): number | null | undefined => inFlight[id]?.progress,
-    [inFlight],
-  );
+  const progressOf = useCallback((id: string): number | null | undefined => inFlight[id]?.progress, [inFlight]);
 
   return {
     isSupported: isOfflineSupported(),

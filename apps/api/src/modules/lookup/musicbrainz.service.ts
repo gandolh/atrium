@@ -1,9 +1,5 @@
 import { z } from "zod";
-import {
-  isLookupCoverRef,
-  lookupCandidateSchema,
-  type LookupCandidate,
-} from "@ebook-reader/shared";
+import { isLookupCoverRef, lookupCandidateSchema, type LookupCandidate } from "@ebook-reader/shared";
 import { RateGate, fetchJson } from "./lookup-http.js";
 
 /**
@@ -37,9 +33,7 @@ const releaseSchema = z.object({
       "secondary-types": z.array(z.string()).nullish(),
     })
     .nullish(),
-  media: z
-    .array(z.object({ track: z.array(z.object({ number: z.string().nullish() })).nullish() }))
-    .nullish(),
+  media: z.array(z.object({ track: z.array(z.object({ number: z.string().nullish() })).nullish() })).nullish(),
 });
 type Release = z.infer<typeof releaseSchema>;
 
@@ -48,9 +42,7 @@ const recordingSchema = z.object({
   title: z.string(),
   score: z.number().nullish(),
   "first-release-date": z.string().nullish(),
-  "artist-credit": z
-    .array(z.object({ name: z.string(), joinphrase: z.string().nullish() }))
-    .nullish(),
+  "artist-credit": z.array(z.object({ name: z.string(), joinphrase: z.string().nullish() })).nullish(),
   releases: z.array(releaseSchema).nullish(),
 });
 type Recording = z.infer<typeof recordingSchema>;
@@ -180,11 +172,7 @@ function toCandidate(recording: Recording): LookupCandidate | null {
  * Official releases are asked for first; only when that finds nothing does a
  * second, unfiltered search go out, through the gate like the first.
  */
-export async function searchMusicBrainz(
-  title: string,
-  author: string,
-  limit: number,
-): Promise<LookupCandidate[]> {
+export async function searchMusicBrainz(title: string, author: string, limit: number): Promise<LookupCandidate[]> {
   const query = musicBrainzQuery(title, author);
   let recordings = await searchRecordings(`${query} AND status:official`);
   if (recordings.length === 0) recordings = await searchRecordings(query);

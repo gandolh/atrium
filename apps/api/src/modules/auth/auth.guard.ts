@@ -178,8 +178,7 @@ export async function registerAuthGuard(app: FastifyInstance, options: AuthGuard
      */
     const selected = await getSelectedProfileId(accountId, auth.session.idHash);
     const active = selected ? await getProfile(selected) : undefined;
-    const profile =
-      active && active.subject === accountId ? active : await getDefaultProfile(accountId);
+    const profile = active && active.subject === accountId ? active : await getDefaultProfile(accountId);
 
     if (!profile) {
       // Unreachable in practice: `ensureDefaultProfile` ran just above. If it

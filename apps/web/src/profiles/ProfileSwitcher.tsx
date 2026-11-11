@@ -32,9 +32,10 @@ export function ProfileSwitcher() {
   // Nothing to show before the boot reconcile (or login) resolves the active
   // profile — a fraction of a second on a returning device, but real.
   if (!active) return null;
+  const activeId = active.id;
 
   async function handleSwitch(id: string) {
-    if (id === active!.id) {
+    if (id === activeId) {
       setOpen(false);
       return;
     }
@@ -77,7 +78,7 @@ export function ProfileSwitcher() {
             Switch profile
           </p>
           {profiles.map((profile) => {
-            const isActive = profile.id === active!.id;
+            const isActive = profile.id === active.id;
             return (
               <button
                 key={profile.id}

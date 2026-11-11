@@ -849,7 +849,8 @@ function NoteSheet({
         setLive(null);
         gesturing.current = true;
         setAnimating(false);
-        const rect = ref.current!.getBoundingClientRect();
+        const rect = ref.current?.getBoundingClientRect();
+        if (!rect) return memo;
         const cur = transformRef.current;
         // transform-origin is the top-left corner, so scaling never moves
         // left/top — only our translate does. Recover the untransformed
@@ -894,7 +895,8 @@ function NoteSheet({
   }, []);
 
   const toNorm = useCallback((clientX: number, clientY: number): [number, number] => {
-    const rect = ref.current!.getBoundingClientRect();
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return [0, 0];
     // Divide both axes by width so the aspect ratio is preserved (y ∈ 0..ASPECT).
     return [roundTo((clientX - rect.left) / rect.width, 4), roundTo((clientY - rect.top) / rect.width, 4)];
   }, []);

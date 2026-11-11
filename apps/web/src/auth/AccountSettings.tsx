@@ -139,7 +139,9 @@ function WardResult() {
       ? "Your Ward account is linked. You can sign in with it from now on."
       : result === "reauthenticated"
         ? "Ward confirmed it's you. Set your password below."
-        : authMessage(error!);
+        : error
+          ? authMessage(error)
+          : "";
   return (
     <div className="flex items-start justify-between gap-4 rounded-card border border-line-soft/70 bg-paper-low/60 px-4 py-3">
       <p role="status" className="font-ui text-sm text-ink">
@@ -265,6 +267,7 @@ function WardLink({ linked, hasPassword }: { linked: boolean; hasPassword: boole
 function SignOut({ wardSession }: { wardSession: boolean }) {
   const { logout, pending, error } = useLogout();
   const out = useWardSignOut();
+  const failure = error ?? out.error;
 
   return (
     <Section title="Sign out" description="Atrium forgets this device's profile choice too.">
@@ -285,7 +288,7 @@ function SignOut({ wardSession }: { wardSession: boolean }) {
           </button>
         )}
       </div>
-      {(error ?? out.error) && <Alert>{authMessage((error ?? out.error)!)}</Alert>}
+      {failure && <Alert>{authMessage(failure)}</Alert>}
     </Section>
   );
 }

@@ -38,7 +38,7 @@ export function authMessage(error: AuthError): string {
       ? `Too many attempts. Try again in ${minutes} minutes.`
       : `Too many attempts. Try again in ${wait} seconds.`;
   }
-  return MESSAGES[error.code] ?? MESSAGES.unknown!;
+  return MESSAGES[error.code] ?? MESSAGES.unknown;
 }
 
 /** The sentence for a session `reason` (why a session was refused), if it needs one. */

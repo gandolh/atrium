@@ -422,7 +422,7 @@ async function primeDecoder(video: HTMLVideoElement, deadline: number): Promise<
   const budget = Math.min(PRIME_TIMEOUT_MS, deadline - Date.now());
   if (budget <= 0) return;
   try {
-    const started = video.play();
+    const started = video.play() as Promise<void> | undefined;
     if (!started) return; // older signature, nothing to await
     await Promise.race([started, sleep(budget)]);
   } catch {

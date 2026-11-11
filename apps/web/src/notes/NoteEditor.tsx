@@ -660,7 +660,7 @@ export function NoteEditor({ id }: { id: string }) {
         <header className="flex items-center gap-3 px-4 py-2.5">
           <button
             type="button"
-            onClick={() => navigate({ to: "/notes" })}
+            onClick={() => void navigate({ to: "/notes" })}
             className="rounded px-2 py-1 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             aria-label="Back to notes"
           >
@@ -688,8 +688,8 @@ export function NoteEditor({ id }: { id: string }) {
             </IconBtn>
             <ExportControl
               exporting={exporting}
-              onExportPdf={exportPdf}
-              onExportPng={exportPng}
+              onExportPdf={() => void exportPdf()}
+              onExportPng={() => void exportPng()}
               pageLabel={`page ${pageIndex + 1}`}
             />
           </div>

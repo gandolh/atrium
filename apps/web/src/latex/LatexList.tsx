@@ -71,7 +71,7 @@ export function LatexList() {
             action={
               <button
                 type="button"
-                onClick={() => refetch()}
+                onClick={() => void refetch()}
                 className="rounded-card border border-line-soft px-4 py-1.5 text-sm font-medium text-ink-variant transition hover:text-ink"
               >
                 Try again

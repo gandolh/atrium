@@ -61,6 +61,9 @@ function textOf(nodes: readonly Inline[]): string {
         out += `[fn${node.label}]`;
         break;
       case "marker":
+      case "citation":
+      case "image":
+      case "math":
         break;
     }
   }

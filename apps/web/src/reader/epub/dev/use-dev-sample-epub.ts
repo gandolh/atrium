@@ -18,7 +18,7 @@ export function useDevSampleEpub(enabled: boolean): File | null {
   useEffect(() => {
     if (!import.meta.env.DEV || !enabled) return;
     let cancelled = false;
-    (async () => {
+    void (async () => {
       // Dynamic import so the asset URL is only resolved when explicitly enabled.
       const { default: sampleUrl } = await import("./sample.epub?url");
       const res = await fetch(sampleUrl);

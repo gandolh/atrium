@@ -22,7 +22,7 @@ export function usePdfOutline(doc: PDFDocumentProxy | null): TocEntry[] {
       return;
     }
 
-    (async () => {
+    void (async () => {
       const outline = await doc.getOutline();
       if (!outline || outline.length === 0) {
         if (!cancelled) setEntries([]);

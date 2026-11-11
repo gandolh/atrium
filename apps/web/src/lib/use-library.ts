@@ -529,7 +529,8 @@ export function useOfflineDownload(): OfflineDownloadManager {
       if (flight) return flight.status;
       return downloadedIds.has(id) ? "downloaded" : "idle";
     },
-    // downloadedIds is derived fresh each render from offline.data.
+    // downloadedIds is derived fresh each render from offline.data, so offline.data stands in for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [inFlight, offline.data],
   );
 

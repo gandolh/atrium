@@ -307,7 +307,7 @@ function isNameStart(ch: string): boolean {
 }
 
 function isNameChar(ch: string): boolean {
-  return /[A-Za-z0-9_:.\-]/.test(ch);
+  return /[A-Za-z0-9_:.-]/.test(ch);
 }
 
 /**

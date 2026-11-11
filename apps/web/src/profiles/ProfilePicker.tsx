@@ -70,7 +70,7 @@ export function ProfilePicker() {
               active={profile.id === activeProfileId}
               pending={pendingId === profile.id}
               disabled={pendingId !== null}
-              onSelect={() => handleSelect(profile.id)}
+              onSelect={() => void handleSelect(profile.id)}
             />
           ))}
         </div>

@@ -299,18 +299,18 @@ export function LatexEditor({ id }: { id: string }) {
   // typing costs one PUT rather than one per character.
   useEffect(() => {
     if (!dirty) return;
-    const timer = setTimeout(flush, AUTOSAVE_MS);
+    const timer = setTimeout(() => void flush(), AUTOSAVE_MS);
     return () => clearTimeout(timer);
   }, [draft, dirty, flush]);
 
   // Flush on tab-hide and on unmount — closing the tab mid-debounce must not
   // cost the last 900ms of work. (`flush` is stable, so this mounts once.)
   useEffect(() => {
-    const onHide = () => flush();
+    const onHide = () => void flush();
     document.addEventListener("visibilitychange", onHide);
     return () => {
       document.removeEventListener("visibilitychange", onHide);
-      flush();
+      void flush();
     };
   }, [flush]);
 
@@ -322,7 +322,7 @@ export function LatexEditor({ id }: { id: string }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "s" || !(event.metaKey || event.ctrlKey)) return;
       event.preventDefault();
-      flush();
+      void flush();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -331,7 +331,7 @@ export function LatexEditor({ id }: { id: string }) {
   /** Open a file, flushing whatever the previous one still owed. */
   const openFile = useCallback(
     (path: string) => {
-      flush();
+      void flush();
       setOpenPath(path);
       setPane("source");
     },
@@ -347,7 +347,7 @@ export function LatexEditor({ id }: { id: string }) {
    */
   const jumpTo = useCallback(
     (target: LatexJumpTarget) => {
-      flush();
+      void flush();
       setOpenPath(target.file);
       setPane("source");
       revealNonce.current += 1;
@@ -439,7 +439,7 @@ export function LatexEditor({ id }: { id: string }) {
 
   const onCreate = useCallback(
     (path: string) => {
-      flush();
+      void flush();
       write.mutate(
         { path, content: "" },
         {

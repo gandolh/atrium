@@ -80,7 +80,7 @@ export function LoginPage() {
           </p>
         )}
 
-        <form onSubmit={submit} className="flex flex-col gap-5">
+        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-5">
           <label className="flex flex-col gap-1.5">
             <span className="font-ui text-sm font-medium text-ink-variant">Username</span>
             <input

@@ -172,7 +172,7 @@ function ChangePassword() {
 
   return (
     <Section title="Password" description="Changing it signs out every other device on this account.">
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         <PasswordField label="Current password" autoComplete="current-password" value={current} onChange={setCurrent} />
         <PasswordField label="New password" autoComplete="new-password" value={next} onChange={setNext} />
         {error && <Alert>{authMessage(error)}</Alert>}
@@ -207,7 +207,7 @@ function FirstPassword() {
       title="Atrium password"
       description="This account signs in with Ward only. Set a password so you can still get in while Ward is down."
     >
-      <form onSubmit={submit} className="flex flex-col gap-4">
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         <PasswordField label="New password" autoComplete="new-password" value={next} onChange={setNext} />
         {local.error && <Alert>{authMessage(local.error)}</Alert>}
         {local.done && !local.error && <Done>Password set.</Done>}

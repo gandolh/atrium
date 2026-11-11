@@ -317,8 +317,8 @@ export function placedImageSize(
 ): { width: number; height: number } | null {
   const intrinsicW = decoded.width;
   const intrinsicH = decoded.height;
-  let width: number | null = null;
-  let height: number | null = null;
+  let width: number | null;
+  let height: number | null;
 
   if (sizing.width !== null || sizing.height !== null) {
     // `scale=` beside either of these is ignored, as `graphicx` ignores it. The

@@ -218,7 +218,6 @@ export function LibraryHome() {
         }
       />
     ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOffline, offlineDownload, remove, openBook, discord],
   );
 

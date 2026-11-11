@@ -300,7 +300,7 @@ describe("the Jukebox API", () => {
     assert.equal(p.track, null);
 
     await send(person, "PATCH", `/jukebox/players/${g}/settings`, { repeat: "all" });
-    p = await control(g, { action: "playTrack", bookId: "zz" });
+    await control(g, { action: "playTrack", bookId: "zz" });
     p = await control(g, { action: "next" });
     assert.equal(p.track?.id, "t1", "repeat all wraps");
 

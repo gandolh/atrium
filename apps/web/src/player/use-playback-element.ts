@@ -136,7 +136,7 @@ export function usePlaybackElement<T extends HTMLMediaElement>(item: PlaybackIte
     if (!el) return;
     if (playing) {
       if (!canPlay) return;
-      const started = el.play();
+      const started = el.play() as Promise<void> | undefined;
       if (started) void started.catch(() => pause());
     } else {
       el.pause();

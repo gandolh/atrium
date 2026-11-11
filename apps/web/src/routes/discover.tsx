@@ -206,7 +206,7 @@ export function Discover() {
           <ErrorState
             title="Couldn't reach Project Gutenberg"
             body="The catalog may be temporarily unavailable. Please try again."
-            onRetry={() => catalog.refetch()}
+            onRetry={() => void catalog.refetch()}
           />
         ) : catalog.data ? (
           <CatalogResults

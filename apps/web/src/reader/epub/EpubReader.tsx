@@ -238,7 +238,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
       r.themes.font(fontStackFor(fontSettings.family));
     };
 
-    const useMap = (map: EpubPageMap) => {
+    const applyMap = (map: EpubPageMap) => {
       pageMapRef.current = map;
       setPageMap(map);
       setPageMapStatus("ready");
@@ -258,7 +258,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
       const cached = pageMapCache.get(key);
       if (cached) {
         cacheSet(pageMapCache, key, cached); // refresh recency
-        useMap(cached);
+        applyMap(cached);
         return;
       }
       // Read a FRESH ArrayBuffer from the File for the off-screen build — never
@@ -276,7 +276,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
         const map = await buildPageMapDetached(bytes, size, applyStyles);
         if (cancelled) return;
         cacheSet(pageMapCache, key, map);
-        useMap(map);
+        applyMap(map);
       } catch {
         if (!cancelled) setPageMapStatus("failed");
       }
@@ -340,7 +340,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
     // on a throwaway Book) never disturbs this position.
     const saved = useReaderStore.getState().initialLocation;
     setCurrentLocation(typeof saved === "string" ? saved : null);
-    (async () => {
+    void (async () => {
       const buf = await file.arrayBuffer();
       if (!cancelled) setData(buf);
     })();

@@ -78,8 +78,10 @@ function Forbidden({ message }: { message: string | null }) {
         type="button"
         disabled={pending}
         className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60"
-        onClick={async () => {
-          if (await logout()) signedOut();
+        onClick={() => {
+          void (async () => {
+            if (await logout()) signedOut();
+          })();
         }}
       >
         {pending ? "Signing out…" : "Sign out"}

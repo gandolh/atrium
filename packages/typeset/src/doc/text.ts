@@ -41,7 +41,7 @@ export function scanTextRun(value: string): TextSegment[] {
     const three = value.slice(i, i + 3);
     const two = value.slice(i, i + 2);
     const one = value[i]!;
-    let produced: string | null = null;
+    let produced: string | null;
     if (three === "---") {
       produced = "—";
       i += 3;

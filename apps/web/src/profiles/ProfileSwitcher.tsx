@@ -85,7 +85,7 @@ export function ProfileSwitcher() {
                 role="menuitemradio"
                 aria-checked={isActive}
                 disabled={pendingId !== null}
-                onMouseDown={() => handleSwitch(profile.id)}
+                onMouseDown={() => void handleSwitch(profile.id)}
                 className={`flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-sm transition disabled:cursor-default disabled:opacity-60 ${
                   isActive ? "font-semibold text-accent" : "text-ink hover:bg-paper-low"
                 }`}

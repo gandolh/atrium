@@ -141,7 +141,7 @@ function ProfileRow({
 
   if (editing) {
     return (
-      <form onSubmit={save} className="flex flex-col gap-3 px-4 py-4">
+      <form onSubmit={(e) => void save(e)} className="flex flex-col gap-3 px-4 py-4">
         <div className="flex items-center gap-3">
           <ColorSwatch color={color} large />
           <label className="flex-1">
@@ -273,7 +273,7 @@ function CreateProfileForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 rounded-card border border-line-soft/70 p-4">
+    <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-3 rounded-card border border-line-soft/70 p-4">
       <label className="flex flex-col gap-1.5">
         <span className="font-ui text-sm font-medium text-ink-variant">Name</span>
         <input
@@ -427,7 +427,7 @@ function DeleteProfileDialog({
           <button
             type="button"
             disabled={busy}
-            onClick={() => confirm(noteCount !== null)}
+            onClick={() => void confirm(noteCount !== null)}
             className="rounded bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Deleting…" : noteCount === null ? "Delete" : "Move notes & delete"}

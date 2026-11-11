@@ -22,7 +22,7 @@
     "lint": "eslint .",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:conventions && npm test",
     "check:fast": "npm run typecheck && node scripts/check-fast.mjs",
-    "check:conventions": "knip && depcruise apps/web/src apps/api/src packages/shared/src packages/typeset/src && node vendor/house-style/bin/check-base-ui.mjs --warn-only && node vendor/house-style/bin/check-structure.mjs --warn-only"
+    "check:conventions": "knip && depcruise apps/web/src apps/api/src packages/shared/src packages/typeset/src && node vendor/house-style/bin/check-base-ui.mjs && node vendor/house-style/bin/check-structure.mjs --warn-only"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

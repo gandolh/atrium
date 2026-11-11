@@ -21,6 +21,37 @@
       "rule": 14,
       "path": "apps/api/src/modules/library/extract.service.ts",
       "reason": "One console call reports a refused EPUB entry from a pure helper that receives no logger, and a test reads the printed line."
+    },
+    {
+      "check": "base-ui",
+      "rule": 13,
+      "path": "apps/web/src/reader/chrome/ProgressRail.tsx",
+      "reason": "A reading-progress rail that scrubs by touch, drag and keyboard, with a hover readout, chapter ticks and a thumb that follows the finger. It is a scrubbing surface, not a value field, so Base UI's Slider (a field with a track and a thumb) does not fit it."
+    },
+    {
+      "check": "base-ui",
+      "rule": 13,
+      "path": "apps/web/src/player/transport.tsx",
+      "reason": "The player's seek bar is a native range input laid over a progress bar. It is a scrubbing surface that the media element drives while it plays, and the native input keeps its touch and keyboard behaviour for free."
+    },
+    {
+      "check": "base-ui",
+      "rule": 14,
+      "path": "apps/web/src/store/reader-store.ts",
+      "reason": "The theme choice (Light, Sepia, Dark, System) is kept per profile on the server (persistPreference), not on the device, and sepia stays as a reading theme beside light and dark. A first visit is light; System resolves to light or dark and writes that to data-theme."
+    },
+    {
+      "check": "base-ui",
+      "rule": 5,
+      "path": "apps/web/src/reader/chrome/ThemePicker.tsx",
+      "reason": "Inline style holds colours from the --theme-<name>-* constants, which a picker has to paint all at once, whichever theme is active. Utilities can't reach a theme that is not the one showing."
+    },
+    {
+      "check": "base-ui",
+      "rule": 5,
+      "path": "apps/web/src/notes/NoteEditor.tsx",
+      "reason": "Inline style holds computed geometry (the sheet's size and pan, text boxes, pen widths) and the ink swatches' colour, which is a token the palette resolves at pick time."
     }
-  ]
+  ],
+  "stylesheet": "styles/globals.css"
 }

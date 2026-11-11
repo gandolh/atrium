@@ -9,6 +9,9 @@ export default [
   ...houseStyle({
     root: import.meta.dirname,
     web: "apps/web/src",
+    // better-tailwindcss reads the page's one stylesheet for its classes: an unknown or deprecated class is an error,
+    // and so is a class string out of Tailwind's order.
+    tailwind: { css: "apps/web/src/styles/globals.css", order: true },
     server: ["apps/api/src", "packages/shared/src", "packages/typeset/src"],
     // Tests run on node:test, so the vitest rules are off.
     vitest: false,
@@ -37,6 +40,13 @@ export default [
     // The docs site is a Docusaurus workspace with its own build and checks; the public folder is static.
     ignores: ["apps/docs/**", "apps/web/public/**"],
   }),
+  {
+    // `quiet-select` is not a utility: globals.css styles the native select's picker (`select.quiet-select::picker`)
+    // through it, and no utility can reach that pseudo-element.
+    name: "atrium/quiet-select-hook",
+    files: ["apps/web/src/components/QuietSelect.tsx", "apps/web/src/notes/NotesList.tsx"],
+    rules: { "better-tailwindcss/no-unknown-classes": ["error", { ignore: ["quiet-select"] }] },
+  },
   {
     name: "atrium/restricted-syntax",
     files: ["**/*.{ts,tsx,js,jsx,mjs,cjs}"],

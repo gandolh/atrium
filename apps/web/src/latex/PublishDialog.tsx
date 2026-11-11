@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 
+import { Dialog, DialogPopup, DialogTitle } from "../components/ui/Dialog";
 import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { latexErrorMessage, latexPublishCompileFailure } from "./latex-api";
 import type { LatexJumpTarget } from "./LatexEditor";
@@ -67,7 +67,6 @@ export function PublishDialog({
    */
   const [saveFailed, setSaveFailed] = useState(false);
   const publish = usePublishLatexProject(projectId);
-  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const isRepublish = publishedBookId !== null;
   /** Either half of confirm is running: the flush, then the publish itself. */
@@ -110,20 +109,6 @@ export function PublishDialog({
     onJump(target);
   };
 
-  useEffect(() => {
-    if (open) cancelRef.current?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") closeDialog();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, busy]);
-
   const compileFailure = publish.isError ? latexPublishCompileFailure(publish.error) : null;
 
   return (
@@ -136,120 +121,109 @@ export function PublishDialog({
         Publish
       </button>
 
-      {open &&
-        createPortal(
-          <div
-            role="presentation"
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 backdrop-blur-md"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) closeDialog();
-            }}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="publish-dialog-title"
-              className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift"
-            >
-              <div className="flex flex-col gap-2 p-6 pb-0">
-                <h2 id="publish-dialog-title" className="font-display text-xl font-semibold text-ink">
-                  {publish.isSuccess
-                    ? "Published"
-                    : isRepublish
-                      ? `Publish a new version of “${projectTitle}”?`
-                      : `Publish “${projectTitle}”?`}
-                </h2>
+      {/* Esc and an outside tap close it, except while a save or a publish runs (closeDialog holds that guard). */}
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) closeDialog();
+        }}
+      >
+        <DialogPopup className="top-1/2 left-1/2 flex max-h-[85vh] w-[calc(100%-2.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift">
+          <div className="flex flex-col gap-2 p-6 pb-0">
+            <DialogTitle className="font-display text-xl font-semibold text-ink">
+              {publish.isSuccess
+                ? "Published"
+                : isRepublish
+                  ? `Publish a new version of “${projectTitle}”?`
+                  : `Publish “${projectTitle}”?`}
+            </DialogTitle>
 
-                {!publish.isSuccess && !compileFailure && (
-                  <p className="font-ui text-sm text-ink-variant">
-                    {isRepublish
-                      ? "This adds a new version to the existing library entry — it will not create a second card. Readers who haven't explicitly opened an older version will see this one."
-                      : "This compiles the project and adds it to your library as a new entry. You can publish again any time to add another version."}
-                  </p>
-                )}
-              </div>
+            {!publish.isSuccess && !compileFailure && (
+              <p className="font-ui text-sm text-ink-variant">
+                {isRepublish
+                  ? "This adds a new version to the existing library entry — it will not create a second card. Readers who haven't explicitly opened an older version will see this one."
+                  : "This compiles the project and adds it to your library as a new entry. You can publish again any time to add another version."}
+              </p>
+            )}
+          </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">
-                {compileFailure ? (
-                  <div className="-mx-6 flex flex-col gap-2">
-                    <p className="px-6 font-ui text-sm text-ink-variant">
-                      This document doesn't compile, so there's nothing to publish. Fix these first, then publish again.
-                    </p>
-                    <DiagnosticsPanel result={compileFailure} loading={false} onJump={onDiagnosticJump} />
-                  </div>
-                ) : publish.isSuccess ? (
-                  <div className="flex flex-col gap-3">
-                    <p className="font-ui text-sm text-ink-variant">
-                      Published as{" "}
-                      <span className="font-semibold text-ink tabular-nums">
-                        version {publish.data.version.versionNo}
-                      </span>{" "}
-                      of <span className="font-semibold text-ink">&ldquo;{publish.data.book.title}&rdquo;</span> in your
-                      library.
-                    </p>
-                    <Link
-                      to="/read"
-                      search={{ book: publish.data.book.id, format: "pdf" }}
-                      className="w-fit rounded-card border border-line-soft px-3 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-                    >
-                      Open in the library
-                    </Link>
-                  </div>
-                ) : publish.isError ? (
-                  <p role="alert" className="font-ui text-sm text-danger">
-                    {latexErrorMessage(publish.error, "Couldn't publish this project. Try again.")}
-                  </p>
-                ) : saveFailed ? (
-                  <p role="alert" className="font-ui text-sm text-danger">
-                    Your latest changes couldn't be saved, so this would publish an older draft. Nothing was published —
-                    try again.
-                  </p>
-                ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">
+            {compileFailure ? (
+              <div className="-mx-6 flex flex-col gap-2">
+                <p className="px-6 font-ui text-sm text-ink-variant">
+                  This document doesn't compile, so there's nothing to publish. Fix these first, then publish again.
+                </p>
+                <DiagnosticsPanel result={compileFailure} loading={false} onJump={onDiagnosticJump} />
               </div>
+            ) : publish.isSuccess ? (
+              <div className="flex flex-col gap-3">
+                <p className="font-ui text-sm text-ink-variant">
+                  Published as{" "}
+                  <span className="font-semibold text-ink tabular-nums">version {publish.data.version.versionNo}</span>{" "}
+                  of <span className="font-semibold text-ink">&ldquo;{publish.data.book.title}&rdquo;</span> in your
+                  library.
+                </p>
+                <Link
+                  to="/read"
+                  search={{ book: publish.data.book.id, format: "pdf" }}
+                  className="w-fit rounded-card border border-line-soft px-3 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                >
+                  Open in the library
+                </Link>
+              </div>
+            ) : publish.isError ? (
+              <p role="alert" className="font-ui text-sm text-danger">
+                {latexErrorMessage(publish.error, "Couldn't publish this project. Try again.")}
+              </p>
+            ) : saveFailed ? (
+              <p role="alert" className="font-ui text-sm text-danger">
+                Your latest changes couldn't be saved, so this would publish an older draft. Nothing was published — try
+                again.
+              </p>
+            ) : null}
+          </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-line-soft/60 p-4">
-                {publish.isSuccess ? (
-                  <button
-                    type="button"
-                    onClick={closeDialog}
-                    className="rounded bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90"
-                  >
-                    Done
-                  </button>
-                ) : compileFailure ? (
-                  <button
-                    type="button"
-                    onClick={closeDialog}
-                    className="rounded-card px-3 py-1.5 font-ui text-sm text-ink-variant transition hover:text-ink"
-                  >
-                    Close
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      ref={cancelRef}
-                      type="button"
-                      disabled={busy}
-                      onClick={closeDialog}
-                      className="rounded-card px-3 py-1.5 font-ui text-sm text-ink-variant transition hover:text-ink disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={onConfirm}
-                      className="rounded bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
-                    >
-                      {publish.isPending ? "Publishing…" : saving ? "Saving…" : "Publish"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+          <div className="flex items-center justify-end gap-2 border-t border-line-soft/60 p-4">
+            {publish.isSuccess ? (
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="rounded-sm bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90"
+              >
+                Done
+              </button>
+            ) : compileFailure ? (
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="rounded-card px-3 py-1.5 font-ui text-sm text-ink-variant transition hover:text-ink"
+              >
+                Close
+              </button>
+            ) : (
+              <>
+                <button
+                  data-autofocus
+                  type="button"
+                  disabled={busy}
+                  onClick={closeDialog}
+                  className="rounded-card px-3 py-1.5 font-ui text-sm text-ink-variant transition hover:text-ink disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={onConfirm}
+                  className="rounded-sm bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {publish.isPending ? "Publishing…" : saving ? "Saving…" : "Publish"}
+                </button>
+              </>
+            )}
+          </div>
+        </DialogPopup>
+      </Dialog>
     </>
   );
 }

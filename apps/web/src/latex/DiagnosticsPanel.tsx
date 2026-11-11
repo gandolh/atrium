@@ -123,7 +123,7 @@ export function DiagnosticsPanel({ result, loading, onJump }: DiagnosticsPanelPr
             Raw log
           </button>
           {logOpen && (
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-card bg-paper p-2 font-ui text-xs text-ink-variant">
+            <pre className="mt-1 max-h-40 overflow-auto rounded-card bg-paper p-2 font-ui text-xs break-words whitespace-pre-wrap text-ink-variant">
               {result.log || "(empty)"}
             </pre>
           )}
@@ -144,7 +144,7 @@ function DiagnosticRow({ diagnostic, onJump }: { diagnostic: Diagnostic; onJump:
       <button
         type="button"
         onClick={() => onJump({ file: diagnostic.file, line: diagnostic.line, column: diagnostic.column })}
-        className={`flex w-full flex-col items-start gap-0.5 rounded-card border-l-2 py-1 pl-2.5 pr-2 text-left transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-accent ${
+        className={`flex w-full flex-col items-start gap-0.5 rounded-card border-l-2 py-1 pr-2 pl-2.5 text-left transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-accent ${
           isError ? "border-l-danger" : "border-l-line"
         }`}
       >
@@ -154,7 +154,7 @@ function DiagnosticRow({ diagnostic, onJump }: { diagnostic: Diagnostic; onJump:
             {diagnostic.line > 0 ? `:${diagnostic.line}` : ""}
           </span>
           {badge && (
-            <span className="rounded-card bg-paper-container px-1.5 py-0.5 font-ui text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-variant">
+            <span className="rounded-card bg-paper-container px-1.5 py-0.5 font-ui text-[10px] font-semibold tracking-[0.1em] text-ink-variant uppercase">
               {badge}
             </span>
           )}

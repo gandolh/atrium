@@ -1,6 +1,6 @@
 import { useState, type ReactElement, type ReactNode } from "react";
-import { Popover } from "@base-ui/react/popover";
 
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../../components/ui/Popover";
 import { useChromeHold } from "./use-auto-hide-chrome";
 
 /**
@@ -33,16 +33,15 @@ export function SettingsPopover({
   useChromeHold(open);
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Trigger render={trigger} aria-label={title} />
-      <Popover.Portal>
-        <Popover.Positioner side="top" sideOffset={8} className="z-50">
-          <Popover.Popup className="w-72 rounded-card border border-reader-border bg-reader-bg p-4 text-reader-fg shadow-l1 transition data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 motion-reduce:transition-none">
-            <Popover.Title className="mb-3 text-sm font-semibold">{title}</Popover.Title>
-            <div className="flex flex-col gap-4">{children}</div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={trigger} aria-label={title} />
+      <PopoverPopup
+        side="top"
+        className="w-72 rounded-card border border-reader-border bg-reader-bg p-4 text-reader-fg shadow-l1 transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none"
+      >
+        <PopoverTitle className="mb-3 text-sm font-semibold">{title}</PopoverTitle>
+        <div className="flex flex-col gap-4">{children}</div>
+      </PopoverPopup>
+    </Popover>
   );
 }

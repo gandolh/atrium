@@ -85,7 +85,7 @@ export function CompileButton({
       onClick={pending ? onCancel : onCompile}
       disabled={cancelling}
       title={title}
-      className="flex shrink-0 items-center gap-1.5 rounded-card bg-ink-fill px-3 py-1.5 font-ui text-sm font-medium text-on-ink-fill transition hover:opacity-90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
+      className="flex shrink-0 items-center gap-1.5 rounded-card bg-ink-fill px-3 py-1.5 font-ui text-sm font-medium text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
     >
       <CompileIcon spinning={pending} />
       {label}

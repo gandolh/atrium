@@ -4,6 +4,7 @@ import { Outlet } from "@tanstack/react-router";
 import { AuthGate } from "../auth/AuthGate";
 import { PlaybackHost } from "../player/PlaybackHost";
 import { DOCK_HEIGHT_PX } from "../player/PlayerDock";
+import { ToastHost } from "../components/ui/Toast";
 import { UpdateToast } from "../pwa/UpdateToast";
 import { usePlaybackStore } from "../store/playback-store";
 
@@ -43,14 +44,16 @@ export function RootLayout() {
   } as CSSProperties;
 
   return (
-    <div className="min-h-screen bg-reader-bg text-reader-fg" style={shellStyle}>
-      <AuthGate>
-        <Outlet />
-        <PlaybackHost />
-      </AuthGate>
-      {/* App-level, outside the auth gate: a new deploy should surface even
-          while signing in, so the app is never stuck on an old version. */}
-      <UpdateToast />
-    </div>
+    <ToastHost>
+      <div className="min-h-screen bg-reader-bg text-reader-fg" style={shellStyle}>
+        <AuthGate>
+          <Outlet />
+          <PlaybackHost />
+        </AuthGate>
+        {/* App-level, outside the auth gate: a new deploy should surface even
+            while signing in, so the app is never stuck on an old version. */}
+        <UpdateToast />
+      </div>
+    </ToastHost>
   );
 }

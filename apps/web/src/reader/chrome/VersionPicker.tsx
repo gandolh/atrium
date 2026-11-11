@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Popover } from "@base-ui/react/popover";
 import type { Format, LibraryBook } from "@ebook-reader/shared";
 
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../../components/ui/Popover";
 import { ApiError } from "../../lib/api-client";
 import { fetchBookFile, type LibraryVersionsResult } from "../../lib/library-api";
 import { useBookVersions, useDeleteBookVersion } from "../../lib/use-library";
@@ -194,55 +194,54 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
 
   return (
     <div
-      className={`pointer-events-none fixed right-3 top-2.5 z-20 sm:right-5 sm:top-3 transition-opacity ease-paper motion-reduce:transition-none ${
+      className={`pointer-events-none fixed top-2.5 right-3 z-sticky transition-opacity ease-paper motion-reduce:transition-none sm:top-3 sm:right-5 ${
         chromeVisible ? "opacity-100" : "opacity-0"
       }`}
       style={{ transitionDuration: `${chromeVisible ? MOTION_MS.chromeIn : MOTION_MS.chromeOut}ms` }}
     >
-      <Popover.Root open={open} onOpenChange={setOpen}>
-        <Popover.Trigger
-          className={`pointer-events-auto flex items-center gap-1.5 rounded-card border border-reader-border/70 bg-reader-surface/90 px-2.5 py-1 font-ui text-xs text-reader-fg/75 shadow-l1 backdrop-blur transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent ${
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          className={`pointer-events-auto flex items-center gap-1.5 rounded-card border border-reader-border/70 bg-reader-surface/90 px-2.5 py-1 font-ui text-xs text-reader-fg/75 shadow-l1 backdrop-blur-sm transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent ${
             chromeVisible ? "" : "pointer-events-none"
           }`}
           aria-label="Choose a version"
         >
           <span className="tabular-nums">Version {data.versions.find((v) => v.id === activeId)?.versionNo ?? "…"}</span>
           <ChevronIcon open={open} />
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
-            <Popover.Popup className="w-72 rounded-card border border-reader-border bg-reader-bg p-3 text-reader-fg shadow-l1 transition data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 motion-reduce:transition-none">
-              <Popover.Title className="mb-2 px-1 font-ui text-[11px] font-semibold uppercase tracking-[0.15em] text-reader-fg/55">
-                Versions
-              </Popover.Title>
-              <ul className="flex flex-col gap-0.5">
-                {data.versions.map((version) => (
-                  <VersionRow
-                    key={version.id}
-                    versionNo={version.versionNo}
-                    publishedAt={version.publishedAt}
-                    active={version.id === activeId}
-                    busy={busyId === version.id}
-                    confirming={confirmingId === version.id}
-                    onSelect={() => onSelect(version.id)}
-                    onRequestDelete={() => {
-                      setActionError(null);
-                      setConfirmingId(version.id);
-                    }}
-                    onCancelDelete={() => setConfirmingId(null)}
-                    onConfirmDelete={() => void onConfirmDelete(version.id)}
-                  />
-                ))}
-              </ul>
-              {actionError && (
-                <p role="alert" className="mt-2 px-1 font-ui text-xs text-danger">
-                  {actionError}
-                </p>
-              )}
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </Popover.Root>
+        </PopoverTrigger>
+        <PopoverPopup
+          align="end"
+          className="w-72 rounded-card border border-reader-border bg-reader-bg p-3 text-reader-fg shadow-l1 transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none"
+        >
+          <PopoverTitle className="mb-2 px-1 font-ui text-[11px] font-semibold tracking-[0.15em] text-reader-fg/55 uppercase">
+            Versions
+          </PopoverTitle>
+          <ul className="flex flex-col gap-0.5">
+            {data.versions.map((version) => (
+              <VersionRow
+                key={version.id}
+                versionNo={version.versionNo}
+                publishedAt={version.publishedAt}
+                active={version.id === activeId}
+                busy={busyId === version.id}
+                confirming={confirmingId === version.id}
+                onSelect={() => onSelect(version.id)}
+                onRequestDelete={() => {
+                  setActionError(null);
+                  setConfirmingId(version.id);
+                }}
+                onCancelDelete={() => setConfirmingId(null)}
+                onConfirmDelete={() => void onConfirmDelete(version.id)}
+              />
+            ))}
+          </ul>
+          {actionError && (
+            <p role="alert" className="mt-2 px-1 font-ui text-xs text-danger">
+              {actionError}
+            </p>
+          )}
+        </PopoverPopup>
+      </Popover>
     </div>
   );
 }
@@ -319,12 +318,12 @@ function VersionRow({
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${active ? "bg-reader-accent" : "bg-transparent"}`}
           />
           <span
-            className={`tabular-nums font-ui text-sm ${active ? "font-semibold text-reader-fg" : "text-reader-fg/85"}`}
+            className={`font-ui text-sm tabular-nums ${active ? "font-semibold text-reader-fg" : "text-reader-fg/85"}`}
           >
             Version {versionNo}
           </span>
         </span>
-        <span className="shrink-0 tabular-nums font-ui text-xs text-reader-fg/55">
+        <span className="shrink-0 font-ui text-xs text-reader-fg/55 tabular-nums">
           {formatVersionDate(publishedAt)}
         </span>
       </button>
@@ -354,7 +353,7 @@ function VersionRow({
           aria-label={`Delete version ${versionNo}`}
           onClick={onRequestDelete}
           disabled={busy}
-          className="shrink-0 rounded-card p-1.5 text-reader-fg/45 transition hover:text-danger disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-reader-accent"
+          className="shrink-0 rounded-card p-1.5 text-reader-fg/45 transition hover:text-danger focus-visible:outline-2 focus-visible:outline-reader-accent disabled:opacity-30"
         >
           <TrashIcon />
         </button>

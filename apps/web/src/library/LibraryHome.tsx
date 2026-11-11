@@ -261,7 +261,7 @@ export function LibraryHome() {
                 onClick={browse}
                 disabled={uploading || isOffline}
                 title={isOffline ? "Requires connection" : undefined}
-                className="rounded-card bg-ink-fill px-4 py-2 font-ui text-sm font-semibold tabular-nums text-on-ink-fill transition hover:opacity-90 disabled:bg-paper-container disabled:text-ink-variant"
+                className="rounded-card bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill tabular-nums transition hover:opacity-90 disabled:bg-paper-container disabled:text-ink-variant"
               >
                 {uploading ? uploadLabel : "+ Add"}
               </button>
@@ -331,7 +331,7 @@ export function LibraryHome() {
             <button
               type="button"
               onClick={() => setSearchInput("")}
-              className="rounded font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              className="rounded-sm font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             >
               Clear search
             </button>
@@ -472,9 +472,9 @@ function GallerySkeleton() {
     <div className={GRID} aria-hidden>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
-          <div className="aspect-[2/3] w-full motion-safe:animate-pulse rounded-cover bg-paper-container" />
-          <div className="h-4 w-3/4 motion-safe:animate-pulse rounded-card bg-paper-container" />
-          <div className="h-3 w-1/2 motion-safe:animate-pulse rounded-card bg-paper-container" />
+          <div className="aspect-[2/3] w-full rounded-cover bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-4 w-3/4 rounded-card bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded-card bg-paper-container motion-safe:animate-pulse" />
         </div>
       ))}
     </div>

@@ -66,7 +66,7 @@ export function LibrarySearchField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={onKeyDownInput}
-        className="w-full rounded-card border border-line bg-paper py-2 pl-3 pr-10 font-ui text-sm text-ink placeholder:text-ink-variant/70 transition-colors duration-200 ease-paper focus:outline-none focus-visible:border-accent"
+        className="w-full rounded-card border border-line bg-paper py-2 pr-10 pl-3 font-ui text-sm text-ink transition-colors duration-200 ease-paper placeholder:text-ink-variant/70 focus:outline-none focus-visible:border-accent"
       />
       <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
         {showClear ? (
@@ -77,12 +77,15 @@ export function LibrarySearchField({
               inputRef.current?.focus();
             }}
             aria-label="Clear search"
-            className="pointer-events-auto rounded px-1 py-0.5 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="pointer-events-auto rounded-sm px-1 py-0.5 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           >
             Clear
           </button>
         ) : showHint ? (
-          <span aria-hidden className="rounded border border-line-soft px-1.5 py-0.5 font-ui text-xs text-ink-variant">
+          <span
+            aria-hidden
+            className="rounded-sm border border-line-soft px-1.5 py-0.5 font-ui text-xs text-ink-variant"
+          >
             /
           </span>
         ) : null}

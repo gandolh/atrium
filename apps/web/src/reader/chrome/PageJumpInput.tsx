@@ -90,7 +90,7 @@ export function PageJumpInput({
               }
             }}
             style={{ width: `${fieldCh + 1.5}ch` }}
-            className="rounded bg-reader-bg px-1 py-0.5 text-center tabular-nums text-reader-fg outline-none transition focus:ring-1 focus:ring-reader-accent"
+            className="rounded-sm bg-reader-bg px-1 py-0.5 text-center text-reader-fg tabular-nums transition outline-none focus:ring-1 focus:ring-reader-accent"
           />
           <span className="text-reader-fg/60">/ {total}</span>
           <button
@@ -110,10 +110,10 @@ export function PageJumpInput({
           </button>
         </span>
       ) : (
-        <span className="whitespace-nowrap tabular-nums text-reader-fg/40">{unitLabel} …</span>
+        <span className="whitespace-nowrap text-reader-fg/40 tabular-nums">{unitLabel} …</span>
       )}
       {percent !== null && (
-        <span className="hidden rounded bg-reader-surface px-1.5 py-0.5 text-xs tabular-nums text-reader-fg/70 md:inline">
+        <span className="hidden rounded-sm bg-reader-surface px-1.5 py-0.5 text-xs text-reader-fg/70 tabular-nums md:inline">
           {percent}%
         </span>
       )}

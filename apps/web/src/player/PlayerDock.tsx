@@ -53,7 +53,7 @@ export function PlayerDock() {
           exit={{ y: "100%" }}
           transition={transition}
           style={{ height: DOCK_HEIGHT_PX }}
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper-raised"
+          className="fixed inset-x-0 bottom-0 z-dock border-t border-line bg-paper-raised"
         >
           {/* Phone-only position line — the scrub track's read-only stand-in. */}
           <MiniProgressLine />
@@ -122,7 +122,7 @@ function DockTitle({ item }: { item: PlaybackItem }) {
       <Link
         to="/read"
         search={{ book: item.id, format: item.format }}
-        className="block truncate rounded text-sm leading-tight font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="block truncate rounded-sm text-sm leading-tight font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {item.title}
       </Link>

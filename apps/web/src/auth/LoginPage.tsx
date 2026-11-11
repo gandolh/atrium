@@ -92,7 +92,7 @@ export function LoginPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink outline-none transition focus:border-b-2 focus:border-accent"
+              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink transition outline-none focus:border-b-2 focus:border-accent"
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -104,13 +104,13 @@ export function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink outline-none transition focus:border-b-2 focus:border-accent"
+              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink transition outline-none focus:border-b-2 focus:border-accent"
             />
           </label>
           <button
             type="submit"
             disabled={pending}
-            className="rounded bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
+            className="rounded-sm bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
           >
             {pending ? "Signing in…" : "Sign in"}
           </button>

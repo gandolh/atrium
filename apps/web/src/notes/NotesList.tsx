@@ -81,7 +81,7 @@ export function NotesList() {
               type="button"
               onClick={() => setCreatingUnder(null)}
               disabled={busy}
-              className="rounded-card border border-line-soft px-3 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
+              className="rounded-card border border-line-soft px-3 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
             >
               + New folder
             </button>
@@ -89,7 +89,7 @@ export function NotesList() {
               type="button"
               onClick={newNote}
               disabled={create.isPending}
-              className="rounded bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-sm bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
             >
               {create.isPending ? "Creating…" : "+ New note"}
             </button>
@@ -107,10 +107,10 @@ export function NotesList() {
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-9 w-9 shrink-0 motion-safe:animate-pulse rounded-cover bg-paper-container" />
+                <div className="h-9 w-9 shrink-0 rounded-cover bg-paper-container motion-safe:animate-pulse" />
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <div className="h-3.5 w-1/3 motion-safe:animate-pulse rounded-card bg-paper-container" />
-                  <div className="h-3 w-1/4 motion-safe:animate-pulse rounded-card bg-paper-container" />
+                  <div className="h-3.5 w-1/3 rounded-card bg-paper-container motion-safe:animate-pulse" />
+                  <div className="h-3 w-1/4 rounded-card bg-paper-container motion-safe:animate-pulse" />
                 </div>
               </div>
             ))}
@@ -586,7 +586,7 @@ function RowAction({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-card px-1.5 py-1 font-ui text-[11px] transition disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-accent ${
+      className={`rounded-card px-1.5 py-1 font-ui text-[11px] transition focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 ${
         danger ? "text-ink-variant hover:text-danger" : "text-ink-variant hover:text-ink"
       }`}
     >
@@ -628,7 +628,7 @@ function MoveSelect({
         value={value ?? ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value === "" ? null : event.target.value)}
-        className="quiet-select max-w-[9rem] appearance-none border-b border-line-soft bg-transparent py-1 pr-5 pl-1 font-ui text-[11px] font-medium text-ink-variant transition outline-none hover:border-line hover:text-ink disabled:opacity-40 focus:border-b-2 focus:border-accent"
+        className="quiet-select max-w-[9rem] appearance-none border-b border-line-soft bg-transparent py-1 pr-5 pl-1 font-ui text-[11px] font-medium text-ink-variant transition outline-none hover:border-line hover:text-ink focus:border-b-2 focus:border-accent disabled:opacity-40"
       >
         <option value="">{rootLabel}</option>
         {options.map((option) => (
@@ -700,7 +700,7 @@ function NameInput({
       <button
         type="submit"
         disabled={!valid}
-        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-accent"
+        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
       >
         {confirmLabel}
       </button>

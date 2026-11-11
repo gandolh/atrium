@@ -86,7 +86,7 @@ function ImportAction({
         <button
           type="button"
           onClick={() => mutation.mutate(book.id)}
-          className="rounded border border-line-soft px-2 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+          className="rounded-sm border border-line-soft px-2 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
         >
           Retry
         </button>
@@ -105,7 +105,7 @@ function ImportAction({
       type="button"
       disabled={mutation.isPending}
       onClick={() => mutation.mutate(book.id)}
-      className="w-fit rounded border border-line-soft px-3 py-1.5 font-ui text-xs font-medium text-ink-variant transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
+      className="w-fit rounded-sm border border-line-soft px-3 py-1.5 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
     >
       {mutation.isPending ? "Adding…" : inLibrary ? "Add again" : "Add to library"}
     </button>

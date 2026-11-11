@@ -199,7 +199,7 @@ export function UploadZone({
   // Full-screen "drop to add" overlay. pointer-events-none so the drop event
   // falls through to the window handler above rather than the overlay eating it.
   const overlay = windowDrag && !disabled && (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-50 bg-paper/90 p-6 backdrop-blur-sm">
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-popup bg-paper/90 p-6 backdrop-blur-sm">
       <div className="grid h-full w-full place-items-center rounded-card border-2 border-dashed border-accent">
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="grid h-14 w-14 place-items-center rounded-card bg-paper-container">
@@ -273,7 +273,7 @@ export function UploadZone({
           onClick={() => inputRef.current?.click()}
           disabled={busy || disabled}
           title={disabled ? "Requires connection" : undefined}
-          className="rounded-card bg-ink-fill px-6 py-2.5 text-sm font-semibold tabular-nums text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+          className="rounded-card bg-ink-fill px-6 py-2.5 text-sm font-semibold text-on-ink-fill tabular-nums transition hover:opacity-90 disabled:opacity-50"
         >
           {disabled ? "Requires connection" : busy ? busyLabel : "Upload files"}
         </button>

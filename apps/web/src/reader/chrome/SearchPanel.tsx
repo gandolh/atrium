@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Dialog } from "@base-ui/react/dialog";
 
+import { Drawer, DrawerClose, DrawerPopup, DrawerTitle } from "../../components/ui/Drawer";
+import { CloseIcon } from "../../components/ui/icons";
 import type { SearchMatch, SearchProvider } from "./search-seam";
 import { useChromeHold } from "./use-auto-hide-chrome";
 
@@ -103,90 +104,90 @@ export function SearchPanel({
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        {/* design.md "Depth is tonal": modals keep a 12px backdrop blur. */}
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-        <Dialog.Popup className="fixed inset-y-0 right-0 z-50 flex w-[85vw] max-w-sm flex-col border-l border-reader-border bg-reader-bg text-reader-fg shadow-l1 transition-transform data-[starting-style]:translate-x-full data-[ending-style]:translate-x-full">
-          <div className="flex items-center justify-between border-b border-reader-border px-4 py-3">
-            <Dialog.Title className="text-base font-semibold">{title}</Dialog.Title>
-            <Dialog.Close
-              aria-label="Close search"
-              className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
-            >
-              <CloseIcon />
-            </Dialog.Close>
-          </div>
+    // A search form: an outside tap must not throw away the query (base-ui rule 12), so it closes with the X, a swipe or Esc.
+    <Drawer open={open} onOpenChange={onOpenChange} swipeDirection="right" disablePointerDismissal>
+      <DrawerPopup
+        swipeDirection="right"
+        className="flex w-[85vw] max-w-sm flex-col border-l border-reader-border bg-reader-bg text-reader-fg shadow-l1"
+      >
+        <div className="flex items-center justify-between border-b border-reader-border px-4 py-3">
+          <DrawerTitle className="text-base font-semibold">{title}</DrawerTitle>
+          <DrawerClose
+            aria-label="Close search"
+            className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
+          >
+            <CloseIcon />
+          </DrawerClose>
+        </div>
 
-          <form onSubmit={onSubmit} className="border-b border-reader-border px-4 py-3">
-            <div className="flex items-center gap-2">
-              <input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search in book…"
-                className="min-w-0 flex-1 rounded-card border border-reader-border bg-reader-surface px-3 py-1.5 text-sm text-reader-fg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
-              />
-              {/* design.md "accent means state only, never a button fill":
+        <form onSubmit={onSubmit} className="border-b border-reader-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search in book…"
+              className="min-w-0 flex-1 rounded-card border border-reader-border bg-reader-surface px-3 py-1.5 text-sm text-reader-fg outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
+            />
+            {/* design.md "accent means state only, never a button fill":
                   ink-filled primary, not accent-filled (a Reading Room conformance
                   gap, fixed here alongside the OpeningErrorState instance). */}
-              <button
-                type="submit"
-                disabled={searching || query.trim().length === 0}
-                className="shrink-0 rounded-card bg-ink-fill px-3 py-1.5 text-sm font-medium text-on-ink-fill transition disabled:opacity-40"
-              >
-                {searching ? "…" : "Go"}
-              </button>
-            </div>
-          </form>
-
-          <div className="flex-1 overflow-y-auto px-2 py-2">
-            {!searching && results === null && (
-              <p className="px-2 py-4 text-sm text-reader-fg/60">
-                Search the whole book — results are grouped by chapter.
-              </p>
-            )}
-            {searching && (
-              <p className="px-2 py-4 text-sm text-reader-fg/60 motion-safe:animate-pulse">Searching the whole book…</p>
-            )}
-            {!searching && results !== null && results.length === 0 && (
-              <p className="px-2 py-4 text-sm text-reader-fg/60">No matches for “{executedQueryRef.current}”.</p>
-            )}
-            {!searching && results !== null && results.length > 0 && (
-              <>
-                <p className="px-2 pb-1 pt-1 text-xs text-reader-fg/60">
-                  {results.length} {results.length === 1 ? "result" : "results"}
-                </p>
-                <ul>
-                  {results.map((match, i) => {
-                    // Group results under a chapter header when the label
-                    // changes (results arrive in book order).
-                    const showGroup = match.label && match.label !== results[i - 1]?.label;
-                    return (
-                      <li key={i}>
-                        {showGroup && (
-                          <p className="truncate px-2 pb-1 pt-3 text-xs font-medium text-reader-fg/60">{match.label}</p>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onSelect(match)}
-                          className="block w-full rounded-card px-2 py-2 text-left text-sm text-reader-fg/85 hover:bg-reader-surface"
-                        >
-                          <span className="line-clamp-3 text-reader-fg/85">
-                            {emphasizeQuery(match.excerpt, executedQueryRef.current)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
+            <button
+              type="submit"
+              disabled={searching || query.trim().length === 0}
+              className="shrink-0 rounded-card bg-ink-fill px-3 py-1.5 text-sm font-medium text-on-ink-fill transition disabled:opacity-40"
+            >
+              {searching ? "…" : "Go"}
+            </button>
           </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </form>
+
+        <div className="flex-1 overflow-y-auto px-2 py-2">
+          {!searching && results === null && (
+            <p className="px-2 py-4 text-sm text-reader-fg/60">
+              Search the whole book — results are grouped by chapter.
+            </p>
+          )}
+          {searching && (
+            <p className="px-2 py-4 text-sm text-reader-fg/60 motion-safe:animate-pulse">Searching the whole book…</p>
+          )}
+          {!searching && results !== null && results.length === 0 && (
+            <p className="px-2 py-4 text-sm text-reader-fg/60">No matches for “{executedQueryRef.current}”.</p>
+          )}
+          {!searching && results !== null && results.length > 0 && (
+            <>
+              <p className="px-2 pt-1 pb-1 text-xs text-reader-fg/60">
+                {results.length} {results.length === 1 ? "result" : "results"}
+              </p>
+              <ul>
+                {results.map((match, i) => {
+                  // Group results under a chapter header when the label
+                  // changes (results arrive in book order).
+                  const showGroup = match.label && match.label !== results[i - 1]?.label;
+                  return (
+                    <li key={i}>
+                      {showGroup && (
+                        <p className="truncate px-2 pt-3 pb-1 text-xs font-medium text-reader-fg/60">{match.label}</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onSelect(match)}
+                        className="block w-full rounded-card px-2 py-2 text-left text-sm text-reader-fg/85 hover:bg-reader-surface"
+                      >
+                        <span className="line-clamp-3 text-reader-fg/85">
+                          {emphasizeQuery(match.excerpt, executedQueryRef.current)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </div>
+      </DrawerPopup>
+    </Drawer>
   );
 }
 
@@ -213,12 +214,4 @@ function emphasizeQuery(excerpt: string, query: string) {
   }
   if (from < excerpt.length) parts.push(excerpt.slice(from));
   return parts;
-}
-
-function CloseIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
 }

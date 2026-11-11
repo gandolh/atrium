@@ -111,7 +111,7 @@ export function JukeboxPage() {
           <button
             type="button"
             onClick={() => void players.refetch()}
-            className="rounded font-medium text-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm font-medium text-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
           >
             Try again
           </button>

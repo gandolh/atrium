@@ -92,7 +92,7 @@ export function OfflineToggle({
         canDownload ? `Save ${bookTitle} for offline reading` : "Save for offline reading — requires connection"
       }
       title={canDownload ? "Save for offline reading" : "Requires connection"}
-      className={`${base} text-on-ink-fill opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-md:opacity-100`}
+      className={`${base} text-on-ink-fill opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-md:opacity-100`}
     >
       <DownloadGlyph className="h-3.5 w-3.5" />
     </button>

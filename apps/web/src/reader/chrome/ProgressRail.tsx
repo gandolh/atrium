@@ -149,9 +149,9 @@ export function ProgressRail({
   return (
     <div
       // While hovered or dragged the rail (and its tooltip) must rise above the
-      // toolbar pill (z-30), which otherwise paints over the tooltip.
+      // toolbar pill (the chrome layer), which otherwise paints over the tooltip.
       className={`absolute inset-x-0 bottom-0 transition-opacity ease-paper ${
-        hover || dragging ? "z-40" : "z-20"
+        hover || dragging ? "z-overlay" : "z-sticky"
       } ${visible ? "opacity-100" : "pointer-events-none opacity-0"}`}
       // design.md "Motion": 600ms out / 150ms in, same asymmetric fade as the
       // running header/toolbar (all three chrome pieces move together).
@@ -159,7 +159,7 @@ export function ProgressRail({
     >
       {hover && (
         <div
-          className="pointer-events-none absolute bottom-5 -translate-x-1/2 whitespace-nowrap rounded-card border border-reader-border bg-reader-surface px-2 py-1 text-xs text-reader-fg shadow-l1"
+          className="pointer-events-none absolute bottom-5 -translate-x-1/2 rounded-card border border-reader-border bg-reader-surface px-2 py-1 text-xs whitespace-nowrap text-reader-fg shadow-l1"
           style={{ left: hover.x }}
         >
           {hoverLabel ? `${hoverLabel} · ` : ""}
@@ -254,7 +254,7 @@ export function ProgressRail({
         <span
           ref={knobRef}
           aria-hidden="true"
-          className={`pointer-events-none absolute bottom-0 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-reader-surface bg-reader-accent shadow transition-transform duration-150 group-hover:scale-110 group-focus-visible:scale-110 ${
+          className={`pointer-events-none absolute bottom-0 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-reader-surface bg-reader-accent shadow-sm transition-transform duration-150 group-hover:scale-110 group-focus-visible:scale-110 ${
             dragging ? "scale-125" : ""
           }`}
           style={reducedMotion ? { left: `clamp(6px, ${shownPct}%, calc(100% - 6px))` } : undefined}

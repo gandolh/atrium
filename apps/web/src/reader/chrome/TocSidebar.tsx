@@ -51,7 +51,7 @@ export function TocSidebar({
         <div
           aria-hidden="true"
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md md:hidden"
+          className="fixed inset-0 z-overlay bg-black/40 backdrop-blur-md md:hidden"
         />
       )}
 
@@ -66,7 +66,7 @@ export function TocSidebar({
           "h-full overflow-hidden border-reader-border bg-reader-bg",
           "md:relative md:shrink-0 md:border-r md:transition-[width] md:duration-200 md:motion-reduce:transition-none",
           open ? "md:w-72" : "md:w-0 md:border-r-0",
-          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 max-md:w-[86vw] max-md:max-w-80 max-md:border-r max-md:shadow-l1 max-md:transition-transform max-md:duration-200 max-md:motion-reduce:transition-none",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-popup max-md:w-[86vw] max-md:max-w-80 max-md:border-r max-md:shadow-l1 max-md:transition-transform max-md:duration-200 max-md:motion-reduce:transition-none",
           open ? "max-md:translate-x-0" : "max-md:-translate-x-full",
         ].join(" ")}
       >
@@ -114,7 +114,7 @@ export function TocSidebar({
                         {isCurrent && (
                           <span
                             aria-hidden="true"
-                            className="absolute left-0 top-1/2 size-1.5 -translate-y-1/2 rounded-full bg-reader-accent"
+                            className="absolute top-1/2 left-0 size-1.5 -translate-y-1/2 rounded-full bg-reader-accent"
                           />
                         )}
                         {entry.label}

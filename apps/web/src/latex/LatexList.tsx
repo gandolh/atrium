@@ -39,7 +39,7 @@ export function LatexList() {
             type="button"
             onClick={newProject}
             disabled={create.isPending}
-            className="rounded bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-sm bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
           >
             {create.isPending ? "Creating…" : "+ New project"}
           </button>
@@ -56,10 +56,10 @@ export function LatexList() {
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-9 w-9 shrink-0 motion-safe:animate-pulse rounded-cover bg-paper-container" />
+                <div className="h-9 w-9 shrink-0 rounded-cover bg-paper-container motion-safe:animate-pulse" />
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <div className="h-3.5 w-1/3 motion-safe:animate-pulse rounded-card bg-paper-container" />
-                  <div className="h-3 w-1/4 motion-safe:animate-pulse rounded-card bg-paper-container" />
+                  <div className="h-3.5 w-1/3 rounded-card bg-paper-container motion-safe:animate-pulse" />
+                  <div className="h-3 w-1/4 rounded-card bg-paper-container motion-safe:animate-pulse" />
                 </div>
               </div>
             ))}
@@ -127,7 +127,7 @@ function ProjectRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="group relative flex items-center gap-3 border-l-2 border-l-transparent px-3.5 py-2.5 transition-colors hover:border-l-accent hover:bg-paper-raised focus-within:border-l-accent focus-within:bg-paper-raised">
+    <div className="group relative flex items-center gap-3 border-l-2 border-l-transparent px-3.5 py-2.5 transition-colors focus-within:border-l-accent focus-within:bg-paper-raised hover:border-l-accent hover:bg-paper-raised">
       <span
         aria-hidden
         className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-paper-container text-ink-variant"
@@ -149,7 +149,7 @@ function ProjectRow({
         type="button"
         aria-label={`Delete ${project.title}`}
         onClick={onDelete}
-        className="rounded-card px-1.5 py-1 text-xs text-ink-variant opacity-0 transition hover:text-danger group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
+        className="rounded-card px-1.5 py-1 text-xs text-ink-variant opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
       >
         Delete
       </button>

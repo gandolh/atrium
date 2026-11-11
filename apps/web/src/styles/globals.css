@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* dark: follows the theme switch (base-ui rule 14): it keys off `data-theme` on <html>, never off the system
+   setting. The System choice resolves to light or dark in `useApplyTheme` and writes that, so the attribute is
+   only ever light, sepia or dark. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /*
  * ── "Reading Room" design system (Atrium — corpus/wiki/design.md, D33) ───────
  *
@@ -307,6 +312,17 @@
   --radius-card: 4px;
   --radius-cover: 2px;
   --radius-chip: 20px;
+
+  /* Stacking (base-ui rule 6): a role, not a number. Chrome sits over the page, a scrim over the chrome, a popup
+     (a dialog, a drawer, a menu) over the scrim, and a toast over everything. The values are the ones the app used
+     before they were named, so nothing moves. */
+  --z-index-raised: 10;
+  --z-index-sticky: 20;
+  --z-index-chrome: 30;
+  --z-index-overlay: 40;
+  --z-index-dock: 40;
+  --z-index-popup: 50;
+  --z-index-toast: 60;
 
   /* Elevation. Depth is tonal — a hairline plus a soft shadow, never a glow. */
   --shadow-l1: 0 4px 10px -5px rgb(26 25 23 / 0.3);

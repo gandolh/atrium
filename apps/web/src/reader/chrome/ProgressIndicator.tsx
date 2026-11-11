@@ -31,7 +31,7 @@ export function ProgressIndicator({
         </span>
       )}
       {percent !== null && (
-        <span className="rounded bg-reader-surface px-1.5 py-0.5 text-xs tabular-nums text-reader-fg/70">
+        <span className="rounded-sm bg-reader-surface px-1.5 py-0.5 text-xs text-reader-fg/70 tabular-nums">
           {percent}%
         </span>
       )}

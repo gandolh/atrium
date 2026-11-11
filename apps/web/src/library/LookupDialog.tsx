@@ -1,5 +1,4 @@
 import { useState, type FormEvent, type RefObject } from "react";
-import { Dialog } from "@base-ui/react/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   LOOKUP_FIELDS,
@@ -12,6 +11,7 @@ import {
 } from "@ebook-reader/shared";
 
 import { coverUrl } from "../lib/library-api";
+import { Dialog, DialogClose, DialogDescription, DialogPopup, DialogTitle } from "../components/ui/Dialog";
 import { applyLookup, lookupCoverUrl, lookupErrorMessage, searchLookup } from "../lib/lookup-api";
 
 /**
@@ -124,7 +124,7 @@ export function LookupDialog({
   const anyTicked = LOOKUP_FIELDS.some((field) => ticked[field]);
 
   return (
-    <Dialog.Root
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         // A write in flight finishes before the dialog can go.
@@ -134,166 +134,164 @@ export function LookupDialog({
       onOpenChangeComplete={(isOpen) => {
         if (!isOpen) onClosed();
       }}
+      // The dialog holds a search form and a field picker: an outside tap must not throw them away.
+      disablePointerDismissal
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-40 bg-black/40 backdrop-blur-md motion-safe:transition-opacity motion-safe:duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
-        <Dialog.Popup
-          finalFocus={returnFocus}
-          className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(88vh,46rem)] w-[min(calc(100vw-2rem),36rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-line-soft bg-paper-raised text-ink shadow-lift outline-none motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-paper data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0"
-        >
-          <header className="flex flex-col gap-1 px-5 pt-5 pb-3">
-            <p className={CAPS}>Look up on {sourceName}</p>
-            <Dialog.Title className="line-clamp-2 font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink">
-              {book.title}
-            </Dialog.Title>
-            <Dialog.Description className="font-ui text-sm text-ink-variant">
-              Atrium&rsquo;s server asks {sourceName} for you. Nothing changes until you apply.
-            </Dialog.Description>
-          </header>
+      <DialogPopup
+        finalFocus={returnFocus}
+        backdropClassName="motion-safe:duration-200"
+        className="top-1/2 left-1/2 flex max-h-[min(88vh,46rem)] w-[min(calc(100vw-2rem),36rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-line-soft bg-paper-raised text-ink shadow-lift data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-paper"
+      >
+        <header className="flex flex-col gap-1 px-5 pt-5 pb-3">
+          <p className={CAPS}>Look up on {sourceName}</p>
+          <DialogTitle className="line-clamp-2 font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink">
+            {book.title}
+          </DialogTitle>
+          <DialogDescription className="font-ui text-sm text-ink-variant">
+            Atrium&rsquo;s server asks {sourceName} for you. Nothing changes until you apply.
+          </DialogDescription>
+        </header>
 
-          {picked === null ? (
-            <>
-              <form onSubmit={onSearch} className="flex flex-col gap-2 px-5 pb-3 sm:flex-row sm:items-end">
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className={CAPS}>{labels.title}</span>
-                  <input value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
-                </label>
-                <label className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className={CAPS}>{labels.author}</span>
-                  <input value={author} onChange={(e) => setAuthor(e.target.value)} className={INPUT} />
-                </label>
-                <button type="submit" disabled={searching} className={SECONDARY}>
-                  Search
-                </button>
-              </form>
+        {picked === null ? (
+          <>
+            <form onSubmit={onSearch} className="flex flex-col gap-2 px-5 pb-3 sm:flex-row sm:items-end">
+              <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className={CAPS}>{labels.title}</span>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
+              </label>
+              <label className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className={CAPS}>{labels.author}</span>
+                <input value={author} onChange={(e) => setAuthor(e.target.value)} className={INPUT} />
+              </label>
+              <button type="submit" disabled={searching} className={SECONDARY}>
+                Search
+              </button>
+            </form>
 
-              <div aria-busy={searching} className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-3 py-3">
-                <SearchState
-                  searching={searching}
-                  error={search.isError ? search.error : null}
-                  empty={search.isSuccess && search.data.candidates.length === 0}
-                  sourceName={sourceName}
-                  source={source}
-                />
-                {!searching && search.isSuccess && search.data.candidates.length > 0 && (
-                  <ul aria-label={`Matches on ${sourceName}`} className="flex flex-col">
-                    {search.data.candidates.map((candidate, i) => (
-                      <li key={`${candidate.sourceId}-${i}`}>
-                        <button
-                          type="button"
-                          onClick={() => pick(candidate)}
-                          className="flex w-full items-center gap-3 rounded-card px-2 py-2 text-left transition-colors hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent"
-                        >
-                          <Thumb
-                            kind={kind}
-                            src={
-                              candidate.coverRef && !noCover.has(candidate.coverRef)
-                                ? lookupCoverUrl(source, candidate.coverRef)
-                                : null
-                            }
-                            onError={() => candidate.coverRef && markNoCover(candidate.coverRef)}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-ui text-sm leading-snug font-semibold tracking-[-0.01em] text-ink">
-                              {candidate.title}
-                            </span>
-                            <span className="block truncate text-sm text-ink-variant tabular-nums">
-                              {describe(candidate, kind)}
-                            </span>
+            <div aria-busy={searching} className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-3 py-3">
+              <SearchState
+                searching={searching}
+                error={search.isError ? search.error : null}
+                empty={search.isSuccess && search.data.candidates.length === 0}
+                sourceName={sourceName}
+                source={source}
+              />
+              {!searching && search.isSuccess && search.data.candidates.length > 0 && (
+                <ul aria-label={`Matches on ${sourceName}`} className="flex flex-col">
+                  {search.data.candidates.map((candidate, i) => (
+                    <li key={`${candidate.sourceId}-${i}`}>
+                      <button
+                        type="button"
+                        onClick={() => pick(candidate)}
+                        className="flex w-full items-center gap-3 rounded-card px-2 py-2 text-left transition-colors hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent"
+                      >
+                        <Thumb
+                          kind={kind}
+                          src={
+                            candidate.coverRef && !noCover.has(candidate.coverRef)
+                              ? lookupCoverUrl(source, candidate.coverRef)
+                              : null
+                          }
+                          onError={() => candidate.coverRef && markNoCover(candidate.coverRef)}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-ui text-sm leading-snug font-semibold tracking-[-0.01em] text-ink">
+                            {candidate.title}
                           </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <footer className="flex justify-end border-t border-line-soft px-5 py-3">
-                <Dialog.Close className={SECONDARY}>Cancel</Dialog.Close>
-              </footer>
-            </>
-          ) : (
-            <>
-              <div className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-5 py-4">
-                <fieldset className="flex flex-col gap-2">
-                  <legend className="mb-2 font-ui text-sm text-ink-variant">
-                    Tick what to take from {sourceName}. Unticked fields stay as they are.
-                  </legend>
-                  <div aria-hidden className="grid grid-cols-[1rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-3 px-3">
-                    <span />
-                    <span className={CAPS}>Now</span>
-                    <span className={CAPS}>New</span>
-                  </div>
-                  {LOOKUP_FIELDS.filter((field) => offered(picked, field, noCover)).map((field) => (
-                    <label
-                      key={field}
-                      className="grid cursor-pointer grid-cols-[1rem_minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-3 rounded-card border border-line-soft px-3 py-2.5 transition-colors has-[:checked]:border-line has-[:checked]:bg-paper-low/60"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={ticked[field]}
-                        onChange={(e) => setTicked((prev) => ({ ...prev, [field]: e.target.checked }))}
-                        aria-label={`Use the new ${labels[field].toLowerCase()}`}
-                        className="mt-[3px] h-4 w-4 accent-accent"
-                      />
-                      <span className="col-span-2 flex flex-col gap-1">
-                        <span className={CAPS}>{labels[field]}</span>
-                        <span className="grid grid-cols-2 gap-x-3">
-                          <FieldValue
-                            field={field}
-                            kind={kind}
-                            tone="now"
-                            text={currentText(book, field)}
-                            image={field === "cover" && book.hasCover ? coverUrl(book.id, book.coverVersion) : null}
-                          />
-                          <FieldValue
-                            field={field}
-                            kind={kind}
-                            tone="new"
-                            text={newText(picked, field)}
-                            image={
-                              field === "cover" && picked.coverRef ? lookupCoverUrl(source, picked.coverRef) : null
-                            }
-                            onImageError={() => picked.coverRef && markNoCover(picked.coverRef)}
-                          />
+                          <span className="block truncate text-sm text-ink-variant tabular-nums">
+                            {describe(candidate, kind)}
+                          </span>
                         </span>
-                      </span>
-                    </label>
+                      </button>
+                    </li>
                   ))}
-                </fieldset>
-                {apply.isError && (
-                  <p role="alert" className="mt-3 font-ui text-sm text-danger">
-                    {lookupErrorMessage(apply.error, source)}
-                  </p>
-                )}
-              </div>
+                </ul>
+              )}
+            </div>
 
-              <footer className="flex items-center justify-between gap-2 border-t border-line-soft px-5 py-3">
-                <button
-                  type="button"
-                  disabled={apply.isPending}
-                  onClick={() => {
-                    apply.reset();
-                    setPicked(null);
-                  }}
-                  className={SECONDARY}
-                >
-                  Back to results
-                </button>
-                <button
-                  type="button"
-                  disabled={!anyTicked || apply.isPending}
-                  onClick={() => apply.mutate(picked)}
-                  className={PRIMARY}
-                >
-                  {apply.isPending ? "Applying…" : "Apply"}
-                </button>
-              </footer>
-            </>
-          )}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+            <footer className="flex justify-end border-t border-line-soft px-5 py-3">
+              <DialogClose className={SECONDARY}>Cancel</DialogClose>
+            </footer>
+          </>
+        ) : (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto border-t border-line-soft px-5 py-4">
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 font-ui text-sm text-ink-variant">
+                  Tick what to take from {sourceName}. Unticked fields stay as they are.
+                </legend>
+                <div aria-hidden className="grid grid-cols-[1rem_minmax(0,1fr)_minmax(0,1fr)] gap-x-3 px-3">
+                  <span />
+                  <span className={CAPS}>Now</span>
+                  <span className={CAPS}>New</span>
+                </div>
+                {LOOKUP_FIELDS.filter((field) => offered(picked, field, noCover)).map((field) => (
+                  <label
+                    key={field}
+                    className="grid cursor-pointer grid-cols-[1rem_minmax(0,1fr)_minmax(0,1fr)] items-start gap-x-3 rounded-card border border-line-soft px-3 py-2.5 transition-colors has-[:checked]:border-line has-[:checked]:bg-paper-low/60"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={ticked[field]}
+                      onChange={(e) => setTicked((prev) => ({ ...prev, [field]: e.target.checked }))}
+                      aria-label={`Use the new ${labels[field].toLowerCase()}`}
+                      className="mt-[3px] h-4 w-4 accent-accent"
+                    />
+                    <span className="col-span-2 flex flex-col gap-1">
+                      <span className={CAPS}>{labels[field]}</span>
+                      <span className="grid grid-cols-2 gap-x-3">
+                        <FieldValue
+                          field={field}
+                          kind={kind}
+                          tone="now"
+                          text={currentText(book, field)}
+                          image={field === "cover" && book.hasCover ? coverUrl(book.id, book.coverVersion) : null}
+                        />
+                        <FieldValue
+                          field={field}
+                          kind={kind}
+                          tone="new"
+                          text={newText(picked, field)}
+                          image={field === "cover" && picked.coverRef ? lookupCoverUrl(source, picked.coverRef) : null}
+                          onImageError={() => picked.coverRef && markNoCover(picked.coverRef)}
+                        />
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              {apply.isError && (
+                <p role="alert" className="mt-3 font-ui text-sm text-danger">
+                  {lookupErrorMessage(apply.error, source)}
+                </p>
+              )}
+            </div>
+
+            <footer className="flex items-center justify-between gap-2 border-t border-line-soft px-5 py-3">
+              <button
+                type="button"
+                disabled={apply.isPending}
+                onClick={() => {
+                  apply.reset();
+                  setPicked(null);
+                }}
+                className={SECONDARY}
+              >
+                Back to results
+              </button>
+              <button
+                type="button"
+                disabled={!anyTicked || apply.isPending}
+                onClick={() => apply.mutate(picked)}
+                className={PRIMARY}
+              >
+                {apply.isPending ? "Applying…" : "Apply"}
+              </button>
+            </footer>
+          </>
+        )}
+      </DialogPopup>
+    </Dialog>
   );
 }
 

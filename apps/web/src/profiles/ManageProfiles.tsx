@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { MAX_PROFILES_PER_ACCOUNT, PROFILE_COLORS, type Profile, type ProfileColor } from "@ebook-reader/shared";
 
 import { AppHeader } from "../components/AppHeader";
+import { Dialog, DialogPopup, DialogTitle } from "../components/ui/Dialog";
+import { RadioGroup, RadioItem } from "../components/ui/RadioGroup";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { useAuthStore } from "../lib/auth";
 import { createProfile, deleteProfile, updateProfile } from "../lib/profiles-api";
@@ -152,16 +154,12 @@ function ProfileRow({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink outline-none transition focus:border-b-2 focus:border-accent"
+              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none focus:border-b-2 focus:border-accent"
             />
           </label>
         </div>
 
-        <div className="flex items-center gap-2">
-          {PROFILE_COLORS.map((c) => (
-            <ColorPickerSwatch key={c} color={c} selected={c === color} onSelect={() => setColor(c)} />
-          ))}
-        </div>
+        <ColorPicker color={color} onChange={setColor} />
 
         {error && (
           <p role="alert" className="font-ui text-sm text-danger">
@@ -173,7 +171,7 @@ function ProfileRow({
           <button
             type="submit"
             disabled={busy}
-            className="rounded bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-sm bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Saving…" : "Save"}
           </button>
@@ -283,15 +281,11 @@ function CreateProfileForm({
           onChange={(e) => setName(e.target.value)}
           maxLength={24}
           placeholder="e.g. Sam"
-          className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink outline-none transition focus:border-b-2 focus:border-accent"
+          className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none focus:border-b-2 focus:border-accent"
         />
       </label>
 
-      <div className="flex items-center gap-2">
-        {PROFILE_COLORS.map((c) => (
-          <ColorPickerSwatch key={c} color={c} selected={c === color} onSelect={() => setColor(c)} />
-        ))}
-      </div>
+      <ColorPicker color={color} onChange={setColor} />
 
       {error && (
         <p role="alert" className="font-ui text-sm text-danger">
@@ -303,7 +297,7 @@ function CreateProfileForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+          className="rounded-sm bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
         >
           {busy ? "Adding…" : "Add profile"}
         </button>
@@ -343,19 +337,6 @@ function DeleteProfileDialog({
   const [noteCount, setNoteCount] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    cancelRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !busy) onCancel();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [busy, onCancel]);
 
   async function confirm(reassign: boolean) {
     setBusy(true);
@@ -378,22 +359,15 @@ function DeleteProfileDialog({
   }
 
   return (
-    <div
-      role="presentation"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5 backdrop-blur-md"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !busy) onCancel();
+    // Esc and an outside tap cancel, except while the request runs.
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next && !busy) onCancel();
       }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-profile-title"
-        className="w-full max-w-sm rounded-card border border-line-soft bg-paper-raised p-6 shadow-lift"
-      >
-        <h2 id="delete-profile-title" className="font-display text-xl font-semibold text-ink">
-          Delete {profile.name}?
-        </h2>
+      <DialogPopup className="top-1/2 left-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-card border border-line-soft bg-paper-raised p-6 shadow-lift">
+        <DialogTitle className="font-display text-xl font-semibold text-ink">Delete {profile.name}?</DialogTitle>
 
         {noteCount === null ? (
           <p className="mt-2 font-ui text-sm text-ink-variant">
@@ -416,7 +390,7 @@ function DeleteProfileDialog({
 
         <div className="mt-5 flex items-center justify-end gap-2">
           <button
-            ref={cancelRef}
+            data-autofocus
             type="button"
             disabled={busy}
             onClick={onCancel}
@@ -428,13 +402,13 @@ function DeleteProfileDialog({
             type="button"
             disabled={busy}
             onClick={() => void confirm(noteCount !== null)}
-            className="rounded bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-sm bg-ink-fill px-3 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
           >
             {busy ? "Deleting…" : noteCount === null ? "Delete" : "Move notes & delete"}
           </button>
         </div>
-      </div>
-    </div>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -450,26 +424,22 @@ function ColorSwatch({ color, large = false }: { color: ProfileColor; large?: bo
   );
 }
 
-/** One selectable swatch in the colour row — selection uses `accent` (state only). */
-function ColorPickerSwatch({
-  color,
-  selected,
-  onSelect,
-}: {
-  color: ProfileColor;
-  selected: boolean;
-  onSelect: () => void;
-}) {
+/**
+ * The colour row: one swatch chosen, and it only sets what the form will save, so it is a RadioGroup (base-ui rule
+ * 16). Selection uses `accent` (state only).
+ */
+function ColorPicker({ color, onChange }: { color: ProfileColor; onChange: (color: ProfileColor) => void }) {
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      aria-label={PROFILE_COLOR_LABEL[color]}
-      title={PROFILE_COLOR_LABEL[color]}
-      onClick={onSelect}
-      className={`h-7 w-7 rounded-(--radius-cover) border-2 transition ${profileTintClass(color)} ${
-        selected ? "border-accent" : "border-line-soft/60 hover:border-line"
-      }`}
-    />
+    <RadioGroup label="Colour" value={color} onValueChange={onChange} className="flex items-center gap-2">
+      {PROFILE_COLORS.map((c) => (
+        <RadioItem
+          key={c}
+          value={c}
+          aria-label={PROFILE_COLOR_LABEL[c]}
+          title={PROFILE_COLOR_LABEL[c]}
+          className={`block h-7 w-7 rounded-(--radius-cover) border-2 border-line-soft/60 transition hover:not-data-checked:border-line data-checked:border-accent ${profileTintClass(c)}`}
+        />
+      ))}
+    </RadioGroup>
   );
 }

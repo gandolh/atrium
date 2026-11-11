@@ -1,6 +1,16 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "../components/ui/Menu";
 import { useActiveProfile, useAuthStore } from "../lib/auth";
 import { profileTintClass } from "../lib/profile-colors";
 
@@ -12,13 +22,9 @@ import { profileTintClass } from "../lib/profile-colors";
  * cluster (`AppHeader`'s "Notes · {actions} · theme" comment) as one more
  * item rather than a new row.
  *
- * Follows `CoverCard`'s per-card overflow menu exactly: `onBlur` on the
- * trigger closes the panel, and every menu item fires on `onMouseDown` (not
- * `onClick`) so the ACTION runs before that blur closes it. "Manage profiles"
- * (and "Account", the D58 settings page with sign-out) navigates imperatively (`useNavigate`) in its own `onMouseDown`, rather than
- * a `Link`'s default click-to-navigate, for the same reason: the trigger's
- * `onBlur` fires on mousedown too, so a `Link` relying on the click that
- * follows would already be unmounted (the panel closed) by the time it fires.
+ * Base UI's `Menu`, like `CoverCard`'s per-card overflow menu: Enter, Space or ArrowDown on the trigger opens it, the
+ * arrows move, Enter or Space runs an item and Esc closes it and returns to the trigger. The profiles are a radio
+ * group of menu items; "Manage profiles" and "Account" (the D58 settings page with sign-out) navigate imperatively.
  */
 export function ProfileSwitcher() {
   const active = useActiveProfile();
@@ -55,74 +61,58 @@ export function ProfileSwitcher() {
 
   return (
     <div className="relative shrink-0">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        onBlur={() => setOpen(false)}
-        className="flex items-center gap-2 rounded-card px-2 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      >
-        <ColorSwatch color={active.color} />
-        <span className="max-w-24 truncate text-ink">{active.name}</span>
-        <ChevronGlyph className="h-3 w-3" />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
+      {/* modal={false}: the page stays scrollable and clickable behind the open menu. */}
+      <Menu open={open} onOpenChange={setOpen} modal={false}>
+        <MenuTrigger className="flex items-center gap-2 rounded-card px-2 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
+          <ColorSwatch color={active.color} />
+          <span className="max-w-24 truncate text-ink">{active.name}</span>
+          <ChevronGlyph className="h-3 w-3" />
+        </MenuTrigger>
+        <MenuPopup
+          align="end"
           aria-label="Switch profile"
-          className="absolute top-9 right-0 z-20 w-52 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift"
+          className="w-52 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift"
         >
-          <p className="border-b border-line-soft/60 px-3 py-2 font-ui text-[11px] font-semibold tracking-[0.08em] text-ink-variant uppercase">
-            Switch profile
-          </p>
-          {profiles.map((profile) => {
-            const isActive = profile.id === active.id;
-            return (
-              <button
-                key={profile.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={isActive}
-                disabled={pendingId !== null}
-                onMouseDown={() => void handleSwitch(profile.id)}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left font-ui text-sm transition disabled:cursor-default disabled:opacity-60 ${
-                  isActive ? "font-semibold text-accent" : "text-ink hover:bg-paper-low"
-                }`}
-              >
-                <ColorSwatch color={profile.color} />
-                <span className="truncate">{pendingId === profile.id ? "Switching…" : profile.name}</span>
-              </button>
-            );
-          })}
+          <MenuGroup>
+            <MenuGroupLabel className="border-b border-line-soft/60 px-3 py-2 font-ui text-[11px] font-semibold tracking-[0.08em] text-ink-variant uppercase">
+              Switch profile
+            </MenuGroupLabel>
+            <MenuRadioGroup value={activeId} onValueChange={(id) => void handleSwitch(id)}>
+              {profiles.map((profile) => (
+                <MenuRadioItem
+                  key={profile.id}
+                  value={profile.id}
+                  // Choosing someone else keeps the menu open until the switch is done, so a failure can be said
+                  // inside it. Choosing the active profile changes nothing, so it just closes.
+                  closeOnClick={profile.id === activeId}
+                  disabled={pendingId !== null}
+                  className="flex w-full cursor-default items-center gap-2 px-3 py-2 text-left font-ui text-sm text-ink outline-none data-checked:font-semibold data-checked:text-accent data-disabled:opacity-60 data-highlighted:bg-paper-low"
+                >
+                  <ColorSwatch color={profile.color} />
+                  <span className="truncate">{pendingId === profile.id ? "Switching…" : profile.name}</span>
+                </MenuRadioItem>
+              ))}
+            </MenuRadioGroup>
+          </MenuGroup>
           {error && (
             <p role="alert" className="px-3 py-1.5 font-ui text-xs text-danger">
               {error}
             </p>
           )}
-          <button
-            type="button"
-            onMouseDown={() => {
-              setOpen(false);
-              void navigate({ to: "/profiles" });
-            }}
-            className="block w-full border-t border-line-soft/60 px-3 py-2 text-left font-ui text-sm text-ink-variant transition hover:bg-paper-low hover:text-ink"
+          <MenuItem
+            onClick={() => void navigate({ to: "/profiles" })}
+            className="block w-full cursor-default border-t border-line-soft/60 px-3 py-2 text-left font-ui text-sm text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
           >
             Manage profiles
-          </button>
-          <button
-            type="button"
-            onMouseDown={() => {
-              setOpen(false);
-              void navigate({ to: "/settings" });
-            }}
-            className="block w-full px-3 py-2 text-left font-ui text-sm text-ink-variant transition hover:bg-paper-low hover:text-ink"
+          </MenuItem>
+          <MenuItem
+            onClick={() => void navigate({ to: "/settings" })}
+            className="block w-full cursor-default px-3 py-2 text-left font-ui text-sm text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
           >
             Account
-          </button>
-        </div>
-      )}
+          </MenuItem>
+        </MenuPopup>
+      </Menu>
     </div>
   );
 }

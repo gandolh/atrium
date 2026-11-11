@@ -125,7 +125,7 @@ export function Discover() {
         actions={
           <Link
             to="/"
-            className="rounded border border-line-soft/70 px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm border border-line-soft/70 px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           >
             ‹ Back to library
           </Link>
@@ -159,12 +159,12 @@ export function Discover() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Title or author…"
-              className="border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink outline-none transition hover:border-line focus:border-b-2 focus:border-accent"
+              className="border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none hover:border-line focus:border-b-2 focus:border-accent"
             />
           </label>
           <button
             type="submit"
-            className="rounded border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           >
             Search
           </button>
@@ -264,7 +264,7 @@ function CatalogResults({
             type="button"
             disabled={loadingMore}
             onClick={() => onMore(nextPage)}
-            className="rounded border border-line-soft px-5 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm border border-line-soft px-5 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loadingMore ? "Loading…" : "More"}
           </button>
@@ -282,7 +282,7 @@ function ErrorState({ title, body, onRetry }: { title: string; body: string; onR
       <button
         type="button"
         onClick={onRetry}
-        className="rounded border border-line-soft px-4 py-1.5 text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        className="rounded-sm border border-line-soft px-4 py-1.5 text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       >
         Try again
       </button>
@@ -295,9 +295,9 @@ function CatalogSkeleton() {
     <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5" aria-hidden>
       {Array.from({ length: 10 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
-          <div className="aspect-[2/3] w-full motion-safe:animate-pulse rounded-(--radius-cover) bg-paper-container" />
-          <div className="h-4 w-3/4 motion-safe:animate-pulse rounded bg-paper-container" />
-          <div className="h-3 w-1/2 motion-safe:animate-pulse rounded bg-paper-container" />
+          <div className="aspect-[2/3] w-full rounded-(--radius-cover) bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-4 w-3/4 rounded-sm bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded-sm bg-paper-container motion-safe:animate-pulse" />
         </div>
       ))}
     </div>

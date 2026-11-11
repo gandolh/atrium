@@ -88,7 +88,7 @@ function FlipButton({
       onClick={onClick}
       disabled={disabled}
       tabIndex={-1}
-      className={`absolute top-1/2 z-10 grid h-11 w-11 [@media(max-width:739px)]:hidden -translate-y-1/2 place-items-center rounded-full border border-reader-border/60 bg-reader-surface/70 text-reader-fg/70 shadow-sm backdrop-blur-sm transition outline-none hover:bg-reader-surface/90 hover:text-reader-fg focus:outline-none focus-visible:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-0 motion-reduce:transition-none ${
+      className={`absolute top-1/2 z-raised grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-reader-border/60 bg-reader-surface/70 text-reader-fg/70 shadow-sm backdrop-blur-sm transition outline-none hover:bg-reader-surface/90 hover:text-reader-fg focus:outline-none focus-visible:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-0 motion-reduce:transition-none [@media(max-width:739px)]:hidden ${
         isLeft
           ? "left-[max(0.5rem,env(safe-area-inset-left))] sm:left-[max(1rem,env(safe-area-inset-left))]"
           : "right-[max(0.5rem,env(safe-area-inset-right))] sm:right-[max(1rem,env(safe-area-inset-right))]"

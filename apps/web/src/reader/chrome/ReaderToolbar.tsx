@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 
+import { Toggle } from "../../components/ui/Toggle";
 import { useChromeHold } from "./use-auto-hide-chrome";
 import { MOTION_MS } from "../../lib/motion";
 
@@ -57,7 +58,7 @@ export function ReaderToolbar({
       onBlurCapture={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusWithin(false);
       }}
-      className={`pointer-events-none relative z-30 w-full shrink-0 transition-opacity ease-paper motion-reduce:transition-none ${
+      className={`pointer-events-none relative z-chrome w-full shrink-0 transition-opacity ease-paper motion-reduce:transition-none ${
         visible ? "opacity-100" : "opacity-0"
       }`}
       // design.md "Motion": 600ms out / 150ms in, same asymmetric fade as
@@ -81,7 +82,7 @@ export function ReaderToolbar({
           shrinks instead; `overflow-hidden` clips any residual rather than
           letting it spill over the centre. */}
       <div
-        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-card border border-reader-border/80 bg-reader-surface/95 px-2 py-2 shadow-l1 backdrop-blur sm:gap-3 sm:px-3 ${
+        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-card border border-reader-border/80 bg-reader-surface/95 px-2 py-2 shadow-l1 backdrop-blur-sm sm:gap-3 sm:px-3 ${
           visible ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -115,19 +116,26 @@ export function ToolbarButton({
   active?: boolean;
   children: ReactNode;
 }) {
+  const look =
+    "grid h-9 min-w-9 place-items-center rounded-card px-2 text-reader-fg/80 transition hover:bg-reader-bg disabled:opacity-30";
+  // A button that is on or off (the contents, the invert, the reading mode) is a Toggle; the rest are plain buttons.
+  if (active === undefined) {
+    return (
+      <button type="button" onClick={onClick} disabled={disabled} aria-label={label} title={label} className={look}>
+        {children}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Toggle
+      pressed={active}
+      onPressedChange={() => onClick?.()}
       disabled={disabled}
       aria-label={label}
-      aria-pressed={active}
       title={label}
-      className={`grid h-9 min-w-9 place-items-center rounded-card px-2 text-reader-fg/80 transition hover:bg-reader-bg disabled:opacity-30 ${
-        active ? "bg-reader-accent/15 text-reader-accent" : ""
-      }`}
+      className={`${look} data-pressed:bg-reader-accent/15 data-pressed:text-reader-accent`}
     >
       {children}
-    </button>
+    </Toggle>
   );
 }

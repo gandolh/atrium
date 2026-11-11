@@ -428,7 +428,7 @@ function OpeningState({
                 style={{ width: `${pct}%` }}
               />
             ) : (
-              <div className="h-full w-1/3 motion-safe:animate-pulse rounded-full bg-reader-accent" />
+              <div className="h-full w-1/3 rounded-full bg-reader-accent motion-safe:animate-pulse" />
             )}
           </div>
           <p className="text-sm text-reader-fg/60">

@@ -35,7 +35,7 @@ export function CoverFallback({ title, kind = "book" }: { title: string; kind?: 
           there" wash the progress-bar track already uses, so contrast stays
           low in all three themes without a bespoke per-theme value.
 
-          **No negative z-index.** It shipped with `-z-10`, which put it behind
+          **No negative z-index.** It shipped with a negative z value, which put it behind
           the *caller's* tinted ground — `CoverCard` paints `bg-tint-{kind}` on
           an ancestor — so the letter rendered underneath the tile and was
           invisible in every theme. It is positioned and comes first in DOM
@@ -43,12 +43,12 @@ export function CoverFallback({ title, kind = "book" }: { title: string; kind?: 
           them painting over it without pushing this one behind the ground. */}
       <span
         aria-hidden
-        className={`font-display text-ink/10 pointer-events-none absolute leading-none font-medium select-none ${coverInitialVariant(title)}`}
+        className={`pointer-events-none absolute font-display leading-none font-medium text-ink/10 select-none ${coverInitialVariant(title)}`}
       >
         {coverInitial(title)}
       </span>
       <Glyph className="relative h-8 w-8 text-ink-variant/60" />
-      <span className="font-display relative text-lg leading-tight font-semibold text-ink">{title}</span>
+      <span className="relative font-display text-lg leading-tight font-semibold text-ink">{title}</span>
     </span>
   );
 }

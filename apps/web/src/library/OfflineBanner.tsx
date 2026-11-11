@@ -9,7 +9,7 @@ export function OfflineBanner() {
   return (
     <p
       role="status"
-      className="flex items-center gap-2.5 rounded border border-line-soft/60 bg-paper-low px-4 py-2.5 text-sm text-ink-variant"
+      className="flex items-center gap-2.5 rounded-sm border border-line-soft/60 bg-paper-low px-4 py-2.5 text-sm text-ink-variant"
     >
       <OfflineGlyph className="h-4 w-4 shrink-0" />
       You&rsquo;re offline — showing only the books you&rsquo;ve downloaded. Reconnect to see the full library.

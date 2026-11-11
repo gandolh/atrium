@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { LibraryBook } from "@ebook-reader/shared";
 
+import { Toggle } from "../components/ui/Toggle";
 import { coverUrl } from "../lib/library-api";
 import { NoteIcon } from "./icons";
 
@@ -27,20 +28,35 @@ export function RemoteButton({
   size?: "sm" | "md";
   children: ReactNode;
 }) {
+  const look = `grid shrink-0 place-items-center rounded-card transition-colors ease-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none ${
+    size === "sm" ? "h-8 w-8" : "h-10 w-10"
+  }`;
+  // Shuffle and repeat are toggles (a Toggle); the rest are plain buttons that carry no `aria-pressed`.
+  if (pressed === undefined) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        title={label}
+        className={`${look} text-ink-variant enabled:hover:text-ink`}
+      >
+        {children}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Toggle
+      pressed={pressed}
+      onPressedChange={() => onClick()}
       disabled={disabled}
       aria-label={label}
       title={label}
-      aria-pressed={pressed}
-      className={`grid shrink-0 place-items-center rounded-card transition-colors ease-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none ${
-        size === "sm" ? "h-8 w-8" : "h-10 w-10"
-      } ${pressed ? "text-accent" : "text-ink-variant enabled:hover:text-ink"}`}
+      className={`${look} text-ink-variant data-pressed:text-accent`}
     >
       {children}
-    </button>
+    </Toggle>
   );
 }
 

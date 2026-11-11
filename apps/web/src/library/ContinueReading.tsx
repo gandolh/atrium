@@ -60,7 +60,7 @@ function ResumeCard({ book, onOpen }: { book: LibraryBook; onOpen: (book: Librar
       type="button"
       onClick={() => onOpen(book)}
       aria-label={`Resume ${book.title}${remaining ? `, ${remaining}` : ""}`}
-      className="group flex w-full items-center gap-4 rounded-card border border-line-soft bg-paper-raised p-3 text-left shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift focus-visible:outline-2 focus-visible:outline-accent"
+      className="group flex w-full items-center gap-4 rounded-card border border-line-soft bg-paper-raised p-3 text-left shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper focus-visible:outline-2 focus-visible:outline-accent motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift"
     >
       <span
         className={`relative block ${thumbAspect} w-16 shrink-0 overflow-hidden rounded-cover bg-paper-container shadow-[0_8px_16px_-6px_rgba(28,27,27,0.18)] ring-1 ring-line-soft/40`}

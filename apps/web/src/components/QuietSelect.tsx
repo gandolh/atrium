@@ -27,7 +27,7 @@ export function QuietSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="quiet-select appearance-none border-b border-line-soft bg-transparent py-1.5 pr-6 pl-1 font-ui text-sm font-medium tracking-normal normal-case text-ink transition outline-none hover:border-line focus:border-b-2 focus:border-accent"
+        className="quiet-select appearance-none border-b border-line-soft bg-transparent py-1.5 pr-6 pl-1 font-ui text-sm font-medium tracking-normal text-ink normal-case transition outline-none hover:border-line focus:border-b-2 focus:border-accent"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

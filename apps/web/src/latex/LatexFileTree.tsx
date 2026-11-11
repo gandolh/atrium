@@ -53,14 +53,14 @@ export function LatexFileTree({
   const totalBytes = files.reduce((sum, f) => sum + f.sizeBytes, 0);
 
   return (
-    <div className="flex h-full w-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <h3 className="font-ui text-[10px] font-semibold uppercase tracking-[0.15em] text-ink-variant">Files</h3>
+        <h3 className="font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">Files</h3>
         <button
           type="button"
           onClick={() => setCreating(true)}
           disabled={busy || creating}
-          className="rounded-card px-2 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-accent"
+          className="rounded-card px-2 py-1 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
         >
           + New file
         </button>
@@ -332,7 +332,7 @@ function RowAction({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
     >
       {children}
     </button>
@@ -405,7 +405,7 @@ function PathInput({
       <button
         type="submit"
         disabled={!valid}
-        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-accent"
+        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
       >
         {confirmLabel}
       </button>

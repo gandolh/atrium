@@ -33,6 +33,8 @@ import {
 
 import { useSession } from "../../vendor/ward/ward-auth-react.js";
 import { RecoveredBanner } from "../components/RecoveredBanner";
+import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem } from "../components/ui/Menu";
+import { RadioGroup, RadioItem } from "../components/ui/RadioGroup";
 import { useActiveProfileId } from "../lib/auth";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { cssToken } from "../lib/tokens";
@@ -638,7 +640,7 @@ export function NoteEditor({ id }: { id: string }) {
     return (
       <main className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-12 text-ink">
         <h1 className="font-display text-2xl font-semibold">Couldn't open this note</h1>
-        <Link to="/notes" className="w-fit rounded border border-line-soft px-4 py-2 text-sm font-medium">
+        <Link to="/notes" className="w-fit rounded-sm border border-line-soft px-4 py-2 text-sm font-medium">
           Back to notes
         </Link>
       </main>
@@ -656,12 +658,12 @@ export function NoteEditor({ id }: { id: string }) {
           than the viewport can never push either below the fold (the Notes tab's
           live-audit fix), and the tool bar now sits visually above the sheet
           per design.md, not floating over it. */}
-      <div className="sticky top-0 z-20 flex flex-col border-b border-line-soft/50 bg-paper/95 backdrop-blur-sm">
+      <div className="sticky top-0 z-sticky flex flex-col border-b border-line-soft/50 bg-paper/95 backdrop-blur-sm">
         <header className="flex items-center gap-3 px-4 py-2.5">
           <button
             type="button"
             onClick={() => void navigate({ to: "/notes" })}
-            className="rounded px-2 py-1 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-sm px-2 py-1 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             aria-label="Back to notes"
           >
             ← Notes
@@ -670,7 +672,7 @@ export function NoteEditor({ id }: { id: string }) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             aria-label="Note title"
-            className="min-w-0 flex-1 rounded bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
+            className="min-w-0 flex-1 rounded-sm bg-transparent px-1 font-display text-lg font-semibold text-ink outline-none focus:bg-paper-low"
             placeholder="Untitled note"
           />
           {/* Save state. Quiet while retrying: it is a transient
@@ -1067,7 +1069,7 @@ function NoteSheet({
           type="button"
           onClick={resetZoom}
           style={{ bottom: "calc(1rem + var(--dock-height, 0px))" }}
-          className="fixed right-4 z-30 flex items-center gap-1.5 rounded-chip border border-line-soft/60 bg-paper/95 px-3 py-1.5 font-ui text-xs font-medium text-ink-variant shadow-l1 backdrop-blur-sm transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+          className="fixed right-4 z-chrome flex items-center gap-1.5 rounded-chip border border-line-soft/60 bg-paper/95 px-3 py-1.5 font-ui text-xs font-medium text-ink-variant shadow-l1 backdrop-blur-sm transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           aria-label="Reset zoom"
         >
           <span aria-hidden="true">⤢</span> {Math.round(transform.scale * 100)}%
@@ -1143,7 +1145,7 @@ function TextBoxView({
             onPointerDown={onGripDown}
             onPointerMove={onGripMove}
             onPointerUp={onGripUp}
-            className="cursor-move touch-none rounded bg-accent/90 px-1.5 text-xs text-white"
+            className="cursor-move touch-none rounded-sm bg-accent/90 px-1.5 text-xs text-white"
           >
             ⠿
           </button>
@@ -1154,7 +1156,7 @@ function TextBoxView({
               onBeginChange();
               onRemove();
             }}
-            className="rounded bg-danger/90 px-1.5 text-xs text-white"
+            className="rounded-sm bg-danger/90 px-1.5 text-xs text-white"
           >
             ✕
           </button>
@@ -1250,9 +1252,10 @@ function NibIcon({ nib }: { nib: NoteNib }) {
  *
  * One click when the slot is NOT active selects it (with whatever nib was last
  * used) — the common case costs nothing. Clicking it again opens the list, and
- * the caret is what says the slot has one. Nothing here animates beyond the
- * colour fade the rest of the chrome uses, so there is no reduced-motion path
- * to lose.
+ * the caret is what says the slot has one. The list is Base UI's `Menu`, opened from this radio's click and
+ * anchored to it (a Menu trigger is a button, and this one is a radio), so Esc, an outside press and the arrow
+ * keys work as in any menu. Nothing here animates beyond the colour fade the rest of the chrome uses, so there
+ * is no reduced-motion path to lose.
  */
 function NibSlot({
   nib,
@@ -1266,84 +1269,69 @@ function NibSlot({
   color: string;
 }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  // Dismiss on an outside press or Escape — a popover that can only be closed
-  // by picking something is a trap on a phone.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  const slotRef = useRef<HTMLSpanElement>(null);
 
   return (
-    <div ref={wrapRef} className="relative">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={active}
-        aria-haspopup="menu"
-        aria-expanded={open}
+    <>
+      <RadioItem
+        ref={slotRef}
+        value={nib}
         aria-label={`${NOTE_TOOL_LABELS[nib]} — choose nib`}
         title={`${NOTE_TOOL_LABELS[nib]} — choose nib`}
+        // The radio selects the slot when it is not active; a click on the active one opens the list.
         onClick={() => {
           if (active) setOpen((v) => !v);
-          else {
-            onSelect(nib);
-            setOpen(false);
-          }
         }}
-        className={`grid h-9 w-12 grid-flow-col place-items-center gap-0.5 rounded-card transition focus-visible:outline-2 focus-visible:outline-accent ${
-          active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
-        }`}
+        className="grid h-9 w-12 grid-flow-col place-items-center gap-0.5 rounded-card text-ink-variant transition hover:not-data-checked:text-ink focus-visible:outline-2 focus-visible:outline-accent data-checked:bg-paper-raised data-checked:text-accent data-checked:shadow-sm"
       >
         <NibIcon nib={nib} />
         <span aria-hidden="true" className="font-ui text-[9px] leading-none">
           ▾
         </span>
-      </button>
+      </RadioItem>
 
-      {open && (
-        <div
-          role="menu"
+      <Menu
+        open={open}
+        modal={false}
+        onOpenChange={(next, details) => {
+          // A press on the slot itself is its click, which toggles; don't close here too, or it reopens.
+          const target = details.event.target;
+          if (
+            !next &&
+            details.reason === "outside-press" &&
+            target instanceof Node &&
+            slotRef.current?.contains(target)
+          )
+            return;
+          setOpen(next);
+        }}
+      >
+        <MenuPopup
+          anchor={slotRef}
           aria-label="Nib"
-          className="absolute left-0 top-full z-30 mt-1.5 flex w-56 flex-col gap-0.5 rounded-card border border-line-soft bg-paper-raised p-1 shadow-l1"
+          finalFocus={slotRef}
+          className="flex w-56 flex-col gap-0.5 rounded-card border border-line-soft bg-paper-raised p-1 shadow-l1"
+          sideOffset={6}
         >
-          {NOTE_NIBS.map((value) => {
-            const chosen = active && value === nib;
-            return (
-              <button
+          {/* The chosen nib is announced as checked; a pick runs from the item's click, so choosing the one already
+              chosen still closes the list. */}
+          <MenuRadioGroup value={active ? nib : ""}>
+            {NOTE_NIBS.map((value) => (
+              <MenuRadioItem
                 key={value}
-                type="button"
-                role="menuitemradio"
-                aria-checked={chosen}
-                onClick={() => {
-                  onSelect(value);
-                  setOpen(false);
-                }}
-                className={`flex items-center gap-2 rounded-card px-2 py-1.5 text-left font-ui text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-accent ${
-                  chosen ? "bg-paper-low text-accent" : "text-ink-variant hover:bg-paper-low hover:text-ink"
-                }`}
+                value={value}
+                onClick={() => onSelect(value)}
+                className="flex items-center gap-2 rounded-card px-2 py-1.5 text-left font-ui text-xs font-medium text-ink-variant outline-none data-checked:bg-paper-low data-checked:text-accent data-highlighted:bg-paper-low data-highlighted:text-ink"
               >
                 <NibIcon nib={value} />
                 <span className="w-24 shrink-0">{NOTE_TOOL_LABELS[value]}</span>
                 <NibSwatch nib={value} color={color} className="h-5 w-full min-w-0" />
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              </MenuRadioItem>
+            ))}
+          </MenuRadioGroup>
+        </MenuPopup>
+      </Menu>
+    </>
   );
 }
 
@@ -1399,106 +1387,80 @@ function Toolbar({
   };
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-line-soft/50 px-4 py-2.5">
-      <div
-        role="radiogroup"
-        aria-label="Tool"
-        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      {/* The four groups below only set editor state and write nothing to the server, so each is a RadioGroup:
+          the arrow keys move AND choose (base-ui rule 16). */}
+      <RadioGroup
+        label="Tool"
+        value={tool}
+        onValueChange={setTool}
+        className="flex items-center gap-1 rounded-sm border border-line-soft/60 bg-paper-low p-0.5"
       >
-        <NibSlot
-          nib={nib}
-          active={tool === nib}
-          color={color}
-          onSelect={(next) => {
-            setNib(next);
-            setTool(next);
-          }}
-        />
-        {tools.map((t) => {
-          const active = tool === t.value;
-          return (
-            <button
-              key={t.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={t.label}
-              title={t.label}
-              onClick={() => setTool(t.value)}
-              className={`grid h-9 w-10 place-items-center rounded-card text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
-                active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
-              }`}
-            >
-              {t.glyph}
-            </button>
-          );
-        })}
-      </div>
+        <NibSlot nib={nib} active={tool === nib} color={color} onSelect={(next) => setNib(next)} />
+        {tools.map((t) => (
+          <RadioItem
+            key={t.value}
+            value={t.value}
+            aria-label={t.label}
+            title={t.label}
+            className="grid h-9 w-10 place-items-center rounded-card text-base text-ink-variant transition hover:not-data-checked:text-ink focus-visible:outline-2 focus-visible:outline-accent data-checked:bg-paper-raised data-checked:text-accent data-checked:shadow-sm"
+          >
+            {t.glyph}
+          </RadioItem>
+        ))}
+      </RadioGroup>
 
-      <div className="flex items-center gap-1.5" aria-label="Color">
+      <RadioGroup label="Color" value={color} onValueChange={setColor} className="flex items-center gap-1.5">
         {inks.map((ink) => (
-          <button
+          <RadioItem
             key={ink.token}
-            type="button"
+            value={ink.value}
             aria-label={ink.name}
-            aria-pressed={color === ink.value}
-            onClick={() => setColor(ink.value)}
-            className={`h-6 w-6 rounded-full ring-1 ring-black/10 transition ${
-              color === ink.value ? "outline-2 outline-offset-2 outline-accent" : ""
-            }`}
+            className="block h-6 w-6 rounded-full ring-1 ring-black/10 transition data-checked:outline-2 data-checked:outline-offset-2 data-checked:outline-accent"
             style={{ background: `var(${ink.token})` }}
           />
         ))}
-      </div>
+      </RadioGroup>
 
-      <div
-        role="radiogroup"
-        aria-label="Thickness"
-        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      <RadioGroup
+        label="Thickness"
+        value={String(thickness)}
+        onValueChange={(next) => setThickness(Number(next))}
+        className="flex items-center gap-1 rounded-sm border border-line-soft/60 bg-paper-low p-0.5"
       >
         {THICKNESS.map((_, i) => (
-          <button
+          <RadioItem
             key={i}
-            type="button"
-            role="radio"
-            aria-checked={thickness === i}
+            value={String(i)}
             aria-label={`Thickness ${i + 1}`}
-            onClick={() => setThickness(i)}
-            className={`grid h-9 w-9 place-items-center rounded-card transition focus-visible:outline-2 focus-visible:outline-accent ${
-              thickness === i ? "bg-paper-raised shadow-sm" : "hover:bg-paper-container"
-            }`}
+            className="grid h-9 w-9 place-items-center rounded-card transition hover:bg-paper-container focus-visible:outline-2 focus-visible:outline-accent data-checked:bg-paper-raised data-checked:shadow-sm"
           >
             <span className="rounded-full bg-ink" style={{ width: 4 + i * 4, height: 4 + i * 4 }} />
-          </button>
+          </RadioItem>
         ))}
-      </div>
+      </RadioGroup>
 
       {/* Page background — a per-page property (blank / ruled / grid). */}
-      <div
-        role="radiogroup"
-        aria-label="Page background"
-        className="flex items-center gap-1 rounded border border-line-soft/60 bg-paper-low p-0.5"
+      <RadioGroup
+        label="Page background"
+        value={template}
+        onValueChange={setTemplate}
+        className="flex items-center gap-1 rounded-sm border border-line-soft/60 bg-paper-low p-0.5"
       >
         {PAGE_TEMPLATES.map((value: PageTemplate) => {
-          const active = template === value;
           const { label, glyph } = templates[value];
           return (
-            <button
+            <RadioItem
               key={value}
-              type="button"
-              role="radio"
-              aria-checked={active}
+              value={value}
               aria-label={label}
               title={label}
-              onClick={() => setTemplate(value)}
-              className={`grid h-9 w-9 place-items-center rounded-card text-base transition focus-visible:outline-2 focus-visible:outline-accent ${
-                active ? "bg-paper-raised text-accent shadow-sm" : "text-ink-variant hover:text-ink"
-              }`}
+              className="grid h-9 w-9 place-items-center rounded-card text-base text-ink-variant transition hover:not-data-checked:text-ink focus-visible:outline-2 focus-visible:outline-accent data-checked:bg-paper-raised data-checked:text-accent data-checked:shadow-sm"
             >
               {glyph}
-            </button>
+            </RadioItem>
           );
         })}
-      </div>
+      </RadioGroup>
 
       {/* Page indicator — tabular figures (design.md "Numbers line up"), same
           cluster shape as the reader's page nav. Pushed to the far end on wide
@@ -1571,7 +1533,7 @@ function ExportControl({
       role="group"
       aria-label="Export"
     >
-      <span aria-hidden="true" className="pl-1.5 pr-0.5 font-ui text-xs text-ink-variant/70">
+      <span aria-hidden="true" className="pr-0.5 pl-1.5 font-ui text-xs text-ink-variant/70">
         ↓
       </span>
       <button
@@ -1616,7 +1578,7 @@ function IconBtn({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className="grid h-9 w-9 place-items-center rounded text-lg text-ink-variant transition hover:bg-paper-low hover:text-ink disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-accent"
+      className="grid h-9 w-9 place-items-center rounded-sm text-lg text-ink-variant transition hover:bg-paper-low hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-30"
     >
       {children}
     </button>

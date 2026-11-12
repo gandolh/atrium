@@ -1,6 +1,4 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import multipart from "@fastify/multipart";
-import { MAX_UPLOAD_BYTES } from "./config.js";
 import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
 import { registerJukeboxRoutes } from "./modules/jukebox/jukebox.controller.js";
 import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
@@ -8,7 +6,9 @@ import { registerLibraryRoutes } from "./modules/library/library.controller.js";
 import { registerLookupRoutes } from "./modules/lookup/lookup.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
 import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
-import { registerAuthGuard } from "./plugins/auth/index.js";
+import { authGuard } from "./plugins/auth/index.js";
+import { errors } from "./plugins/errors.js";
+import { multipart } from "./plugins/multipart.js";
 import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
 
 /**
@@ -41,32 +41,15 @@ export async function buildApp(options: {
    */
   const app = Fastify({ logger: true, ...options.server });
 
-  /**
-   * One app-wide error handler. Set before anything is registered,
-   * so every route's handler, and every route-level `errorHandler` that passes
-   * an error on with `reply.send(error)`, ends here.
-   *
-   * Fastify's default answers a 500 with the error's own `message`, and for a
-   * Knex/SQLite error that is the **full SQL statement with its bound values**
-   * (the compile-slot fix's regression run received one, Ward subject included). A server
-   * error tells the client only that it happened; the real error goes to the
-   * log with the request id. A 4xx raised by Fastify itself (bad JSON, a body
-   * too large, an unsupported media type) describes the request, so it keeps
-   * its status and message: passed on to Fastify's default handler unchanged.
-   */
-  app.setErrorHandler((error: Error & { statusCode?: number }, request, reply) => {
-    const status = error.statusCode ?? 500;
-    if (status < 500) return reply.send(error);
-    request.log.error({ err: error }, "unhandled error");
-    return reply.status(500).send({ error: "INTERNAL" });
-  });
+  // The one error handler, first, so it covers everything registered after it.
+  await app.register(errors);
 
-  // The session guard (D58), first: the library's plugin, then atrium's
+  // The session guard (D58), next: the library's plugin, then atrium's
   // jukebox allowlist and active profile. Registered before every other plugin
   // and route, because Fastify copies hooks into a child context when the
   // child is created and anything registered earlier would not be guarded.
   // Atrium's rule that no route does its own auth survives the move.
-  await registerAuthGuard(app, { accounts: options.accounts, wardClient: options.wardClient });
+  await app.register(authGuard, { accounts: options.accounts, wardClient: options.wardClient });
 
   // No CORS. It was permissive (`origin: true`, every origin
   // reflected) from when the web client called the API cross-origin (D14).
@@ -77,11 +60,8 @@ export async function buildApp(options: {
   // signed-in person's library. If a cross-origin caller ever appears, add it
   // here by name; never reflect the request's origin.
 
-  // 50MB (from MAX_UPLOAD_MB) upload ceiling (D15). @fastify/multipart truncates
-  // past this; the routes inspect `file.truncated` and answer 413.
-  await app.register(multipart, {
-    limits: { fileSize: MAX_UPLOAD_BYTES, files: 1 },
-  });
+  // Uploads: one file, up to MAX_UPLOAD_MB (D15).
+  await app.register(multipart);
 
   app.get("/health", async () => {
     return { status: "ok" };

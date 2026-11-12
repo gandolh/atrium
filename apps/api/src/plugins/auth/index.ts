@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import fp from "fastify-plugin";
 
 import { getDefaultProfile, getProfile, type ProfileRow } from "../../modules/profiles/profiles.model.js";
 import { getSelectedProfileId } from "../../modules/profiles/profile-selection.model.js";
@@ -118,7 +119,7 @@ export interface AuthGuardOptions {
   wardClient?: WardClient;
 }
 
-export async function registerAuthGuard(app: FastifyInstance, options: AuthGuardOptions): Promise<void> {
+async function authGuardPlugin(app: FastifyInstance, options: AuthGuardOptions): Promise<void> {
   /*
    * First, before every route and plugin of atrium's own: Fastify copies hooks
    * into a child context when the child is created, so anything registered
@@ -192,3 +193,9 @@ export async function registerAuthGuard(app: FastifyInstance, options: AuthGuard
     request.jukeboxOnly = jukeboxOnly;
   });
 }
+
+/**
+ * Wrapped in fastify-plugin, so the guard's hooks and the request decorations
+ * land on the root and reach every route registered after it.
+ */
+export const authGuard = fp(authGuardPlugin, { name: "auth-guard" });

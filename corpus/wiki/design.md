@@ -1,6 +1,6 @@
 ---
 summary: The enforced "Reading Room" visual language (D33) — warm neutrals, four kind tints, the Newsreader/Archivo type split, motion rules, and the frontend conformance checklist. Replaces Quiet Paper.
-updated: 2026-11-02
+updated: 2026-11-11
 ---
 
 # Design — "Reading Room"
@@ -18,7 +18,8 @@ This page is authoritative where the two disagree.
 > The `--reader-*` theme layer is **unchanged as architecture** — three themes
 > (light / sepia / dark) applied via `data-theme`, driving both the reading
 > surface and the chrome. Reading Room revalues its light and dark palettes onto
-> a warm axis; it does not remove the layer.
+> a warm axis; it does not remove the layer. **System** (2026-11-11, D61) is a
+> fourth *choice*, not a fourth theme: it resolves to light or dark.
 
 ## The premise
 Four structural moves carry the system. A decision that serves none of them is
@@ -86,6 +87,16 @@ foreground, never its ground.**
 **Why warm dark:** a neutral `#181818` under warm cover art makes every cover
 look sour. Both grounds sit on the same warm axis so artwork reads true in
 either, and the two themes stay recognisably one system.
+
+### The theme switch (2026-11-11, D61)
+Four choices: **Light, Sepia, Dark, System**, in the header (sun, half-disc, moon, screen) and in the reader's Aa
+panel (miniature pages; System is a page cut in two). A first visit is light, whatever the system prefers. The
+choice is kept per profile on the server, so the switch is a guarded `ToggleGroup` (base-ui rule 16): arrow keys
+move focus only, Space, Enter or a click chooses, and one item stays pressed. System resolves through
+`prefers-color-scheme`, follows it live, and writes the resolved light or dark to `data-theme`, so the attribute is
+only ever `light`, `sepia` or `dark`. `dark:` keys off `data-theme="dark"` (`@custom-variant` in `globals.css`), so a
+variant never needs a media query. Anything that must know the theme on screen (the PDF's invert, the EPUB
+iframe's rules, the LaTeX source theme) reads `useResolvedTheme()`.
 
 ### Sepia
 Unchanged from the previous system (`#f4ecd8` ground, `#3b2f1e` ink,
@@ -193,7 +204,12 @@ Any `apps/web` change must, before it's considered done:
 - [ ] **Radii hold** — 4px default, 2px artwork, 20px chips, `full` only on
       genuinely circular affordances (scrub track/handle, ink swatches, nib
       dots), nothing else.
-- [ ] **Three themes checked** — light, sepia, dark, *including artwork*.
+- [ ] **Three themes checked** — light, sepia, dark, *including artwork*; System is checked by flipping the
+      system setting, not as a fourth palette.
+- [ ] **Stacking from tokens** — `z-raised`, `z-sticky`, `z-chrome`, `z-overlay`, `z-dock`, `z-popup`, `z-toast`;
+      never a number.
+- [ ] **Base UI behind `components/ui/`** — a dialog that holds a form ignores an outside tap; a side panel is a
+      drawer; a choice saved to the server is a guarded toggle group.
 - [ ] **Motion degrades** — a `prefers-reduced-motion` path exists.
 - [ ] **Kind reads without labels** — strip every badge and the tinted grid is
       still legible by kind. If it isn't, the tints are too weak.

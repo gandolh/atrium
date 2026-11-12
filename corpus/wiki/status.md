@@ -54,8 +54,15 @@ numbering restarted at 01 on 2026-11-02 (see [`../log.md`](../log.md),
   config with typed rules, knip, dependency-cruiser, and `npm run check` /
   `npm run check:fast` as the gate. Zero lint errors; warnings stay for the
   react-hooks compiler rules (46), three API files that read the environment, and
-  26 import cycles. `check-base-ui` and `check-structure` run `--warn-only` until
-  the Base UI and server briefs (03, 04). TypeScript is 6.0.3.
+  26 import cycles. `check-structure` runs `--warn-only` until the server brief
+  (04). TypeScript is 6.0.3.
+- **Base UI by the conventions, and a System theme** (2026-11-11, D61). Every Base
+  UI import sits under `components/ui/` and `check-base-ui` runs strict (0 errors,
+  0 warnings). The contents and search panels are drawers; the theme and the
+  reading font are guarded toggle groups; the update prompt is a Base UI toast;
+  stacking comes from `--z-index-*` tokens; `better-tailwindcss` runs in
+  `npm run lint`. System is a fourth theme choice, stored per profile, so the
+  shared schema gained `"system"` and the API needs the deploy too.
 - **Docs site** (2026-10-19). Docusaurus at `/atrium/docs`, same URLs.
 
 ## Next (owner)

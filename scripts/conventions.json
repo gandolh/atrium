@@ -5,6 +5,76 @@
   "shared": ["packages/shared/src", "packages/typeset/src"],
   "exceptions": [
     {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/library/routes.ts",
+      "match": "POST /library declares no schema",
+      "reason": "A multipart upload: the file streams through request.file(), which no body schema can describe, and the reply is the new book or a refusal (Q53)."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/library/routes.ts",
+      "match": "parseRange(",
+      "reason": "The Range header is read against the file's size, which only the handler knows once it has stat'd the file, so no schema can check it."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/library/routes.ts",
+      "match": "GET /library/:id/file",
+      "reason": "Streams the book, audio or video file, or a version's PDF, with ranges: a binary reply has no response schema (Q53). It declares its params and query."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/library/routes.ts",
+      "match": "GET /library/:id/cover",
+      "reason": "Streams the cover image: a binary reply has no response schema (Q53). It declares its params and query."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/library/routes.ts",
+      "match": "POST /library/:id/cover",
+      "reason": "A multipart upload of a cover image (Q53). It declares its params."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/notes/routes.ts",
+      "match": "GET /notes/:id/export.pdf",
+      "reason": "Sends the note as a PDF: a binary reply has no response schema (Q53). It declares its params."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/lookup/routes.ts",
+      "match": "GET /lookup/covers/:source/:ref",
+      "reason": "Sends a candidate's cover thumbnail as JPEG: a binary reply has no response schema (Q53). It declares its params."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/latex/routes.ts",
+      "match": "GET /latex/:id/files/*",
+      "reason": "Sends a project file's bytes: a binary reply has no response schema (Q53). It declares its params."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/latex/routes.ts",
+      "match": "POST /latex/:id/files/*",
+      "reason": "A multipart upload of a project file (Q53). It declares its params."
+    },
+    {
+      "check": "structure",
+      "rule": 6,
+      "path": "apps/api/src/features/latex/routes.ts",
+      "match": "GET /latex/:id/pdf",
+      "reason": "Sends the draft PDF: a binary reply has no response schema (Q53). It declares its params."
+    },
+    {
       "check": "house-style",
       "rule": 14,
       "path": "apps/api/src/features/latex/compile.service.ts",

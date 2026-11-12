@@ -1,6 +1,6 @@
 import type { Knex } from "knex";
 import type { FileType } from "@ebook-reader/shared";
-import { coverOwnerId, coverPathFor, filePathFor } from "../../common/paths.js";
+import { coverOwnerId, coverPathFor, filePathFor } from "../../lib/paths.js";
 import { randomUUID } from "node:crypto";
 
 /**

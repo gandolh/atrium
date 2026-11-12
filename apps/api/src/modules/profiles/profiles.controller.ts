@@ -17,7 +17,7 @@ import {
   renameAccountProfile,
   writePreferences,
 } from "./profiles.service.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * HTTP for profiles. Validation in, status codes out;

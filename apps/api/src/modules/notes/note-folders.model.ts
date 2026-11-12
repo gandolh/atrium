@@ -1,6 +1,6 @@
 import type { Knex } from "knex";
-import { knex } from "../../database/knex.js";
-import { present } from "../../common/present.js";
+import { knex } from "../../db/knex.js";
+import { present } from "../../lib/present.js";
 
 /**
  * Data access for `note_folders` — the per-profile tree notes are filed into

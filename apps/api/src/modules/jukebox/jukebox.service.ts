@@ -16,7 +16,7 @@ import {
   type SettingsRequest,
   type Track,
 } from "@ebook-reader/shared";
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 import { isOnline, storedPicks, storedVoiceChannels, toPlayer, toQueueEntry, toTrack } from "./jukebox.mapper.js";
 import {
   clearQueueRows,
@@ -38,7 +38,7 @@ import {
   updatePlayerRow,
 } from "./jukebox.model.js";
 import type { CommandRow, PlayerRow } from "./jukebox.types.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * The Jukebox's rules (D56, D57).

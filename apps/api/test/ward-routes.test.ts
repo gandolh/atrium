@@ -1,7 +1,7 @@
 import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { SESSION_COOKIE } from "../src/modules/auth/auth.guard.js";
+import { SESSION_COOKIE } from "../src/plugins/auth/index.js";
 import { createWardClient, createWardIdentities } from "../vendor/ward/ward-auth.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 

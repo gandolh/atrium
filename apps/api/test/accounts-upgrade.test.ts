@@ -4,8 +4,8 @@ import { execFile } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { knex } from "../src/database/knex.js";
-import { initDatabase, logMigratedAccounts, type BootLog } from "../src/database/bootstrap.js";
+import { knex } from "../src/db/knex.js";
+import { initDatabase, logMigratedAccounts, type BootLog } from "../src/db/bootstrap.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // The first deploy of D58. The boot says which Ward subjects became

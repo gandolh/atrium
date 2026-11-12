@@ -2,10 +2,10 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { LIBRARY_FILES_DIR } from "../src/config.js";
-import { filePathFor } from "../src/common/paths.js";
-import { runMigrations } from "../src/database/bootstrap.js";
-import { closeDatabase, knex } from "../src/database/knex.js";
-import { migrationSource } from "../src/database/migrations/index.js";
+import { filePathFor } from "../src/lib/paths.js";
+import { runMigrations } from "../src/db/bootstrap.js";
+import { closeDatabase, knex } from "../src/db/knex.js";
+import { migrationSource } from "../src/db/migrations/index.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // The Ward cutover dropped `profiles` with foreign keys off, so no
@@ -102,7 +102,7 @@ describe("the cutover's orphans are pruned", () => {
     console.warn = (...args: unknown[]) => void warnings.push(args.join(" "));
     await knex.migrate.up(options).catch(() => undefined); // nothing pending
     console.warn = realWarn;
-    const { up } = await import("../src/database/migrations/20260925000000-prune-cutover-orphans.js");
+    const { up } = await import("../src/db/migrations/20260925000000-prune-cutover-orphans.js");
     await up(knex);
     assert.deepEqual(warnings, []);
     assert.deepEqual(await knex.raw("PRAGMA foreign_key_check"), []);

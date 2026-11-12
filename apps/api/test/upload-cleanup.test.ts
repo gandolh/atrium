@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { GUTENDEX_BASE_URL, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../src/config.js";
-import { knex } from "../src/database/knex.js";
+import { knex } from "../src/db/knex.js";
 import { sweepInterruptedOutputs } from "../src/modules/library/convert.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 

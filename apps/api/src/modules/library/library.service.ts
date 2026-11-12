@@ -12,7 +12,7 @@ import {
   type LibrarySort,
 } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../config.js";
-import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor, versionZipPathFor } from "../../common/paths.js";
+import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor, versionZipPathFor } from "../../lib/paths.js";
 import { deleteTrack } from "../jukebox/jukebox.service.js";
 import { listDocumentVersions } from "../latex/latex.model.js";
 import { getProfileProgress, listProfileProgress } from "../profiles/profiles.model.js";

@@ -1,4 +1,4 @@
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 
 /**
  * Which profile a given **device session** last activated.

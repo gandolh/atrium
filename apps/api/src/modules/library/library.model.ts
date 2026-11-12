@@ -1,7 +1,7 @@
 import type { Knex } from "knex";
 import type { ConvertStatus, FileType, LibrarySort } from "@ebook-reader/shared";
 import { kindForFormat } from "@ebook-reader/shared";
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 import type { BookRow, NewBookRow } from "./library.types.js";
 
 /**

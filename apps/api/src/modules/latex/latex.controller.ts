@@ -13,7 +13,7 @@ import {
   latexProjectSchema,
 } from "@ebook-reader/shared";
 import { DOCUMENT_VERSIONS_DIR } from "../../config.js";
-import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor, versionZipPathFor } from "../../common/paths.js";
+import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor, versionZipPathFor } from "../../lib/paths.js";
 import { toLibraryBook } from "../library/library.mapper.js";
 import { deleteBook, getBook, insertBook } from "../library/library.model.js";
 import { deleteBookWithArtifacts } from "../library/library.service.js";
@@ -71,7 +71,7 @@ import {
   zipProjectTree,
 } from "./latex.service.js";
 import { removeProjectTree } from "./project-tree.service.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * HTTP for `/latex` — project CRUD, file CRUD, binary upload,

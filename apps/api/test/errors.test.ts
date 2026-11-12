@@ -2,9 +2,9 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { initDatabase } from "../src/database/bootstrap.js";
-import { closeDatabase, knex } from "../src/database/knex.js";
-import { SESSION_COOKIE } from "../src/modules/auth/auth.guard.js";
+import { initDatabase } from "../src/db/bootstrap.js";
+import { closeDatabase, knex } from "../src/db/knex.js";
+import { SESSION_COOKIE } from "../src/plugins/auth/index.js";
 
 // Fastify's default answered a 500 with the error's message, which
 // for a Knex/SQLite error is the whole SQL statement with its bound values.

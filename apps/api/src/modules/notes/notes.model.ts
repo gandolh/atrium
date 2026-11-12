@@ -1,4 +1,4 @@
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 
 /**
  * Data access for `notes` — per-profile paged notebooks (rescoped by

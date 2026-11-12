@@ -2,7 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { detectFileType, librarySortSchema, updateProgressSchema, type FileType } from "@ebook-reader/shared";
-import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor } from "../../common/paths.js";
+import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor } from "../../lib/paths.js";
 import { getDocumentVersion } from "../latex/latex.model.js";
 import { getProfile, getProfileProgress, upsertProfileProgress } from "../profiles/profiles.model.js";
 import { toLibraryBook } from "./library.mapper.js";

@@ -2,7 +2,7 @@ import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyBaseLogger } from "fastify";
 import { THUMBNAILS_DIR } from "../../config.js";
-import { coverOwnerId, coverPathFor, filePathFor } from "../../common/paths.js";
+import { coverOwnerId, coverPathFor, filePathFor } from "../../lib/paths.js";
 import { extractMeta } from "./extract.service.js";
 import { listBooks, listBooksNeedingMetadata, updateBookMetadata } from "./library.model.js";
 

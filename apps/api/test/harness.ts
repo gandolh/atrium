@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
-import { initDatabase } from "../src/database/bootstrap.js";
-import { closeDatabase } from "../src/database/knex.js";
-import { MEMBER_ROLE, SESSION_COOKIE } from "../src/modules/auth/auth.guard.js";
+import { initDatabase } from "../src/db/bootstrap.js";
+import { closeDatabase } from "../src/db/knex.js";
+import { MEMBER_ROLE, SESSION_COOKIE } from "../src/plugins/auth/index.js";
 import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
 
 export interface TestApp {

@@ -2,8 +2,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { DB_PATH } from "../src/config.js";
-import { runMigrations } from "../src/database/bootstrap.js";
-import { closeDatabase, knex } from "../src/database/knex.js";
+import { runMigrations } from "../src/db/bootstrap.js";
+import { closeDatabase, knex } from "../src/db/knex.js";
 
 describe("migrations", () => {
   it("a fresh database migrates, re-runs as a no-op, and has no foreign-key violations", async () => {

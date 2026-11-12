@@ -18,8 +18,8 @@ import {
   TRUSTED_PROXIES,
   WARN_WITHOUT_TRUSTED_PROXIES,
 } from "./config.js";
-import { initDatabase, logMigratedAccounts } from "./database/bootstrap.js";
-import { closeDatabase } from "./database/knex.js";
+import { initDatabase, logMigratedAccounts } from "./db/bootstrap.js";
+import { closeDatabase } from "./db/knex.js";
 import { isCalibreAvailable } from "./modules/library/calibre.service.js";
 import { cancelAllConverts, sweepInterruptedOutputs } from "./modules/library/convert.service.js";
 import { backfillLibraryMetadata, sweepOrphanThumbnails } from "./modules/library/library-maintenance.service.js";

@@ -26,7 +26,7 @@ import {
   searchTracks,
   type QueueAdder,
 } from "./jukebox.service.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * HTTP for the Jukebox (D55, D56, D57). Validation in, status codes

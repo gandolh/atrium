@@ -1,10 +1,10 @@
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { seedUsers, type Accounts } from "../../vendor/ward/ward-auth.js";
-import { openMigratedAccounts } from "../database/bootstrap.js";
+import { openMigratedAccounts } from "../db/bootstrap.js";
 import { loadSeedConfig } from "../config.js";
-import { closeDatabase } from "../database/knex.js";
-import { JUKEBOX_ROLE, MEMBER_ROLE } from "../modules/auth/auth.guard.js";
+import { closeDatabase } from "../db/knex.js";
+import { JUKEBOX_ROLE, MEMBER_ROLE } from "../plugins/auth/index.js";
 
 /**
  * `npm run seed:user` — create one local account (D58).

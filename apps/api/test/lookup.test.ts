@@ -4,8 +4,8 @@ import { mkdirSync, readFileSync, statSync, writeFileSync, existsSync } from "no
 import { dirname } from "node:path";
 import sharp from "sharp";
 import type { FileType, MediaKind } from "@ebook-reader/shared";
-import { coverPathFor, filePathFor } from "../src/common/paths.js";
-import { knex } from "../src/database/knex.js";
+import { coverPathFor, filePathFor } from "../src/lib/paths.js";
+import { knex } from "../src/db/knex.js";
 import { RateGate } from "../src/modules/lookup/lookup-http.js";
 import { clearLookupCaches } from "../src/modules/lookup/lookup.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";

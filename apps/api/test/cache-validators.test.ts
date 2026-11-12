@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { coverPathFor } from "../src/common/paths.js";
+import { coverPathFor } from "../src/lib/paths.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // The newest file's ETag was the book id, and a published document's

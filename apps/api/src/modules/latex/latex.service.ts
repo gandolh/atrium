@@ -12,13 +12,13 @@ import {
   type LatexProject,
 } from "@ebook-reader/shared";
 import { LATEX_MAX_PROJECT_BYTES, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../../config.js";
-import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor } from "../../common/paths.js";
+import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor } from "../../lib/paths.js";
 import { extractMeta } from "../library/extract.service.js";
 import { updatePublishedBook } from "../library/library.model.js";
 import { isBuildArtifactPath, writeAtomic } from "./latex-compile.service.js";
 import { confineProjectPath, type ConfinedPath } from "./latex-paths.js";
 import { getLatexProject, type DocumentVersionRow, type LatexProjectRow } from "./latex.model.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * The `/latex` domain logic — wire shapes, the working tree, path

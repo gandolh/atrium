@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyBaseLogger } from "fastify";
 import { MAX_PROFILES_PER_ACCOUNT, type Preferences, type ProfileColor } from "@ebook-reader/shared";
-import { projectDirFor } from "../../common/paths.js";
-import { isForeignKeyViolation, isUniqueViolation } from "../../database/errors.js";
+import { projectDirFor } from "../../lib/paths.js";
+import { isForeignKeyViolation, isUniqueViolation } from "../../db/errors.js";
 import { setSelectedProfile } from "./profile-selection.model.js";
 import { cancelAndSettleLatexCompile } from "../latex/latex-compile.service.js";
 import { listLatexProjects } from "../latex/latex.model.js";
@@ -19,7 +19,7 @@ import {
   updateProfile,
   type ProfileRow,
 } from "./profiles.model.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * Profile rules (D35). A **profile** is a person in the household;

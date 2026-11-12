@@ -26,7 +26,7 @@ import {
   saveNote,
   updateFolder,
 } from "./notes.service.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * HTTP for notes and note folders. Per-profile since the profiles work

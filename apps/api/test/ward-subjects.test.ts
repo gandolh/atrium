@@ -1,7 +1,7 @@
 import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { knex } from "../src/database/knex.js";
-import { linkWardSubjects, MIGRATED_ROLE } from "../src/database/ward-subjects.js";
+import { knex } from "../src/db/knex.js";
+import { linkWardSubjects, MIGRATED_ROLE } from "../src/db/ward-subjects.js";
 import { createWardIdentities } from "../vendor/ward/ward-auth.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 

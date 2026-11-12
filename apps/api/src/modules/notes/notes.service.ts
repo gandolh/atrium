@@ -22,7 +22,7 @@ import {
   type NoteRow,
   type NoteSummaryRow,
 } from "./notes.model.js";
-import { present } from "../../common/present.js";
+import { present } from "../../lib/present.js";
 
 /**
  * Note and folder rules.

@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import type { LibraryBook } from "@ebook-reader/shared";
-import { coverOwnerId, coverPathFor } from "../../common/paths.js";
+import { coverOwnerId, coverPathFor } from "../../lib/paths.js";
 import type { BookConvertFields, NewBookRow } from "./library.types.js";
 
 /**

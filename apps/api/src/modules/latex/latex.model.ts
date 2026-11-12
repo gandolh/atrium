@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CompileStatus } from "@ebook-reader/shared";
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 
 /**
  * Data access for `latex_projects` and `document_versions` — the

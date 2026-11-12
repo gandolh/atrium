@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
-import { knex } from "../src/database/knex.js";
+import { knex } from "../src/db/knex.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // `GET /notes` selected every column, ink included, and JSON-parsed

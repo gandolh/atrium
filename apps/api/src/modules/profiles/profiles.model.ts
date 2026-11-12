@@ -1,5 +1,5 @@
 import type { ProfileColor } from "@ebook-reader/shared";
-import { knex } from "../../database/knex.js";
+import { knex } from "../../db/knex.js";
 
 /**
  * Data access for `profiles` and `reading_progress` — the person half of

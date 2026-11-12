@@ -8,7 +8,7 @@ import { registerLibraryRoutes } from "./modules/library/library.controller.js";
 import { registerLookupRoutes } from "./modules/lookup/lookup.controller.js";
 import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
 import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
-import { registerAuthGuard } from "./modules/auth/auth.guard.js";
+import { registerAuthGuard } from "./plugins/auth/index.js";
 import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
 
 /**

@@ -1,6 +1,6 @@
 import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { knex } from "../src/database/knex.js";
+import { knex } from "../src/db/knex.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // The compile slot's durable half joined through `profiles.user_id`,

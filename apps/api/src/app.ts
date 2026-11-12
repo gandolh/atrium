@@ -7,7 +7,7 @@ import { registerLatexRoutes } from "./features/latex/index.js";
 import { registerLibraryRoutes } from "./features/library/index.js";
 import { registerLookupRoutes } from "./features/lookup/index.js";
 import { registerNotesRoutes } from "./features/notes/index.js";
-import { registerProfileRoutes } from "./features/profiles/index.js";
+import { profileRoutes } from "./features/profiles/index.js";
 import { authGuard } from "./plugins/auth/index.js";
 import { errors } from "./plugins/errors.js";
 import { multipart } from "./plugins/multipart.js";
@@ -75,7 +75,7 @@ export async function buildApp(options: {
   registerLibraryRoutes(app);
   registerCatalogRoutes(app);
   registerNotesRoutes(app);
-  registerProfileRoutes(app);
+  await app.register(profileRoutes);
   registerLatexRoutes(app);
   registerJukeboxRoutes(app);
   registerLookupRoutes(app);

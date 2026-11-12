@@ -1,6 +1,6 @@
 import { serializerCompiler, validatorCompiler } from "@fastify/type-provider-zod";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import { registerHealthRoutes } from "./features/health/index.js";
+import { healthRoutes } from "./features/health/index.js";
 import { registerCatalogRoutes } from "./features/catalog/index.js";
 import { registerJukeboxRoutes } from "./features/jukebox/index.js";
 import { registerLatexRoutes } from "./features/latex/index.js";
@@ -71,7 +71,7 @@ export async function buildApp(options: {
   // Uploads: one file, up to MAX_UPLOAD_MB (D15).
   await app.register(multipart);
 
-  registerHealthRoutes(app);
+  await app.register(healthRoutes);
   registerLibraryRoutes(app);
   registerCatalogRoutes(app);
   registerNotesRoutes(app);

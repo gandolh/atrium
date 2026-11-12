@@ -3,7 +3,6 @@ import {
   LOOKUP_MAX_CANDIDATES,
   isLookupCoverRef,
   lookupSourceForKind,
-  lookupSourceSchema,
   type LookupApplyRequest,
   type LookupCandidate,
   type LookupSearchParams,
@@ -152,12 +151,8 @@ const THUMBNAIL_BOUND = 300;
  * person's browser never contacts the source, and re-encoded so whatever the
  * source sent is not what the browser gets.
  */
-export async function lookupThumbnail(rawSource: string, ref: string): Promise<LookupThumbnailResult> {
-  const parsedSource = lookupSourceSchema.safeParse(rawSource);
-  if (!parsedSource.success || !isLookupCoverRef(parsedSource.data, ref)) {
-    return { ok: false, reason: "BAD_REF" };
-  }
-  const source = parsedSource.data;
+export async function lookupThumbnail(source: LookupSource, ref: string): Promise<LookupThumbnailResult> {
+  if (!isLookupCoverRef(source, ref)) return { ok: false, reason: "BAD_REF" };
   const key = `${source}/${ref}`;
   const hit = thumbnailCache.get(key);
   if (hit !== undefined) return hit ? { ok: true, bytes: hit } : { ok: false, reason: "NO_COVER" };

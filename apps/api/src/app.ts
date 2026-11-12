@@ -5,7 +5,7 @@ import { catalogRoutes } from "./features/catalog/index.js";
 import { registerJukeboxRoutes } from "./features/jukebox/index.js";
 import { registerLatexRoutes } from "./features/latex/index.js";
 import { registerLibraryRoutes } from "./features/library/index.js";
-import { registerLookupRoutes } from "./features/lookup/index.js";
+import { lookupRoutes } from "./features/lookup/index.js";
 import { notesRoutes } from "./features/notes/index.js";
 import { profileRoutes } from "./features/profiles/index.js";
 import { authGuard } from "./plugins/auth/index.js";
@@ -78,7 +78,7 @@ export async function buildApp(options: {
   await app.register(profileRoutes);
   registerLatexRoutes(app);
   registerJukeboxRoutes(app);
-  registerLookupRoutes(app);
+  await app.register(lookupRoutes);
 
   return app;
 }

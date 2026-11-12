@@ -112,4 +112,27 @@ describe("route schemas", () => {
       assert.equal(foreignBad.statusCode, 400);
     });
   });
+
+  describe("catalog", () => {
+    it("a request that fails its schema keeps the sentence the route always sent", async () => {
+      const query = await inject(me, "GET", "/catalog/gutenberg?page=0");
+      assert.equal(query.statusCode, 400);
+      assert.deepEqual(query.json(), { error: "Invalid catalog query." });
+      const body = await inject(me, "POST", "/library/import", { gutenbergId: "eleven" });
+      assert.equal(body.statusCode, 400);
+      assert.deepEqual(body.json(), { error: "gutenbergId must be a positive integer." });
+    });
+
+    it("bad JSON past a route's own error handler is still Fastify's 400, whole", async () => {
+      const res = await t.app.inject({
+        method: "POST",
+        url: "/library/import",
+        headers: { cookie: me, "content-type": "application/json" },
+        payload: "{nope",
+      });
+      assert.equal(res.statusCode, 400);
+      assert.deepEqual(Object.keys(res.json()), ["statusCode", "code", "error", "message"]);
+      assert.equal(res.json().code, "FST_ERR_CTP_INVALID_JSON_BODY");
+    });
+  });
 });

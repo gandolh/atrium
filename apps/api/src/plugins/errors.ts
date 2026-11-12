@@ -24,8 +24,10 @@ const INVALID_REQUEST = { error: "INVALID_REQUEST" } as const;
  * on to the app's handler below.
  */
 export function invalidRequestAs(body: { error: string }) {
-  return (error: FastifyError, _request: FastifyRequest, reply: FastifyReply): FastifyReply =>
-    hasZodFastifySchemaValidationErrors(error) ? reply.status(400).send(body) : reply.send(error);
+  return (error: FastifyError, _request: FastifyRequest, reply: FastifyReply): void => {
+    if (hasZodFastifySchemaValidationErrors(error)) void reply.status(400).send(body);
+    else void reply.send(error);
+  };
 }
 
 /**

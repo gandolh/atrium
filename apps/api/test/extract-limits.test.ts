@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import sharp from "sharp";
-import { extractMeta } from "../src/modules/library/extract.service.js";
+import { extractMeta } from "../src/features/library/extract.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 import { CONTAINER, buildZip, opf, pngHeaderOnly, type EntryContent } from "./zip-builder.js";
 

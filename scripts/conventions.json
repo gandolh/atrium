@@ -7,19 +7,19 @@
     {
       "check": "house-style",
       "rule": 14,
-      "path": "apps/api/src/modules/latex/latex-compile.service.ts",
+      "path": "apps/api/src/features/latex/compile.service.ts",
       "reason": "Two console calls report a status write parked after a database failure. The service keeps module-level state and receives no logger, so there is none in reach."
     },
     {
       "check": "house-style",
       "rule": 14,
-      "path": "apps/api/src/modules/library/convert.service.ts",
+      "path": "apps/api/src/features/library/convert.service.ts",
       "reason": "Two console calls report a status write parked after a database failure. The service keeps module-level state and receives no logger, so there is none in reach."
     },
     {
       "check": "house-style",
       "rule": 14,
-      "path": "apps/api/src/modules/library/extract.service.ts",
+      "path": "apps/api/src/features/library/extract.service.ts",
       "reason": "One console call reports a refused EPUB entry from a pure helper that receives no logger, and a test reads the printed line."
     },
     {

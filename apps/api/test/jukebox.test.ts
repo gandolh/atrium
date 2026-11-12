@@ -2,7 +2,7 @@ import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { JUKEBOX_FAILURE_BUDGET, type BotCommandsResponse, type Player, type Track } from "@ebook-reader/shared";
 import { runMigrations } from "../src/db/bootstrap.js";
-import { IDLE_REPORT_GRACE_MS } from "../src/modules/jukebox/jukebox.service.js";
+import { IDLE_REPORT_GRACE_MS } from "../src/features/jukebox/service.js";
 import { knex } from "../src/db/knex.js";
 import { migrationSource } from "../src/db/migrations/index.js";
 import { buildTestApp, type TestApp } from "./harness.js";

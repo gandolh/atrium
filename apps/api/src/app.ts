@@ -1,11 +1,11 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
-import { registerJukeboxRoutes } from "./modules/jukebox/jukebox.controller.js";
-import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
-import { registerLibraryRoutes } from "./modules/library/library.controller.js";
-import { registerLookupRoutes } from "./modules/lookup/lookup.controller.js";
-import { registerNotesRoutes } from "./modules/notes/notes.controller.js";
-import { registerProfileRoutes } from "./modules/profiles/profiles.controller.js";
+import { registerCatalogRoutes } from "./features/catalog/routes.js";
+import { registerJukeboxRoutes } from "./features/jukebox/routes.js";
+import { registerLatexRoutes } from "./features/latex/routes.js";
+import { registerLibraryRoutes } from "./features/library/routes.js";
+import { registerLookupRoutes } from "./features/lookup/routes.js";
+import { registerNotesRoutes } from "./features/notes/routes.js";
+import { registerProfileRoutes } from "./features/profiles/routes.js";
 import { authGuard } from "./plugins/auth/index.js";
 import { errors } from "./plugins/errors.js";
 import { multipart } from "./plugins/multipart.js";

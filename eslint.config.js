@@ -24,9 +24,9 @@ export default [
       "apps/api/src/config.ts",
       "apps/api/src/db/migrations/20260830000000-baseline.ts",
       "apps/api/src/db/migrations/20260925000000-prune-cutover-orphans.ts",
-      "apps/api/src/modules/latex/latex-compile.service.ts",
-      "apps/api/src/modules/library/convert.service.ts",
-      "apps/api/src/modules/library/extract.service.ts",
+      "apps/api/src/features/latex/compile.service.ts",
+      "apps/api/src/features/library/convert.service.ts",
+      "apps/api/src/features/library/extract.service.ts",
     ],
     // Tests sit in tsconfigs that projectService does not find (they are not in the build configs).
     typed: {

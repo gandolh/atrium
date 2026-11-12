@@ -6,8 +6,8 @@ import sharp from "sharp";
 import type { FileType, MediaKind } from "@ebook-reader/shared";
 import { coverPathFor, filePathFor } from "../src/lib/paths.js";
 import { knex } from "../src/db/knex.js";
-import { RateGate } from "../src/modules/lookup/lookup-http.js";
-import { clearLookupCaches } from "../src/modules/lookup/lookup.service.js";
+import { RateGate } from "../src/features/lookup/lookup-http.js";
+import { clearLookupCaches } from "../src/features/lookup/service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 /**

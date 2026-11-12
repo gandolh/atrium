@@ -20,10 +20,10 @@ import {
 } from "./config.js";
 import { initDatabase, logMigratedAccounts } from "./db/bootstrap.js";
 import { closeDatabase } from "./db/knex.js";
-import { isCalibreAvailable } from "./modules/library/calibre.service.js";
-import { cancelAllConverts, sweepInterruptedOutputs } from "./modules/library/convert.service.js";
-import { backfillLibraryMetadata, sweepOrphanThumbnails } from "./modules/library/library-maintenance.service.js";
-import { cancelAllLatexCompiles } from "./modules/latex/latex-compile.service.js";
+import { isCalibreAvailable } from "./features/library/calibre.service.js";
+import { cancelAllConverts, sweepInterruptedOutputs } from "./features/library/convert.service.js";
+import { backfillLibraryMetadata, sweepOrphanThumbnails } from "./features/library/library-maintenance.service.js";
+import { cancelAllLatexCompiles } from "./features/latex/compile.service.js";
 import { createWardClient, wardClientOptionsFromEnv } from "../vendor/ward/ward-auth.js";
 
 /**

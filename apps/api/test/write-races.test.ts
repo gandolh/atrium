@@ -1,8 +1,8 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { updateFolder } from "../src/modules/notes/notes.service.js";
-import { getProfile } from "../src/modules/profiles/profiles.model.js";
-import { writePreferences } from "../src/modules/profiles/profiles.service.js";
+import { updateFolder } from "../src/features/notes/service.js";
+import { getProfile } from "../src/db/profiles-store.js";
+import { writePreferences } from "../src/features/profiles/service.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // Two read-then-write paths the Knex move left racy (D47's bug

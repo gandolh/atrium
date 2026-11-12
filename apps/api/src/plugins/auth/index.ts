@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import fp from "fastify-plugin";
 
-import { getDefaultProfile, getProfile, type ProfileRow } from "../../modules/profiles/profiles.model.js";
-import { getSelectedProfileId } from "../../modules/profiles/profile-selection.model.js";
+import { getDefaultProfile, getProfile, type ProfileRow } from "../../db/profiles-store.js";
+import { getSelectedProfileId } from "../../db/profile-selection-store.js";
 import { ensureDefaultProfile } from "../../db/bootstrap.js";
 import { API_PREFIX, APP_PREFIX, PUBLIC_ORIGIN } from "../../config.js";
 import { wardAuth, type Accounts, type WardClient } from "../../../vendor/ward/ward-auth.js";

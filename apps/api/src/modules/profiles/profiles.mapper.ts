@@ -22,7 +22,7 @@ export function toProfile(row: ProfileRow): Profile {
  * Falling back to `{}` rather than throwing is deliberate: a blob corrupted
  * outside the app would otherwise make every future PATCH a permanent 500 with
  * no way to write over it. Unknown *keys* are not corruption —
- * `preferencesSchema` is `.passthrough()`, so they survive this and the merge
+ * `preferencesSchema` is a loose object, so they survive this and the merge
  * in the service.
  */
 export function storedPreferences(raw: string | null): Preferences {

@@ -24,7 +24,7 @@
     "pdf-to-img": "7.0.1",
     "perfect-freehand": "1.2.3",
     "sharp": "0.35.5",
-    "zod": "3.25.76"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",

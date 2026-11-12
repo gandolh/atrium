@@ -76,7 +76,7 @@ export const lookupCandidateSchema = z
   })
   .superRefine((candidate, ctx) => {
     if (candidate.coverRef !== null && !isLookupCoverRef(candidate.source, candidate.coverRef)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["coverRef"], message: "Not a cover id for this source." });
+      ctx.addIssue({ code: "custom", path: ["coverRef"], message: "Not a cover id for this source." });
     }
   });
 export type LookupCandidate = z.infer<typeof lookupCandidateSchema>;
@@ -116,25 +116,23 @@ export function lookupFieldValue(candidate: LookupCandidate, field: LookupField)
 export const lookupApplySchema = z
   .object({
     candidate: lookupCandidateSchema,
-    fields: z
-      .object({
-        title: z.boolean().optional(),
-        author: z.boolean().optional(),
-        series: z.boolean().optional(),
-        seriesIndex: z.boolean().optional(),
-        cover: z.boolean().optional(),
-      })
-      .strict(),
+    fields: z.strictObject({
+      title: z.boolean().optional(),
+      author: z.boolean().optional(),
+      series: z.boolean().optional(),
+      seriesIndex: z.boolean().optional(),
+      cover: z.boolean().optional(),
+    }),
   })
   .superRefine((body, ctx) => {
     const ticked = LOOKUP_FIELDS.filter((field) => body.fields[field]);
     if (ticked.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["fields"], message: "Tick at least one field." });
+      ctx.addIssue({ code: "custom", path: ["fields"], message: "Tick at least one field." });
     }
     for (const field of ticked) {
       if (lookupFieldValue(body.candidate, field) === null) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           path: ["fields", field],
           message: "The candidate has no value for this field.",
         });

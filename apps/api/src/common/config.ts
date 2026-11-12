@@ -81,7 +81,7 @@ const envSchema = z.object({
    * `Secure` unless this is plain HTTP on loopback, and a browser `POST` to the
    * auth routes whose `Origin` is anything else is refused (`cross_site`).
    */
-  PUBLIC_ORIGIN: z.string().url(),
+  PUBLIC_ORIGIN: z.url(),
 });
 
 const parsed = envSchema.safeParse(process.env);

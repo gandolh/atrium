@@ -79,18 +79,16 @@ export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
  * The reading pane's type settings (mirrors `FontSettings` in
  * apps/web reader-store). Every field optional — see `preferencesSchema`.
  */
-export const fontSettingsSchema = z
-  .object({
-    /** Font size in px. */
-    size: z.number().positive().optional(),
-    /** `"reading"` is Newsreader, `"ui"` is Archivo. */
-    family: z.enum(["reading", "ui"]).optional(),
-    /** Line spacing multiplier, e.g. 1.78. */
-    lineSpacing: z.number().positive().optional(),
-    /** Horizontal margin in px. */
-    margins: z.number().nonnegative().optional(),
-  })
-  .passthrough();
+export const fontSettingsSchema = z.looseObject({
+  /** Font size in px. */
+  size: z.number().positive().optional(),
+  /** `"reading"` is Newsreader, `"ui"` is Archivo. */
+  family: z.enum(["reading", "ui"]).optional(),
+  /** Line spacing multiplier, e.g. 1.78. */
+  lineSpacing: z.number().positive().optional(),
+  /** Horizontal margin in px. */
+  margins: z.number().nonnegative().optional(),
+});
 export type FontSettingsPreference = z.infer<typeof fontSettingsSchema>;
 
 /**
@@ -109,14 +107,12 @@ export type FontSettingsPreference = z.infer<typeof fontSettingsSchema>;
  *     client's preference"*. Two devices share one profile row; if the older
  *     one parses, drops what it doesn't recognise, and PATCHes the whole blob
  *     back, the newer device's setting is destroyed with no error anywhere.
- *     `.passthrough()` carries the unknown key through the round trip.
+ *     A loose object carries the unknown key through the round trip.
  */
-export const preferencesSchema = z
-  .object({
-    theme: z.enum(["light", "sepia", "dark", "system"]).optional(),
-    fontSettings: fontSettingsSchema.optional(),
-    pageMode: z.enum(["paged", "scroll"]).optional(),
-    tocSidebarOpen: z.boolean().optional(),
-  })
-  .passthrough();
+export const preferencesSchema = z.looseObject({
+  theme: z.enum(["light", "sepia", "dark", "system"]).optional(),
+  fontSettings: fontSettingsSchema.optional(),
+  pageMode: z.enum(["paged", "scroll"]).optional(),
+  tocSidebarOpen: z.boolean().optional(),
+});
 export type Preferences = z.infer<typeof preferencesSchema>;

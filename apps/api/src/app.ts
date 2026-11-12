@@ -3,7 +3,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastif
 import { healthRoutes } from "./features/health/index.js";
 import { catalogRoutes } from "./features/catalog/index.js";
 import { registerJukeboxRoutes } from "./features/jukebox/index.js";
-import { registerLatexRoutes } from "./features/latex/index.js";
+import { latexRoutes } from "./features/latex/index.js";
 import { libraryRoutes } from "./features/library/index.js";
 import { lookupRoutes } from "./features/lookup/index.js";
 import { notesRoutes } from "./features/notes/index.js";
@@ -76,7 +76,7 @@ export async function buildApp(options: {
   await app.register(catalogRoutes);
   await app.register(notesRoutes);
   await app.register(profileRoutes);
-  registerLatexRoutes(app);
+  await app.register(latexRoutes);
   registerJukeboxRoutes(app);
   await app.register(lookupRoutes);
 

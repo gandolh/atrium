@@ -3,11 +3,13 @@ import { createWriteStream } from "node:fs";
 import { lstat, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
+import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
   documentVersionSchema,
   kindForFormat,
+  libraryBookSchema,
   latexCompileResultSchema,
   latexFileSchema,
   latexProjectSchema,
@@ -72,6 +74,21 @@ import {
 } from "./service.js";
 import { removeProjectTree } from "./project-tree.service.js";
 import { present } from "../../lib/present.js";
+import { errorBody } from "../../plugins/errors.js";
+
+const idParams = z.object({ id: z.string() });
+/** A `files/*` route: the project, and the path under it, already decoded by Fastify, exactly once. */
+const fileParams = z.object({ id: z.string(), "*": z.string() });
+const cancelSchema = z.object({ cancelled: z.boolean() });
+/** `POST /latex/:id/publish`: the library book the project publishes to, and the version just added. */
+const publishedSchema = z.object({ book: libraryBookSchema, version: documentVersionSchema });
+/** Publish's 422: the document doesn't compile, and the compile result says why. */
+const compileFailedSchema = z.object({ error: z.string(), message: z.string(), result: latexCompileResultSchema });
+/** `GET /library/:id/versions`: newest first, and the version this profile reads. */
+const versionListSchema = z.object({
+  versions: z.array(documentVersionSchema),
+  currentVersionId: z.string().nullable(),
+});
 
 /**
  * HTTP for `/latex` — project CRUD, file CRUD, binary upload,
@@ -85,15 +102,15 @@ import { present } from "../../lib/present.js";
  * below derives a path from a URL parameter that has not been through both.
  */
 
-export function registerLatexRoutes(app: FastifyInstance): void {
+export const latexRoutes: FastifyPluginAsyncZod = async (app) => {
   /** The wildcard segment of a `files/*` route — already decoded by Fastify, exactly once. */
   const wildcard = (request: FastifyRequest): string => (request.params as Record<string, string>)["*"] ?? "";
 
   // --- Projects --------------------------------------------------------------
 
   /** `GET /latex` — this profile's projects, most-recently-updated first. */
-  app.get("/latex", async (request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(latexProjectListSchema.parse((await listLatexProjects(pid(request))).map(toLatexProject)));
+  app.get("/latex", { schema: { response: { 200: latexProjectListSchema } } }, async (request) => {
+    return (await listLatexProjects(pid(request))).map(toLatexProject);
   });
 
   /**
@@ -103,79 +120,89 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * failure to create the directory never leaves a project the editor lists but
    * cannot open. The reverse ordering would need a compensating delete.
    */
-  app.post("/latex", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = createProjectSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
+  // No body at all is an untitled project, as `{}` is.
+  app.post(
+    "/latex",
+    { schema: { body: createProjectSchema.nullish(), response: { 201: latexProjectSchema, 400: errorBody } } },
+    async (request, reply) => {
+      const body = request.body ?? {};
 
-    const id = randomUUID();
-    // The entrypoint is a path, so it is confined like every other path even
-    // though nothing has been written yet — this is the create half of "the
-    // `entrypoint` field on PATCH and on create".
-    let entrypoint = "main.tex";
-    if (parsed.data.entrypoint !== undefined) {
-      const confined = await confinedOr400(reply, id, parsed.data.entrypoint, "entrypoint");
-      if (!confined) return reply;
-      entrypoint = confined.relativePath;
-    }
+      const id = randomUUID();
+      // The entrypoint is a path, so it is confined like every other path even
+      // though nothing has been written yet — this is the create half of "the
+      // `entrypoint` field on PATCH and on create".
+      let entrypoint = "main.tex";
+      if (body.entrypoint !== undefined) {
+        const confined = await confinedOr400(reply, id, body.entrypoint, "entrypoint");
+        if (!confined) return reply;
+        entrypoint = confined.relativePath;
+      }
 
-    const seedPath = join(projectDirFor(id), entrypoint);
-    await mkdir(dirname(seedPath), { recursive: true });
-    await writeFile(seedPath, HELLO_WORLD_TEX, "utf8");
+      const seedPath = join(projectDirFor(id), entrypoint);
+      await mkdir(dirname(seedPath), { recursive: true });
+      await writeFile(seedPath, HELLO_WORLD_TEX, "utf8");
 
-    const now = new Date().toISOString();
-    const row: LatexProjectRow = {
-      id,
-      profile_id: pid(request),
-      title: parsed.data.title?.trim() || "Untitled project",
-      entrypoint,
-      compile_status: "none",
-      published_book_id: null,
-      created_at: now,
-      updated_at: now,
-    };
-    await insertLatexProject(row);
-    return reply.status(201).send(latexProjectSchema.parse(toLatexProject(row)));
-  });
+      const now = new Date().toISOString();
+      const row: LatexProjectRow = {
+        id,
+        profile_id: pid(request),
+        title: body.title?.trim() || "Untitled project",
+        entrypoint,
+        compile_status: "none",
+        published_book_id: null,
+        created_at: now,
+        updated_at: now,
+      };
+      await insertLatexProject(row);
+      return reply.status(201).send(toLatexProject(row));
+    },
+  );
 
   /** `GET /latex/:id` — one project. */
-  app.get("/latex/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    return reply.send(latexProjectSchema.parse(toLatexProject(project)));
-  });
+  app.get(
+    "/latex/:id",
+    { schema: { params: idParams, response: { 200: latexProjectSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      return reply.send(toLatexProject(project));
+    },
+  );
 
   /** `PATCH /latex/:id` — rename, and/or repoint the entrypoint. */
-  app.patch("/latex/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    const parsed = updateProjectSchema.safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
+  app.patch(
+    "/latex/:id",
+    {
+      schema: {
+        params: idParams,
+        body: updateProjectSchema,
+        response: { 200: latexProjectSchema, 400: errorBody, 404: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      const body = request.body;
 
-    // The confinement that `updateLatexProject` explicitly does not do: it
-    // stores a string and cannot tell a filename from a traversal. A stored
-    // `../../etc/passwd` would be handed to the compiler as the document root.
-    let entrypoint: string | undefined;
-    if (parsed.data.entrypoint !== undefined) {
-      const confined = await confinedOr400(reply, project.id, parsed.data.entrypoint, "entrypoint");
-      if (!confined) return reply;
-      entrypoint = confined.relativePath;
-    }
+      // The confinement that `updateLatexProject` explicitly does not do: it
+      // stores a string and cannot tell a filename from a traversal. A stored
+      // `../../etc/passwd` would be handed to the compiler as the document root.
+      let entrypoint: string | undefined;
+      if (body.entrypoint !== undefined) {
+        const confined = await confinedOr400(reply, project.id, body.entrypoint, "entrypoint");
+        if (!confined) return reply;
+        entrypoint = confined.relativePath;
+      }
 
-    const now = new Date().toISOString();
-    const ok = await updateLatexProject(
-      pid(request),
-      project.id,
-      { title: parsed.data.title?.trim(), entrypoint },
-      now,
-    );
-    if (!ok) return reply.status(404).send({ error: "NOT_FOUND" });
-    // Re-read rather than reconstruct: COALESCE decided which columns changed.
-    return reply.send(
-      latexProjectSchema.parse(
+      const now = new Date().toISOString();
+      const ok = await updateLatexProject(pid(request), project.id, { title: body.title?.trim(), entrypoint }, now);
+      if (!ok) return reply.status(404).send({ error: "NOT_FOUND" });
+      // Re-read rather than reconstruct: COALESCE decided which columns changed.
+      return reply.send(
         toLatexProject(present(await getLatexProject(pid(request), project.id), "the project just updated")),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   /**
    * `DELETE /latex/:id` — remove the row and the whole working tree.
@@ -214,32 +241,41 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * project. A `rm` that fails leaves orphaned bytes, which is recoverable; the
    * opposite ordering leaves a project that 500s on every read.
    */
-  app.delete("/latex/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
+  app.delete(
+    "/latex/:id",
+    { schema: { params: idParams, response: { 204: z.null(), 404: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
 
-    await cancelAndSettleLatexCompile(project.id);
+      await cancelAndSettleLatexCompile(project.id);
 
-    if (!(await deleteLatexProject(pid(request), project.id))) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    // `projectDirFor` asserts the id's shape; it came from the row, so it is a
-    // server-minted UUID and this cannot be pointed anywhere else.
-    await removeProjectTree(projectDirFor(project.id), request.log);
-    return reply.status(204).send();
-  });
+      if (!(await deleteLatexProject(pid(request), project.id))) {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      // `projectDirFor` asserts the id's shape; it came from the row, so it is a
+      // server-minted UUID and this cannot be pointed anywhere else.
+      await removeProjectTree(projectDirFor(project.id), request.log);
+      return reply.status(204).send(null);
+    },
+  );
 
   // --- Files -----------------------------------------------------------------
 
   /** `GET /latex/:id/files` — the editor's file tree. Build artifacts excluded. */
-  app.get("/latex/:id/files", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    return reply.send(latexFileListSchema.parse(await listProjectFiles(project.id)));
-  });
+  app.get(
+    "/latex/:id/files",
+    { schema: { params: idParams, response: { 200: latexFileListSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      return reply.send(await listProjectFiles(project.id));
+    },
+  );
 
   /** `GET /latex/:id/files/*` — one file's contents. */
-  app.get("/latex/:id/files/*", async (request: FastifyRequest, reply: FastifyReply) => {
+  // A file's bytes: its params only, no response schema (scripts/conventions.json).
+  app.get("/latex/:id/files/*", { schema: { params: fileParams } }, async (request, reply) => {
     const project = await requireProject(request, reply);
     if (!project) return reply;
     // A build-artifact path is refused as "not found" on a read rather than as
@@ -272,8 +308,23 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    */
   app.put(
     "/latex/:id/files/*",
-    { bodyLimit: MAX_PROJECT_BYTES },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    // The body is the file's text, as text/plain or JSON `{ content }`, read by
+    // bodyToContent: no body schema.
+    {
+      bodyLimit: MAX_PROJECT_BYTES,
+      schema: {
+        params: fileParams,
+        response: {
+          200: latexFileSchema,
+          201: latexFileSchema,
+          400: errorBody,
+          404: errorBody,
+          409: errorBody,
+          413: errorBody,
+        },
+      },
+    },
+    async (request, reply) => {
       const project = await requireProject(request, reply);
       if (!project) return reply;
       const confined = await confinedOr400(reply, project.id, wildcard(request), "path");
@@ -340,7 +391,8 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * therefore never destroys the file it was replacing, and a reader (the
    * compiler, the preview) never sees a half-written figure.
    */
-  app.post("/latex/:id/files/*", async (request: FastifyRequest, reply: FastifyReply) => {
+  // A multipart upload: its params only (scripts/conventions.json).
+  app.post("/latex/:id/files/*", { schema: { params: fileParams } }, async (request, reply) => {
     const project = await requireProject(request, reply);
     if (!project) return reply;
     const confined = await confinedOr400(reply, project.id, wildcard(request), "path");
@@ -398,53 +450,57 @@ export function registerLatexRoutes(app: FastifyInstance): void {
   });
 
   /** `DELETE /latex/:id/files/*` — remove one file. */
-  app.delete("/latex/:id/files/*", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    const confined = await confinedOr400(reply, project.id, wildcard(request), "path", false);
-    if (!confined) return reply;
-    if (isBuildArtifactPath(confined.relativePath)) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
+  app.delete(
+    "/latex/:id/files/*",
+    { schema: { params: fileParams, response: { 204: z.null(), 400: errorBody, 404: errorBody, 409: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      const confined = await confinedOr400(reply, project.id, wildcard(request), "path", false);
+      if (!confined) return reply;
+      if (isBuildArtifactPath(confined.relativePath)) {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
 
-    let info;
-    try {
-      info = await lstat(confined.absolutePath);
-    } catch {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    // A directory delete is refused rather than made recursive: the file tree
-    // deletes files, and one mis-click that took a whole chapter directory with
-    // it is not something a draft can be recovered from (drafts have no version
-    // history — decision 3 puts that explicitly out of scope).
-    if (info.isDirectory()) {
-      return reply.status(400).send({
-        error: "NOT_A_FILE",
-        message: "That path is a directory. Delete the files inside it instead.",
-      });
-    }
+      let info;
+      try {
+        info = await lstat(confined.absolutePath);
+      } catch {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      // A directory delete is refused rather than made recursive: the file tree
+      // deletes files, and one mis-click that took a whole chapter directory with
+      // it is not something a draft can be recovered from (drafts have no version
+      // history — decision 3 puts that explicitly out of scope).
+      if (info.isDirectory()) {
+        return reply.status(400).send({
+          error: "NOT_A_FILE",
+          message: "That path is a directory. Delete the files inside it instead.",
+        });
+      }
 
-    // Deleting the entrypoint is refused, not allowed-and-repaired. The three
-    // options were: silently repoint the project at some other `.tex` (changes
-    // what compiles without saying so — the exact silent behaviour this
-    // codebase refuses everywhere else), allow it and leave the pointer
-    // dangling (no "main" badge, and the next compile fails with a
-    // missing-file diagnostic about a file the person deliberately deleted), or
-    // this: say no, and say why. Renaming the entrypoint is unaffected —
-    // `POST /rename` carries the pointer with the file, because there the
-    // person's intent is unambiguous.
-    if (confined.relativePath === project.entrypoint) {
-      return reply.status(409).send({
-        error: "IS_ENTRYPOINT",
-        message: `${confined.relativePath} is this project's main file. Make another file the main one first, then delete it.`,
-      });
-    }
+      // Deleting the entrypoint is refused, not allowed-and-repaired. The three
+      // options were: silently repoint the project at some other `.tex` (changes
+      // what compiles without saying so — the exact silent behaviour this
+      // codebase refuses everywhere else), allow it and leave the pointer
+      // dangling (no "main" badge, and the next compile fails with a
+      // missing-file diagnostic about a file the person deliberately deleted), or
+      // this: say no, and say why. Renaming the entrypoint is unaffected —
+      // `POST /rename` carries the pointer with the file, because there the
+      // person's intent is unambiguous.
+      if (confined.relativePath === project.entrypoint) {
+        return reply.status(409).send({
+          error: "IS_ENTRYPOINT",
+          message: `${confined.relativePath} is this project's main file. Make another file the main one first, then delete it.`,
+        });
+      }
 
-    await rm(confined.absolutePath, { force: true });
-    await pruneEmptyDirs(project.id, confined.absolutePath);
-    await touchLatexProject(project.id, new Date().toISOString());
-    return reply.status(204).send();
-  });
+      await rm(confined.absolutePath, { force: true });
+      await pruneEmptyDirs(project.id, confined.absolutePath);
+      await touchLatexProject(project.id, new Date().toISOString());
+      return reply.status(204).send(null);
+    },
+  );
 
   /**
    * `POST /latex/:id/rename` — move a file within the project.
@@ -453,67 +509,76 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * relocated into the project; `to` alone would be an arbitrary *write*. A
    * rename is the one operation where forgetting either half is equally fatal.
    */
-  app.post("/latex/:id/rename", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    const parsed = renameSchema.safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
+  app.post(
+    "/latex/:id/rename",
+    {
+      schema: {
+        params: idParams,
+        body: renameSchema,
+        response: { 200: latexFileSchema, 400: errorBody, 404: errorBody, 409: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      const body = request.body;
 
-    const from = await confinedOr400(reply, project.id, parsed.data.from, "from");
-    if (!from) return reply;
-    const to = await confinedOr400(reply, project.id, parsed.data.to, "to");
-    if (!to) return reply;
-    // The destination only. Moving a file INTO the unaccountable window is the
-    // cap bypass with one extra step; moving one OUT of it must stay possible,
-    // which is why `from` is not checked.
-    if (refuseUnaccountablePath(reply, to.relativePath, "to")) return reply;
+      const from = await confinedOr400(reply, project.id, body.from, "from");
+      if (!from) return reply;
+      const to = await confinedOr400(reply, project.id, body.to, "to");
+      if (!to) return reply;
+      // The destination only. Moving a file INTO the unaccountable window is the
+      // cap bypass with one extra step; moving one OUT of it must stay possible,
+      // which is why `from` is not checked.
+      if (refuseUnaccountablePath(reply, to.relativePath, "to")) return reply;
 
-    if (from.relativePath === to.relativePath) {
-      return reply.status(400).send({ error: "INVALID_REQUEST", message: "`from` and `to` are the same path." });
-    }
+      if (from.relativePath === to.relativePath) {
+        return reply.status(400).send({ error: "INVALID_REQUEST", message: "`from` and `to` are the same path." });
+      }
 
-    let info;
-    try {
-      info = await lstat(from.absolutePath);
-    } catch {
-      return reply.status(404).send({ error: "NOT_FOUND", message: "No such file in this project." });
-    }
-    if (!info.isFile()) {
-      return reply.status(400).send({ error: "NOT_A_FILE", message: "Only files can be renamed." });
-    }
-    // Refused rather than silently overwriting: `rename(2)` would replace the
-    // destination without a word, and a draft has no undo.
-    try {
-      await lstat(to.absolutePath);
-      return reply.status(409).send({ error: "ALREADY_EXISTS", message: "A file already exists at that path." });
-    } catch {
-      // Good — the destination is free.
-    }
+      let info;
+      try {
+        info = await lstat(from.absolutePath);
+      } catch {
+        return reply.status(404).send({ error: "NOT_FOUND", message: "No such file in this project." });
+      }
+      if (!info.isFile()) {
+        return reply.status(400).send({ error: "NOT_A_FILE", message: "Only files can be renamed." });
+      }
+      // Refused rather than silently overwriting: `rename(2)` would replace the
+      // destination without a word, and a draft has no undo.
+      try {
+        await lstat(to.absolutePath);
+        return reply.status(409).send({ error: "ALREADY_EXISTS", message: "A file already exists at that path." });
+      } catch {
+        // Good — the destination is free.
+      }
 
-    await mkdir(dirname(to.absolutePath), { recursive: true });
-    await rename(from.absolutePath, to.absolutePath);
-    await pruneEmptyDirs(project.id, from.absolutePath);
+      await mkdir(dirname(to.absolutePath), { recursive: true });
+      await rename(from.absolutePath, to.absolutePath);
+      await pruneEmptyDirs(project.id, from.absolutePath);
 
-    const now = new Date().toISOString();
-    // Renaming the entrypoint must carry the pointer with it. Otherwise the
-    // rename succeeds, the project still claims `main.tex` as its document
-    // root, and the next compile fails with a missing-file error about a file
-    // the person can plainly see they just renamed.
-    if (project.entrypoint === from.relativePath) {
-      await updateLatexProject(pid(request), project.id, { entrypoint: to.relativePath }, now);
-    } else {
-      await touchLatexProject(project.id, now);
-    }
+      const now = new Date().toISOString();
+      // Renaming the entrypoint must carry the pointer with it. Otherwise the
+      // rename succeeds, the project still claims `main.tex` as its document
+      // root, and the next compile fails with a missing-file error about a file
+      // the person can plainly see they just renamed.
+      if (project.entrypoint === from.relativePath) {
+        await updateLatexProject(pid(request), project.id, { entrypoint: to.relativePath }, now);
+      } else {
+        await touchLatexProject(project.id, now);
+      }
 
-    const info2 = await stat(to.absolutePath);
-    return reply.send(
-      latexFileSchema.parse({
-        path: to.relativePath,
-        sizeBytes: info2.size,
-        updatedAt: new Date(info2.mtimeMs).toISOString(),
-      }),
-    );
-  });
+      const info2 = await stat(to.absolutePath);
+      return reply.send(
+        latexFileSchema.parse({
+          path: to.relativePath,
+          sizeBytes: info2.size,
+          updatedAt: new Date(info2.mtimeMs).toISOString(),
+        }),
+      );
+    },
+  );
 
   // --- Compile and its artifacts ---------------------------------------------
 
@@ -535,24 +600,27 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * The account id, not the profile id, is what claims the slot: switching
    * profiles is free (D35), so a per-profile limit would be no limit at all.
    */
-  app.post("/latex/:id/compile", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
+  app.post(
+    "/latex/:id/compile",
+    { schema: { params: idParams, response: { 200: latexCompileResultSchema, 404: errorBody, 409: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
 
-    const started = await startLatexCompile(project, uid(request));
-    if (started.kind === "busy") {
-      return reply.status(409).send({
-        error: "COMPILE_BUSY",
-        message: started.message,
-        runningProjectId: started.runningProject.id,
-      });
-    }
-    // `done` is documented never to reject: every failure path inside the job
-    // resolves with a `failed` result instead, so there is nothing to catch and
-    // a compile error is a 200 describing a failure, not a 500.
-    const result = await started.done;
-    return reply.send(latexCompileResultSchema.parse(result));
-  });
+      const started = await startLatexCompile(project, uid(request));
+      if (started.kind === "busy") {
+        return reply.status(409).send({
+          error: "COMPILE_BUSY",
+          message: started.message,
+          runningProjectId: started.runningProject.id,
+        });
+      }
+      // `done` is documented never to reject: every failure path inside the job
+      // resolves with a `failed` result instead, so there is nothing to catch and
+      // a compile error is a 200 describing a failure, not a 500.
+      return reply.send(await started.done);
+    },
+  );
 
   /**
    * `POST /latex/:id/cancel` — stop the compile running on this project.
@@ -612,61 +680,65 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * row is already gone, where the field is omitted for exactly the same reason
    * (see the `!runningRow` branch in the handler).
    */
-  app.post("/latex/:id/cancel", async (request: FastifyRequest, reply: FastifyReply) => {
-    // Ownership first, before `:id` reaches anything else — rule 1 at the top of
-    // this file. `cancelAndSettleLatexCompile` below is keyed on `project.id`
-    // from the row, never on the raw parameter.
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
+  app.post(
+    "/latex/:id/cancel",
+    { schema: { params: idParams, response: { 200: cancelSchema, 404: errorBody, 409: errorBody } } },
+    async (request, reply) => {
+      // Ownership first, before `:id` reaches anything else — rule 1 at the top of
+      // this file. `cancelAndSettleLatexCompile` below is keyed on `project.id`
+      // from the row, never on the raw parameter.
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
 
-    // **Both halves of the guard, in `startLatexCompile`'s own order and for
-    // its own reasons.** The durable row is asked first, because it also covers
-    // a compile this process did not start. The in-process map is asked second,
-    // because it catches the window the row cannot: `latex_projects.profile_id`
-    // cascades on profile delete, so deleting a profile mid-compile takes the
-    // project row — and its `running` flag — with it while the job carries on
-    // holding the account's slot. Reading only the row there answered a flat
-    // 200 `{ cancelled: false }` to somebody whose account was demonstrably
-    // blocked: the compile route was refusing every one of their projects with
-    // a 409 naming the vanished project, and this route said nothing was
-    // running. Two routes, one guard, opposite answers.
-    const subject = uid(request);
-    const runningRow = await getRunningLatexCompile(subject);
-    const running = runningRow ?? runningLatexCompileInProcess(subject);
-    if (running && running.id !== project.id) {
-      // A slot held with no row behind it. The job is real and still typesetting,
-      // but its project cannot be addressed by any route any more — `POST
-      // /latex/<it>/cancel` answers 404 at `requireProject`, because there is
-      // nothing left to own. So this branch says the true thing and offers no
-      // action, which is the LaTeX editor's rule being kept rather than an exception to
-      // it: the wait is bounded by `LATEX_TIMEOUT_MS`, and sending someone to
-      // cancel a project that no longer exists would send them to a 404.
-      //
-      // (The root cause is `DELETE /profiles/:id` not cancelling the compiles
-      // on the profile it removes — a pre-existing brief-38 gap, tracked
-      // separately. This route's job is only to stop mis-reporting it.)
-      if (!runningRow) {
+      // **Both halves of the guard, in `startLatexCompile`'s own order and for
+      // its own reasons.** The durable row is asked first, because it also covers
+      // a compile this process did not start. The in-process map is asked second,
+      // because it catches the window the row cannot: `latex_projects.profile_id`
+      // cascades on profile delete, so deleting a profile mid-compile takes the
+      // project row — and its `running` flag — with it while the job carries on
+      // holding the account's slot. Reading only the row there answered a flat
+      // 200 `{ cancelled: false }` to somebody whose account was demonstrably
+      // blocked: the compile route was refusing every one of their projects with
+      // a 409 naming the vanished project, and this route said nothing was
+      // running. Two routes, one guard, opposite answers.
+      const subject = uid(request);
+      const runningRow = await getRunningLatexCompile(subject);
+      const running = runningRow ?? runningLatexCompileInProcess(subject);
+      if (running && running.id !== project.id) {
+        // A slot held with no row behind it. The job is real and still typesetting,
+        // but its project cannot be addressed by any route any more — `POST
+        // /latex/<it>/cancel` answers 404 at `requireProject`, because there is
+        // nothing left to own. So this branch says the true thing and offers no
+        // action, which is the LaTeX editor's rule being kept rather than an exception to
+        // it: the wait is bounded by `LATEX_TIMEOUT_MS`, and sending someone to
+        // cancel a project that no longer exists would send them to a 404.
+        //
+        // (The root cause is `DELETE /profiles/:id` not cancelling the compiles
+        // on the profile it removes — a pre-existing brief-38 gap, tracked
+        // separately. This route's job is only to stop mis-reporting it.)
+        if (!runningRow) {
+          return reply.status(409).send({
+            error: "COMPILE_ELSEWHERE",
+            message:
+              "This project isn't compiling — a compile on a deleted project is still finishing on your account. It stops on its own; try again in a moment.",
+            // Deliberately no `runningProjectId`: the field exists so a client can
+            // retry against the right project, and this id addresses nothing.
+          });
+        }
+        const sameProfile = running.profile_id === pid(request);
         return reply.status(409).send({
           error: "COMPILE_ELSEWHERE",
-          message:
-            "This project isn't compiling — a compile on a deleted project is still finishing on your account. It stops on its own; try again in a moment.",
-          // Deliberately no `runningProjectId`: the field exists so a client can
-          // retry against the right project, and this id addresses nothing.
+          message: sameProfile
+            ? `This project isn't compiling — “${running.title}” is. Cancel the compile from that project.`
+            : `This project isn't compiling — another profile on your account is compiling “${running.title}”.`,
+          runningProjectId: running.id,
         });
       }
-      const sameProfile = running.profile_id === pid(request);
-      return reply.status(409).send({
-        error: "COMPILE_ELSEWHERE",
-        message: sameProfile
-          ? `This project isn't compiling — “${running.title}” is. Cancel the compile from that project.`
-          : `This project isn't compiling — another profile on your account is compiling “${running.title}”.`,
-        runningProjectId: running.id,
-      });
-    }
 
-    const cancelled = await cancelAndSettleLatexCompile(project.id);
-    return reply.send({ cancelled });
-  });
+      const cancelled = await cancelAndSettleLatexCompile(project.id);
+      return reply.send({ cancelled });
+    },
+  );
 
   /**
    * `GET /latex/:id/pdf` — the draft PDF.
@@ -677,7 +749,8 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * blanking the pane, so this route must not start reporting "no PDF" the
    * moment a compile fails.
    */
-  app.get("/latex/:id/pdf", async (request: FastifyRequest, reply: FastifyReply) => {
+  // The draft PDF's bytes: its params only, no response schema (scripts/conventions.json).
+  app.get("/latex/:id/pdf", { schema: { params: idParams } }, async (request, reply) => {
     const project = await requireProject(request, reply);
     if (!project) return reply;
     const path = draftPdfPathFor(project.id);
@@ -692,15 +765,19 @@ export function registerLatexRoutes(app: FastifyInstance): void {
   });
 
   /** `GET /latex/:id/log` — the last compile's result, or 404 if never compiled. */
-  app.get("/latex/:id/log", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
-    const result = await readLatexCompileResult(project.id);
-    if (!result) {
-      return reply.status(404).send({ error: "NOT_COMPILED", message: "This project has never been compiled." });
-    }
-    return reply.send(latexCompileResultSchema.parse(result));
-  });
+  app.get(
+    "/latex/:id/log",
+    { schema: { params: idParams, response: { 200: latexCompileResultSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
+      const result = await readLatexCompileResult(project.id);
+      if (!result) {
+        return reply.status(404).send({ error: "NOT_COMPILED", message: "This project has never been compiled." });
+      }
+      return reply.send(result);
+    },
+  );
 
   // --- Publish and versions --------------------------------------------------
 
@@ -753,185 +830,201 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * survived its book, by treating it as unpublished rather than appending a
    * version to a row that is not there.
    */
-  app.post("/latex/:id/publish", async (request: FastifyRequest, reply: FastifyReply) => {
-    const project = await requireProject(request, reply);
-    if (!project) return reply;
+  app.post(
+    "/latex/:id/publish",
+    {
+      schema: {
+        params: idParams,
+        response: {
+          200: publishedSchema,
+          201: publishedSchema,
+          404: errorBody,
+          409: errorBody,
+          422: compileFailedSchema,
+          500: errorBody,
+        },
+      },
+    },
+    async (request, reply) => {
+      const project = await requireProject(request, reply);
+      if (!project) return reply;
 
-    const started = await startLatexCompile(project, uid(request));
-    if (started.kind === "busy") {
-      return reply.status(409).send({
-        error: "COMPILE_BUSY",
-        message: started.message,
-        runningProjectId: started.runningProject.id,
-      });
-    }
-    // `done` never rejects — every failure inside the job resolves as a
-    // `failed` result — so there is nothing to catch here.
-    const result = await started.done;
-    if (result.status !== "ready") {
-      return reply.status(422).send({
-        error: "COMPILE_FAILED",
-        message:
-          "This document does not compile, so there is nothing to publish. Fix the errors in the log and publish again.",
-        result: latexCompileResultSchema.parse(result),
-      });
-    }
-
-    // The successful compile wrote this; read it once and use the same bytes
-    // for the version artifact, the library file and the cover, so all three
-    // are provably the same PDF.
-    let pdfBytes: Buffer;
-    try {
-      pdfBytes = await readFile(draftPdfPathFor(project.id));
-    } catch (err) {
-      request.log.error({ err, projectId: project.id }, "publish: compile reported ready with no PDF");
-      return reply.status(500).send({
-        error: "NO_PDF",
-        message: "The compile succeeded but its PDF could not be read. Try compiling again.",
-      });
-    }
-
-    const now = new Date().toISOString();
-
-    // Built BEFORE anything is inserted, because it is the one remaining step
-    // that can decide "this project cannot be published at all". A tree the walk
-    // cannot fully enumerate would produce an archive silently missing files,
-    // and the archive is the whole reason a version can be rebuilt — so it is a
-    // refusal, and refusing here means no book, no version and no artifact has
-    // been created to roll back. It is also the LAST `await` before the
-    // first-publish decision, deliberately — see below.
-    const archive = await zipProjectTree(project.id);
-    if (!archive.ok) {
-      return reply.status(409).send({ error: "PROJECT_TREE_TRUNCATED", message: archive.message });
-    }
-
-    // The row as it is NOW, not as `requireProject` saw it before two awaits —
-    // see "One card, always" above. `project` must not be consulted for
-    // `published_book_id` or `title` past this point; both can have changed
-    // while this request was suspended.
-    //
-    // **Nothing awaits between this read and `setLatexPublishedBook` below.**
-    // That is the same discipline `startLatexCompile` is called under and for
-    // the same reason: an `await` in between is precisely what lets two
-    // publishes both read NULL and both decide they are the first. The
-    // WHERE-clause guard inside `setLatexPublishedBook` is the second line of
-    // defence, not the first.
-    const fresh = await getLatexProject(pid(request), project.id);
-    if (!fresh) {
-      // Deleted (or moved to another profile) while it was compiling. The
-      // compile's own artifacts are already gone with the tree; publishing a
-      // project that no longer exists would create a card nothing can reach.
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-
-    const existingBook = fresh.published_book_id ? await getBook(fresh.published_book_id) : undefined;
-    const bookId = existingBook?.id ?? randomUUID();
-    const createdBook = existingBook === undefined;
-    if (createdBook) {
-      await insertBook({
-        id: bookId,
-        // From the PROJECT, not from the PDF's Info dict: the project's title is
-        // what the author typed and what the editor shows, and a `\title{}` the
-        // engine happened to write into the metadata would silently rename the
-        // card out from under them.
-        title: fresh.title,
-        author: null,
-        format: "pdf",
-        size_bytes: pdfBytes.byteLength,
-        progress: 0,
-        created_at: now,
-        last_opened_at: null,
-        series: null,
-        series_index: null,
-        // A JSON array rather than NULL, so the row is never mistaken for a
-        // pre-column one by the metadata backfill (db.ts).
-        subjects: JSON.stringify([]),
-        // Authored here, not uploaded (BOOK_SOURCES gained "latex" 2026-08-27).
-        // `source_id` names the draft it came from, so the entry can point back
-        // at the project that produces its versions.
-        source: "latex",
-        source_id: project.id,
-        kind: kindForFormat("pdf"),
-        duration_seconds: null,
-      });
-      // Refused, not asserted: the column is written only while it is still
-      // NULL (or already this same book), so an overlapping publish that got
-      // there first cannot be overwritten. Losing that race means the book just
-      // inserted is an orphan with nothing on disk yet — delete it and tell the
-      // client to publish again, which will now see the winner's book and
-      // append a version to it. A 500 here would leave the orphan behind.
-      if (!(await setLatexPublishedBook(project.id, bookId))) {
-        await deleteBook(bookId);
+      const started = await startLatexCompile(project, uid(request));
+      if (started.kind === "busy") {
         return reply.status(409).send({
-          error: "PUBLISH_RACED",
-          message: "Another publish of this project finished first. Publish again to add your version to it.",
+          error: "COMPILE_BUSY",
+          message: started.message,
+          runningProjectId: started.runningProject.id,
         });
       }
-    }
-
-    // Insert FIRST: `appendDocumentVersion` generates the id and allocates
-    // `version_no` as MAX+1 inside the INSERT, and that id is the whole of what
-    // the row says about where its bytes went (D39). There is nothing to write
-    // until it exists.
-    //
-    // It is INSIDE the guarded region, and that is not tidiness. On a first
-    // publish `insertBook` and `setLatexPublishedBook` have already committed by
-    // the time this runs, so an `appendDocumentVersion` that throws — a
-    // `SQLITE_CONSTRAINT_UNIQUE` on `document_versions_book_no` from two
-    // publishes seconds apart, which the statement's own comment says is the
-    // expected way that race loses — would leave a `books` row with zero
-    // versions, no library file and no cover. That is precisely the "gallery
-    // entry with no readable version" the catch below exists to prevent, and it
-    // would be unreachable from the version-delete cleanup because it has no
-    // versions to delete.
-    // The version this publish supersedes as the newest (none on a first
-    // publish). Positions measured in it are released below.
-    const superseded = createdBook ? undefined : await getLatestDocumentVersion(bookId);
-
-    let version: DocumentVersionRow | undefined;
-    try {
-      version = await appendDocumentVersion(bookId, now);
-      await mkdir(DOCUMENT_VERSIONS_DIR, { recursive: true });
-      await writeFile(versionPdfPathFor(version.id), pdfBytes);
-      await writeFile(versionZipPathFor(version.id), archive.bytes);
-      await writeLibraryArtifacts(bookId, pdfBytes, fresh.title, request);
-    } catch (err) {
-      // Roll the row back rather than leave a version whose artifacts are
-      // missing or half-written — and, on a FIRST publish, take the empty card
-      // with it. A gallery entry with no readable version is exactly the state
-      // "deleting the last version deletes the entry" exists to prevent.
-      // `version` is undefined when the append itself failed; there is then no
-      // row and no artifact to undo, only the book.
-      if (version !== undefined) {
-        await deleteDocumentVersion(version.id);
-        await rm(versionPdfPathFor(version.id), { force: true });
-        await rm(versionZipPathFor(version.id), { force: true });
+      // `done` never rejects — every failure inside the job resolves as a
+      // `failed` result — so there is nothing to catch here.
+      const result = await started.done;
+      if (result.status !== "ready") {
+        return reply.status(422).send({
+          error: "COMPILE_FAILED",
+          message:
+            "This document does not compile, so there is nothing to publish. Fix the errors in the log and publish again.",
+          result,
+        });
       }
+
+      // The successful compile wrote this; read it once and use the same bytes
+      // for the version artifact, the library file and the cover, so all three
+      // are provably the same PDF.
+      let pdfBytes: Buffer;
+      try {
+        pdfBytes = await readFile(draftPdfPathFor(project.id));
+      } catch (err) {
+        request.log.error({ err, projectId: project.id }, "publish: compile reported ready with no PDF");
+        return reply.status(500).send({
+          error: "NO_PDF",
+          message: "The compile succeeded but its PDF could not be read. Try compiling again.",
+        });
+      }
+
+      const now = new Date().toISOString();
+
+      // Built BEFORE anything is inserted, because it is the one remaining step
+      // that can decide "this project cannot be published at all". A tree the walk
+      // cannot fully enumerate would produce an archive silently missing files,
+      // and the archive is the whole reason a version can be rebuilt — so it is a
+      // refusal, and refusing here means no book, no version and no artifact has
+      // been created to roll back. It is also the LAST `await` before the
+      // first-publish decision, deliberately — see below.
+      const archive = await zipProjectTree(project.id);
+      if (!archive.ok) {
+        return reply.status(409).send({ error: "PROJECT_TREE_TRUNCATED", message: archive.message });
+      }
+
+      // The row as it is NOW, not as `requireProject` saw it before two awaits —
+      // see "One card, always" above. `project` must not be consulted for
+      // `published_book_id` or `title` past this point; both can have changed
+      // while this request was suspended.
+      //
+      // **Nothing awaits between this read and `setLatexPublishedBook` below.**
+      // That is the same discipline `startLatexCompile` is called under and for
+      // the same reason: an `await` in between is precisely what lets two
+      // publishes both read NULL and both decide they are the first. The
+      // WHERE-clause guard inside `setLatexPublishedBook` is the second line of
+      // defence, not the first.
+      const fresh = await getLatexProject(pid(request), project.id);
+      if (!fresh) {
+        // Deleted (or moved to another profile) while it was compiling. The
+        // compile's own artifacts are already gone with the tree; publishing a
+        // project that no longer exists would create a card nothing can reach.
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+
+      const existingBook = fresh.published_book_id ? await getBook(fresh.published_book_id) : undefined;
+      const bookId = existingBook?.id ?? randomUUID();
+      const createdBook = existingBook === undefined;
       if (createdBook) {
-        // `published_book_id` is cleared by the FK's ON DELETE SET NULL.
-        await deleteBook(bookId);
-        await rm(filePathFor(bookId, "pdf"), { force: true });
-        await rm(coverPathFor(bookId), { force: true });
+        await insertBook({
+          id: bookId,
+          // From the PROJECT, not from the PDF's Info dict: the project's title is
+          // what the author typed and what the editor shows, and a `\title{}` the
+          // engine happened to write into the metadata would silently rename the
+          // card out from under them.
+          title: fresh.title,
+          author: null,
+          format: "pdf",
+          size_bytes: pdfBytes.byteLength,
+          progress: 0,
+          created_at: now,
+          last_opened_at: null,
+          series: null,
+          series_index: null,
+          // A JSON array rather than NULL, so the row is never mistaken for a
+          // pre-column one by the metadata backfill (db.ts).
+          subjects: JSON.stringify([]),
+          // Authored here, not uploaded (BOOK_SOURCES gained "latex" 2026-08-27).
+          // `source_id` names the draft it came from, so the entry can point back
+          // at the project that produces its versions.
+          source: "latex",
+          source_id: project.id,
+          kind: kindForFormat("pdf"),
+          duration_seconds: null,
+        });
+        // Refused, not asserted: the column is written only while it is still
+        // NULL (or already this same book), so an overlapping publish that got
+        // there first cannot be overwritten. Losing that race means the book just
+        // inserted is an orphan with nothing on disk yet — delete it and tell the
+        // client to publish again, which will now see the winner's book and
+        // append a version to it. A 500 here would leave the orphan behind.
+        if (!(await setLatexPublishedBook(project.id, bookId))) {
+          await deleteBook(bookId);
+          return reply.status(409).send({
+            error: "PUBLISH_RACED",
+            message: "Another publish of this project finished first. Publish again to add your version to it.",
+          });
+        }
       }
-      throw err;
-    }
 
-    // The new version is in place, so positions measured in the one it
-    // superseded no longer pin it open: their readers get the newest at page 0
-    // After the commit, never before:
-    // a failed publish must not cost anybody their place.
-    if (superseded) await resetProgressOnVersion(bookId, superseded.id);
+      // Insert FIRST: `appendDocumentVersion` generates the id and allocates
+      // `version_no` as MAX+1 inside the INSERT, and that id is the whole of what
+      // the row says about where its bytes went (D39). There is nothing to write
+      // until it exists.
+      //
+      // It is INSIDE the guarded region, and that is not tidiness. On a first
+      // publish `insertBook` and `setLatexPublishedBook` have already committed by
+      // the time this runs, so an `appendDocumentVersion` that throws — a
+      // `SQLITE_CONSTRAINT_UNIQUE` on `document_versions_book_no` from two
+      // publishes seconds apart, which the statement's own comment says is the
+      // expected way that race loses — would leave a `books` row with zero
+      // versions, no library file and no cover. That is precisely the "gallery
+      // entry with no readable version" the catch below exists to prevent, and it
+      // would be unreachable from the version-delete cleanup because it has no
+      // versions to delete.
+      // The version this publish supersedes as the newest (none on a first
+      // publish). Positions measured in it are released below.
+      const superseded = createdBook ? undefined : await getLatestDocumentVersion(bookId);
 
-    return reply.status(createdBook ? 201 : 200).send({
-      book: toLibraryBook(
-        present(await getBook(bookId), "the book just published"),
-        (await getProfileProgress(pid(request), bookId)) ?? { progress: 0, locator: null },
-      ),
-      // Assigned in the try above, or the catch rethrew — the assertion is
-      // about control flow, not about the data.
-      version: toDocumentVersion(version, pdfBytes.byteLength),
-    });
-  });
+      let version: DocumentVersionRow | undefined;
+      try {
+        version = await appendDocumentVersion(bookId, now);
+        await mkdir(DOCUMENT_VERSIONS_DIR, { recursive: true });
+        await writeFile(versionPdfPathFor(version.id), pdfBytes);
+        await writeFile(versionZipPathFor(version.id), archive.bytes);
+        await writeLibraryArtifacts(bookId, pdfBytes, fresh.title, request);
+      } catch (err) {
+        // Roll the row back rather than leave a version whose artifacts are
+        // missing or half-written — and, on a FIRST publish, take the empty card
+        // with it. A gallery entry with no readable version is exactly the state
+        // "deleting the last version deletes the entry" exists to prevent.
+        // `version` is undefined when the append itself failed; there is then no
+        // row and no artifact to undo, only the book.
+        if (version !== undefined) {
+          await deleteDocumentVersion(version.id);
+          await rm(versionPdfPathFor(version.id), { force: true });
+          await rm(versionZipPathFor(version.id), { force: true });
+        }
+        if (createdBook) {
+          // `published_book_id` is cleared by the FK's ON DELETE SET NULL.
+          await deleteBook(bookId);
+          await rm(filePathFor(bookId, "pdf"), { force: true });
+          await rm(coverPathFor(bookId), { force: true });
+        }
+        throw err;
+      }
+
+      // The new version is in place, so positions measured in the one it
+      // superseded no longer pin it open: their readers get the newest at page 0
+      // After the commit, never before:
+      // a failed publish must not cost anybody their place.
+      if (superseded) await resetProgressOnVersion(bookId, superseded.id);
+
+      return reply.status(createdBook ? 201 : 200).send({
+        book: toLibraryBook(
+          present(await getBook(bookId), "the book just published"),
+          (await getProfileProgress(pid(request), bookId)) ?? { progress: 0, locator: null },
+        ),
+        // Assigned in the try above, or the catch rethrew — the assertion is
+        // about control flow, not about the data.
+        version: toDocumentVersion(version, pdfBytes.byteLength),
+      });
+    },
+  );
 
   /**
    * `GET /library/:id/versions` — the version picker's list, newest first.
@@ -947,17 +1040,21 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * without knowing what is stored. One query, on a request that is already
    * profile-scoped.
    */
-  app.get("/library/:id/versions", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const book = await getBook(id);
-    if (!book) return reply.status(404).send({ error: "Book not found." });
+  app.get(
+    "/library/:id/versions",
+    { schema: { params: idParams, response: { 200: versionListSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const book = await getBook(id);
+      if (!book) return reply.status(404).send({ error: "Book not found." });
 
-    const versions = await Promise.all((await listDocumentVersions(id)).map(versionToWire));
-    return reply.send({
-      versions: z.array(documentVersionSchema).parse(versions),
-      currentVersionId: (await getProfileProgress(pid(request), id))?.version_id ?? null,
-    });
-  });
+      const versions = await Promise.all((await listDocumentVersions(id)).map(versionToWire));
+      return reply.send({
+        versions,
+        currentVersionId: (await getProfileProgress(pid(request), id))?.version_id ?? null,
+      });
+    },
+  );
 
   /**
    * `DELETE /library/:id/versions/:versionId` — remove one version.
@@ -983,35 +1080,44 @@ export function registerLatexRoutes(app: FastifyInstance): void {
    * alone, so without that comparison one book's URL could delete another's
    * version. A mismatch is a 404, never a 403: it must not confirm the id.
    */
-  app.delete("/library/:id/versions/:versionId", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id, versionId } = request.params as { id: string; versionId: string };
-    const book = await getBook(id);
-    if (!book) return reply.status(404).send({ error: "Book not found." });
-    const version = await getDocumentVersion(versionId);
-    if (!version || version.book_id !== id) {
-      return reply.status(404).send({ error: "Version not found." });
-    }
-
-    const wasLatest = (await getLatestDocumentVersion(id))?.id === version.id;
-    await deleteDocumentVersion(version.id);
-    await rm(versionPdfPathFor(version.id), { force: true });
-    await rm(versionZipPathFor(version.id), { force: true });
-
-    if ((await countDocumentVersions(id)) === 0) {
-      await deleteBookWithArtifacts(book, request.log);
-      return reply.status(204).send();
-    }
-
-    if (wasLatest) {
-      const latest = present(await getLatestDocumentVersion(id), "the latest document version");
-      try {
-        await writeLibraryArtifacts(id, await readFile(versionPdfPathFor(latest.id)), book.title, request);
-      } catch (err) {
-        // The version rows are already correct; only the convenience copy is
-        // stale. Logged rather than raised — the delete really did happen.
-        request.log.warn({ err, bookId: id }, "version delete: library file could not follow the new newest version");
+  app.delete(
+    "/library/:id/versions/:versionId",
+    {
+      schema: {
+        params: z.object({ id: z.string(), versionId: z.string() }),
+        response: { 204: z.null(), 404: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const { id, versionId } = request.params;
+      const book = await getBook(id);
+      if (!book) return reply.status(404).send({ error: "Book not found." });
+      const version = await getDocumentVersion(versionId);
+      if (!version || version.book_id !== id) {
+        return reply.status(404).send({ error: "Version not found." });
       }
-    }
-    return reply.status(204).send();
-  });
-}
+
+      const wasLatest = (await getLatestDocumentVersion(id))?.id === version.id;
+      await deleteDocumentVersion(version.id);
+      await rm(versionPdfPathFor(version.id), { force: true });
+      await rm(versionZipPathFor(version.id), { force: true });
+
+      if ((await countDocumentVersions(id)) === 0) {
+        await deleteBookWithArtifacts(book, request.log);
+        return reply.status(204).send(null);
+      }
+
+      if (wasLatest) {
+        const latest = present(await getLatestDocumentVersion(id), "the latest document version");
+        try {
+          await writeLibraryArtifacts(id, await readFile(versionPdfPathFor(latest.id)), book.title, request);
+        } catch (err) {
+          // The version rows are already correct; only the convenience copy is
+          // stale. Logged rather than raised — the delete really did happen.
+          request.log.warn({ err, bookId: id }, "version delete: library file could not follow the new newest version");
+        }
+      }
+      return reply.status(204).send(null);
+    },
+  );
+};

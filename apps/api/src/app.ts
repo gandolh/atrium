@@ -1,3 +1,4 @@
+import { serializerCompiler, validatorCompiler } from "@fastify/type-provider-zod";
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { registerHealthRoutes } from "./features/health/index.js";
 import { registerCatalogRoutes } from "./features/catalog/index.js";
@@ -44,6 +45,12 @@ export async function buildApp(options: {
 
   // The one error handler, first, so it covers everything registered after it.
   await app.register(errors);
+
+  // Route schemas are zod, through the type provider: requests are decoded and
+  // replies encoded with the route's schemas. Set on the root, so every scope
+  // registered after it inherits them.
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   // The session guard (D58), next: the library's plugin, then atrium's
   // jukebox allowlist and active profile. Registered before every other plugin

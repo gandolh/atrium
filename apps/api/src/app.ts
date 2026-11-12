@@ -1,11 +1,12 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
-import { registerCatalogRoutes } from "./features/catalog/routes.js";
-import { registerJukeboxRoutes } from "./features/jukebox/routes.js";
-import { registerLatexRoutes } from "./features/latex/routes.js";
-import { registerLibraryRoutes } from "./features/library/routes.js";
-import { registerLookupRoutes } from "./features/lookup/routes.js";
-import { registerNotesRoutes } from "./features/notes/routes.js";
-import { registerProfileRoutes } from "./features/profiles/routes.js";
+import { registerHealthRoutes } from "./features/health/index.js";
+import { registerCatalogRoutes } from "./features/catalog/index.js";
+import { registerJukeboxRoutes } from "./features/jukebox/index.js";
+import { registerLatexRoutes } from "./features/latex/index.js";
+import { registerLibraryRoutes } from "./features/library/index.js";
+import { registerLookupRoutes } from "./features/lookup/index.js";
+import { registerNotesRoutes } from "./features/notes/index.js";
+import { registerProfileRoutes } from "./features/profiles/index.js";
 import { authGuard } from "./plugins/auth/index.js";
 import { errors } from "./plugins/errors.js";
 import { multipart } from "./plugins/multipart.js";
@@ -63,10 +64,7 @@ export async function buildApp(options: {
   // Uploads: one file, up to MAX_UPLOAD_MB (D15).
   await app.register(multipart);
 
-  app.get("/health", async () => {
-    return { status: "ok" };
-  });
-
+  registerHealthRoutes(app);
   registerLibraryRoutes(app);
   registerCatalogRoutes(app);
   registerNotesRoutes(app);

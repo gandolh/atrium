@@ -13,7 +13,7 @@ import {
 } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../config.js";
 import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor, versionZipPathFor } from "../../lib/paths.js";
-import { deleteTrack } from "../jukebox/service.js";
+import { deleteTrack } from "../jukebox/index.js";
 import { listDocumentVersions } from "../../db/latex-store.js";
 import { getProfileProgress, listProfileProgress } from "../../db/profiles-store.js";
 import { UPLOADING_SUFFIX, cancelConvert, isConverting, startConvert } from "./convert.service.js";

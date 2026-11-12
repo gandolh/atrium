@@ -13,7 +13,7 @@ import {
 } from "@ebook-reader/shared";
 import { LATEX_MAX_PROJECT_BYTES, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor } from "../../lib/paths.js";
-import { extractMeta } from "../library/extract.service.js";
+import { extractMeta } from "../library/index.js";
 import { updatePublishedBook } from "../../db/library-store.js";
 import { isBuildArtifactPath, writeAtomic } from "./compile.service.js";
 import { confineProjectPath, type ConfinedPath } from "./latex-paths.js";

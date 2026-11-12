@@ -8,13 +8,13 @@ build a newer version and copy it over this one, then follow the upgrade notes.
 - **Source:** the `ward-auth` repository, folder `shared-library/`
 - **Upgrade notes:** `shared-library/CHANGELOG.md` in the same repository
 
-| File | What it is |
-|---|---|
-| `ward-auth.js` | Server bundle: accounts, sessions, lockout, SQLite store, Sign in with Ward, Fastify plugin |
-| `ward-auth.d.ts` | Its types |
-| `ward-auth-react.js` | Browser bundle: unstyled React hooks |
-| `ward-auth-react.d.ts` | Its types |
-| `LICENSE` | MIT |
+| File                   | What it is                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `ward-auth.js`         | Server bundle: accounts, sessions, lockout, SQLite store, Sign in with Ward, Fastify plugin |
+| `ward-auth.d.ts`       | Its types                                                                                   |
+| `ward-auth-react.js`   | Browser bundle: unstyled React hooks                                                        |
+| `ward-auth-react.d.ts` | Its types                                                                                   |
+| `LICENSE`              | MIT                                                                                         |
 
 Import the bundles by relative path. Fastify and React come from the app's own
 dependencies; nothing here needs installing.

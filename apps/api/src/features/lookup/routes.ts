@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { lookupApplySchema, lookupSearchParamsSchema } from "@ebook-reader/shared";
-import { getBookForProfile } from "../library/service.js";
+import { getBookForProfile } from "../library/index.js";
 import { applyLookup, lookupThumbnail, searchForItem } from "./service.js";
 
 /**

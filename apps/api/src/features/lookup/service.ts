@@ -11,7 +11,7 @@ import {
   type LookupSource,
 } from "@ebook-reader/shared";
 import { getBook } from "../../db/library-store.js";
-import { setBookCover, updateBookMetadataFields } from "../library/service.js";
+import { setBookCover, updateBookMetadataFields } from "../library/index.js";
 import { NoCoverError, TtlCache, fetchImage } from "./lookup-http.js";
 import { coverArtArchiveUrl, searchMusicBrainz, searchWords } from "./musicbrainz.service.js";
 import { openLibraryCoverUrl, searchOpenLibrary } from "./openlibrary.service.js";

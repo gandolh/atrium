@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { catalogSearchParamsSchema, importRequestSchema } from "@ebook-reader/shared";
-import { toLibraryBook } from "../library/mapper.js";
+import { toLibraryBook } from "../library/index.js";
 import { importGutenbergBook, searchCatalog } from "./service.js";
 import { UPSTREAM_ERROR } from "./gutendex.service.js";
 

@@ -4,7 +4,7 @@ import type { FastifyBaseLogger } from "fastify";
 import { kindForFormat, type CatalogSearchParams, type CatalogSearchResponse } from "@ebook-reader/shared";
 import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor } from "../../lib/paths.js";
-import { extractMeta } from "../library/extract.service.js";
+import { extractMeta } from "../library/index.js";
 import { insertBook } from "../../db/library-store.js";
 import type { NewBookRow } from "../../db/library-types.js";
 import {

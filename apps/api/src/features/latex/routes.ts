@@ -14,9 +14,9 @@ import {
 } from "@ebook-reader/shared";
 import { DOCUMENT_VERSIONS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor, versionZipPathFor } from "../../lib/paths.js";
-import { toLibraryBook } from "../library/mapper.js";
+import { toLibraryBook } from "../library/index.js";
 import { deleteBook, getBook, insertBook } from "../../db/library-store.js";
-import { deleteBookWithArtifacts } from "../library/service.js";
+import { deleteBookWithArtifacts } from "../library/index.js";
 import { getProfileProgress, resetProgressOnVersion } from "../../db/profiles-store.js";
 import {
   cancelAndSettleLatexCompile,

@@ -4,10 +4,10 @@ import { MAX_PROFILES_PER_ACCOUNT, type Preferences, type ProfileColor } from "@
 import { projectDirFor } from "../../lib/paths.js";
 import { isForeignKeyViolation, isUniqueViolation } from "../../db/errors.js";
 import { setSelectedProfile } from "../../db/profile-selection-store.js";
-import { cancelAndSettleLatexCompile } from "../latex/compile.service.js";
+import { cancelAndSettleLatexCompile } from "../latex/index.js";
 import { listLatexProjects } from "../../db/latex-store.js";
-import { removeProjectTree } from "../latex/project-tree.service.js";
-import { countProfileNotes, reassignProfileNotes } from "../notes/service.js";
+import { removeProjectTree } from "../latex/index.js";
+import { countProfileNotes, reassignProfileNotes } from "../notes/index.js";
 import { storedPreferences } from "./mapper.js";
 import {
   countProfiles,

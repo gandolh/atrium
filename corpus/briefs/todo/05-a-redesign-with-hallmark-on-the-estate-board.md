@@ -2,7 +2,7 @@
 
 **Depends on:**
 
-- In Atrium: [brief 03](03-base-ui-by-the-conventions.md), which puts the Base UI wrappers in `components/ui/`, the z-index tokens in `@theme`, and the Light / Dark / System switch on `data-theme`. A redesign is then mostly a new token set and layout. Brief 02's formatter and lint run on every redesign commit.
+- In Atrium: [brief 03](../done/03-base-ui-by-the-conventions.md), which puts the Base UI wrappers in `components/ui/`, the z-index tokens in `@theme`, and the Light / Dark / System switch on `data-theme`. A redesign is then mostly a new token set and layout. Brief 02's formatter and lint run on every redesign commit.
 - In the owner's skills library:
   - brief 24, which vendors Hallmark as the design skill and adopts taste-skill 2.5's ideas (palettes and type dealt by trade, its copy layer);
   - the estate redesign board: one artifact with a page per app, owned by the skills library.

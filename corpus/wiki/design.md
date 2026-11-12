@@ -88,15 +88,7 @@ foreground, never its ground.**
 look sour. Both grounds sit on the same warm axis so artwork reads true in
 either, and the two themes stay recognisably one system.
 
-### The theme switch (2026-11-11, D61)
-Four choices: **Light, Sepia, Dark, System**, in the header (sun, half-disc, moon, screen) and in the reader's Aa
-panel (miniature pages; System is a page cut in two). A first visit is light, whatever the system prefers. The
-choice is kept per profile on the server, so the switch is a guarded `ToggleGroup` (base-ui rule 16): arrow keys
-move focus only, Space, Enter or a click chooses, and one item stays pressed. System resolves through
-`prefers-color-scheme`, follows it live, and writes the resolved light or dark to `data-theme`, so the attribute is
-only ever `light`, `sepia` or `dark`. `dark:` keys off `data-theme="dark"` (`@custom-variant` in `globals.css`), so a
-variant never needs a media query. Anything that must know the theme on screen (the PDF's invert, the EPUB
-iframe's rules, the LaTeX source theme) reads `useResolvedTheme()`.
+The theme switch (Light, Sepia, Dark, System; D61): [theme-switch.md](theme-switch.md).
 
 ### Sepia
 Unchanged from the previous system (`#f4ecd8` ground, `#3b2f1e` ink,
@@ -204,12 +196,9 @@ Any `apps/web` change must, before it's considered done:
 - [ ] **Radii hold** — 4px default, 2px artwork, 20px chips, `full` only on
       genuinely circular affordances (scrub track/handle, ink swatches, nib
       dots), nothing else.
-- [ ] **Three themes checked** — light, sepia, dark, *including artwork*; System is checked by flipping the
-      system setting, not as a fourth palette.
-- [ ] **Stacking from tokens** — `z-raised`, `z-sticky`, `z-chrome`, `z-overlay`, `z-dock`, `z-popup`, `z-toast`;
-      never a number.
-- [ ] **Base UI behind `components/ui/`** — a dialog that holds a form ignores an outside tap; a side panel is a
-      drawer; a choice saved to the server is a guarded toggle group.
+- [ ] **Three themes checked**: light, sepia, dark, *including artwork*; System by flipping the system setting.
+- [ ] **Stacking from tokens**: `z-raised` to `z-toast`, never a number.
+- [ ] **Base UI behind `components/ui/`**: form dialogs ignore an outside tap; side panels are drawers; a saved choice is a guarded toggle group.
 - [ ] **Motion degrades** — a `prefers-reduced-motion` path exists.
 - [ ] **Kind reads without labels** — strip every badge and the tinted grid is
       still legible by kind. If it isn't, the tints are too weak.

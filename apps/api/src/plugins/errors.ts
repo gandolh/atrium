@@ -66,6 +66,9 @@ const errorHandling: FastifyPluginAsync = async (app) => {
     }
     const status = error.statusCode ?? 500;
     if (status < 500) {
+      // Fastify's default handler sends the headers an error carries (a plugin's Retry-After, say).
+      const { headers } = error as FastifyError & { headers?: Record<string, string> };
+      if (headers !== undefined) void reply.headers(headers);
       return reply
         .status(status)
         .send({ statusCode: status, code: error.code, error: STATUS_CODES[status], message: error.message });

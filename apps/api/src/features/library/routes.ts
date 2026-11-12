@@ -92,6 +92,17 @@ function nowIso(): string {
 }
 
 export const libraryRoutes: FastifyPluginAsyncZod = async (app) => {
+  /**
+   * The sockets a media file is streaming down. On shutdown they are cut in
+   * `preClose`: Fastify waits for the requests in flight, and a track the
+   * Jukebox bot is playing would hold the process up until the shutdown
+   * delay ran out. The player sees its stream end and asks again.
+   */
+  const streaming = new Set<Socket>();
+  app.addHook("preClose", async () => {
+    for (const socket of streaming) socket.destroy();
+  });
+
   // --- POST /library — upload + store + extract cover ------------------------
   // A multipart upload, so no schema (scripts/conventions.json).
   app.post("/library", async (request, reply) => {
@@ -233,7 +244,12 @@ export const libraryRoutes: FastifyPluginAsyncZod = async (app) => {
       // A media file streams for as long as the reader plays it, and a player
       // that has buffered ahead (the Jukebox bot) can leave the socket quiet for
       // longer than the connection timeout. inject() has no socket.
-      if (request.raw.socket instanceof Socket) request.raw.socket.setTimeout(0);
+      const socket = request.raw.socket;
+      if (socket instanceof Socket) {
+        socket.setTimeout(0);
+        streaming.add(socket);
+        reply.raw.once("close", () => streaming.delete(socket));
+      }
 
       const range = parseRange(request.headers.range, size);
       if (range === "unsatisfiable") {

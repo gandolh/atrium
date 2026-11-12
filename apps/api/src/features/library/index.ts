@@ -1,6 +1,6 @@
 // The library's public surface: its routes; the book calls the catalog, lookup and LaTeX features make; and the
 // start-up checks and sweeps server.ts runs.
-export { registerLibraryRoutes } from "./routes.js";
+export { libraryRoutes } from "./routes.js";
 export { toLibraryBook } from "./mapper.js";
 export { deleteBookWithArtifacts, getBookForProfile, setBookCover, updateBookMetadataFields } from "./service.js";
 export { extractMeta } from "./extract.service.js";

@@ -1,7 +1,16 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { detectFileType, librarySortSchema, updateProgressSchema, type FileType } from "@ebook-reader/shared";
+import { Socket } from "node:net";
+import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
+import { z } from "zod";
+import {
+  detectFileType,
+  libraryBookSchema,
+  libraryListSchema,
+  librarySortSchema,
+  updateProgressSchema,
+  type FileType,
+} from "@ebook-reader/shared";
 import { coverOwnerId, coverPathFor, filePathFor, versionPdfPathFor } from "../../lib/paths.js";
 import { getDocumentVersion } from "../../db/latex-store.js";
 import { getProfile, getProfileProgress, upsertProfileProgress } from "../../db/profiles-store.js";
@@ -16,6 +25,13 @@ import {
   setBookCover,
   uploadBook,
 } from "./service.js";
+import { errorBody, invalidRequestAs } from "../../plugins/errors.js";
+
+const idParams = z.object({ id: z.string() });
+/** A query value read only when it is one string: a repeat or an absence is undefined, as the hand checks read it. */
+const oneString = z.string().optional().catch(undefined);
+/** `POST /library/:id/convert`'s 202: the converted book's id and its format, before the job runs. */
+const convertStartedSchema = z.object({ convertedBookId: z.string(), targetFormat: z.string() });
 
 /**
  * Library HTTP (D24–D26, D34). Ranges, ETags, streaming and status codes live
@@ -75,9 +91,10 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function registerLibraryRoutes(app: FastifyInstance): void {
+export const libraryRoutes: FastifyPluginAsyncZod = async (app) => {
   // --- POST /library — upload + store + extract cover ------------------------
-  app.post("/library", async (request: FastifyRequest, reply: FastifyReply) => {
+  // A multipart upload, so no schema (scripts/conventions.json).
+  app.post("/library", async (request, reply) => {
     const data = await request.file();
     if (!data) {
       return reply.status(400).send({ error: "No file field found in upload." });
@@ -98,12 +115,20 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   });
 
   // --- GET /library — the gallery list ---------------------------------------
-  app.get("/library", async (request: FastifyRequest, reply: FastifyReply) => {
-    const profile = request.authProfile;
-    if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
-    const sort = librarySortSchema.catch("recent").parse((request.query as { sort?: string } | undefined)?.sort);
-    return reply.send(await listLibraryForProfile(profile.id, sort));
-  });
+  app.get(
+    "/library",
+    {
+      schema: {
+        querystring: z.object({ sort: librarySortSchema.catch("recent") }),
+        response: { 200: libraryListSchema, 401: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const profile = request.authProfile;
+      if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
+      return reply.send(await listLibraryForProfile(profile.id, request.query.sort));
+    },
+  );
 
   // --- GET /library/:id — one book, with both convert link directions --------
   // Unlike the list, `getBook` does NOT filter out derived rows — a converted
@@ -111,14 +136,17 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   // either side of the pair (D34). `toLibraryBook` resolves
   // `convertedFrom`/`convertedTo`/`convertStatus`/`convertError` off the same
   // row (no extra query — see `selectBooks` in `library.model.ts`).
-  app.get("/library/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const profile = request.authProfile;
-    if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
-    const { id } = request.params as { id: string };
-    const book = await getBookForProfile(profile.id, id);
-    if (!book) return reply.status(404).send({ error: "Book not found." });
-    return reply.send(book);
-  });
+  app.get(
+    "/library/:id",
+    { schema: { params: idParams, response: { 200: libraryBookSchema, 401: errorBody, 404: errorBody } } },
+    async (request, reply) => {
+      const profile = request.authProfile;
+      if (!profile) return reply.status(401).send({ error: "UNAUTHORIZED" });
+      const book = await getBookForProfile(profile.id, request.params.id);
+      if (!book) return reply.status(404).send({ error: "Book not found." });
+      return reply.send(book);
+    },
+  );
 
   // --- GET /library/:id/file — stream the original for the reader ------------
   //
@@ -126,148 +154,161 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   // instead of the current library file. Everything below — ETag, range, 304,
   // the recorded open — is the same machinery; only the identity and the path
   // change, and both change together.
-  app.get("/library/:id/file", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) return reply.status(404).send({ error: "Book not found." });
-    // The bot's account streams music and nothing else (D55). Checked before
-    // the touch, so a refused request records no open.
-    if (request.jukeboxOnly && row.kind !== "audio") {
-      return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
-    }
-
-    // Record the open (drives "recently opened" ordering) even on a cache hit.
-    // Not for the bot: a song it streams to Discord was not opened
-    // by anyone here, and each of its Range requests would be a write that
-    // pushes what people did open down the home grid.
-    if (!request.jukeboxOnly) await touchOpened(id, nowIso());
-
-    // No `?version=` means the NEWEST, and the newest needs no lookup at all:
-    // publish copies it to `filePathFor(bookId, "pdf")`, the same derived
-    // location every uploaded book uses (D39). That is the whole reason this
-    // route has no "is this a published document?" branch.
-    const requestedVersion = (request.query as { version?: unknown } | undefined)?.version;
-    let version;
-    if (typeof requestedVersion === "string" && requestedVersion !== "") {
-      version = await getDocumentVersion(requestedVersion);
-      // `getDocumentVersion` looks up by id ALONE, so the `book_id` comparison
-      // is what stops one book's URL streaming another's bytes. Both an unknown
-      // id and a foreign one answer 404 — never 403, which would confirm the id
-      // exists somewhere (the profiles work's rule).
-      if (!version || version.book_id !== id) {
-        return reply.status(404).send({ error: "Version not found." });
+  app.get(
+    "/library/:id/file",
+    { schema: { params: idParams, querystring: z.object({ version: oneString }) } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) return reply.status(404).send({ error: "Book not found." });
+      // The bot's account streams music and nothing else (D55). Checked before
+      // the touch, so a refused request records no open.
+      if (request.jukeboxOnly && row.kind !== "audio") {
+        return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
       }
-    }
 
-    // A version is always a PDF — publishing produces nothing else.
-    const contentType = version ? CONTENT_TYPE.pdf : CONTENT_TYPE[row.format];
-    const disposition = `inline; filename="${version ? `${version.id}.pdf` : `${id}.${row.format}`}"`;
+      // Record the open (drives "recently opened" ordering) even on a cache hit.
+      // Not for the bot: a song it streams to Discord was not opened
+      // by anyone here, and each of its Range requests would be a write that
+      // pushes what people did open down the home grid.
+      if (!request.jukeboxOnly) await touchOpened(id, nowIso());
 
-    // Total size from disk — needed for Content-Range and to clamp the range.
-    // We never read the whole file into memory: `createReadStream({start,end})`
-    // streams only the requested window. Derived, never read back from the row.
-    const filePath = version ? versionPdfPathFor(version.id) : filePathFor(row.id, row.format);
-    let size: number;
-    let mtimeMs: number;
-    try {
-      ({ size, mtimeMs } = await stat(filePath));
-    } catch {
-      return reply.status(404).send({ error: version ? "Version file not found." : "Book file not found." });
-    }
+      // No `?version=` means the NEWEST, and the newest needs no lookup at all:
+      // publish copies it to `filePathFor(bookId, "pdf")`, the same derived
+      // location every uploaded book uses (D39). That is the whole reason this
+      // route has no "is this a published document?" branch.
+      const requestedVersion = request.query.version;
+      let version;
+      if (requestedVersion !== undefined && requestedVersion !== "") {
+        version = await getDocumentVersion(requestedVersion);
+        // `getDocumentVersion` looks up by id ALONE, so the `book_id` comparison
+        // is what stops one book's URL streaming another's bytes. Both an unknown
+        // id and a foreign one answer 404 — never 403, which would confirm the id
+        // exists somewhere (the profiles work's rule).
+        if (!version || version.book_id !== id) {
+          return reply.status(404).send({ error: "Version not found." });
+        }
+      }
 
-    // `no-cache` makes the browser revalidate on every open, but a matching
-    // If-None-Match short-circuits to a 304 (no multi-MB re-download of the
-    // book) while the touch above still runs. `Accept-Ranges: bytes` is always
-    // advertised — media players (and Safari's `bytes=0-1` probe) require it to
-    // enable seek/scrub.
-    //
-    // **The newest file's validator is the file on disk** The id
-    // used to double as the ETag on the premise that an id's bytes never
-    // change, and a published document breaks it: every publish (and deleting
-    // the newest version) copies a version's PDF OVER `library/<id>.pdf`. The
-    // browser revalidated with the old id, got a 304, and the reader showed v1
-    // labelled as v2. A weak size+mtime validator follows every rewrite path,
-    // present and future, with no knowledge of versions.
-    //
-    // A version's id stays a strong validator: a version artifact is IMMUTABLE
-    // by construction (publishing again mints a new id rather than rewriting
-    // one), and deriving the ETag from the identity its path comes from is what
-    // stops v2 being served out of a cache entry filled by v3.
-    const etag = version ? `"${version.id}"` : `W/"${size}-${Math.trunc(mtimeMs)}"`;
-    reply.header("Cache-Control", "private, no-cache").header("ETag", etag).header("Accept-Ranges", "bytes");
-    if (request.headers["if-none-match"] === etag) {
-      return reply.status(304).send();
-    }
+      // A version is always a PDF — publishing produces nothing else.
+      const contentType = version ? CONTENT_TYPE.pdf : CONTENT_TYPE[row.format];
+      const disposition = `inline; filename="${version ? `${version.id}.pdf` : `${id}.${row.format}`}"`;
 
-    const range = parseRange(request.headers.range, size);
-    if (range === "unsatisfiable") {
-      return reply
-        .status(416)
-        .header("Content-Range", `bytes */${size}`)
-        .send({ error: "Requested range not satisfiable." });
-    }
+      // Total size from disk — needed for Content-Range and to clamp the range.
+      // We never read the whole file into memory: `createReadStream({start,end})`
+      // streams only the requested window. Derived, never read back from the row.
+      const filePath = version ? versionPdfPathFor(version.id) : filePathFor(row.id, row.format);
+      let size: number;
+      let mtimeMs: number;
+      try {
+        ({ size, mtimeMs } = await stat(filePath));
+      } catch {
+        return reply.status(404).send({ error: version ? "Version file not found." : "Book file not found." });
+      }
 
-    if (range) {
-      const { start, end } = range;
+      // `no-cache` makes the browser revalidate on every open, but a matching
+      // If-None-Match short-circuits to a 304 (no multi-MB re-download of the
+      // book) while the touch above still runs. `Accept-Ranges: bytes` is always
+      // advertised — media players (and Safari's `bytes=0-1` probe) require it to
+      // enable seek/scrub.
+      //
+      // **The newest file's validator is the file on disk** The id
+      // used to double as the ETag on the premise that an id's bytes never
+      // change, and a published document breaks it: every publish (and deleting
+      // the newest version) copies a version's PDF OVER `library/<id>.pdf`. The
+      // browser revalidated with the old id, got a 304, and the reader showed v1
+      // labelled as v2. A weak size+mtime validator follows every rewrite path,
+      // present and future, with no knowledge of versions.
+      //
+      // A version's id stays a strong validator: a version artifact is IMMUTABLE
+      // by construction (publishing again mints a new id rather than rewriting
+      // one), and deriving the ETag from the identity its path comes from is what
+      // stops v2 being served out of a cache entry filled by v3.
+      const etag = version ? `"${version.id}"` : `W/"${size}-${Math.trunc(mtimeMs)}"`;
+      reply.header("Cache-Control", "private, no-cache").header("ETag", etag).header("Accept-Ranges", "bytes");
+      if (request.headers["if-none-match"] === etag) {
+        return reply.status(304).send();
+      }
+
+      // A media file streams for as long as the reader plays it, and a player
+      // that has buffered ahead (the Jukebox bot) can leave the socket quiet for
+      // longer than the connection timeout. inject() has no socket.
+      if (request.raw.socket instanceof Socket) request.raw.socket.setTimeout(0);
+
+      const range = parseRange(request.headers.range, size);
+      if (range === "unsatisfiable") {
+        return reply
+          .status(416)
+          .header("Content-Range", `bytes */${size}`)
+          .send({ error: "Requested range not satisfiable." });
+      }
+
+      if (range) {
+        const { start, end } = range;
+        reply
+          .status(206)
+          .header("Content-Type", contentType)
+          .header("Content-Disposition", disposition)
+          .header("Content-Range", `bytes ${start}-${end}/${size}`)
+          .header("Content-Length", String(end - start + 1));
+        return reply.send(createReadStream(filePath, { start, end }));
+      }
+
       reply
-        .status(206)
         .header("Content-Type", contentType)
         .header("Content-Disposition", disposition)
-        .header("Content-Range", `bytes ${start}-${end}/${size}`)
-        .header("Content-Length", String(end - start + 1));
-      return reply.send(createReadStream(filePath, { start, end }));
-    }
-
-    reply
-      .header("Content-Type", contentType)
-      .header("Content-Disposition", disposition)
-      .header("Content-Length", String(size));
-    return reply.send(createReadStream(filePath));
-  });
+        .header("Content-Length", String(size));
+      return reply.send(createReadStream(filePath));
+    },
+  );
 
   // --- GET /library/:id/cover — stream the thumbnail -------------------------
-  app.get("/library/:id/cover", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) {
-      return reply.status(404).send({ error: "No cover for this book." });
-    }
-    if (request.jukeboxOnly && row.kind !== "audio") {
-      return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
-    }
-    // The thumbnail belongs to the cover OWNER — for a converted book that is
-    // its source, which is the row the file was extracted from and named after
-    // (`coverPathFor`). Asking for the conversion's cover therefore serves the
-    // source's file, which is the same file the source itself serves.
-    const coverPath = coverPathFor(coverOwnerId(row));
-    // Whether a book HAS a cover is "is that file on disk" and nothing else
-    // (`toLibraryBook`'s `hasCover` asks the same question), so the existence
-    // check is the only gate here. Doing it up front makes a missing thumbnail
-    // a clean 404 the <img> can fall back from, rather than a mid-stream 500
-    // (which a cross-origin <img> surfaces as the noisy ERR_BLOCKED_BY_ORB).
-    let mtimeMs: number;
-    try {
-      ({ mtimeMs } = await stat(coverPath));
-    } catch {
-      return reply.status(404).send({ error: "No cover for this book." });
-    }
-    // A cover is NOT immutable: a re-publish regenerates it and
-    // D40's setter replaces it in place. So it is cached for a year only under
-    // a URL that names its version (`?v=<coverVersion>` from the listing, the
-    // cover file's mtime), where a new cover is a new URL. A request without
-    // one revalidates against the same mtime. `private` either way: the
-    // response is cookie-gated, and a shared cache must not keep it.
-    const etag = `W/"${Math.trunc(mtimeMs)}"`;
-    const versioned = typeof (request.query as { v?: unknown } | undefined)?.v === "string";
-    reply
-      .header("Content-Type", "image/jpeg")
-      .header("ETag", etag)
-      .header("Cache-Control", versioned ? "private, max-age=31536000, immutable" : "private, no-cache");
-    if (!versioned && request.headers["if-none-match"] === etag) {
-      return reply.status(304).send();
-    }
-    return reply.send(createReadStream(coverPath));
-  });
+  app.get(
+    "/library/:id/cover",
+    { schema: { params: idParams, querystring: z.object({ v: oneString }) } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) {
+        return reply.status(404).send({ error: "No cover for this book." });
+      }
+      if (request.jukeboxOnly && row.kind !== "audio") {
+        return reply.status(403).send({ error: "JUKEBOX_ROLE_FORBIDDEN" });
+      }
+      // The thumbnail belongs to the cover OWNER — for a converted book that is
+      // its source, which is the row the file was extracted from and named after
+      // (`coverPathFor`). Asking for the conversion's cover therefore serves the
+      // source's file, which is the same file the source itself serves.
+      const coverPath = coverPathFor(coverOwnerId(row));
+      // Whether a book HAS a cover is "is that file on disk" and nothing else
+      // (`toLibraryBook`'s `hasCover` asks the same question), so the existence
+      // check is the only gate here. Doing it up front makes a missing thumbnail
+      // a clean 404 the <img> can fall back from, rather than a mid-stream 500
+      // (which a cross-origin <img> surfaces as the noisy ERR_BLOCKED_BY_ORB).
+      let mtimeMs: number;
+      try {
+        ({ mtimeMs } = await stat(coverPath));
+      } catch {
+        return reply.status(404).send({ error: "No cover for this book." });
+      }
+      // A cover is NOT immutable: a re-publish regenerates it and
+      // D40's setter replaces it in place. So it is cached for a year only under
+      // a URL that names its version (`?v=<coverVersion>` from the listing, the
+      // cover file's mtime), where a new cover is a new URL. A request without
+      // one revalidates against the same mtime. `private` either way: the
+      // response is cookie-gated, and a shared cache must not keep it.
+      const etag = `W/"${Math.trunc(mtimeMs)}"`;
+      const versioned = request.query.v !== undefined;
+      reply
+        .header("Content-Type", "image/jpeg")
+        .header("ETag", etag)
+        .header("Cache-Control", versioned ? "private, max-age=31536000, immutable" : "private, no-cache");
+      if (!versioned && request.headers["if-none-match"] === etag) {
+        return reply.status(304).send();
+      }
+      return reply.send(createReadStream(coverPath));
+    },
+  );
 
   /**
    * Store a client-supplied image as this item's cover (D40).
@@ -289,8 +330,9 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
    * which is already unscoped. The app-wide auth guard has already required a
    * live session by the time this handler runs, so there is nothing to add.
    */
-  app.post("/library/:id/cover", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
+  // A multipart upload: its params only (scripts/conventions.json).
+  app.post("/library/:id/cover", { schema: { params: idParams } }, async (request, reply) => {
+    const { id } = request.params;
     const row = await getBook(id);
     // 404 on an unknown id, same as every other `/library/:id/*` route.
     if (!row) return reply.status(404).send({ error: "Book not found." });
@@ -333,114 +375,137 @@ export function registerLibraryRoutes(app: FastifyInstance): void {
   });
 
   // --- PATCH /library/:id/progress — save the target profile's position ------
-  app.patch("/library/:id/progress", async (request: FastifyRequest, reply: FastifyReply) => {
-    const session = request.auth;
-    const activeProfile = request.authProfile;
-    if (!session || !activeProfile) return reply.status(401).send({ error: "UNAUTHORIZED" });
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) return reply.status(404).send({ error: "Book not found." });
+  app.patch(
+    "/library/:id/progress",
+    {
+      errorHandler: invalidRequestAs({ error: "progress must be a number in [0, 1]." }),
+      schema: {
+        params: idParams,
+        body: updateProgressSchema,
+        response: { 200: libraryBookSchema, 401: errorBody, 404: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const session = request.auth;
+      const activeProfile = request.authProfile;
+      if (!session || !activeProfile) return reply.status(401).send({ error: "UNAUTHORIZED" });
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) return reply.status(404).send({ error: "Book not found." });
+      const body = request.body;
 
-    const parsed = updateProgressSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "progress must be a number in [0, 1]." });
-    }
-
-    // `profileId` is the offline-flush override: a record
-    // queued while one profile was reading must PATCH as THAT profile even if
-    // the session has since switched to another, or the flush would silently
-    // re-attribute person A's reading to person B. Honouring a client-supplied
-    // profile id here is safe under D35 — the account is the security boundary,
-    // the profile is not, so writing as another profile *on the same account* is
-    // exactly as privileged as switching to it and writing normally. What is NOT
-    // safe is skipping the ownership check: an unverified id would let one
-    // account write into another's profile, which is a cross-*account* write. A
-    // foreign or unknown id 404s (never 403), matching the rule in the profiles
-    // controller — a 403 would confirm the id exists on someone else's account.
-    let targetProfileId = activeProfile.id;
-    if (parsed.data.profileId !== undefined) {
-      const target = await getProfile(parsed.data.profileId);
-      if (!target || target.subject !== session.user.id) {
-        return reply.status(404).send({ error: "NOT_FOUND" });
+      // `profileId` is the offline-flush override: a record
+      // queued while one profile was reading must PATCH as THAT profile even if
+      // the session has since switched to another, or the flush would silently
+      // re-attribute person A's reading to person B. Honouring a client-supplied
+      // profile id here is safe under D35 — the account is the security boundary,
+      // the profile is not, so writing as another profile *on the same account* is
+      // exactly as privileged as switching to it and writing normally. What is NOT
+      // safe is skipping the ownership check: an unverified id would let one
+      // account write into another's profile, which is a cross-*account* write. A
+      // foreign or unknown id 404s (never 403), matching the rule in the profiles
+      // controller — a 403 would confirm the id exists on someone else's account.
+      let targetProfileId = activeProfile.id;
+      if (body.profileId !== undefined) {
+        const target = await getProfile(body.profileId);
+        if (!target || target.subject !== session.user.id) {
+          return reply.status(404).send({ error: "NOT_FOUND" });
+        }
+        targetProfileId = target.id;
       }
-      targetProfileId = target.id;
-    }
 
-    // The LaTeX editor's spec: a `locator` inside a published document is only
-    // meaningful together with the version it was measured in — page 40 of v3 is
-    // not page 40 of v4. `upsertProfileProgress` COALESCEs both columns, so a
-    // write carrying a locator for a version MUST carry that version's id too;
-    // otherwise the row would keep an older version's id beside a newer
-    // version's page and resume in the wrong place, which is worse than resuming
-    // at 0. An ordinary uploaded book has no versions and sends nothing, leaving
-    // the column NULL.
-    //
-    // A foreign or unknown version id is a 404, never a 403 — the same rule the
-    // profile check above states, for the same reason. Without the `book_id`
-    // comparison a client could point this book's progress row at another book's
-    // version, which the FK would happily accept.
-    let versionId: string | null = null;
-    if (parsed.data.versionId) {
-      const version = await getDocumentVersion(parsed.data.versionId);
-      if (!version || version.book_id !== id) {
-        return reply.status(404).send({ error: "Version not found." });
+      // The LaTeX editor's spec: a `locator` inside a published document is only
+      // meaningful together with the version it was measured in — page 40 of v3 is
+      // not page 40 of v4. `upsertProfileProgress` COALESCEs both columns, so a
+      // write carrying a locator for a version MUST carry that version's id too;
+      // otherwise the row would keep an older version's id beside a newer
+      // version's page and resume in the wrong place, which is worse than resuming
+      // at 0. An ordinary uploaded book has no versions and sends nothing, leaving
+      // the column NULL.
+      //
+      // A foreign or unknown version id is a 404, never a 403 — the same rule the
+      // profile check above states, for the same reason. Without the `book_id`
+      // comparison a client could point this book's progress row at another book's
+      // version, which the FK would happily accept.
+      let versionId: string | null = null;
+      if (body.versionId) {
+        const version = await getDocumentVersion(body.versionId);
+        if (!version || version.book_id !== id) {
+          return reply.status(404).send({ error: "Version not found." });
+        }
+        versionId = version.id;
       }
-      versionId = version.id;
-    }
 
-    await upsertProfileProgress(
-      targetProfileId,
-      id,
-      parsed.data.progress,
-      parsed.data.locator ?? null,
-      nowIso(),
-      versionId,
-    );
-    return reply.send(toLibraryBook(row, await getProfileProgress(targetProfileId, id)));
-  });
+      await upsertProfileProgress(targetProfileId, id, body.progress, body.locator ?? null, nowIso(), versionId);
+      return reply.send(toLibraryBook(row, await getProfileProgress(targetProfileId, id)));
+    },
+  );
 
   // --- POST /library/:id/convert — start a conversion (D34) --------
-  app.post("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) return reply.status(404).send({ error: "Book not found." });
+  app.post(
+    "/library/:id/convert",
+    {
+      schema: {
+        params: idParams,
+        querystring: z.object({ force: oneString }),
+        response: {
+          200: libraryBookSchema,
+          202: convertStartedSchema,
+          400: errorBody,
+          404: errorBody,
+          409: errorBody,
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) return reply.status(404).send({ error: "Book not found." });
 
-    const query = request.query as { force?: string } | undefined;
-    const result = await requestConvert(row, query?.force === "1");
-    switch (result.kind) {
-      case "started":
-        return reply.status(202).send({ convertedBookId: result.convertedBookId, targetFormat: result.targetFormat });
-      case "busy":
-        return reply.status(409).send({ error: result.message });
-      case "unsupported":
-        return reply.status(400).send({ error: result.message });
-      case "derived":
-        return reply.status(400).send({ error: result.message });
-      case "exists":
-        return reply.status(200).send(toLibraryBook(result.converted));
-    }
-  });
+      const result = await requestConvert(row, request.query.force === "1");
+      switch (result.kind) {
+        case "started":
+          return reply.status(202).send({ convertedBookId: result.convertedBookId, targetFormat: result.targetFormat });
+        case "busy":
+          return reply.status(409).send({ error: result.message });
+        case "unsupported":
+          return reply.status(400).send({ error: result.message });
+        case "derived":
+          return reply.status(400).send({ error: result.message });
+        case "exists":
+          return reply.status(200).send(toLibraryBook(result.converted));
+      }
+    },
+  );
 
   // --- DELETE /library/:id/convert — cancel a running job, or delete a -------
   // finished conversion (D34).
-  app.delete("/library/:id/convert", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) return reply.status(404).send({ error: "Book not found." });
+  app.delete(
+    "/library/:id/convert",
+    { schema: { params: idParams, response: { 204: z.null(), 404: errorBody } } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) return reply.status(404).send({ error: "Book not found." });
 
-    const result = await cancelOrDeleteConversion(id);
-    if (!result.ok) {
-      return reply.status(404).send({ error: "No conversion to cancel or delete." });
-    }
-    return reply.status(204).send();
-  });
+      const result = await cancelOrDeleteConversion(id);
+      if (!result.ok) {
+        return reply.status(404).send({ error: "No conversion to cancel or delete." });
+      }
+      return reply.status(204).send(null);
+    },
+  );
 
   // --- DELETE /library/:id — remove row + file + thumbnail + versions --------
-  app.delete("/library/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await getBook(id);
-    if (!row) return reply.status(404).send({ error: "Book not found." });
-    await deleteBookWithArtifacts(row, request.log);
-    return reply.status(204).send();
-  });
-}
+  app.delete(
+    "/library/:id",
+    { schema: { params: idParams, response: { 204: z.null(), 404: errorBody } } },
+    async (request, reply) => {
+      const { id } = request.params;
+      const row = await getBook(id);
+      if (!row) return reply.status(404).send({ error: "Book not found." });
+      await deleteBookWithArtifacts(row, request.log);
+      return reply.status(204).send(null);
+    },
+  );
+};

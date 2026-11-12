@@ -4,7 +4,7 @@ import { healthRoutes } from "./features/health/index.js";
 import { catalogRoutes } from "./features/catalog/index.js";
 import { registerJukeboxRoutes } from "./features/jukebox/index.js";
 import { registerLatexRoutes } from "./features/latex/index.js";
-import { registerLibraryRoutes } from "./features/library/index.js";
+import { libraryRoutes } from "./features/library/index.js";
 import { lookupRoutes } from "./features/lookup/index.js";
 import { notesRoutes } from "./features/notes/index.js";
 import { profileRoutes } from "./features/profiles/index.js";
@@ -72,7 +72,7 @@ export async function buildApp(options: {
   await app.register(multipart);
 
   await app.register(healthRoutes);
-  registerLibraryRoutes(app);
+  await app.register(libraryRoutes);
   await app.register(catalogRoutes);
   await app.register(notesRoutes);
   await app.register(profileRoutes);

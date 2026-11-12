@@ -135,4 +135,31 @@ describe("route schemas", () => {
       assert.equal(res.json().code, "FST_ERR_CTP_INVALID_JSON_BODY");
     });
   });
+
+  describe("jukebox", () => {
+    it("a stored command's stray key never reaches the bot, and the rest keeps its byte order", async () => {
+      const bot = await t.signIn("subject-schemas-bot", "jukebox");
+      const voice = { id: "200000000000000042", name: "General" };
+      const status = { guildId: "100000000000000042", guildName: "Guild", voiceChannel: voice, voiceChannels: [voice] };
+      await inject(bot, "POST", "/jukebox/bot/status", { ...status, playId: 0, state: "idle", positionMs: 0 });
+      const first = (await inject(bot, "GET", "/jukebox/bot/commands")).json() as { cursor: number };
+      await knex("jukebox_commands").insert({
+        guild_id: "100000000000000042",
+        body: JSON.stringify({ kind: "join", channelId: "200000000000000042", debug: "server-side note" }),
+        created_at: new Date().toISOString(),
+      });
+      const res = await inject(bot, "GET", `/jukebox/bot/commands?after=${first.cursor}`);
+      assert.equal(res.statusCode, 200);
+      assert.equal(
+        res.body,
+        `{"cursor":${first.cursor + 1},"commands":[{"kind":"join","channelId":"200000000000000042","id":${first.cursor + 1},"guildId":"100000000000000042"}]}`,
+      );
+    });
+
+    it("a person on a bot route is refused before the request is validated", async () => {
+      const res = await inject(me, "POST", "/jukebox/bot/players/not-a-snowflake/advance", {});
+      assert.equal(res.statusCode, 403);
+      assert.equal(res.body, '{"error":"JUKEBOX_BOT_ONLY"}');
+    });
+  });
 });

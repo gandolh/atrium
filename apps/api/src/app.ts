@@ -2,7 +2,7 @@ import { serializerCompiler, validatorCompiler } from "@fastify/type-provider-zo
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { healthRoutes } from "./features/health/index.js";
 import { catalogRoutes } from "./features/catalog/index.js";
-import { registerJukeboxRoutes } from "./features/jukebox/index.js";
+import { jukeboxRoutes } from "./features/jukebox/index.js";
 import { latexRoutes } from "./features/latex/index.js";
 import { libraryRoutes } from "./features/library/index.js";
 import { lookupRoutes } from "./features/lookup/index.js";
@@ -77,7 +77,7 @@ export async function buildApp(options: {
   await app.register(notesRoutes);
   await app.register(profileRoutes);
   await app.register(latexRoutes);
-  registerJukeboxRoutes(app);
+  await app.register(jukeboxRoutes);
   await app.register(lookupRoutes);
 
   return app;

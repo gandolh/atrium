@@ -103,22 +103,27 @@ export const playerSchema = z.object({
 export type Player = z.infer<typeof playerSchema>;
 export const playerListSchema = z.array(playerSchema);
 
-/** What the bot is told to do, down the long-poll. `id` is the poll cursor. */
+/**
+ * What the bot is told to do, down the long-poll. `id` is the poll cursor.
+ * The keys are in the order the server writes them (the stored command, then
+ * `id` and `guildId`), because the reply is encoded in the schema's order and
+ * just-a-bot reads these bytes.
+ */
 const commandBase = { id: z.number().int(), guildId: discordIdSchema };
 export const botCommandSchema = z.discriminatedUnion("kind", [
-  z.object({ ...commandBase, kind: z.literal("join"), channelId: discordIdSchema }),
-  z.object({ ...commandBase, kind: z.literal("leave") }),
+  z.object({ kind: z.literal("join"), channelId: discordIdSchema, ...commandBase }),
+  z.object({ kind: z.literal("leave"), ...commandBase }),
   z.object({
-    ...commandBase,
     kind: z.literal("play"),
     playId: z.number().int(),
     track: trackSchema,
     upcoming: z.array(trackSchema),
+    ...commandBase,
   }),
-  z.object({ ...commandBase, kind: z.literal("pause") }),
-  z.object({ ...commandBase, kind: z.literal("resume") }),
-  z.object({ ...commandBase, kind: z.literal("stop") }),
-  z.object({ ...commandBase, kind: z.literal("upcoming"), upcoming: z.array(trackSchema) }),
+  z.object({ kind: z.literal("pause"), ...commandBase }),
+  z.object({ kind: z.literal("resume"), ...commandBase }),
+  z.object({ kind: z.literal("stop"), ...commandBase }),
+  z.object({ kind: z.literal("upcoming"), upcoming: z.array(trackSchema), ...commandBase }),
 ]);
 export type BotCommand = z.infer<typeof botCommandSchema>;
 

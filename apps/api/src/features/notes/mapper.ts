@@ -1,4 +1,4 @@
-import type { Note, NoteFolder, NotePage, NoteSummary } from "@ebook-reader/shared";
+import { notePageSchema, type Note, type NoteFolder, type NotePage, type NoteSummary } from "@ebook-reader/shared";
 import type { NoteFolderRow } from "./folders-store.js";
 import type { NoteRow, NoteSummaryRow } from "./store.js";
 
@@ -20,7 +20,16 @@ export const BLANK_PAGE: NotePage = { strokes: [], texts: [], template: "blank" 
 function parsePages(data: string): NotePage[] {
   try {
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? (parsed as NotePage[]) : [];
+    // Each stored page is decoded with the page schema, which reads a missing
+    // template as blank and an unknown tool as the pen: a response schema only
+    // encodes, and would refuse both. A page that is wrong in any other way is
+    // kept as stored, and the reply's schema refuses it (a 500), as before.
+    return Array.isArray(parsed)
+      ? parsed.map((page: unknown) => {
+          const decoded = notePageSchema.safeParse(page);
+          return decoded.success ? decoded.data : (page as NotePage);
+        })
+      : [];
   } catch {
     return [];
   }

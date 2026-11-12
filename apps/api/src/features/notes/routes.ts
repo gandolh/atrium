@@ -1,4 +1,6 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsyncZod } from "@fastify/type-provider-zod";
+import type { FastifyReply, FastifyRequest } from "fastify";
+import { z } from "zod";
 import {
   createNoteFolderSchema,
   createNoteSchema,
@@ -27,6 +29,9 @@ import {
   updateFolder,
 } from "./service.js";
 import { present } from "../../lib/present.js";
+import { errorBody } from "../../plugins/errors.js";
+
+const idParams = z.object({ id: z.string() });
 
 /**
  * HTTP for notes and note folders. Per-profile since the profiles work
@@ -34,7 +39,7 @@ import { present } from "../../lib/present.js";
  * service, and the app-wide guard has already 401'd anything without one, so no
  * route here does its own auth.
  */
-export function registerNotesRoutes(app: FastifyInstance): void {
+export const notesRoutes: FastifyPluginAsyncZod = async (app) => {
   // The guard guarantees an authProfile on every route here.
   const pid = (request: FastifyRequest): string => present(request.authProfile, "the profile the guard resolved").id;
 
@@ -55,27 +60,34 @@ export function registerNotesRoutes(app: FastifyInstance): void {
     },
   };
 
-  app.get("/notes", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/notes", { schema: { response: { 200: noteListSchema } } }, async (request) => {
     const rows = await listProfileNotes(pid(request));
-    return reply.send(noteListSchema.parse(rows.map(toSummary)));
+    return rows.map(toSummary);
   });
 
-  app.post("/notes", noteBody, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = createNoteSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
-    const row = await createNote(pid(request), parsed.data.title);
-    return reply.status(201).send(noteSchema.parse(toNote(row)));
-  });
+  // No body at all is a note with the default title, as `{}` is.
+  app.post(
+    "/notes",
+    { ...noteBody, schema: { body: createNoteSchema.nullish(), response: { 201: noteSchema, 413: errorBody } } },
+    async (request, reply) => {
+      const row = await createNote(pid(request), request.body?.title);
+      return reply.status(201).send(toNote(row));
+    },
+  );
 
-  app.get("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await readNote(pid(request), id);
-    if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
-    return reply.send(noteSchema.parse(toNote(row)));
-  });
+  app.get(
+    "/notes/:id",
+    { schema: { params: idParams, response: { 200: noteSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const row = await readNote(pid(request), request.params.id);
+      if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.send(toNote(row));
+    },
+  );
 
   /**
-   * PDF export — all pages, vector, rendered by `note-pdf.service`.
+   * PDF export — all pages, vector, rendered by `note-pdf.service`. A binary
+   * reply, so no response schema (scripts/conventions.json).
    *
    * It reads the note through the profile-scoped `readNote`, exactly like
    * `GET /notes/:id` above: the profile scope is part of the lookup, not a
@@ -83,9 +95,8 @@ export function registerNotesRoutes(app: FastifyInstance): void {
    * the same reason it is there. An export route that read by id alone would be
    * a read of someone else's notebook.
    */
-  app.get("/notes/:id/export.pdf", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    const row = await readNote(pid(request), id);
+  app.get("/notes/:id/export.pdf", { schema: { params: idParams } }, async (request, reply) => {
+    const row = await readNote(pid(request), request.params.id);
     if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
     const note = canonicalNote(row);
     const bytes = await renderNotePdf(note.title, note.pages);
@@ -99,25 +110,36 @@ export function registerNotesRoutes(app: FastifyInstance): void {
       .send(Buffer.from(bytes));
   });
 
-  app.patch("/notes/:id", noteBody, async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = updateNoteSchema.safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
-    const { id } = request.params as { id: string };
-    const row = await saveNote(pid(request), id, {
-      title: parsed.data.title,
-      pages: parsed.data.pages,
-    });
-    if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
-    return reply.send(noteSchema.parse(toNote(row)));
-  });
+  app.patch(
+    "/notes/:id",
+    {
+      ...noteBody,
+      schema: {
+        params: idParams,
+        body: updateNoteSchema,
+        response: { 200: noteSchema, 404: errorBody, 413: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const row = await saveNote(pid(request), request.params.id, {
+        title: request.body.title,
+        pages: request.body.pages,
+      });
+      if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.send(toNote(row));
+    },
+  );
 
-  app.delete("/notes/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    if (!(await removeNote(pid(request), id))) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return reply.status(204).send();
-  });
+  app.delete(
+    "/notes/:id",
+    { schema: { params: idParams, response: { 204: z.null(), 404: errorBody } } },
+    async (request, reply) => {
+      if (!(await removeNote(pid(request), request.params.id))) {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      return reply.status(204).send(null);
+    },
+  );
 
   /**
    * File a note into a folder — `{"folderId": null}` lifts it back to the root.
@@ -126,14 +148,15 @@ export function registerNotesRoutes(app: FastifyInstance): void {
    * route is the editor's autosave, firing many times a minute with the whole
    * page set, and a move must not be something a save can undo by racing it.
    */
-  app.patch("/notes/:id/folder", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = moveNoteSchema.safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
-    const { id } = request.params as { id: string };
-    const result = await moveNote(pid(request), id, parsed.data.folderId);
-    if (!result.ok) return reply.status(404).send({ error: "NOT_FOUND" });
-    return reply.send(noteSchema.parse(toNote(result.note)));
-  });
+  app.patch(
+    "/notes/:id/folder",
+    { schema: { params: idParams, body: moveNoteSchema, response: { 200: noteSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const result = await moveNote(pid(request), request.params.id, request.body.folderId);
+      if (!result.ok) return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.send(toNote(result.note));
+    },
+  );
 
   /* -----------------------------------------------------------------------
    * Note folders
@@ -145,36 +168,48 @@ export function registerNotesRoutes(app: FastifyInstance): void {
    * makes "folders are not a note" true in the URL space too.
    * -------------------------------------------------------------------- */
 
-  app.get("/note-folders", async (request: FastifyRequest, reply: FastifyReply) => {
+  app.get("/note-folders", { schema: { response: { 200: noteFolderListSchema } } }, async (request) => {
     const rows = await listProfileFolders(pid(request));
-    return reply.send(noteFolderListSchema.parse(rows.map(toFolder)));
+    return rows.map(toFolder);
   });
 
-  app.post("/note-folders", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = createNoteFolderSchema.safeParse(request.body ?? {});
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
-    const row = await createFolder(pid(request), parsed.data);
-    if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
-    return reply.status(201).send(noteFolderSchema.parse(toFolder(row)));
-  });
+  app.post(
+    "/note-folders",
+    { schema: { body: createNoteFolderSchema, response: { 201: noteFolderSchema, 404: errorBody } } },
+    async (request, reply) => {
+      const row = await createFolder(pid(request), request.body);
+      if (!row) return reply.status(404).send({ error: "NOT_FOUND" });
+      return reply.status(201).send(toFolder(row));
+    },
+  );
 
-  app.patch("/note-folders/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = updateNoteFolderSchema.safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: "INVALID_REQUEST" });
-    const { id } = request.params as { id: string };
-    const result = await updateFolder(pid(request), id, parsed.data);
-    if (!result.ok) {
-      if (result.reason === "CYCLE") return reply.status(400).send({ error: "FOLDER_CYCLE" });
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return reply.send(noteFolderSchema.parse(toFolder(result.folder)));
-  });
+  app.patch(
+    "/note-folders/:id",
+    {
+      schema: {
+        params: idParams,
+        body: updateNoteFolderSchema,
+        response: { 200: noteFolderSchema, 400: errorBody, 404: errorBody },
+      },
+    },
+    async (request, reply) => {
+      const result = await updateFolder(pid(request), request.params.id, request.body);
+      if (!result.ok) {
+        if (result.reason === "CYCLE") return reply.status(400).send({ error: "FOLDER_CYCLE" });
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      return reply.send(toFolder(result.folder));
+    },
+  );
 
-  app.delete("/note-folders/:id", async (request: FastifyRequest, reply: FastifyReply) => {
-    const { id } = request.params as { id: string };
-    if (!(await removeFolder(pid(request), id))) {
-      return reply.status(404).send({ error: "NOT_FOUND" });
-    }
-    return reply.status(204).send();
-  });
-}
+  app.delete(
+    "/note-folders/:id",
+    { schema: { params: idParams, response: { 204: z.null(), 404: errorBody } } },
+    async (request, reply) => {
+      if (!(await removeFolder(pid(request), request.params.id))) {
+        return reply.status(404).send({ error: "NOT_FOUND" });
+      }
+      return reply.status(204).send(null);
+    },
+  );
+};

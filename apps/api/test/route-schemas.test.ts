@@ -71,4 +71,45 @@ describe("route schemas", () => {
       }
     });
   });
+
+  describe("notes", () => {
+    it("a field the store holds and the schema doesn't name is stripped from the reply", async () => {
+      const id = (await inject(me, "POST", "/notes", { title: "Stray" })).json().id as string;
+      await knex("notes")
+        .where({ id })
+        .update({ data: JSON.stringify([{ strokes: [], texts: [], template: "grid", stray: "from an old client" }]) });
+      const res = await inject(me, "GET", `/notes/${id}`);
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual(res.json().pages, [{ strokes: [], texts: [], template: "grid" }]);
+      assert.ok(!res.body.includes("stray"), res.body);
+    });
+
+    it("a page stored without a template, or with an unknown tool, reads back as the hand parse made it", async () => {
+      const id = (await inject(me, "POST", "/notes", {})).json().id as string;
+      const stroke = { tool: "crayon", color: "#000", size: 0.01, points: [[1, 2, 0.5]] };
+      await knex("notes")
+        .where({ id })
+        .update({ data: JSON.stringify([{ strokes: [stroke], texts: [] }]) });
+      assert.deepEqual((await inject(me, "GET", `/notes/${id}`)).json().pages, [
+        { strokes: [{ ...stroke, tool: "pen" }], texts: [], template: "blank" },
+      ]);
+    });
+
+    it("a malformed body, query or param answers 400 INVALID_REQUEST; another profile's note is 404", async () => {
+      const id = (await inject(me, "POST", "/notes")).json().id as string;
+      const badBody = await inject(me, "PATCH", `/notes/${id}`, { pages: "not pages" });
+      assert.equal(badBody.statusCode, 400);
+      assert.equal(badBody.body, '{"error":"INVALID_REQUEST"}');
+      const badQuery = await inject(me, "DELETE", `/profiles/${id}?reassign=1&reassign=2`);
+      assert.equal(badQuery.statusCode, 404, "a repeated reassign is not a 400: it reads as no");
+      const badParam = await inject(me, "GET", "/jukebox/players/not-a-snowflake");
+      assert.equal(badParam.statusCode, 400);
+      assert.equal(badParam.body, '{"error":"INVALID_REQUEST"}');
+      const foreign = await inject(stranger, "GET", `/notes/${id}`);
+      assert.equal(foreign.statusCode, 404);
+      assert.deepEqual(foreign.json(), { error: "NOT_FOUND" });
+      const foreignBad = await inject(stranger, "PATCH", `/notes/${id}`, { title: 5 });
+      assert.equal(foreignBad.statusCode, 400);
+    });
+  });
 });

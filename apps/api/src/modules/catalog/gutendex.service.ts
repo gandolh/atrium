@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CatalogBook, CatalogSearchParams, CatalogSearchResponse } from "@ebook-reader/shared";
-import { GUTENDEX_BASE_URL } from "../../common/config.js";
+import { GUTENDEX_BASE_URL } from "../../config.js";
 
 /**
  * The Gutendex client — the Gutenberg discover page's upstream half, and the only code in the app

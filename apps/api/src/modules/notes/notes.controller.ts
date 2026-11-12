@@ -10,7 +10,7 @@ import {
   updateNoteFolderSchema,
   updateNoteSchema,
 } from "@ebook-reader/shared";
-import { NOTE_MAX_BYTES } from "../../common/config.js";
+import { NOTE_MAX_BYTES } from "../../config.js";
 import { pdfFilename, renderNotePdf } from "./note-pdf.service.js";
 import { toFolder, toNote, toSummary } from "./notes.mapper.js";
 import {

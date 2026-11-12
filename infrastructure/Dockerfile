@@ -102,4 +102,4 @@ VOLUME /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/a
 EXPOSE 8788
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health" || exit 1
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["node", "apps/api/dist/server.js"]

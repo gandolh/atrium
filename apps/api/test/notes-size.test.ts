@@ -1,6 +1,6 @@
 import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { NOTE_MAX_BYTES } from "../src/common/config.js";
+import { NOTE_MAX_BYTES } from "../src/config.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 // Every autosave carries the whole notebook, and the notes routes ran

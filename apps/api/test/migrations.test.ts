@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { DB_PATH } from "../src/common/config.js";
+import { DB_PATH } from "../src/config.js";
 import { runMigrations } from "../src/database/bootstrap.js";
 import { closeDatabase, knex } from "../src/database/knex.js";
 

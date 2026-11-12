@@ -20,6 +20,7 @@ import {
   moveInQueue,
   pollCommands,
   readPlayer,
+  releaseLongPolls,
   removeFromQueue,
   reportStatus,
   searchTracks,
@@ -38,6 +39,13 @@ import { present } from "../../common/present.js";
  * 80) already keeps the bot account inside `/jukebox/*` and audio files.
  */
 export function registerJukeboxRoutes(app: FastifyInstance): void {
+  // On shutdown, answer the bot's held long poll first. Fastify runs its onClose
+  // hooks only after the requests in flight finish, so a poll left waiting
+  // would hold the process up for the rest of its wait.
+  app.addHook("preClose", async () => {
+    releaseLongPolls();
+  });
+
   const invalid = (reply: FastifyReply) => reply.status(400).send({ error: "INVALID_REQUEST" });
 
   /** `:guildId`, or null after answering 400. */

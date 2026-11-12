@@ -1,16 +1,23 @@
+import closeWithGrace from "close-with-grace";
 import { buildApp } from "./app.js";
 import {
+  CONNECTION_TIMEOUT_MS,
   DATA_DIR,
   DOCUMENT_VERSIONS_DIR,
   ENV_FILE,
   ENV_FILE_LOADED,
   HOST,
+  KEEP_ALIVE_TIMEOUT_MS,
   LATEX_PROJECTS_DIR,
   LIBRARY_FILES_DIR,
   MAX_UPLOAD_MB,
   PORT,
+  REQUEST_TIMEOUT_MS,
+  SHUTDOWN_DELAY_MS,
   THUMBNAILS_DIR,
-} from "./common/config.js";
+  TRUSTED_PROXIES,
+  WARN_WITHOUT_TRUSTED_PROXIES,
+} from "./config.js";
 import { initDatabase, logMigratedAccounts } from "./database/bootstrap.js";
 import { closeDatabase } from "./database/knex.js";
 import { isCalibreAvailable } from "./modules/library/calibre.service.js";
@@ -58,7 +65,19 @@ const { accounts, migratedAccounts } = await initDatabase().catch((err: unknown)
 });
 const wardOptions = wardClientOptionsFromEnv();
 const wardClient = wardOptions === undefined ? undefined : await createWardClient(wardOptions);
-const app = await buildApp({ accounts, wardClient });
+const app = await buildApp({
+  accounts,
+  wardClient,
+  server: {
+    logger: true,
+    // Loopback, plus the proxies the sign-in lockout already trusts, so the
+    // request log shows the client. Ward's lockout reads the socket itself.
+    trustProxy: ["loopback", ...TRUSTED_PROXIES],
+    connectionTimeout: CONNECTION_TIMEOUT_MS,
+    requestTimeout: REQUEST_TIMEOUT_MS,
+    keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS,
+  },
+});
 
 /**
  * Startup probe for `ebook-convert`. Missing Calibre is NOT fatal — the server
@@ -86,13 +105,12 @@ async function checkCalibre(): Promise<void> {
  * Startup check for `AUTH_TRUSTED_PROXIES`. Not fatal either: a
  * deploy without it still serves everyone, but the password lockout then keys
  * on the proxy, so the sixth wrong password from anyone answers 429 to every
- * account for 15 minutes. Production only (the image sets `NODE_ENV`): locally
- * the dev proxy is loopback, which the library always trusts. An empty or
- * blank value is an empty list to the library, so it counts as unset here.
+ * account for 15 minutes. Only when the server listens beyond loopback, as it
+ * does in the container: locally the dev proxy is loopback, which the library
+ * always trusts. An empty or blank value is an empty list, so it counts as unset.
  */
 function checkTrustedProxies(): void {
-  if (process.env.NODE_ENV !== "production") return;
-  if ((process.env.AUTH_TRUSTED_PROXIES ?? "").replace(/[\s,]/g, "") !== "") return;
+  if (!WARN_WITHOUT_TRUSTED_PROXIES || TRUSTED_PROXIES.length > 0) return;
   app.log.warn(
     "============================================================\n" +
       "  WARNING: AUTH_TRUSTED_PROXIES is not set.\n" +
@@ -163,20 +181,25 @@ async function start(): Promise<void> {
 }
 
 /**
- * Stop in-flight work, then close the server and the database pool.
+ * Stop in-flight work, then close the server and the database pool, on
+ * SIGTERM, SIGINT or an uncaught error. close-with-grace exits once this
+ * resolves, and exits anyway after `SHUTDOWN_DELAY_MS`.
  *
  * A conversion child is spawned with `detached: false`, so a plain SIGTERM to
  * this process leaves `ebook-convert` running and its output orphaned — the
  * very leak the boot sweep exists to clean up. Killing in-flight jobs on a
  * clean shutdown means there is usually nothing left to sweep.
  *
- * Async now, because cancelling a conversion writes to the database (it resets
- * the source row to `none`). The handler therefore awaits rather than
- * fire-and-forgetting: exiting mid-write is exactly the "row left `running`
- * with nothing running" state the reapers exist to clean up, and there is no
- * reason to create work for the next boot when the write takes milliseconds.
+ * Cancelling a conversion writes to the database (it resets the source row to
+ * `none`), so it is awaited: exiting mid-write is exactly the "row left
+ * `running` with nothing running" state the reapers exist to clean up.
+ *
+ * `app.close()` runs the app's `preClose` hooks first, and the Jukebox's
+ * answers the bot's held long poll: Fastify waits for requests in flight, so
+ * a poll left waiting would hold the shutdown for the rest of its wait.
  */
-async function shutdown(signal: string): Promise<void> {
+closeWithGrace({ delay: SHUTDOWN_DELAY_MS, logger: app.log }, async ({ signal, err }) => {
+  if (err) app.log.error({ err }, "closing on an uncaught error");
   const cancelled = await cancelAllConverts();
   if (cancelled > 0) app.log.info({ signal, cancelled }, "cancelled conversions on shutdown");
   // LaTeX compiles have no child process to orphan — the engine is in-process
@@ -192,16 +215,6 @@ async function shutdown(signal: string): Promise<void> {
   await app.close();
   // Last, so nothing above can find the pool already destroyed.
   await closeDatabase();
-  process.exit(0);
-}
-
-for (const signal of ["SIGTERM", "SIGINT"] as const) {
-  process.once(signal, () => {
-    void shutdown(signal).catch((err) => {
-      app.log.error({ err }, "shutdown failed");
-      process.exit(1);
-    });
-  });
-}
+});
 
 void start();

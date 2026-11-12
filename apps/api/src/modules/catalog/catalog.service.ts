@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import type { FastifyBaseLogger } from "fastify";
 import { kindForFormat, type CatalogSearchParams, type CatalogSearchResponse } from "@ebook-reader/shared";
-import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../common/config.js";
+import { LIBRARY_FILES_DIR, MAX_UPLOAD_BYTES, THUMBNAILS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor } from "../../common/paths.js";
 import { extractMeta } from "../library/extract.service.js";
 import { insertBook } from "../library/library.model.js";

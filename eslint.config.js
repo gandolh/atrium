@@ -20,8 +20,8 @@ export default [
     // reach (module-level state, recorded in scripts/conventions.json).
     console: [
       "apps/api/src/scripts/seed-user.ts",
-      "apps/api/src/index.ts",
-      "apps/api/src/common/config.ts",
+      "apps/api/src/server.ts",
+      "apps/api/src/config.ts",
       "apps/api/src/database/migrations/20260830000000-baseline.ts",
       "apps/api/src/database/migrations/20260925000000-prune-cutover-orphans.ts",
       "apps/api/src/modules/latex/latex-compile.service.ts",
@@ -67,17 +67,6 @@ export default [
     // on, this block goes.
     name: "atrium/no-unnecessary-type-assertion-off",
     rules: { "@typescript-eslint/no-unnecessary-type-assertion": "off" },
-  },
-  {
-    // Warnings for now (2026-11-11): these files still read the environment themselves. When the API takes
-    // its settings from config.ts, this block goes and the rule is an error again.
-    name: "atrium/process-env-warns",
-    files: [
-      "apps/api/src/index.ts",
-      "apps/api/src/modules/library/calibre.service.ts",
-      "apps/api/src/scripts/seed-user.ts",
-    ],
-    rules: { "n/no-process-env": "warn" },
   },
   {
     // Warnings for now (2026-11-11): react-hooks 7.1.1's compiler rules find 27 refs, 17 set-state-in-effect,

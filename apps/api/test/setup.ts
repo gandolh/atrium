@@ -48,7 +48,7 @@ Object.assign(process.env, {
   PUBLIC_ORIGIN: "http://localhost:5173",
 });
 
-const config = await import("../src/common/config.js");
+const config = await import("../src/config.js");
 const resolved = {
   DATA_DIR: config.DATA_DIR,
   DB_PATH: config.DB_PATH,

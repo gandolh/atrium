@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { getDefaultProfile, getProfile, type ProfileRow } from "../profiles/profiles.model.js";
 import { getSelectedProfileId } from "../profiles/profile-selection.model.js";
 import { ensureDefaultProfile } from "../../database/bootstrap.js";
-import { API_PREFIX, APP_PREFIX, PUBLIC_ORIGIN } from "../../common/config.js";
+import { API_PREFIX, APP_PREFIX, PUBLIC_ORIGIN } from "../../config.js";
 import { wardAuth, type Accounts, type WardClient } from "../../../vendor/ward/ward-auth.js";
 
 /**
@@ -111,7 +111,7 @@ export interface AuthGuardOptions {
   /** From `openAccounts()` (`database/auth-store.ts`). */
   accounts: Accounts;
   /**
-   * "Sign in with Ward". `index.ts` builds it from the `WARD_OIDC_*` variables;
+   * "Sign in with Ward". `server.ts` builds it from the `WARD_OIDC_*` variables;
    * tests inject one over a fake `fetch`. Absent, atrium has local accounts
    * only, and a session that began with Ward is refused (`ward_unavailable`).
    */

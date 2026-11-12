@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { childProcessEnv } from "../../config.js";
 
 /**
  * Thin wrapper around Calibre's `ebook-convert` binary (decisions.md D5).
@@ -16,7 +17,7 @@ const EBOOK_CONVERT = "ebook-convert";
  * mismatch. Spawn with PYTHONNOUSERSITE=1 so conversions are immune to the
  * user's Python environment.
  */
-const CALIBRE_ENV = { ...process.env, PYTHONNOUSERSITE: "1" };
+const CALIBRE_ENV = childProcessEnv({ PYTHONNOUSERSITE: "1" });
 
 export type ConvertOutcome =
   /** Conversion produced the output PDF. */

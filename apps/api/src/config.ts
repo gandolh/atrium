@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { z } from "zod";
-import { maxUploadBytesFromMb } from "@ebook-reader/shared";
+import { JUKEBOX_MAX_WAIT_SECONDS, maxUploadBytesFromMb } from "@ebook-reader/shared";
 
 /**
  * Runtime configuration, resolved once from the environment and validated at
@@ -15,11 +15,11 @@ import { maxUploadBytesFromMb } from "@ebook-reader/shared";
  * this database, managed by Ward's vendored library (`vendor/ward/`). What is
  * here is where the browser reaches atrium, which the session cookie and the
  * library's same-origin check need. "Sign in with Ward" reads its own five
- * `WARD_OIDC_*` variables in `index.ts`, never here, so a test run cannot pick
+ * `WARD_OIDC_*` variables in `server.ts`, never here, so a test run cannot pick
  * up the repo-root `.env`'s real issuer by importing this file.
  */
 
-const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src/common (or dist/common)
+const HERE = dirname(fileURLToPath(import.meta.url)); // apps/api/src (or dist)
 
 /**
  * The API package's directory: the first directory above this file whose
@@ -284,3 +284,62 @@ export const NOTE_MAX_BYTES = Math.floor(maxUploadBytesFromMb(NOTE_MAX_MB));
  * slash is trimmed so URL joins are predictable.
  */
 export const GUTENDEX_BASE_URL = (process.env.GUTENDEX_BASE_URL?.trim() || "https://gutendex.com").replace(/\/+$/, "");
+
+/**
+ * `AUTH_TRUSTED_PROXIES`, one comma- or space-separated string, as a list: the
+ * proxies whose `X-Forwarded-For` the server believes. Ward's library reads the
+ * same variable for its sign-in lockout; `server.ts` hands this list to
+ * Fastify's `trustProxy`, so the request log shows the client, not the proxy.
+ * Blank or unset is an empty list.
+ */
+export const TRUSTED_PROXIES: readonly string[] = (process.env.AUTH_TRUSTED_PROXIES ?? "")
+  .split(/[\s,]+/)
+  .filter((entry) => entry !== "");
+
+/**
+ * Whether `server.ts` warns that `AUTH_TRUSTED_PROXIES` is unset: when the
+ * server listens beyond loopback, as it does in the container (`HOST=0.0.0.0`),
+ * a proxy sits in front of it, and without the variable every client shares
+ * one sign-in lockout counter. On loopback the dev proxy is local, and the
+ * library always trusts loopback.
+ */
+export const WARN_WITHOUT_TRUSTED_PROXIES = !["127.0.0.1", "::1", "localhost"].includes(HOST);
+
+/**
+ * How long a connection may stay silent, in ms (Fastify's `connectionTimeout`).
+ * The longest silent answers are a LaTeX compile (up to `LATEX_TIMEOUT_MS`,
+ * the route waits for it) and the bot's long poll (up to
+ * `JUKEBOX_MAX_WAIT_SECONDS`); half a minute above the longer of the two.
+ */
+export const CONNECTION_TIMEOUT_MS = Math.max(LATEX_TIMEOUT_MS, JUKEBOX_MAX_WAIT_SECONDS * 1000) + 30_000;
+
+/** Above Caddy's two-minute idle keep-alive to its upstreams, so the proxy closes an idle connection first. */
+export const KEEP_ALIVE_TIMEOUT_MS = 125_000;
+
+/**
+ * No ceiling on a whole request (Fastify's `requestTimeout`, 0): a 50 MB
+ * upload on a slow line, a compile and a publish all run long, and the
+ * connection timeout above already ends one that goes silent.
+ */
+export const REQUEST_TIMEOUT_MS = 0;
+
+/** How long a shutdown may take before the process exits anyway (close-with-grace's delay). */
+export const SHUTDOWN_DELAY_MS = 10_000;
+
+/**
+ * The seed command's settings: `SEED_USERNAME`, `SEED_PASSWORD` and
+ * `SEED_ROLE`, each blank when unset (the command then asks in a terminal).
+ * A function, so only the command reads them.
+ */
+export function loadSeedConfig(): { username: string; password: string; role: string } {
+  return {
+    username: process.env.SEED_USERNAME?.trim() ?? "",
+    password: process.env.SEED_PASSWORD ?? "",
+    role: process.env.SEED_ROLE?.trim() ?? "",
+  };
+}
+
+/** The environment a child process runs with: this process's, plus `extra`. */
+export function childProcessEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
+  return { ...process.env, ...extra };
+}

@@ -12,7 +12,7 @@ import {
   latexFileSchema,
   latexProjectSchema,
 } from "@ebook-reader/shared";
-import { DOCUMENT_VERSIONS_DIR } from "../../common/config.js";
+import { DOCUMENT_VERSIONS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor, versionZipPathFor } from "../../common/paths.js";
 import { toLibraryBook } from "../library/library.mapper.js";
 import { deleteBook, getBook, insertBook } from "../library/library.model.js";

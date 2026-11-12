@@ -2,6 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { seedUsers, type Accounts } from "../../vendor/ward/ward-auth.js";
 import { openMigratedAccounts } from "../database/bootstrap.js";
+import { loadSeedConfig } from "../config.js";
 import { closeDatabase } from "../database/knex.js";
 import { JUKEBOX_ROLE, MEMBER_ROLE } from "../modules/auth/auth.guard.js";
 
@@ -64,10 +65,11 @@ function parseArgs(args: readonly string[]): { setPassword: boolean } {
 }
 
 async function ask(setPassword: boolean): Promise<{ username: string; password: string; role: string }> {
-  let username = process.env.SEED_USERNAME?.trim() ?? "";
-  let password = process.env.SEED_PASSWORD ?? "";
+  const seed = loadSeedConfig();
+  let username = seed.username;
+  let password = seed.password;
   // `--set-password` never changes a role, so it neither reads nor asks for one.
-  let role = setPassword ? MEMBER_ROLE : (process.env.SEED_ROLE?.trim() ?? "");
+  let role = setPassword ? MEMBER_ROLE : seed.role;
   if (username && password) return { username, password, role: role || MEMBER_ROLE };
 
   if (!process.stdin.isTTY) {

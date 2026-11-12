@@ -1,6 +1,6 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import multipart from "@fastify/multipart";
-import { MAX_UPLOAD_BYTES } from "./common/config.js";
+import { MAX_UPLOAD_BYTES } from "./config.js";
 import { registerCatalogRoutes } from "./modules/catalog/catalog.controller.js";
 import { registerJukeboxRoutes } from "./modules/jukebox/jukebox.controller.js";
 import { registerLatexRoutes } from "./modules/latex/latex.controller.js";
@@ -15,18 +15,23 @@ import type { Accounts, WardClient } from "../vendor/ward/ward-auth.js";
  * Build the Fastify instance: the auth guard, plugins, then every module's
  * routes.
  *
- * Separate from `index.ts` so that constructing the app and *running* it are
- * two different acts — `index.ts` owns the database bootstrap, the listen and
+ * Separate from `server.ts` so that constructing the app and *running* it are
+ * two different acts — `server.ts` owns the database bootstrap, the listen and
  * the shutdown handlers, and this owns what the app is made of. It is also what
  * makes the app reachable from `app.inject` without a process listening on a
  * port.
  *
- * Both options are the seam. `index.ts` opens the accounts on the
+ * The first two options are the seam. `server.ts` opens the accounts on the
  * real database and builds the Ward client from the environment; a test passes
  * accounts on its scratch database and, when it needs one, a Ward client over
  * a fake `fetch`. Without `wardClient` atrium has local accounts only.
  */
-export async function buildApp(options: { accounts: Accounts; wardClient?: WardClient }): Promise<FastifyInstance> {
+export async function buildApp(options: {
+  accounts: Accounts;
+  wardClient?: WardClient;
+  /** The process's server options: the logger, `trustProxy` and the timeouts (`server.ts`). Tests leave it out. */
+  server?: FastifyServerOptions;
+}): Promise<FastifyInstance> {
   /*
    * No `?token=` log redaction: no credential ever reaches a URL. Cover
    * `<img>` tags used to carry the session token in the query string, because
@@ -34,7 +39,7 @@ export async function buildApp(options: { accounts: Accounts; wardClient?: WardC
    * scoped to the API prefix (D58), and every cover and media URL is built
    * under that prefix, so the browser attaches it on its own.
    */
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: true, ...options.server });
 
   /**
    * One app-wide error handler. Set before anything is registered,

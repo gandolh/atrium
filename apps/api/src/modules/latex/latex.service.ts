@@ -11,7 +11,7 @@ import {
   type LatexFile,
   type LatexProject,
 } from "@ebook-reader/shared";
-import { LATEX_MAX_PROJECT_BYTES, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../../common/config.js";
+import { LATEX_MAX_PROJECT_BYTES, LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../../config.js";
 import { coverPathFor, filePathFor, projectDirFor, versionPdfPathFor } from "../../common/paths.js";
 import { extractMeta } from "../library/extract.service.js";
 import { updatePublishedBook } from "../library/library.model.js";

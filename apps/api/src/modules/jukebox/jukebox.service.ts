@@ -802,6 +802,16 @@ async function idleAfterRestart(): Promise<void> {
 }
 
 /**
+ * Answer every waiting long poll now, empty, as if the bot had hung up. The
+ * shutdown calls it (the app's `preClose` hook): Fastify closes only once the
+ * requests in flight finish, and a held poll would otherwise keep the process
+ * up for its whole wait. The bot polls again and finds the server gone.
+ */
+export function releaseLongPolls(): void {
+  commandEvents.emit("release");
+}
+
+/**
  * The bot's long-poll. Without `after` it answers at once with the current
  * cursor, so commands written while the bot was away are dropped, and it
  * marks the restart (`idleAfterRestart`). With
@@ -830,14 +840,17 @@ export async function pollCommands(
       const done = () => {
         clearTimeout(timer);
         commandEvents.off("command", done);
+        commandEvents.off("release", hangUp);
         resolve();
+      };
+      const hangUp = () => {
+        gone = true;
+        done();
       };
       const timer = setTimeout(done, waitSeconds * 1000);
       commandEvents.on("command", done);
-      onClose(() => {
-        gone = true;
-        done();
-      });
+      commandEvents.on("release", hangUp);
+      onClose(hangUp);
     });
     // A bot that hung up is not seen: stamping now would keep it online for
     // another 30 seconds after it stopped.

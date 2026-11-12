@@ -2,7 +2,7 @@ import { before, after, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, existsSync } from "node:fs";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../src/common/config.js";
+import { LIBRARY_FILES_DIR, THUMBNAILS_DIR } from "../src/config.js";
 import { buildTestApp, type TestApp } from "./harness.js";
 
 /** A one-page PDF, made here so the suite carries no binary fixture. */

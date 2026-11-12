@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { DB_PATH } from "../src/common/config.js";
+import { DB_PATH } from "../src/config.js";
 import { filePathFor } from "../src/common/paths.js";
 import { isCalibreAvailable } from "../src/modules/library/calibre.service.js";
 import { buildTestApp, type TestApp } from "./harness.js";

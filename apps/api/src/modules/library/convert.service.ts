@@ -6,7 +6,7 @@ import AdmZip from "adm-zip";
 import { pdf } from "pdf-to-img";
 import { convertTargetForFormat, type ConvertStatus, type FileType } from "@ebook-reader/shared";
 import { startEbookConvert, type RunningConvert } from "./calibre.service.js";
-import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "../../common/config.js";
+import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "../../config.js";
 import { filePathFor } from "../../common/paths.js";
 import {
   getConvertedBook,

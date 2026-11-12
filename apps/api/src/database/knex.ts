@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import knexFactory, { type Knex } from "knex";
-import { DATA_DIR, DB_PATH } from "../common/config.js";
+import { DATA_DIR, DB_PATH } from "../config.js";
 
 /**
  * The single Knex instance every model in the app queries through (D24, as

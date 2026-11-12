@@ -1,13 +1,13 @@
 import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { FastifyBaseLogger } from "fastify";
-import { THUMBNAILS_DIR } from "../../common/config.js";
+import { THUMBNAILS_DIR } from "../../config.js";
 import { coverOwnerId, coverPathFor, filePathFor } from "../../common/paths.js";
 import { extractMeta } from "./extract.service.js";
 import { listBooks, listBooksNeedingMetadata, updateBookMetadata } from "./library.model.js";
 
 /**
- * Unattended library maintenance, fired and forgotten from `index.ts` after
+ * Unattended library maintenance, fired and forgotten from `server.ts` after
  * `listen`. Neither of these may ever stop the API serving, so both catch their
  * own failures and both log what they did — including when they did nothing.
  */
@@ -122,7 +122,7 @@ export interface OrphanThumbnailSweepOverrides {
  * costs a few orphan files on a library with no books; guessing costs every
  * cover in a library that has them.
  *
- * Fired and forgotten from `index.ts` after `listen`, like
+ * Fired and forgotten from `server.ts` after `listen`, like
  * `backfillLibraryMetadata` — a failure must never stop the API serving.
  */
 export async function sweepOrphanThumbnails(

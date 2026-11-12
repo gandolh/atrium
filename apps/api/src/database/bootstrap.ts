@@ -8,7 +8,7 @@ import {
   LATEX_PROJECTS_DIR,
   LIBRARY_FILES_DIR,
   THUMBNAILS_DIR,
-} from "../common/config.js";
+} from "../config.js";
 import { knex } from "./knex.js";
 import { migrationSource } from "./migrations/index.js";
 import { isUniqueViolation } from "./errors.js";
@@ -29,7 +29,7 @@ import type { Accounts } from "../../vendor/ward/ward-auth.js";
  *
  * Under the old `better-sqlite3` layer all of this happened as a side effect of
  * importing `db.ts`, synchronously, before anything could ask whether it had
- * worked. It is now an awaited step in `index.ts` that runs before
+ * worked. It is now an awaited step in `server.ts` that runs before
  * `app.listen()`, so a failure here stops the server from coming up at all
  * instead of being discovered by the first request that reads a missing column.
  */
@@ -162,7 +162,7 @@ export interface BootDatabase {
 /**
  * The full boot sequence: schema first, then the accounts (D58), then the two
  * job reapers. Answers the accounts, which the app's guard is built from, and
- * the accounts this boot migrated, which `index.ts` logs (`logMigratedAccounts`).
+ * the accounts this boot migrated, which `server.ts` logs (`logMigratedAccounts`).
  *
  * The accounts open on this same database (`auth-store.ts`) only after the
  * fresh-database check, because opening them opens the connection, and the

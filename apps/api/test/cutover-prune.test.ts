@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { LIBRARY_FILES_DIR } from "../src/common/config.js";
+import { LIBRARY_FILES_DIR } from "../src/config.js";
 import { filePathFor } from "../src/common/paths.js";
 import { runMigrations } from "../src/database/bootstrap.js";
 import { closeDatabase, knex } from "../src/database/knex.js";

@@ -9,7 +9,7 @@ import {
   type Diagnostic,
   type LatexCompileResult,
 } from "@ebook-reader/shared";
-import { LATEX_MAX_OUTPUT_BYTES, LATEX_MAX_PROJECT_BYTES, LATEX_TIMEOUT_MS } from "../../common/config.js";
+import { LATEX_MAX_OUTPUT_BYTES, LATEX_MAX_PROJECT_BYTES, LATEX_TIMEOUT_MS } from "../../config.js";
 import { projectDirFor } from "../../common/paths.js";
 import {
   getRunningLatexCompile,

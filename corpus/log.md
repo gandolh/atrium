@@ -986,7 +986,7 @@ briefs/done/35-profiles.md.
 
 Owner asked for PDF→EPUB conversion with "show EPUB" / "show original" on PDF
 books. Research finding that shapes the brief: `runEbookConvert`
-([calibre.service.ts](../apps/api/src/modules/library/calibre.service.ts)) is **already format-agnostic** —
+([calibre.service.ts](../apps/api/src/features/library/calibre.service.ts)) is **already format-agnostic** —
 Calibre infers both formats from the extensions, so `in.pdf → out.epub` needs no
 change to the spawn wrapper; and `filePathFor(id, format)` already yields a
 free, non-colliding `library/<id>.epub` beside the PDF. What is *not* reusable is
@@ -1197,7 +1197,7 @@ alone** — both are immutable historical records. `bash corpus/lint.sh` passes
 Continued the HANDOFF (`corpus/HANDOFF.md`, retired 2026-08-29) — picked up three of its open follow-ups.
 
 **#1 Stale covers (open-questions):** new startup reconcile `reconcileMissingCovers`
-in [library.controller.ts](../apps/api/src/modules/library/library.controller.ts) nulls `cover_path` when
+in [library.controller.ts](../apps/api/src/features/library/routes.ts) nulls `cover_path` when
 the thumbnail file is gone (stale absolute-path rows from another box), so
 `hasCover` reports false and the client renders its fallback tile instead of
 firing the doomed cover request that surfaced as `ERR_BLOCKED_BY_ORB`. Fired off

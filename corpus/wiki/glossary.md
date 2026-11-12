@@ -173,22 +173,22 @@ _Avoid_: the theme, the style guide, the design language, **Quiet Paper** and
 **Quiet Gallery** (both retired 2026-08-24 — the two names the previous system
 drifted between)
 
-## API layering (D47)
+## API layering (D47, the house code structure since 2026-11-12, D62)
 
-**Model**:
-A module's data-access file and the ONLY code allowed to query its tables — async
-Knex functions, not a domain object. `library.model.ts` owns `books`.
-_Avoid_: repository, DAO, entity, row object
+**Store**:
+A feature's (`features/<name>/`, once a module) data-access file, the ONLY code that queries its tables;
+one another feature reads lives in `db/`, as `db/library-store.ts` owns `books`.
+_Avoid_: model (the old name), repository, DAO, entity, row object
 
 **Service**:
-Where a module's rules live. Decides, orchestrates, touches the filesystem, and
+Where a feature's rules live. Decides, orchestrates, touches the filesystem, and
 returns a **tagged union** for any normal answer — never a status code.
 _Avoid_: manager, handler, use case, business logic layer
 
-**Controller**:
-A module's HTTP file: validate, pick the status code, stream bytes. No rules, no
-queries.
-_Avoid_: router, routes file, endpoint, handler
+**Routes**:
+A feature's HTTP file, `routes.ts`: routes that declare their zod schemas, pick the status
+code and stream bytes. No rules, no queries.
+_Avoid_: controller (the old name), router, endpoint, handler
 
 **Baseline migration**:
 `20260830000000-baseline.ts` — the one **idempotent** migration, needed because

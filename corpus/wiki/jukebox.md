@@ -1,5 +1,5 @@
 ---
-summary: How the Jukebox works end to end — the bot account's allowlist, atrium-owned Players in SQLite, the command long-poll, the next-Track and status rules (restart, lost voice, stale reports), and the /jukebox page. Read before touching modules/jukebox, apps/web/src/jukebox or just-a-bot's link.
+summary: How the Jukebox works end to end — the bot account's allowlist, atrium-owned Players in SQLite, the command long-poll, the next-Track and status rules (restart, lost voice, stale reports), and the /jukebox page. Read before touching features/jukebox, apps/web/src/jukebox or just-a-bot's link.
 updated: 2026-11-02
 ---
 
@@ -22,7 +22,7 @@ lasts at most 30 days, and 14 without use, so the bot must sign in again rather
 than keep one cookie for good. Its password sign-ins share the lockout with
 everyone's, so the deploy needs `AUTH_TRUSTED_PROXIES` (2026-10-27), or anyone's
 wrong passwords lock the bot out too. The guard
-([`auth.guard.ts`](../../apps/api/src/modules/auth/auth.guard.ts)) sets
+([`plugins/auth`](../../apps/api/src/plugins/auth/index.ts)) sets
 `request.jukeboxOnly` and limits that account to `/jukebox/*`, its own
 `/auth/*` routes, and `GET /library/:id/file` and `/cover`, matched on the
 route pattern. The file and cover handlers refuse anything not `audio`. The
@@ -32,7 +32,7 @@ anyone else, so only the bot reports status.
 
 ## State lives in atrium
 
-`modules/jukebox/` keeps one `jukebox_players` row per guild, plus its Queue,
+`features/jukebox/` keeps one `jukebox_players` row per guild, plus its Queue,
 its play history (newest 100) and the commands waiting for the bot. Every
 change runs in one transaction on the single connection (D47), and a change
 the bot must act on is written to `jukebox_commands`. The shared contract is

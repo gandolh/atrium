@@ -1,5 +1,5 @@
 ---
-summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's module/controller/service/model layering, Knex migrations, the auth guard, and the upload→store→read data flow.
+summary: How the app is put together — the npm-workspaces monorepo (web/api/shared), the API's feature folders (routes/service/store, the house code structure), Knex migrations, the auth guard, and the upload→store→read data flow.
 updated: 2026-11-02
 ---
 
@@ -67,7 +67,7 @@ lazy `AudioPlayer`/`VideoPlayer` (native controls, a plain `src` the
 `reading_progress` PATCH). Offline downloads remain
 books-only; no transcoding/ffmpeg.
 
-**Accounts are atrium's own (D58)**, on Ward's vendored library (`apps/api/vendor/ward`): an `onRequest` guard in front of everything, the library's plugin first and then atrium's hook (`modules/auth/auth.guard.ts`). Its tables are `auth_users`, `auth_sessions`, `auth_ward_links`; the boot task `database/ward-subjects.ts` made every D53-era subject a local user with that id.
+**Accounts are atrium's own (D58)**, on Ward's vendored library (`apps/api/vendor/ward`): an `onRequest` guard in front of everything, the library's plugin first and then atrium's hook (`plugins/auth/index.ts`). Its tables are `auth_users`, `auth_sessions`, `auth_ward_links`; the boot task `db/ward-subjects.ts` made every D53-era subject a local user with that id.
 ```
 every request ──atrium_session cookie (Path=/atrium-api)──► session row (opaque token, stored hashed)
      → 401 unauthorized   (no/expired session; the web gate shows atrium's login page in place; the LaTeX and Notes editors keep unsaved work on the device, web lib/unsaved-stash.ts)
@@ -126,7 +126,7 @@ that last being D34's linked-row rule (a converted book shares its source's
 thumbnail). Bytes live on disk; the disk is also the sole authority on whether
 a cover exists, so `hasCover` is a `stat` rather than a column and cannot drift.
 
-Tables (created by `src/database/migrations/`, queried by each module's model):
+Tables (created by `src/db/migrations/`, queried by each feature's store):
 - `books`: `id, title, author, format, size_bytes, progress, created_at,
   last_opened_at, series, series_index, subjects, source, source_id, kind,
   duration_seconds, converted_from, convert_status, convert_error,
@@ -157,7 +157,7 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
 - `profile_selections`: `(subject, sid) PK → profile_id → profiles ON DELETE
   CASCADE, updated_at` — which profile a device last activated, keyed on the
   session's id hash so switching on one device does not switch the others
-  (`profiles/profile-selection.model.ts`).
+  (`db/profile-selection-store.ts`).
 - `reading_progress`: `(profile_id, book_id) PK` → `progress, locator,
   updated_at`, both FKs `ON DELETE CASCADE` — progress + resume position, keyed
   on the **profile** since D35 (was `user_id`; the composite PK meant SQLite
@@ -165,8 +165,8 @@ Tables (created by `src/database/migrations/`, queried by each module's model):
 
 ## Backend layering (`apps/api/src`)
 
-Six domain modules, each **controller** (HTTP) / **service** (rules) / **model**
-(SQL), plus `database/`, `common/`, and `app.ts` split from `index.ts` (D47).
+Features under `features/<name>/`, each **routes** / **service** / **store**, used through
+its `index.ts`, plus `plugins/`, `db/`, `lib/`, `config.ts` and `server.ts` (D47, D62).
 Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
 
 ## Frontend stack (`apps/web`)
@@ -190,7 +190,7 @@ Full layout, per-layer rules and migrations: [api-layering.md](api-layering.md).
   `GET /library/:id/file`, `GET /library/:id/cover`,
   `PATCH /library/:id/progress`, `DELETE /library/:id`, and the convert pair
   `POST /library/:id/convert` / `DELETE /library/:id/convert` (D34).
-- **Auth guard** (D58, `modules/auth/`, library in `vendor/ward/`): see the diagram above; a stale selected profile falls back to the default, never a 401.
+- **Auth guard** (D58, `plugins/auth/`, library in `vendor/ward/`): see the diagram above; a stale selected profile falls back to the default, never a 401.
 - **Cover extraction** (D26): EPUB OPF manifest cover; PDF page-1 render → JPEG.
 - **Conversion** (D34): `POST`/`DELETE /library/:id/convert`, an async job
   shelling out to Calibre `ebook-convert`; the stateless `POST /convert` is gone.

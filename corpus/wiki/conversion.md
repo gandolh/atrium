@@ -26,7 +26,7 @@ have — so neither reader changed. And a third format later is another row, not
 another column pair.
 
 The cost is one `WHERE converted_from IS NULL` on the three list statements in
-[library.model.ts](../../apps/api/src/modules/library/library.model.ts). Because cross-library
+[db/library-store.ts](../../apps/api/src/db/library-store.ts). Because cross-library
 search, kind chips, grouping and counts are all **client-side over that list**,
 they inherit the hiding from those three statements and nowhere else — which is
 the thing to remember before adding a fourth.
@@ -86,12 +86,12 @@ it is why the switch matters more than the conversion quality.
 
 ## Where it lives
 
-- [convert.service.ts](../../apps/api/src/modules/library/convert.service.ts) — the runner, the
+- [convert.service.ts](../../apps/api/src/features/library/convert.service.ts) — the runner, the
   single-flight guard, the quality gate, the boot sweep.
-- [calibre.service.ts](../../apps/api/src/modules/library/calibre.service.ts) — the `ebook-convert` wrapper. The tests that need Calibre probe for it once and skip with "Calibre not installed" when it is missing (2026-10-27).
+- [calibre.service.ts](../../apps/api/src/features/library/calibre.service.ts) — the `ebook-convert` wrapper. The tests that need Calibre probe for it once and skip with "Calibre not installed" when it is missing (2026-10-27).
   Format-agnostic; it always was. Spawns with `PYTHONNOUSERSITE=1` so a pip
   `lxml` can't shadow the distro one — load-bearing, not theoretical.
-- [library.controller.ts](../../apps/api/src/modules/library/library.controller.ts) — convert, cancel /
+- [features/library/routes.ts](../../apps/api/src/features/library/routes.ts) — convert, cancel /
   delete-conversion, and the delete paths that must never unlink a **shared
   cover** (a converted book reuses its source's thumbnail rather than
   re-extracting).

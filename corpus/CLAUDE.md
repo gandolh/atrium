@@ -94,7 +94,7 @@ Calibre (D34) and a LaTeX editor with its own typesetting engine. **Accounts
 are atrium's own (D58):** its login page signs in with a local password, and
 "Sign in with Ward" is a second way in, both on Ward's vendored library
 (`apps/*/vendor/ward/`, never edited). An app-wide guard checks the
-`atrium_session` cookie (`apps/api/src/modules/auth/`); profiles live inside an
+`atrium_session` cookie (`apps/api/src/plugins/auth/`); profiles live inside an
 account, keyed on its id (`profiles.subject`).
 The internal npm scope `@ebook-reader/*` and the `books`/`library` code nouns are
 deliberately kept (D32) — see `corpus/wiki/glossary.md`. Start at `corpus/wiki/overview.md`.

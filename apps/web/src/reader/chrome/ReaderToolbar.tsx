@@ -82,7 +82,7 @@ export function ReaderToolbar({
           shrinks instead; `overflow-hidden` clips any residual rather than
           letting it spill over the centre. */}
       <div
-        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-card border border-reader-border/80 bg-reader-surface/95 px-2 py-2 shadow-l1 backdrop-blur-sm sm:gap-3 sm:px-3 ${
+        className={`mx-auto mb-3 grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 rounded-tile border border-reader-border bg-reader-surface p-1 shadow-float max-[820px]:mb-0 max-[820px]:max-w-none max-[820px]:rounded-none max-[820px]:border-x-0 max-[820px]:border-b-0 max-[820px]:pb-[calc(4px+env(safe-area-inset-bottom,0px))] max-[820px]:shadow-bar sm:gap-3 sm:px-2 ${
           visible ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
@@ -117,7 +117,7 @@ export function ToolbarButton({
   children: ReactNode;
 }) {
   const look =
-    "grid h-9 min-w-9 place-items-center rounded-card px-2 text-reader-fg/80 transition hover:bg-reader-bg disabled:opacity-30";
+    "grid h-11 min-w-11 place-items-center rounded-card px-2 text-reader-fg transition hover:bg-reader-bg focus-visible:outline-2 focus-visible:outline-reader-accent disabled:opacity-40";
   // A button that is on or off (the contents, the invert, the reading mode) is a Toggle; the rest are plain buttons.
   if (active === undefined) {
     return (
@@ -133,7 +133,7 @@ export function ToolbarButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className={`${look} data-pressed:bg-reader-accent/15 data-pressed:text-reader-accent`}
+      className={`${look} data-pressed:bg-place-current data-pressed:text-on-place-current`}
     >
       {children}
     </Toggle>

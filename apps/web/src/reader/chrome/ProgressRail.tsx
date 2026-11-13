@@ -224,7 +224,7 @@ export function ProgressRail({
         }}
       >
         <div
-          className={`absolute inset-x-0 bottom-0 bg-reader-border/60 transition-all duration-150 group-hover:h-[8px] group-focus-visible:h-[8px] group-focus-visible:ring-1 group-focus-visible:ring-reader-accent ${
+          className={`absolute inset-x-0 bottom-0 bg-reader-border transition-all duration-150 group-hover:h-[8px] group-focus-visible:h-[8px] group-focus-visible:ring-1 group-focus-visible:ring-reader-accent ${
             dragging ? "h-[8px]" : "h-[4px]"
           }`}
         >

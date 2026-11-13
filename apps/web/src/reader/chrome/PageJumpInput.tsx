@@ -63,13 +63,13 @@ export function PageJumpInput({
   const fieldCh = Math.max(String(total ?? 999).length, 3);
 
   return (
-    <div className="flex shrink-0 items-center gap-2 text-sm text-reader-fg/80" aria-live="off">
+    <div className="flex shrink-0 items-center gap-2 text-ui font-normal text-reader-fg/70" aria-live="off">
       {canJump ? (
         <span className="flex items-center gap-1.5 whitespace-nowrap tabular-nums">
           {/* The unit label, Go button, and % chip drop away on narrow bars so
               the position cluster ("3 / 1020") never clips or overflows the
               pill — blur (or the mobile keyboard's Done/Go) still commits. */}
-          <span className="hidden text-reader-fg/60 sm:inline">{unitLabel}</span>
+          <span className="hidden sm:inline">{unitLabel}</span>
           <input
             ref={inputRef}
             type="text"
@@ -90,9 +90,9 @@ export function PageJumpInput({
               }
             }}
             style={{ width: `${fieldCh + 1.5}ch` }}
-            className="rounded-sm bg-reader-bg px-1 py-0.5 text-center text-reader-fg tabular-nums transition outline-none focus:ring-1 focus:ring-reader-accent"
+            className="h-10 rounded-card border border-outline bg-reader-surface px-1 text-center text-ui font-medium text-reader-fg tabular-nums transition focus-visible:outline-2 focus-visible:outline-reader-accent max-[820px]:h-11"
           />
-          <span className="text-reader-fg/60">/ {total}</span>
+          <span>/ {total}</span>
           <button
             type="button"
             // onMouseDown (before the input's blur) + preventDefault keeps focus
@@ -104,19 +104,15 @@ export function PageJumpInput({
             }}
             aria-label={`Go to ${unitLabel.toLowerCase()}`}
             title="Go"
-            className="hidden rounded-md bg-reader-accent/15 px-2 py-0.5 text-xs font-semibold text-reader-accent transition hover:bg-reader-accent/25 focus-visible:outline-2 focus-visible:outline-reader-accent sm:inline"
+            className="hidden h-10 rounded-card border border-reader-border bg-place-current px-3 text-ui font-semibold text-on-place-current transition hover:bg-paper-container focus-visible:outline-2 focus-visible:outline-reader-accent sm:inline"
           >
             Go
           </button>
         </span>
       ) : (
-        <span className="whitespace-nowrap text-reader-fg/40 tabular-nums">{unitLabel} …</span>
+        <span className="whitespace-nowrap tabular-nums">{unitLabel} …</span>
       )}
-      {percent !== null && (
-        <span className="hidden rounded-sm bg-reader-surface px-1.5 py-0.5 text-xs text-reader-fg/70 tabular-nums md:inline">
-          {percent}%
-        </span>
-      )}
+      {percent !== null && <span className="hidden px-1.5 py-0.5 text-ui tabular-nums md:inline">{percent}%</span>}
     </div>
   );
 }

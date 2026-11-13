@@ -11,7 +11,7 @@ import { ToolbarButton } from "./ReaderToolbar";
 export function HomeButton() {
   const navigate = useNavigate();
   return (
-    <ToolbarButton label="Back to home" onClick={() => void navigate({ to: "/" })}>
+    <ToolbarButton label="Back to library" onClick={() => void navigate({ to: "/" })}>
       <HomeIcon />
     </ToolbarButton>
   );

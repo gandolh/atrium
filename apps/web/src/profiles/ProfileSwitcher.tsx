@@ -15,18 +15,16 @@ import { useActiveProfile, useAuthStore } from "../lib/auth";
 import { profileTintClass } from "../lib/profile-colors";
 
 /**
- * Header entry point (brief step 6, Part B) — always reachable regardless of
- * the 24h picker rule (D35 decision 6), because the "Who's reading?" gate
- * only fires on a stale/missing device choice; a household member switching
- * mid-session needs a door that's open every time. Fits the header's second
- * cluster (`AppHeader`'s "Notes · {actions} · theme" comment) as one more
- * item rather than a new row.
+ * Always reachable regardless of the 24h picker rule (D35 decision 6), because the "Who's reading?" gate only fires on
+ * a stale/missing device choice; a household member switching mid-session needs a door that's open every time. It sits
+ * at the rail's foot at 1280 (`variant="rail"`, full width, the menu opening above it) and in the phone top bar
+ * (`variant="bar"`, compact).
  *
  * Base UI's `Menu`, like `CoverCard`'s per-card overflow menu: Enter, Space or ArrowDown on the trigger opens it, the
  * arrows move, Enter or Space runs an item and Esc closes it and returns to the trigger. The profiles are a radio
  * group of menu items; "Manage profiles" and "Account" (the D58 settings page with sign-out) navigate imperatively.
  */
-export function ProfileSwitcher() {
+export function ProfileSwitcher({ variant = "bar" }: { variant?: "rail" | "bar" }) {
   const active = useActiveProfile();
   const profiles = useAuthStore((s) => s.profiles);
   const switchProfile = useAuthStore((s) => s.switchProfile);
@@ -60,21 +58,26 @@ export function ProfileSwitcher() {
   }
 
   return (
-    <div className="relative shrink-0">
+    <div className={variant === "rail" ? "relative w-full" : "relative shrink-0"}>
       {/* modal={false}: the page stays scrollable and clickable behind the open menu. */}
       <Menu open={open} onOpenChange={setOpen} modal={false}>
-        <MenuTrigger className="flex items-center gap-2 rounded-card px-2 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
+        <MenuTrigger
+          className={`flex h-11 items-center gap-2 rounded-card border border-line bg-paper-raised px-3 font-ui text-ui font-medium text-ink-variant transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent ${variant === "rail" ? "w-full text-left" : ""}`}
+        >
           <ColorSwatch color={active.color} />
-          <span className="max-w-24 truncate text-ink">{active.name}</span>
-          <ChevronGlyph className="h-3 w-3" />
+          <span className={`text-ink ${variant === "rail" ? "min-w-0 flex-1" : "max-w-24 truncate"}`}>
+            {active.name}
+          </span>
+          <ChevronGlyph className="h-4 w-4" />
         </MenuTrigger>
         <MenuPopup
-          align="end"
+          side={variant === "rail" ? "top" : "bottom"}
+          align={variant === "rail" ? "start" : "end"}
           aria-label="Switch profile"
-          className="w-52 overflow-hidden rounded-card border border-line-soft bg-paper-raised shadow-lift"
+          className="w-56 overflow-hidden rounded-card border border-line bg-paper-raised shadow-float"
         >
           <MenuGroup>
-            <MenuGroupLabel className="border-b border-line-soft/60 px-3 py-2 font-ui text-[11px] font-semibold tracking-[0.08em] text-ink-variant uppercase">
+            <MenuGroupLabel className="border-b border-line px-3 py-2 font-ui text-micro font-semibold text-ink-variant">
               Switch profile
             </MenuGroupLabel>
             <MenuRadioGroup value={activeId} onValueChange={(id) => void handleSwitch(id)}>
@@ -86,7 +89,7 @@ export function ProfileSwitcher() {
                   // inside it. Choosing the active profile changes nothing, so it just closes.
                   closeOnClick={profile.id === activeId}
                   disabled={pendingId !== null}
-                  className="flex w-full cursor-default items-center gap-2 px-3 py-2 text-left font-ui text-sm text-ink outline-none data-checked:font-semibold data-checked:text-accent data-disabled:opacity-60 data-highlighted:bg-paper-low"
+                  className="flex w-full cursor-default items-center gap-2 px-3 py-2 text-left font-ui text-ui text-ink outline-none data-checked:font-semibold data-checked:text-accent data-disabled:opacity-60 data-highlighted:bg-paper-low"
                 >
                   <ColorSwatch color={profile.color} />
                   <span className="truncate">{pendingId === profile.id ? "Switching…" : profile.name}</span>
@@ -101,13 +104,13 @@ export function ProfileSwitcher() {
           )}
           <MenuItem
             onClick={() => void navigate({ to: "/profiles" })}
-            className="block w-full cursor-default border-t border-line-soft/60 px-3 py-2 text-left font-ui text-sm text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
+            className="block w-full cursor-default border-t border-line px-3 py-2 text-left font-ui text-ui text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
           >
             Manage profiles
           </MenuItem>
           <MenuItem
             onClick={() => void navigate({ to: "/settings" })}
-            className="block w-full cursor-default px-3 py-2 text-left font-ui text-sm text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
+            className="block w-full cursor-default px-3 py-2 text-left font-ui text-ui text-ink-variant outline-none data-highlighted:bg-paper-low data-highlighted:text-ink"
           >
             Account
           </MenuItem>
@@ -122,17 +125,10 @@ export function ProfileSwitcher() {
  * reserves `rounded-full` for genuinely circular affordances (the scrub rail,
  * the note editor's ink swatches/nib dots) and nothing else, and
  * `profile-colors.ts` says the same thing from the other side: "a square
- * colour swatch reads as a tile" is the point, not an accident. `radius-cover`
- * (2px) is the same small-chip radius `CoverCard`'s artwork and duration
- * caption use.
+ * colour swatch reads as a tile" is the point, not an accident. a 5 px corner.
  */
 function ColorSwatch({ color }: { color: Parameters<typeof profileTintClass>[0] }) {
-  return (
-    <span
-      aria-hidden
-      className={`h-3.5 w-3.5 shrink-0 rounded-(--radius-cover) border border-line-soft/60 ${profileTintClass(color)}`}
-    />
-  );
+  return <span aria-hidden className={`h-4 w-4 shrink-0 rounded-sm border border-line ${profileTintClass(color)}`} />;
 }
 
 function ChevronGlyph({ className }: { className?: string }) {

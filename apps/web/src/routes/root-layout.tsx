@@ -4,14 +4,17 @@ import { Outlet } from "@tanstack/react-router";
 import { AuthGate } from "../auth/AuthGate";
 import { PlaybackHost } from "../player/PlaybackHost";
 import { DOCK_HEIGHT_PX } from "../player/PlayerDock";
+import { AppShell } from "../components/AppShell";
+import { useShellChrome } from "../components/shell-context";
 import { ToastHost } from "../components/ui/Toast";
 import { UpdateToast } from "../pwa/UpdateToast";
 import { usePlaybackStore } from "../store/playback-store";
 
 /**
- * Shared app shell. The library home owns its own header (`AppHeader` —
- * wordmark + search + theme toggle) and the readers are full-screen (`fixed
- * inset-0`), so the shell adds no chrome of its own except the player dock.
+ * Shared app shell. `AppShell` adds the rail (1280) and the bottom bar (phone) around every page but the reader,
+ * which is full-screen (`fixed inset-0`) and keeps its own summoned chrome. Each page's `AppHeader` fills the shell's
+ * slot above the page. The shell publishes `--rail-offset` and `--bar-offset` (see globals.css) so the player dock
+ * clears them.
  *
  * `AuthGate` wraps `<Outlet />` here rather than in `main.tsx`
  * because this is the root *route* component — every route (`/`, `/read`)
@@ -38,6 +41,7 @@ import { usePlaybackStore } from "../store/playback-store";
  */
 export function RootLayout() {
   const dockVisible = usePlaybackStore((s) => s.item !== null);
+  const chrome = useShellChrome();
   const shellStyle = {
     "--dock-height": dockVisible ? `${DOCK_HEIGHT_PX}px` : "0px",
     paddingBottom: "var(--dock-height)",
@@ -45,9 +49,11 @@ export function RootLayout() {
 
   return (
     <ToastHost>
-      <div className="min-h-screen bg-reader-bg text-reader-fg" style={shellStyle}>
+      <div className="min-h-screen bg-reader-bg text-reader-fg" style={shellStyle} data-shell={chrome}>
         <AuthGate>
-          <Outlet />
+          <AppShell>
+            <Outlet />
+          </AppShell>
           <PlaybackHost />
         </AuthGate>
         {/* App-level, outside the auth gate: a new deploy should surface even

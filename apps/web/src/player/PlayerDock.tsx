@@ -53,7 +53,7 @@ export function PlayerDock() {
           exit={{ y: "100%" }}
           transition={transition}
           style={{ height: DOCK_HEIGHT_PX }}
-          className="fixed inset-x-0 bottom-0 z-dock border-t border-line bg-paper-raised"
+          className="fixed right-0 bottom-(--bar-offset) left-(--rail-offset) z-dock border-t border-line bg-paper-raised"
         >
           {/* Phone-only position line — the scrub track's read-only stand-in. */}
           <MiniProgressLine />

@@ -416,6 +416,24 @@
   --container-measure: var(--measure);
 }
 
+/* What the shell's chrome takes from the edges of the screen: the rail at 1280 and wider, the bottom bar on a phone.
+   `data-shell` is set by routes/root-layout.tsx. The player dock clears both, and the shell pads for the bar. */
+[data-shell] {
+  --rail-offset: 0px;
+  --bar-offset: 0px;
+}
+@media (min-width: 821px) {
+  [data-shell="full"] {
+    --rail-offset: var(--width-rail);
+  }
+}
+@media (max-width: 820px) {
+  [data-shell="full"],
+  [data-shell="bar"] {
+    --bar-offset: calc(var(--height-bar) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Native form chrome (select popups, scrollbars) follows the active theme —
    without this the UA paints light dropdown lists inside the dark/sepia app. */
 :root,

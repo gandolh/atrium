@@ -1,214 +1,64 @@
-import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
-import type { Theme } from "../store/reader-store";
-import { useReaderStore } from "../store/reader-store";
 import { ProfileSwitcher } from "../profiles/ProfileSwitcher";
-import { ToggleGroup, ToggleItem } from "./ui/ToggleGroup";
+import { Wordmark } from "./Rail";
+import { useShellSlot } from "./shell-context";
+import { ThemePopover } from "./ThemeSwitch";
 
 /**
- * The persistent app header, shared by every non-reader page (`/`, `/discover`,
- * `/notes`, `/latex`, `/profiles`) so the wordmark, search, Notes, LaTeX, the
- * profile switcher and the theme control never disappear when the page changes.
+ * A page's header, rendered into the shell's slot above the page: the raised band at 1280 (search at the left, the
+ * page's actions at the right) and the raised top bar on a phone (the wordmark, the profile, the theme button and,
+ * right under them, search). The navigation itself is the shell's: the rail and the bottom bar (D63), so the header
+ * carries no links.
  *
- * **The one-home layout (D33 move 1) removed `NavTabs`.** Media kind is no longer an
- * address — `/books` `/music` `/videos` collapsed into `/` where kind is a
- * filter chip (see `library/LibraryHeader`'s `KindChips`), so the header carries
- * no per-kind navigation at all. What remains is app-level only, in **two
- * clusters on one row**:
+ * Every non-reader page uses it. A page with neither search nor actions gets no band at 1280, and the LaTeX
+ * editor, which hides the rail, gets a band with the wordmark so there is a way back.
  *
- *   wordmark · [search slot] ‖ Notes · LaTeX · Jukebox · {actions} · profile · theme
- *
- * Notes stays its own destination (D33g) — it is a peer place, not a kind, so it
- * is a link here rather than a chip in the grid. **The LaTeX editor (D36) adds LaTeX as
- * the same kind of peer**: a draft that lives only at `/latex`, never in the
- * media grid, so it gets the identical link treatment right next to Notes.
- *
- * **The profiles work** adds `ProfileSwitcher` as one more item in the existing right
- * cluster rather than a third cluster — always reachable here regardless of
- * the picker's 24h idle rule (D35 decision 6), since a household member
- * switching mid-session needs a door that's open every time. Placed after
- * `{actions}` and before the theme toggle: the switcher and the theme toggle
- * are both "who/how you read" controls, so they sit together at the row's end.
+ * `actions` fill the band at 1280 only. On a phone the page lays its own actions out under its title (a matched 48 px
+ * pair), so nothing shows twice.
  */
 export function AppHeader({
   caption,
   search,
   actions,
 }: {
-  /** Optional quiet caption under the wordmark (the home's storage usage). */
+  /** A quiet caption (the library's storage usage): in the band at 1280, under the search field on a phone. */
   caption?: ReactNode;
-  /**
-   * SEARCH SLOT — **the cross-library search box goes here**. Rendered between the two clusters in
-   * a `flex-1` box that is `min-w-0` and caps at `sm:max-w-sm`, so whatever goes
-   * in can be a full-width input on a phone and a compact field on a desktop.
-   * Left empty the box collapses (no reserved gap), so every current caller
-   * renders exactly as before.
-   */
+  /** The search field. At 1280 it is the band's left end; on a phone it sits right under the top bar's first row. */
   search?: ReactNode;
-  /** Page-level actions, rendered between the Notes link and the theme toggle. */
+  /** Page-level actions at the band's right end (1280 only). */
   actions?: ReactNode;
 }) {
-  return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-line-soft/50 pb-4">
-      <div className="flex flex-col gap-1">
-        <Link
-          to="/"
-          className="w-fit rounded-sm font-display text-2xl font-semibold tracking-tight text-accent focus-visible:outline-2 focus-visible:outline-accent"
-        >
-          Atrium
-        </Link>
-        {caption}
-      </div>
+  const { slot, chrome } = useShellSlot();
+  if (!slot) return null;
 
-      {/* ── SEARCH SLOT ─────────────────────────────────────────── */}
-      {search && <div className="min-w-0 flex-1 sm:max-w-sm">{search}</div>}
+  const showBand = Boolean(search || actions || caption || chrome === "bar");
 
-      <div className="ml-auto flex flex-wrap items-center gap-3">
-        <NotesLink />
-        <LatexLink />
-        <JukeboxLink />
-        {actions}
-        <ProfileSwitcher />
-        <ThemeToggle />
-      </div>
-    </header>
-  );
-}
-
-/**
- * The one navigational link left in the header: **Notes** as its own
- * destination (D33g), reached from here rather than from a filter chip.
- *
- * The Notes destination owns its **active state** — accent, not ink, since accent "means
- * state only" (design.md) and being on `/notes` is exactly that: a state, not
- * decoration. The base style is a quiet Archivo `label-ui` link. Kept as a
- * separate component (rather than inlined) so the Notes destination has one place to edit.
- */
-function NotesLink() {
-  return (
-    <Link
-      to="/notes"
-      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      activeProps={{ className: "text-accent font-semibold" }}
-    >
-      Notes
-    </Link>
-  );
-}
-
-/**
- * **LaTeX** as its own destination (D36 generalising D33g) — a
- * project is a draft that lives only at `/latex`, never in the media grid, so
- * it gets the same link-not-chip treatment as `NotesLink` right next to it.
- */
-function LatexLink() {
-  return (
-    <Link
-      to="/latex"
-      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      activeProps={{ className: "text-accent font-semibold" }}
-    >
-      LaTeX
-    </Link>
-  );
-}
-
-/**
- * **Jukebox**: the remote for the Discord bot's music. A peer place
- * like Notes and LaTeX, not a kind, so it gets the same link treatment.
- */
-function JukeboxLink() {
-  return (
-    <Link
-      to="/jukebox"
-      className="rounded-sm px-1 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-      activeProps={{ className: "text-accent font-semibold" }}
-    >
-      Jukebox
-    </Link>
-  );
-}
-
-const THEMES: { value: Theme; label: string; glyph: ReactNode }[] = [
-  { value: "light", label: "Light theme", glyph: <SunGlyph /> },
-  { value: "sepia", label: "Warm theme", glyph: <ContrastGlyph /> },
-  { value: "dark", label: "Dark theme", glyph: <MoonGlyph /> },
-  { value: "system", label: "System theme", glyph: <SystemGlyph /> },
-];
-
-/**
- * Segmented light/sepia/dark/system control (design.md mockup's sun/book/moon, and a screen for System, which
- * follows the operating system). Drives the shared reader `theme` store so the library, catalog, and readers
- * stay in sync. The choice is saved to the profile on the server, so this is a guarded `ToggleGroup`
- * (base-ui rule 16): the arrow keys only move focus, and Space, Enter or a click chooses.
- */
-function ThemeToggle() {
-  const theme = useReaderStore((s) => s.theme);
-  const setTheme = useReaderStore((s) => s.setTheme);
-
-  return (
-    <ToggleGroup
-      label="Theme"
-      value={theme}
-      onValueChange={setTheme}
-      className="flex items-center gap-0.5 rounded-full border border-line-soft/60 bg-paper-low p-0.5"
-    >
-      {THEMES.map((t) => (
-        <ToggleItem
-          key={t.value}
-          value={t.value}
-          aria-label={t.label}
-          title={t.label}
-          className="grid h-9 w-11 place-items-center rounded-full text-ink-variant transition hover:not-data-pressed:text-ink data-pressed:bg-paper-raised data-pressed:text-accent data-pressed:shadow-sm"
-        >
-          {t.glyph}
-        </ToggleItem>
-      ))}
-    </ToggleGroup>
-  );
-}
-
-const ICON = "h-4 w-4";
-
-function SunGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
-      <circle cx="12" cy="12" r="4" />
-      <path
-        strokeLinecap="round"
-        d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
-      />
-    </svg>
-  );
-}
-
-// Neutral "warm tone" glyph for the sepia theme — a half-filled contrast disc
-// (a tonal mark, not the old book motif) so the theme control carries no
-// book-specific metaphor in the media gallery.
-function ContrastGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 3a9 9 0 0 0 0 18Z" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function MoonGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />
-    </svg>
-  );
-}
-
-// A screen: the choice that follows the operating system.
-function SystemGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className={ICON} aria-hidden>
-      <rect x="3" y="4" width="18" height="12" rx="2" />
-      <path strokeLinecap="round" d="M8 20h8M12 16v4" />
-    </svg>
+  return createPortal(
+    <>
+      {showBand && (
+        <div className="relative z-sticky hidden border-b border-line bg-paper-raised shadow-l1 min-[821px]:block">
+          <div className="mx-auto flex h-18 w-full max-w-(--container-page) items-center justify-between gap-4 px-8">
+            {chrome === "bar" && <Wordmark />}
+            {search && <div className="max-w-105 min-w-0 flex-1">{search}</div>}
+            {caption && <div className="min-w-0">{caption}</div>}
+            <div className="ml-auto flex items-center gap-3">{actions}</div>
+          </div>
+        </div>
+      )}
+      <header className="relative z-sticky border-b border-line bg-paper-raised shadow-l1 min-[821px]:hidden">
+        <div className="flex h-15 items-center justify-between gap-2 px-4">
+          <Wordmark className="py-2" />
+          <div className="flex items-center gap-2">
+            <ProfileSwitcher variant="bar" />
+            <ThemePopover />
+          </div>
+        </div>
+        {search && <div className="px-4 pb-3">{search}</div>}
+        {caption && <div className="px-4 pb-2">{caption}</div>}
+      </header>
+    </>,
+    slot,
   );
 }

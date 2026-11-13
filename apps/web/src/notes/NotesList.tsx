@@ -4,6 +4,9 @@ import type { NoteFolder, NoteSummary } from "@ebook-reader/shared";
 
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { AppHeader } from "../components/AppHeader";
+import { BUTTON, BUTTON_SOLID } from "../components/button-styles";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
+import { FolderPlusIcon, PlusIcon } from "../components/places";
 import { useActiveProfileId } from "../lib/auth";
 import {
   useCreateFolder,
@@ -70,47 +73,55 @@ export function NotesList() {
     create.mutate(undefined, { onSuccess: (note) => openNote(note.id) });
   }
 
+  // New folder is the quiet button and New note the solid one, in the band at 1280 and as a pair on a phone.
+  const newFolderButton = (extra: string) => (
+    <button type="button" onClick={() => setCreatingUnder(null)} disabled={busy} className={`${BUTTON} ${extra}`}>
+      <FolderPlusIcon />
+      New folder
+    </button>
+  );
+  const newNoteButton = (extra: string) => (
+    <button type="button" onClick={newNote} disabled={create.isPending} className={`${BUTTON_SOLID} ${extra}`}>
+      <PlusIcon />
+      {create.isPending ? "Creating…" : "New note"}
+    </button>
+  );
+  const actions = (
+    <>
+      {newFolderButton("")}
+      {newNoteButton("")}
+    </>
+  );
+  const phoneActions = (
+    <>
+      {newFolderButton("h-12 w-full")}
+      {newNoteButton("h-12 w-full")}
+    </>
+  );
+
   const hasAnything = (notes?.length ?? 0) > 0 || (folders?.length ?? 0) > 0;
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
-      <AppHeader
-        actions={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCreatingUnder(null)}
-              disabled={busy}
-              className="rounded-card border border-line-soft px-3 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50"
-            >
-              + New folder
-            </button>
-            <button
-              type="button"
-              onClick={newNote}
-              disabled={create.isPending}
-              className="rounded-sm bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
-            >
-              {create.isPending ? "Creating…" : "+ New note"}
-            </button>
-          </div>
-        }
-      />
+    <main className={`${PAGE_FRAME} gap-5 text-ink`}>
+      <AppHeader actions={actions} />
 
-      <section aria-label="Notes" className="flex flex-col gap-5">
-        <h2 className="font-display text-3xl font-semibold text-ink">Notes</h2>
+      <section aria-label="Notes" className="flex flex-col gap-5 max-[820px]:gap-4">
+        <h1 className={PAGE_TITLE}>Notes</h1>
+
+        {/* A matched 48 px pair on a phone; at 1280 the same two buttons are the band's. */}
+        <div className="grid grid-cols-2 gap-3 min-[821px]:hidden">{phoneActions}</div>
 
         {isLoading ? (
           <div
-            className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70"
+            className="flex max-w-180 flex-col divide-y divide-line overflow-hidden rounded-tile border border-line bg-paper-raised shadow-l1"
             aria-hidden
           >
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-9 w-9 shrink-0 rounded-cover bg-paper-container motion-safe:animate-pulse" />
+                <div className="h-10 w-10 shrink-0 rounded-cover bg-paper-container motion-safe:animate-pulse" />
                 <div className="flex flex-1 flex-col gap-1.5">
-                  <div className="h-3.5 w-1/3 rounded-card bg-paper-container motion-safe:animate-pulse" />
-                  <div className="h-3 w-1/4 rounded-card bg-paper-container motion-safe:animate-pulse" />
+                  <div className="h-3.5 w-1/3 rounded-sm bg-paper-container motion-safe:animate-pulse" />
+                  <div className="h-3 w-1/4 rounded-sm bg-paper-container motion-safe:animate-pulse" />
                 </div>
               </div>
             ))}
@@ -120,11 +131,7 @@ export function NotesList() {
             title="Couldn't load your notes"
             body="The API may be offline. Start it with npm run dev and refresh."
             action={
-              <button
-                type="button"
-                onClick={() => void refetch()}
-                className="rounded-card border border-line-soft px-4 py-1.5 text-sm font-medium text-ink-variant transition hover:text-ink"
-              >
+              <button type="button" onClick={() => void refetch()} className={BUTTON}>
                 Try again
               </button>
             }
@@ -134,17 +141,13 @@ export function NotesList() {
             title="No notes yet"
             body="Create your first note to draw, sketch, and write — with a pen, highlighter, and text."
             action={
-              <button
-                type="button"
-                onClick={newNote}
-                className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-              >
+              <button type="button" onClick={newNote} className={BUTTON}>
                 New note
               </button>
             }
           />
         ) : (
-          <div className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70">
+          <div className="flex max-w-180 flex-col divide-y divide-line overflow-hidden rounded-tile border border-line bg-paper-raised shadow-l1">
             {/* A root-level "new folder" input sits above the tree; a nested one
                 is rendered in place under its parent row, below. */}
             {creatingUnder === null && (
@@ -197,7 +200,7 @@ export function NotesList() {
             )}
 
             {rows.length === 0 && (
-              <p className="px-4 py-6 text-center font-ui text-xs text-ink-variant">Nothing here yet.</p>
+              <p className="px-4 py-6 text-center font-ui text-micro text-ink-variant">Nothing here yet.</p>
             )}
           </div>
         )}
@@ -408,7 +411,7 @@ function FolderRow({
 
   return (
     <>
-      <div className="group relative flex items-center gap-2 border-l-2 border-l-transparent py-2.5 pr-3 transition-colors focus-within:border-l-accent focus-within:bg-paper-raised hover:border-l-accent hover:bg-paper-raised">
+      <div className="group relative flex min-h-17 flex-wrap items-center gap-x-3 gap-y-0 py-3 pr-4 transition-colors focus-within:bg-paper-low hover:bg-paper-low max-[479px]:pb-1 min-[480px]:flex-nowrap">
         <button
           type="button"
           onClick={onToggle}
@@ -419,13 +422,13 @@ function FolderRow({
           <Chevron open={open} />
           <span
             aria-hidden
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-paper-container text-ink-variant"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-cover border border-line bg-paper-container text-ink-variant"
           >
             <FolderGlyph />
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate font-ui text-sm font-semibold text-ink">{folder.name}</span>
-            <span className="font-ui text-xs text-ink-variant">
+            <span className="font-ui text-body font-semibold wrap-anywhere text-ink">{folder.name}</span>
+            <span className="font-ui text-ui font-normal text-ink-variant">
               <span className="tabular-nums">{noteCount}</span> note{noteCount === 1 ? "" : "s"}
             </span>
           </span>
@@ -439,23 +442,22 @@ function FolderRow({
                 setMode("idle");
                 onDelete();
               }}
-              className="rounded-card px-1.5 py-1 font-ui text-[11px] font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-accent"
+              className="h-11 rounded-card px-3 font-ui text-ui font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-accent"
             >
               Delete folder?
             </button>
             <button
               type="button"
               onClick={() => setMode("idle")}
-              className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              className="h-11 rounded-card px-3 font-ui text-ui text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             >
               No
             </button>
           </span>
         ) : (
-          // Always laid out on touch (there is no hover to reveal them); hidden
-          // outright — not merely transparent — until hover/focus on a pointer
-          // device, so the cluster never squeezes the name it sits beside.
-          <span className="flex shrink-0 items-center gap-0.5 md:hidden md:group-focus-within:flex md:group-hover:flex">
+          // Always laid out, at 1280 and on a phone: Move and Delete are visible at rest (on a phone they take the
+          // row's second line, inside the card).
+          <span className="flex shrink-0 items-center gap-4 max-[479px]:basis-full max-[479px]:justify-between max-[479px]:pl-16">
             <MoveSelect
               label={`Move ${folder.name} into another folder`}
               value={folder.parentId}
@@ -517,7 +519,7 @@ function NoteRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="group relative flex items-center gap-3 border-l-2 border-l-transparent py-2.5 pr-3 transition-colors focus-within:border-l-accent focus-within:bg-paper-raised hover:border-l-accent hover:bg-paper-raised">
+    <div className="group relative flex min-h-17 flex-wrap items-center gap-x-3 gap-y-0 py-3 pr-4 transition-colors focus-within:bg-paper-low hover:bg-paper-low max-[479px]:pb-1 min-[480px]:flex-nowrap">
       <button
         type="button"
         onClick={onOpen}
@@ -527,20 +529,23 @@ function NoteRow({
       >
         <span
           aria-hidden
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-tint-note text-ink-variant"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-cover border border-line bg-tint-note text-ink-variant"
         >
           <NoteGlyph />
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate font-ui text-sm font-semibold text-ink">{note.title}</span>
-          <span className="font-ui text-xs text-ink-variant">
-            <span className="tabular-nums">{note.pageCount}</span> page
-            {note.pageCount === 1 ? "" : "s"} · {formatRelative(note.updatedAt)}
+          <span className="font-ui text-body font-semibold wrap-anywhere text-ink">{note.title}</span>
+          <span className="flex flex-wrap gap-x-3 font-ui text-ui font-normal text-ink-variant">
+            <span>
+              <span className="tabular-nums">{note.pageCount}</span> page
+              {note.pageCount === 1 ? "" : "s"}
+            </span>
+            <span>{formatRelative(note.updatedAt)}</span>
           </span>
         </span>
       </button>
 
-      <span className="flex shrink-0 items-center gap-0.5 md:hidden md:group-focus-within:flex md:group-hover:flex">
+      <span className="flex shrink-0 items-center gap-4 max-[479px]:basis-full max-[479px]:justify-between max-[479px]:pl-16">
         <MoveSelect
           label={`File ${note.title} in a folder`}
           value={note.folderId}
@@ -586,8 +591,8 @@ function RowAction({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-card px-1.5 py-1 font-ui text-[11px] transition focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 ${
-        danger ? "text-ink-variant hover:text-danger" : "text-ink-variant hover:text-ink"
+      className={`h-11 rounded-card px-3 font-ui text-ui font-medium transition focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 ${
+        danger ? "text-ink-variant hover:text-danger focus-visible:text-danger" : "text-ink-variant hover:text-ink"
       }`}
     >
       {children}
@@ -628,7 +633,7 @@ function MoveSelect({
         value={value ?? ""}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value === "" ? null : event.target.value)}
-        className="quiet-select max-w-[9rem] appearance-none border-b border-line-soft bg-transparent py-1 pr-5 pl-1 font-ui text-[11px] font-medium text-ink-variant transition outline-none hover:border-line hover:text-ink focus:border-b-2 focus:border-accent disabled:opacity-40"
+        className="quiet-select flex h-9 max-w-40 appearance-none items-center rounded-card border border-outline bg-paper-raised pr-8 pl-3 font-ui text-ui font-medium text-ink transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40 max-[820px]:h-11"
       >
         <option value="">{rootLabel}</option>
         {options.map((option) => (
@@ -637,7 +642,7 @@ function MoveSelect({
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-0.5 h-3 w-3 text-ink-variant" />
+      <ChevronDown className="pointer-events-none absolute right-2.5 h-4 w-4 text-ink-variant" />
     </span>
   );
 }
@@ -675,7 +680,7 @@ function NameInput({
 
   return (
     <form
-      className="flex items-center gap-1.5 py-2 pr-3"
+      className="flex items-center gap-2 py-2 pr-4"
       style={indentFor(depth)}
       onSubmit={(event) => {
         event.preventDefault();
@@ -695,19 +700,15 @@ function NameInput({
             onCancel();
           }
         }}
-        className="min-w-0 flex-1 rounded-card border border-line bg-paper-raised px-2 py-1 font-ui text-xs text-ink outline-none focus:border-accent"
+        className="h-11 min-w-0 flex-1 rounded-card border border-outline bg-paper-raised px-3 font-ui text-ui font-normal text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       />
-      <button
-        type="submit"
-        disabled={!valid}
-        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
-      >
+      <button type="submit" disabled={!valid} className={`${BUTTON_SOLID} px-4`}>
         {confirmLabel}
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        className="h-11 rounded-card px-3 font-ui text-ui text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       >
         Cancel
       </button>
@@ -846,8 +847,8 @@ function formatRelative(iso: string): string {
 
 function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card border border-line-soft/50 bg-paper-low/40 px-6 py-16 text-center">
-      <p className="font-display text-xl font-semibold text-ink">{title}</p>
+    <div className="flex flex-col items-center gap-3 rounded-tile border border-line bg-paper-raised px-6 py-16 text-center shadow-l1">
+      <p className="font-display text-title font-medium text-ink">{title}</p>
       <p className="max-w-md text-ink-variant">{body}</p>
       {action}
     </div>

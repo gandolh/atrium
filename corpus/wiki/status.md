@@ -1,6 +1,6 @@
 ---
-summary: Dated snapshot (2026-11-02) of Atrium, per area — the media library (books, music, video) and its readers, Notes, the LaTeX editor on its own typesetting engine, profiles, accounts (local plus "Sign in with Ward", in production since 2026-10-13), the Jukebox, the two improvement sweeps (done 2026-10-03 and 2026-10-27), the metadata lookup (2026-10-28); what is deployed, what the owner still owes, and where the older history lives.
-updated: 2026-11-12
+summary: Dated snapshot (2026-11-02) of Atrium, per area — the media library (books, music, video) and its readers, Notes, the LaTeX editor on its own typesetting engine, profiles, accounts (local plus "Sign in with Ward", in production since 2026-10-13), the Jukebox, the two improvement sweeps (done 2026-10-03 and 2026-10-27), the metadata lookup (2026-10-28); what is deployed, what the owner still owes, and where the older history lives. The web app wears the "Rail and reading table" redesign (D63, 2026-11-13): a rail and bottom bar shell, stronger tints, sentence-case labels; it needs the web deploy.
+updated: 2026-11-13
 ---
 
 # Status — 2026-11-02
@@ -63,6 +63,11 @@ numbering restarted at 01 on 2026-11-02 (see [`../log.md`](../log.md),
   stacking comes from `--z-index-*` tokens; `better-tailwindcss` runs in
   `npm run lint`. System is a fourth theme choice, stored per profile, so the
   shared schema gained `"system"` and the API needs the deploy too.
+- **The redesign** (2026-11-13, D63). The shell is a 232 px rail at 1280 and a 64 px bottom bar on a
+  phone, with the theme group at the rail's foot or in a popover; tiles, Notes, the reader's chrome and
+  every small page take the new tokens. Playwright checks (focus ring, reduced motion, 390 overflow, the
+  theme group, the page-turn swipe) and `npm run check:contrast` cover it. Web deploy only; the API is
+  unchanged.
 - **Docs site** (2026-10-19). Docusaurus at `/atrium/docs`, same URLs.
 
 ## Next (owner)

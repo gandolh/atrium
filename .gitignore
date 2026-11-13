@@ -29,6 +29,7 @@ Thumbs.db
 # Playwright (whole test-hub dir stays local)
 playwright/
 .playwright-mcp/
+apps/web/test-results/
 
 # MCP browser tools drop screenshots at repo root before they are moved
 /*.png

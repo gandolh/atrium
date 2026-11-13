@@ -51,11 +51,11 @@
    hex. Light/dark are Reading Room's warm axis; sepia is unchanged (it was
    already warm). */
 :root {
-  --theme-light-bg: #f7f5f2;
-  --theme-light-fg: #1a1917;
-  --theme-light-surface: #f1eee9;
-  --theme-light-border: #ddd7cc;
-  --theme-light-accent: #2f5486;
+  --theme-light-bg: #eeeae2;
+  --theme-light-fg: #1c1a16;
+  --theme-light-surface: #fdfbf7;
+  --theme-light-border: #d0c7b9;
+  --theme-light-accent: #2b5185;
 
   --theme-sepia-bg: #f4ecd8;
   --theme-sepia-fg: #3b2f1e;
@@ -63,11 +63,11 @@
   --theme-sepia-border: #d9c9a3;
   --theme-sepia-accent: #92400e;
 
-  --theme-dark-bg: #141310;
-  --theme-dark-fg: #ece7de;
-  --theme-dark-surface: #1c1a17;
-  --theme-dark-border: #302c26;
-  --theme-dark-accent: #8fb3dd;
+  --theme-dark-bg: #110f0d;
+  --theme-dark-fg: #ede8df;
+  --theme-dark-surface: #25221d;
+  --theme-dark-border: #3d3831;
+  --theme-dark-accent: #97b8e0;
 
   /* EPUB search hit. Injected as an SVG `fill` INSIDE the section iframe, so it
      has to travel as a literal string (see EpubReader's onJumpToMatch); this is
@@ -122,33 +122,52 @@
 
 /* ── 3. Gallery palette (library + chrome). design.md "Colours" — Light. ──── */
 :root {
-  --paper: #f7f5f2;
-  --paper-raised: #fffefd;
-  --paper-low: #f1eee9;
-  --paper-container: #e9e4dc;
+  --paper: #eeeae2;
+  --paper-raised: #fdfbf7;
+  --paper-low: #e6e0d6;
+  --paper-container: #e4ded3;
   /* Not in design.md's table — one step past `paper-container` for the rare
      double-recessed fill (checked select option, active shelf chip). */
-  --paper-container-high: #ded8ce;
-  --ink: #1a1917;
-  --ink-variant: #6c665e;
-  --line: #ddd7cc;
-  --line-soft: #e9e4dc;
+  --paper-container-high: #d9d2c5;
+  --ink: #1c1a16;
+  --ink-variant: #5f594f;
+  --line: #d0c7b9;
+  /* The design has one hairline, so `line-soft` carries the same value as `line`. */
+  --line-soft: #d0c7b9;
+  /* The 3:1 edge of a field, a chip, a secondary button and the search box. */
+  --outline: #887f72;
   /* Accent means STATE only (progress, active, focus, links) — never a button
      fill, never decoration. The solid button is ink. */
-  --accent: #2f5486;
+  --accent: #2b5185;
   --accent-soft: #4a6fa5;
   --on-accent: #faf8f5;
-  --ink-fill: #2b2926; /* solid "Ink" button */
-  --on-ink-fill: #faf8f5;
-  --danger: #ba1a1a;
+  /* The current place in the rail and on the bottom bar. */
+  --place-current: #e6ecf5;
+  --on-place-current: #2b5185;
+  --ink-fill: #26231f; /* solid "Ink" button */
+  --ink-fill-hover: #403b34;
+  --on-ink-fill: #faf8f4;
+  --danger: #a8281e;
   --danger-soft: #f6ddd7;
 
   /* Kind tints — the one decorative move (design.md "Kind tints"). A mixed
      grid must read by kind with every badge stripped. */
-  --tint-book: #efe9dd;
-  --tint-music: #f1e6e8;
-  --tint-video: #e4ebf1;
-  --tint-note: #e4eee7;
+  --tint-book: #ebe1cd;
+  --tint-music: #eedcdf;
+  --tint-video: #dbe4ee;
+  --tint-note: #d9e8dc;
+  /* The faint letter on a coverless tile. */
+  --tile-initial: #dccfb2;
+  /* The 3px rule at a cover's foot, and the reader's progress rule. */
+  --progress: #2b5185;
+  /* A PDF cover's paper and type: fixed in every theme except dark's softer paper. */
+  --pdf-page: #fdfcf9;
+  --pdf-ink: #3a3832;
+
+  /* Elevation, per theme so a shadow can differ on a dark ground. */
+  --elev-1: 0 1px 2px rgb(40 30 10 / 0.1), 0 2px 6px rgb(40 30 10 / 0.08);
+  --elev-2: 0 8px 24px rgb(40 30 10 / 0.16), 0 1px 3px rgb(40 30 10 / 0.12);
+  --elev-bar: 0 -1px 6px rgb(40 30 10 / 0.08);
 
   /* ── Code surface (latex/SourceEditor) ────────────────────────────────────
      The LaTeX editor is a WORKING surface, not a reading surface, but it lives
@@ -165,8 +184,8 @@
 
      Neither hue is `--accent`, in any theme: accent means STATE (design.md),
      and syntax classification is not state. They are also kept clear of all
-     three accent hues (light blue #2f5486, sepia orange-brown #92400e, dark
-     light-blue #8fb3dd) so a highlighted command never reads as an active
+     three accent hues (light blue #2b5185, sepia orange-brown #92400e, dark
+     light-blue #97b8e0) so a highlighted command never reads as an active
      control. Both hold ≥6.5:1 on their theme's editor ground. */
   --code-command: #1f5c4e; /* \section, \begin, math delimiters — teal-green */
   --code-arg: #6b3a7d; /* {article}, {fig:plot}, \ref keys — plum */
@@ -175,35 +194,41 @@
 /*
  * Light is canonical (above). Sepia + dark are variants: remap the paper/ink/
  * accent tokens onto the corresponding reading-theme palette so the library
- * themes with the reader (the header toggle drives `data-theme`). Structural
+ * themes with the reader (the theme switch drives `data-theme`). Structural
  * tokens (radii, fonts, motion) stay constant.
  */
 [data-theme="sepia"] {
   --paper: #f4ecd8;
   --paper-raised: #faf4e6;
-  --paper-low: #efe6d0;
+  --paper-low: #ece0c8;
   --paper-container: #ece0c8;
   --paper-container-high: #e2d3b3;
   --ink: #3b2f1e;
-  --ink-variant: #6b5b42;
-  --line: #a68a5b;
+  --ink-variant: #5e4f38;
+  --line: #d9c9a3;
   --line-soft: #d9c9a3;
+  --outline: #8f7548;
   --accent: #92400e;
   --accent-soft: #b45c1e;
   --on-accent: #fff8ee;
+  --place-current: #ecdcc4;
+  --on-place-current: #92400e;
   --ink-fill: #3b2f1e;
-  --on-ink-fill: #f4ecd8;
-  /* Sepia inherits the light tints — music/video/note all separate cleanly from
-     its warm-yellow ground. Only `tint-book` collided (it sat only ~6 units
-     from `--paper-container` by Euclidean RGB distance, failing the tint
-     test), so it deepens further into parchment: ~34 units clear of
-     `--paper-container` (#ece0c8), ~44 clear of `--paper-low` (#efe6d0), ~55
-     clear of `--paper` (#f4ecd8) and ~72 clear of `--paper-raised` (#faf4e6)
-     — in the same range as music/video/note's own separation from the ground
-     (~33–43). `--ink` (#3b2f1e) keeps an ~8.5:1 contrast ratio on it, well
-     past WCAG AA. Derived here, not in design.md, which tabulates light +
-     dark only. */
+  --ink-fill-hover: #54452f;
+  --on-ink-fill: #faf4e6;
+  /* The four kind tints gain chroma (closest pair 0.029 apart in OKLab, up from
+     0.018); sepia's book tint deepens into parchment. */
   --tint-book: #ddcfaf;
+  --tint-music: #eedcdf;
+  --tint-video: #dbe4ee;
+  --tint-note: #d9e8dc;
+  --tile-initial: #cbbb93;
+  --progress: #92400e;
+  --pdf-page: #fdfcf9;
+  --pdf-ink: #3a3832;
+  --elev-1: 0 1px 2px rgb(60 40 10 / 0.12), 0 2px 6px rgb(60 40 10 / 0.1);
+  --elev-2: 0 8px 24px rgb(60 40 10 / 0.18), 0 1px 3px rgb(60 40 10 / 0.14);
+  --elev-bar: 0 -1px 6px rgb(60 40 10 / 0.1);
 
   /* Revalued onto sepia's warmer, lighter ground; same two hues. */
   --code-command: #1c5648;
@@ -211,29 +236,41 @@
 }
 
 [data-theme="dark"] {
-  --paper: #141310;
-  --paper-raised: #1c1a17;
-  --paper-low: #100f0d;
-  --paper-container: #24211d;
-  --paper-container-high: #2f2b25;
-  --ink: #ece7de;
-  --ink-variant: #948d82;
-  --line: #302c26;
-  --line-soft: #262320;
-  --accent: #8fb3dd;
+  --paper: #110f0d;
+  --paper-raised: #25221d;
+  --paper-low: #0c0b09;
+  --paper-container: #2f2b25;
+  --paper-container-high: #38332c;
+  --ink: #ede8df;
+  --ink-variant: #a69e92;
+  --line: #3d3831;
+  --line-soft: #3d3831;
+  --outline: #7b7368;
+  --accent: #97b8e0;
   --accent-soft: #a9c6e8;
   --on-accent: #17150f;
-  --ink-fill: #ece7de;
-  --on-ink-fill: #17150f;
-  --danger: #ffb4ab;
+  --place-current: #2a3442;
+  --on-place-current: #97b8e0;
+  --ink-fill: #ede8df;
+  --ink-fill-hover: #d6d0c5;
+  --on-ink-fill: #191712;
+  --danger: #f0a097;
   --danger-soft: #4a1f1b;
 
-  --tint-book: #241f16;
-  --tint-music: #241a1d;
-  --tint-video: #171f28;
-  --tint-note: #16221b;
+  --tint-book: #2c2519;
+  --tint-music: #2d2024;
+  --tint-video: #1d2631;
+  --tint-note: #1c2a21;
+  --tile-initial: #3b3224;
+  /* A lighter blue than light's, so the rule holds 3:1 on the page. */
+  --progress: #4f7fc0;
+  --pdf-page: #f4f2ee;
+  --pdf-ink: #33312c;
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+  --elev-2: 0 8px 24px rgb(0 0 0 / 0.55), 0 1px 3px rgb(0 0 0 / 0.5);
+  --elev-bar: 0 -1px 6px rgb(0 0 0 / 0.4);
 
-  /* Lifted for the dark ground (both ≥8:1 on `--paper-low` #100f0d). */
+  /* Lifted for the dark ground (both ≥8:1 on `--paper-low` #0c0b09). */
   --code-command: #7fc4b0;
   --code-arg: #c3a0d4;
 }
@@ -269,10 +306,14 @@
   --color-ink-variant: var(--ink-variant);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
+  --color-outline: var(--outline);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
+  --color-place-current: var(--place-current);
+  --color-on-place-current: var(--on-place-current);
   --color-ink-fill: var(--ink-fill);
+  --color-ink-fill-hover: var(--ink-fill-hover);
   --color-on-ink-fill: var(--on-ink-fill);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
@@ -282,6 +323,10 @@
   --color-tint-music: var(--tint-music);
   --color-tint-video: var(--tint-video);
   --color-tint-note: var(--tint-note);
+  --color-tile-initial: var(--tile-initial);
+  --color-progress: var(--progress);
+  --color-pdf-page: var(--pdf-page);
+  --color-pdf-ink: var(--pdf-ink);
 
   /* The note sheet's fixed light paper (theme-independent by design). */
   --color-note-sheet: var(--note-sheet);
@@ -308,9 +353,10 @@
      here so the editor resolves a token like everything else. */
   --font-code: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* Radii: 4px default, 2px artwork, 20px chips — nothing else. */
-  --radius-card: 4px;
-  --radius-cover: 2px;
+  /* Radii: covers 8, controls and cards 12, tiles and the list card 16, chips round. */
+  --radius-cover: 8px;
+  --radius-card: 12px;
+  --radius-tile: 16px;
   --radius-chip: 20px;
 
   /* Stacking (base-ui rule 6): a role, not a number. Chrome sits over the page, a scrim over the chrome, a popup
@@ -324,9 +370,41 @@
   --z-index-popup: 50;
   --z-index-toast: 60;
 
-  /* Elevation. Depth is tonal — a hairline plus a soft shadow, never a glow. */
-  --shadow-l1: 0 4px 10px -5px rgb(26 25 23 / 0.3);
+  /* Elevation. Depth is tonal — a hairline plus a soft shadow, never a glow. L1 is the rail, the band, the tiles and
+     the list card; float is for menus and the reader's pill; bar is for the phone bars; lift is a tile's hover. */
+  --shadow-l1: var(--elev-1);
+  --shadow-float: var(--elev-2);
+  --shadow-bar: var(--elev-bar);
   --shadow-lift: 0 14px 30px -18px rgb(26 25 23 / 0.45);
+
+  /* Type: six UI sizes (the reader's text size is the reader's own setting). */
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 500;
+  --text-display-phone: 2rem;
+  --text-display-phone--line-height: 2.375rem;
+  --text-display-phone--letter-spacing: -0.02em;
+  --text-display-phone--font-weight: 500;
+  --text-wordmark: 1.5rem;
+  --text-wordmark--line-height: 1.75rem;
+  --text-wordmark--font-weight: 600;
+  --text-title: 1.125rem;
+  --text-title--line-height: 1.5rem;
+  --text-title--font-weight: 500;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-ui: 0.875rem;
+  --text-ui--line-height: 1.25rem;
+  --text-ui--font-weight: 500;
+  --text-micro: 0.75rem;
+  --text-micro--line-height: 1rem;
+  --text-micro--font-weight: 500;
+
+  /* Shell sizes: the rail at 1280, the phone's bottom bar, the page cap. */
+  --width-rail: 232px;
+  --height-bar: 64px;
+  --container-page: 1152px;
 
   /* Motion (design.md "Motion"). One curve for the whole system; the JS side of
      the same numbers lives in lib/motion.ts. */
@@ -414,8 +492,8 @@ body {
   select.quiet-select::picker(select) {
     background: var(--paper-raised);
     color: var(--ink);
-    border: 1px solid var(--line-soft);
-    border-radius: 4px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
     box-shadow: var(--shadow-l1);
     padding: 4px;
     margin-top: 4px;
@@ -425,7 +503,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    border-radius: 2px;
+    border-radius: var(--radius-cover);
     font-family: var(--font-ui);
     font-size: 0.875rem;
   }

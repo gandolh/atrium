@@ -103,8 +103,8 @@ export default defineConfig(({ mode }) => {
           // stay seamless with the page, never glowing. Keep in step with
           // `--paper` in globals.css, the <meta name="theme-color"> in
           // index.html, and the icon grounds in public/.
-          theme_color: "#f7f5f2",
-          background_color: "#f7f5f2",
+          theme_color: "#eeeae2",
+          background_color: "#eeeae2",
           // Icon `src`s are relative, so they resolve against the manifest URL
           // (itself emitted under `base`) — base-correct without hardcoding it.
           icons: [

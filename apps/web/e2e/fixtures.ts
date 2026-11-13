@@ -67,10 +67,36 @@ export async function apiJson<T>(page: Page, baseURL: string, path: string): Pro
   return (await response.json()) as T;
 }
 
+/**
+ * The Gutenberg catalogue, stubbed: no check or screenshot reaches the public catalogue. The books are made up, with
+ * no cover (the page then shows its typographic tile).
+ */
+const CATALOG_STUB = {
+  results: Array.from({ length: 12 }, (_, i) => ({
+    id: 900_001 + i,
+    title:
+      ["A Small Tale", "The Lamp", "The Window", "The Door", "The Road", "A Long Road"][i % 6] +
+      (i >= 6 ? " (second edition)" : ""),
+    authors: ["Made Up"],
+    subjects: ["Fiction"],
+    languages: ["en"],
+    coverUrl: null,
+    downloadCount: 1000 - i * 10,
+    epubAvailable: true,
+  })),
+  count: 12,
+  nextPage: null,
+};
+
+async function stubCatalog(page: Page): Promise<void> {
+  await page.route("**/catalog/gutenberg**", (route) => route.fulfill({ json: CATALOG_STUB }));
+}
+
 /** `test` with the page already signed in; `test.use({ theme: "dark" })` picks the theme it opens in. */
 export const test = base.extend<{ theme: ThemePick }>({
   theme: ["light", { option: true }],
   page: async ({ page, baseURL, theme }, use) => {
+    await stubCatalog(page);
     await signIn(page, baseURL ?? "http://localhost:5173/", theme);
     await use(page);
   },

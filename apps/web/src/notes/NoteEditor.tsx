@@ -1285,7 +1285,7 @@ function NibSlot({
         className="grid h-9 w-12 grid-flow-col place-items-center gap-0.5 rounded-card text-ink-variant transition hover:not-data-checked:text-ink focus-visible:outline-2 focus-visible:outline-accent data-checked:bg-paper-raised data-checked:text-accent data-checked:shadow-sm"
       >
         <NibIcon nib={nib} />
-        <span aria-hidden="true" className="font-ui text-[9px] leading-none">
+        <span aria-hidden="true" className="font-ui text-micro leading-none">
           ▾
         </span>
       </RadioItem>

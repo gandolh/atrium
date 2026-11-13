@@ -378,12 +378,15 @@ export function CoverArt({
     );
   }
 
+  // A PDF's cover is the file's real first page. The page starts below the offline button's row, so the button
+  // never covers its text.
+  const isPdf = book.format === "pdf";
   return showImage ? (
     <img
       src={coverUrl(book.id, book.coverVersion)}
       alt=""
       onError={onImgError}
-      className="h-full w-full object-cover"
+      className={isPdf ? "h-full w-full object-contain object-bottom pt-11" : "h-full w-full object-cover"}
     />
   ) : (
     <CoverFallback title={book.title} kind={kind} />

@@ -26,7 +26,7 @@ export function Slider({ label, value, min, max, step = 1, onValueChange, format
         if (typeof next === "number") onValueChange(next);
       }}
     >
-      <div className={cn("mb-1 flex items-center justify-between text-xs text-reader-fg/70", className)}>
+      <div className={cn("mb-1 flex items-center justify-between text-xs text-reader-fg/80", className)}>
         <BaseSlider.Label>{label}</BaseSlider.Label>
         <span className="tabular-nums">{format ? format(value) : value}</span>
       </div>

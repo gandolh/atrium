@@ -990,7 +990,7 @@ export function EpubReader({ file, book }: { file: File; book?: LibraryBook | nu
             // field. Chapter label hides on narrow bars so the input has room.
             <div className="flex min-w-0 items-center gap-2">
               {chapterLabel && (
-                <span className="hidden max-w-[9rem] min-w-0 truncate text-xs text-reader-fg/60 md:inline">
+                <span className="hidden max-w-[9rem] min-w-0 truncate text-xs text-reader-fg/80 md:inline">
                   {chapterLabel}
                 </span>
               )}

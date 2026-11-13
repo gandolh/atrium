@@ -32,14 +32,14 @@ export function MediaFrame({
         <Link
           to="/"
           aria-label="Back to your library"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-sm px-2 py-1 text-sm font-medium text-reader-fg/70 transition-colors hover:text-reader-accent focus-visible:text-reader-accent focus-visible:outline-none"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-sm px-2 py-1 text-sm font-medium text-reader-fg/80 transition-colors hover:text-reader-accent focus-visible:text-reader-accent focus-visible:outline-none"
         >
           <BackIcon />
           <span className="hidden sm:inline">Library</span>
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-lg leading-tight font-semibold wrap-anywhere text-reader-fg">{title}</h1>
-          {subtitle ? <p className="text-sm wrap-anywhere text-reader-fg/60">{subtitle}</p> : null}
+          {subtitle ? <p className="text-sm wrap-anywhere text-reader-fg/80">{subtitle}</p> : null}
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center px-5 py-8">{children}</main>

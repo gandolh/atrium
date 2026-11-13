@@ -80,7 +80,7 @@ export function TocSidebar({
               onClick={onClose}
               aria-label="Hide contents"
               title="Hide contents"
-              className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
+              className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/80 hover:bg-reader-surface"
             >
               <CollapseIcon />
             </button>
@@ -88,7 +88,7 @@ export function TocSidebar({
 
           <nav className="flex-1 overflow-y-auto px-2 py-2">
             {entries.length === 0 ? (
-              <p className="px-2 py-4 text-sm text-reader-fg/60">No table of contents available.</p>
+              <p className="px-2 py-4 text-sm text-reader-fg/80">No table of contents available.</p>
             ) : (
               <ul>
                 {entries.map((entry) => {

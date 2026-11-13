@@ -61,7 +61,7 @@ export function EpubSettings() {
       <ThemePicker />
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs text-reader-fg/70">Font</span>
+        <span className="text-xs text-reader-fg/80">Font</span>
         {/* The font is saved to the profile on the server: a guarded ToggleGroup (base-ui rule 16). */}
         <ToggleGroup
           label="Font"
@@ -82,7 +82,7 @@ export function EpubSettings() {
               >
                 Aa
               </span>
-              <span className="text-micro text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
+              <span className="text-micro text-reader-fg/80 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
                 {f.label}
               </span>
             </ToggleItem>

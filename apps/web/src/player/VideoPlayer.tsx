@@ -44,7 +44,7 @@ export function VideoPlayer({ book }: { book: LibraryBook }) {
       {item ? (
         <VideoSurface item={item} book={book} />
       ) : (
-        <p className="text-reader-fg/70">This item can't be played as video.</p>
+        <p className="text-reader-fg/80">This item can't be played as video.</p>
       )}
     </MediaFrame>
   );

@@ -114,7 +114,7 @@ export function SearchPanel({
           <DrawerTitle className="text-base font-semibold">{title}</DrawerTitle>
           <DrawerClose
             aria-label="Close search"
-            className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/70 hover:bg-reader-surface"
+            className="grid h-8 w-8 place-items-center rounded-card text-reader-fg/80 hover:bg-reader-surface"
           >
             <CloseIcon />
           </DrawerClose>
@@ -145,19 +145,19 @@ export function SearchPanel({
 
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {!searching && results === null && (
-            <p className="px-2 py-4 text-sm text-reader-fg/60">
+            <p className="px-2 py-4 text-sm text-reader-fg/80">
               Search the whole book — results are grouped by chapter.
             </p>
           )}
           {searching && (
-            <p className="px-2 py-4 text-sm text-reader-fg/60 motion-safe:animate-pulse">Searching the whole book…</p>
+            <p className="px-2 py-4 text-sm text-reader-fg/80 motion-safe:animate-pulse">Searching the whole book…</p>
           )}
           {!searching && results !== null && results.length === 0 && (
-            <p className="px-2 py-4 text-sm text-reader-fg/60">No matches for “{executedQueryRef.current}”.</p>
+            <p className="px-2 py-4 text-sm text-reader-fg/80">No matches for “{executedQueryRef.current}”.</p>
           )}
           {!searching && results !== null && results.length > 0 && (
             <>
-              <p className="px-2 pt-1 pb-1 text-xs text-reader-fg/60">
+              <p className="px-2 pt-1 pb-1 text-xs text-reader-fg/80">
                 {results.length} {results.length === 1 ? "result" : "results"}
               </p>
               <ul>
@@ -168,7 +168,7 @@ export function SearchPanel({
                   return (
                     <li key={i}>
                       {showGroup && (
-                        <p className="truncate px-2 pt-3 pb-1 text-xs font-medium text-reader-fg/60">{match.label}</p>
+                        <p className="truncate px-2 pt-3 pb-1 text-xs font-medium text-reader-fg/80">{match.label}</p>
                       )}
                       <button
                         type="button"

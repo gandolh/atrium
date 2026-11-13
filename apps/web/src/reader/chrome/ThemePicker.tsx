@@ -37,7 +37,7 @@ export function ThemePicker() {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs text-reader-fg/70">Theme</span>
+      <span className="text-xs text-reader-fg/80">Theme</span>
       <ToggleGroup label="Theme" value={theme} onValueChange={setTheme} className="flex gap-2">
         {THEMES.map((t) => (
           <PickerItem key={t.value} value={t.value} label={t.label}>
@@ -91,7 +91,7 @@ function PickerItem({ value, label, children }: { value: Theme; label: string; c
       className="group flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
     >
       {children}
-      <span className="text-micro text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
+      <span className="text-micro text-reader-fg/80 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
         {label}
       </span>
     </ToggleItem>

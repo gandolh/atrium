@@ -65,7 +65,7 @@ export function PdfViewControls({
       <ToolbarButton label="Zoom out" onClick={onZoomOut} disabled={zoom <= 0.5}>
         <MinusIcon />
       </ToolbarButton>
-      <span className="hidden min-w-12 text-center text-xs text-reader-fg/70 tabular-nums sm:inline">
+      <span className="hidden min-w-12 text-center text-xs text-reader-fg/80 tabular-nums sm:inline">
         {Math.round(zoom * 100)}%
       </span>
       <ToolbarButton label="Zoom in" onClick={onZoomIn} disabled={zoom >= 3}>

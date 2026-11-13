@@ -63,7 +63,7 @@ export function PageJumpInput({
   const fieldCh = Math.max(String(total ?? 999).length, 3);
 
   return (
-    <div className="flex shrink-0 items-center gap-2 text-ui font-normal text-reader-fg/70" aria-live="off">
+    <div className="flex shrink-0 items-center gap-2 text-ui font-normal text-reader-fg/80" aria-live="off">
       {canJump ? (
         <span className="flex items-center gap-1.5 whitespace-nowrap tabular-nums">
           {/* The unit label, Go button, and % chip drop away on narrow bars so

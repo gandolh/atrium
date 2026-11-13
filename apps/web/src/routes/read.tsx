@@ -374,7 +374,7 @@ function NoFileState({ format, notFound }: { format: string | null; notFound?: b
   return (
     <main className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-12">
       <h1 className="font-display text-2xl font-semibold">No book open</h1>
-      <p className="text-reader-fg/70">
+      <p className="text-reader-fg/80">
         {notFound
           ? "That book isn't in your library anymore — it may have been removed."
           : `Nothing to read yet. The open file lives only in memory, so a direct visit or refresh has nothing to show${format ? ` for “${format}”` : ""}. Your books are saved though — reopen one from your library.`}
@@ -431,7 +431,7 @@ function OpeningState({
               <div className="h-full w-1/3 rounded-full bg-reader-accent motion-safe:animate-pulse" />
             )}
           </div>
-          <p className="text-sm text-reader-fg/60">
+          <p className="text-sm text-reader-fg/80">
             {pct !== null ? `Downloading… ${pct}%` : "Fetching from your library…"}
           </p>
         </div>
@@ -463,7 +463,7 @@ function OpeningErrorState({
           <h1 className="font-display text-xl leading-snug font-semibold text-reader-fg">
             Couldn't open {book ? `“${book.title}”` : "your book"}
           </h1>
-          <p className="text-sm text-reader-fg/60">{detail}</p>
+          <p className="text-sm text-reader-fg/80">{detail}</p>
         </div>
         <div className="flex items-center gap-3">
           {/* design.md "accent means state only, never a button fill": this
@@ -545,7 +545,7 @@ function BookCoverTile({ book, bookId, dimmed }: { book: LibraryBook | null; boo
           className="h-full w-full object-cover"
         />
       ) : (
-        <span className="flex h-full w-full items-center justify-center px-2 text-center font-display text-sm leading-tight font-semibold text-reader-fg/70">
+        <span className="flex h-full w-full items-center justify-center px-2 text-center font-display text-sm leading-tight font-semibold text-reader-fg/80">
           {book?.title ?? ""}
         </span>
       )}

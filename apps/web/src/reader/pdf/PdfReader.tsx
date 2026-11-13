@@ -665,7 +665,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
                     }
                   >
                     <ThemePicker />
-                    <p className="text-xs text-reader-fg/60">
+                    <p className="text-xs text-reader-fg/80">
                       PDF is fixed-layout: "Dark" inverts the page colours; font controls are EPUB-only.
                     </p>
                   </SettingsPopover>
@@ -690,7 +690,7 @@ export function PdfReader({ file, book }: { file: File; book?: LibraryBook | nul
 }
 
 function LoadingState() {
-  return <div className="grid place-items-center py-20 text-sm text-reader-fg/60">Loading PDF…</div>;
+  return <div className="grid place-items-center py-20 text-sm text-reader-fg/80">Loading PDF…</div>;
 }
 
 function ErrorState() {

@@ -213,7 +213,7 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
           align="end"
           className="w-72 rounded-card border border-reader-border bg-reader-bg p-3 text-reader-fg shadow-float transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none"
         >
-          <PopoverTitle className="mb-2 px-1 font-ui text-micro font-semibold text-reader-fg/55 ">
+          <PopoverTitle className="mb-2 px-1 font-ui text-micro font-semibold text-reader-fg/80 ">
             Versions
           </PopoverTitle>
           <ul className="flex flex-col gap-0.5">
@@ -323,7 +323,7 @@ function VersionRow({
             Version {versionNo}
           </span>
         </span>
-        <span className="shrink-0 font-ui text-xs text-reader-fg/55 tabular-nums">
+        <span className="shrink-0 font-ui text-xs text-reader-fg/80 tabular-nums">
           {formatVersionDate(publishedAt)}
         </span>
       </button>
@@ -342,7 +342,7 @@ function VersionRow({
             type="button"
             onClick={onCancelDelete}
             disabled={busy}
-            className="rounded-card px-1.5 py-1 font-ui text-micro text-reader-fg/70 transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent"
+            className="rounded-card px-1.5 py-1 font-ui text-micro text-reader-fg/80 transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent"
           >
             No
           </button>
@@ -353,7 +353,7 @@ function VersionRow({
           aria-label={`Delete version ${versionNo}`}
           onClick={onRequestDelete}
           disabled={busy}
-          className="shrink-0 rounded-card p-1.5 text-reader-fg/45 transition hover:text-danger focus-visible:outline-2 focus-visible:outline-reader-accent disabled:opacity-30"
+          className="shrink-0 rounded-card p-1.5 text-reader-fg/80 transition hover:text-danger focus-visible:outline-2 focus-visible:outline-reader-accent disabled:opacity-30"
         >
           <TrashIcon />
         </button>

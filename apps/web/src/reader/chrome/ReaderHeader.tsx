@@ -25,7 +25,7 @@ export function ReaderHeader({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none flex items-start justify-between gap-6 px-6 py-3 text-ui font-normal text-reader-fg/70 transition-opacity ease-paper motion-reduce:transition-none ${
+      className={`pointer-events-none flex items-start justify-between gap-6 px-6 py-3 text-ui font-normal text-reader-fg/80 transition-opacity ease-paper motion-reduce:transition-none ${
         visible ? "opacity-100" : "opacity-0"
       }`}
       // design.md "Motion": chrome fades 600ms out / 150ms in — asymmetric, so

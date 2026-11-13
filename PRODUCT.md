@@ -63,6 +63,8 @@ semantic.
 1. **The page is the interface.** Every pixel of chrome must justify itself
    against a blank margin. Prefer summoned UI (auto-hide, popovers) over
    persistent UI.
+   *Note, 2026-11-13 (D63): the app shell is persistent, a rail at 1280 and a bottom bar on a
+   phone. The reader keeps this principle whole: its chrome is summoned and it has no rail or bar.*
 2. **Typography does the design.** Hierarchy, warmth, and craft come from type
    and spacing, not decoration.
 3. **Reading state is sacred.** Never steal focus, shift the text, or animate

@@ -22,3 +22,6 @@ paths:
   on screen reads `useResolvedTheme()`, never the raw pick.
 - Colours are tokens only: no hex, `rgb()` or named colour in a component.
 - `apps/web/vendor/ward/` is Ward's generated client. Never edit it.
+- The shell (the rail at 1280, the bottom bar on a phone) is `components/AppShell.tsx`; a page sets its content in
+  `PAGE_FRAME` and fills the band or top bar through `AppHeader`, never with its own navigation. Buttons and fields
+  take their looks from `components/button-styles.ts`. `npm run check:contrast` covers the tokens.

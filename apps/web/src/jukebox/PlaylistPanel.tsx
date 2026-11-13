@@ -80,7 +80,7 @@ export function PlaylistPanel({
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
             placeholder="Filter by title, artist or album"
-            className="w-full rounded-card border border-line bg-paper-raised px-3 py-2 font-ui text-sm text-ink transition outline-none placeholder:text-ink-variant focus:border-accent sm:max-w-sm"
+            className="w-full rounded-card border border-line bg-paper-raised px-3 py-2 font-ui text-sm text-ink transition placeholder:text-ink-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:max-w-sm"
           />
         </label>
       )}
@@ -138,14 +138,14 @@ function PlaylistRow({
       <TrackArt book={track} className="w-10" />
       <div className="min-w-0 flex-1">
         <p
-          className={`flex items-center gap-1.5 truncate font-ui text-sm font-semibold tracking-[-0.01em] ${
+          className={`flex items-center gap-1.5 font-ui text-sm font-semibold tracking-[-0.01em] wrap-anywhere ${
             current ? "text-accent" : "text-ink"
           }`}
         >
           {current && <SpeakerIcon className="h-4 w-4 shrink-0" />}
-          <span className="truncate">{track.title}</span>
+          <span className="wrap-anywhere">{track.title}</span>
         </p>
-        <p className="truncate font-ui text-xs text-ink-variant tabular-nums">
+        <p className="font-ui text-xs wrap-anywhere text-ink-variant tabular-nums">
           {[byline, track.durationSeconds != null ? formatTime(track.durationSeconds) : null]
             .filter(Boolean)
             .join(" · ")}

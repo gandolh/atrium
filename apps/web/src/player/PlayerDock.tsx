@@ -104,7 +104,7 @@ function DockArtwork({ item }: { item: PlaybackItem }) {
           className="h-full w-full object-cover"
         />
       ) : (
-        <KindGlyph kind={item.kind} className="h-5 w-5 text-ink-variant/70" />
+        <KindGlyph kind={item.kind} className="h-5 w-5 text-ink-variant" />
       )}
     </div>
   );
@@ -122,11 +122,13 @@ function DockTitle({ item }: { item: PlaybackItem }) {
       <Link
         to="/read"
         search={{ book: item.id, format: item.format }}
-        className="block truncate rounded-sm text-sm leading-tight font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="block rounded-sm text-sm leading-tight font-semibold wrap-anywhere text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         {item.title}
       </Link>
-      <p className="truncate text-xs text-ink-variant">{item.author ?? (item.kind === "audio" ? "Music" : "Video")}</p>
+      <p className="text-xs wrap-anywhere text-ink-variant">
+        {item.author ?? (item.kind === "audio" ? "Music" : "Video")}
+      </p>
     </div>
   );
 }

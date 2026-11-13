@@ -92,7 +92,7 @@ export function ProfileSwitcher({ variant = "bar" }: { variant?: "rail" | "bar" 
                   className="flex w-full cursor-default items-center gap-2 px-3 py-2 text-left font-ui text-ui text-ink outline-none data-checked:font-semibold data-checked:text-accent data-disabled:opacity-60 data-highlighted:bg-paper-low"
                 >
                   <ColorSwatch color={profile.color} />
-                  <span className="truncate">{pendingId === profile.id ? "Switching…" : profile.name}</span>
+                  <span className="wrap-anywhere">{pendingId === profile.id ? "Switching…" : profile.name}</span>
                 </MenuRadioItem>
               ))}
             </MenuRadioGroup>

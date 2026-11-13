@@ -38,8 +38,8 @@ export function MediaFrame({
           <span className="hidden sm:inline">Library</span>
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-lg leading-tight font-semibold text-reader-fg">{title}</h1>
-          {subtitle ? <p className="truncate text-sm text-reader-fg/60">{subtitle}</p> : null}
+          <h1 className="font-display text-lg leading-tight font-semibold wrap-anywhere text-reader-fg">{title}</h1>
+          {subtitle ? <p className="text-sm wrap-anywhere text-reader-fg/60">{subtitle}</p> : null}
         </div>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center px-5 py-8">{children}</main>

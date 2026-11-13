@@ -56,7 +56,7 @@ function ToastList() {
       key={toast.id}
       toast={toast}
       className={cn(
-        "pointer-events-auto w-full max-w-sm rounded-sm border border-line-soft/60 bg-paper-raised shadow-sm",
+        "pointer-events-auto w-full max-w-sm rounded-card border border-line bg-paper-raised shadow-float",
         "translate-x-(--toast-swipe-movement-x) translate-y-(--toast-swipe-movement-y)",
         "data-swiping:duration-0 motion-safe:transition-[opacity,translate] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]",
         "data-ending-style:opacity-0 data-limited:hidden data-starting-style:translate-y-3 data-starting-style:opacity-0",

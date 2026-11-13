@@ -43,22 +43,20 @@ export function CatalogResultCard({ book, inLibrary }: { book: CatalogBook; inLi
         )}
 
         {inLibrary && (
-          <span className="absolute top-2.5 left-2.5 rounded-(--radius-cover) bg-ink/70 px-2 py-1 text-[11px] leading-none font-semibold tracking-[0.08em] text-white uppercase backdrop-blur-sm">
+          <span className="absolute top-2.5 left-2.5 rounded-(--radius-cover) bg-ink/70 px-2 py-1 text-micro leading-none font-semibold text-white  backdrop-blur-sm">
             In library
           </span>
         )}
       </div>
 
       <div className="flex flex-col gap-0.5">
-        <p title={book.title} className="line-clamp-2 font-display text-base leading-snug font-semibold text-ink">
+        <p title={book.title} className="font-display text-base leading-snug font-semibold wrap-anywhere text-ink">
           {book.title}
         </p>
-        <p title={author} className="truncate text-sm text-ink-variant">
+        <p title={author} className="text-sm wrap-anywhere text-ink-variant">
           {author}
         </p>
-        <p className="text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">
-          {book.downloadCount.toLocaleString()} downloads
-        </p>
+        <p className="text-xs font-semibold text-ink-variant ">{book.downloadCount.toLocaleString()} downloads</p>
       </div>
 
       <ImportAction book={book} inLibrary={inLibrary} mutation={importMutation} />
@@ -76,7 +74,7 @@ function ImportAction({
   mutation: ReturnType<typeof useImportBook>;
 }) {
   if (!book.epubAvailable) {
-    return <p className="text-xs text-ink-variant/70">No EPUB available</p>;
+    return <p className="text-xs text-ink-variant">No EPUB available</p>;
   }
 
   if (mutation.isError) {

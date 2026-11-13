@@ -4,6 +4,9 @@ import type { LatexProject } from "@ebook-reader/shared";
 
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { AppHeader } from "../components/AppHeader";
+import { BUTTON_SOLID } from "../components/button-styles";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
+import { PlusIcon } from "../components/places";
 import { useCreateLatexProject, useDeleteLatexProject, useLatexProjects } from "./use-latex";
 
 /**
@@ -31,27 +34,25 @@ export function LatexList() {
     create.mutate("Untitled project", { onSuccess: (project) => openProject(project.id) });
   }
 
+  // New project: the band's solid button at 1280, a full-width 48 px button under the title on a phone.
+  const newProjectButton = (extra: string) => (
+    <button type="button" onClick={newProject} disabled={create.isPending} className={`${BUTTON_SOLID} ${extra}`}>
+      <PlusIcon />
+      {create.isPending ? "Creating…" : "New project"}
+    </button>
+  );
+
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
-      <AppHeader
-        actions={
-          <button
-            type="button"
-            onClick={newProject}
-            disabled={create.isPending}
-            className="rounded-sm bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 disabled:opacity-50"
-          >
-            {create.isPending ? "Creating…" : "+ New project"}
-          </button>
-        }
-      />
+    <main className={`${PAGE_FRAME} gap-6 text-ink`}>
+      <AppHeader actions={newProjectButton("")} />
 
       <section aria-label="LaTeX projects" className="flex flex-col gap-5">
-        <h2 className="font-display text-3xl font-semibold text-ink">LaTeX</h2>
+        <h1 className={PAGE_TITLE}>LaTeX</h1>
+        <div className="min-[821px]:hidden">{newProjectButton("h-12 w-full")}</div>
 
         {isLoading ? (
           <div
-            className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70"
+            className="flex max-w-180 flex-col divide-y divide-line overflow-hidden rounded-tile border border-line bg-paper-raised shadow-l1"
             aria-hidden
           >
             {Array.from({ length: 4 }).map((_, i) => (
@@ -93,7 +94,7 @@ export function LatexList() {
             }
           />
         ) : (
-          <div className="flex max-w-2xl flex-col divide-y divide-line-soft/60 rounded-card border border-line-soft/70">
+          <div className="flex max-w-180 flex-col divide-y divide-line overflow-hidden rounded-tile border border-line bg-paper-raised shadow-l1">
             {projects.map((project) => (
               <ProjectRow
                 key={project.id}
@@ -127,10 +128,10 @@ function ProjectRow({
   onDelete: () => void;
 }) {
   return (
-    <div className="group relative flex items-center gap-3 border-l-2 border-l-transparent px-3.5 py-2.5 transition-colors focus-within:border-l-accent focus-within:bg-paper-raised hover:border-l-accent hover:bg-paper-raised">
+    <div className="group relative flex min-h-17 items-center gap-3 px-4 py-3 transition-colors focus-within:bg-paper-low hover:bg-paper-low">
       <span
         aria-hidden
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-cover bg-paper-container text-ink-variant"
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-cover border border-line bg-paper-container text-ink-variant"
       >
         <ProjectGlyph />
       </span>
@@ -140,16 +141,17 @@ function ProjectRow({
         aria-label={`Open ${project.title}`}
         className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-card text-left focus-visible:outline-2 focus-visible:outline-accent"
       >
-        <span className="truncate font-ui text-sm font-semibold text-ink">{project.title}</span>
-        <span className="font-ui text-xs text-ink-variant">
-          {compileStatusLabel(project.compileStatus)} · {formatRelative(project.updatedAt)}
+        <span className="font-ui text-body font-semibold wrap-anywhere text-ink">{project.title}</span>
+        <span className="flex flex-wrap gap-x-3 font-ui text-ui font-normal text-ink-variant">
+          <span>{compileStatusLabel(project.compileStatus)}</span>
+          <span>{formatRelative(project.updatedAt)}</span>
         </span>
       </button>
       <button
         type="button"
         aria-label={`Delete ${project.title}`}
         onClick={onDelete}
-        className="rounded-card px-1.5 py-1 text-xs text-ink-variant opacity-0 transition group-hover:opacity-100 hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent max-md:opacity-100"
+        className="h-11 rounded-card px-3 font-ui text-ui font-medium text-ink-variant transition hover:text-danger focus-visible:text-danger focus-visible:outline-2 focus-visible:outline-accent"
       >
         Delete
       </button>

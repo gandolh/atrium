@@ -53,14 +53,14 @@ export function NowPlaying({
       <div className="flex items-start gap-4">
         <TrackArt book={track ? book : undefined} className="w-24 sm:w-32" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
+          <p className="font-ui text-micro font-semibold text-ink-variant ">
             {offline ? "Bot offline" : STATE_LABEL[player.state]}
           </p>
-          <h3 className="line-clamp-2 font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink">
+          <h3 className="font-display text-wordmark font-medium wrap-anywhere text-ink">
             {track ? track.title : "Nothing playing"}
           </h3>
           {track && (
-            <p className="truncate font-ui text-sm text-ink-variant">{trackByline(track.artist, track.album)}</p>
+            <p className="font-ui text-sm wrap-anywhere text-ink-variant">{trackByline(track.artist, track.album)}</p>
           )}
           {/* Atrium stopped after songs kept failing; the next play clears it. */}
           {player.failure && (
@@ -196,7 +196,7 @@ function Voice({
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line-soft pt-4">
       <SpeakerIcon className="h-5 w-5 shrink-0 text-ink-variant" />
-      <p className="min-w-0 flex-1 truncate font-ui text-sm text-ink">
+      <p className="min-w-0 flex-1 font-ui text-sm wrap-anywhere text-ink">
         {current ? (
           <>
             In <span className="font-semibold">{current.name || "a voice channel"}</span>
@@ -212,7 +212,7 @@ function Voice({
             value={choice}
             onChange={(event) => setChoice(event.target.value)}
             disabled={disabled || channels.length === 0}
-            className="w-full appearance-none rounded-card border border-line bg-paper-raised py-2 pr-8 pl-3 font-ui text-sm text-ink transition outline-none focus:border-accent disabled:cursor-not-allowed disabled:opacity-50 sm:w-48"
+            className="w-full appearance-none rounded-card border border-outline bg-paper-raised py-2 pr-8 pl-3 font-ui text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50 sm:w-48"
           >
             {channels.length === 0 && <option value="">No voice channels reported</option>}
             {channels.map((channel) => (

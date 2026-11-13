@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { MAX_PROFILES_PER_ACCOUNT, PROFILE_COLORS, type Profile, type ProfileColor } from "@ebook-reader/shared";
 
 import { AppHeader } from "../components/AppHeader";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
 import { Dialog, DialogPopup, DialogTitle } from "../components/ui/Dialog";
 import { RadioGroup, RadioItem } from "../components/ui/RadioGroup";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
@@ -37,12 +38,12 @@ export function ManageProfiles() {
   const defaultProfile = profiles.find((p) => p.isDefault);
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-3xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
+    <main className={`${PAGE_FRAME} gap-6 text-ink [&>*]:max-w-3xl`}>
       <AppHeader />
 
       <section aria-label="Profiles" className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-3xl font-semibold text-ink">Profiles</h1>
+          <h1 className={PAGE_TITLE}>Profiles</h1>
           <p className="font-ui text-sm text-ink-variant">
             Up to {MAX_PROFILES_PER_ACCOUNT} people in this account, each with their own reading progress, notes and
             settings.{" "}
@@ -154,7 +155,7 @@ function ProfileRow({
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none focus:border-b-2 focus:border-accent"
+              className="h-11 w-full rounded-card border border-outline bg-paper-raised px-3 font-ui text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
           </label>
         </div>
@@ -192,7 +193,7 @@ function ProfileRow({
     <div className="flex items-center gap-3 px-4 py-3.5">
       <ColorSwatch color={profile.color} large />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-ui text-sm font-semibold text-ink">{profile.name}</p>
+        <p className="font-ui text-sm font-semibold wrap-anywhere text-ink">{profile.name}</p>
         {profile.isDefault && <p className="font-ui text-xs text-ink-variant">Default — can&rsquo;t be deleted</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -281,7 +282,7 @@ function CreateProfileForm({
           onChange={(e) => setName(e.target.value)}
           maxLength={24}
           placeholder="e.g. Sam"
-          className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none focus:border-b-2 focus:border-accent"
+          className="h-11 w-full rounded-card border border-outline bg-paper-raised px-3 font-ui text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         />
       </label>
 
@@ -366,7 +367,7 @@ function DeleteProfileDialog({
         if (!next && !busy) onCancel();
       }}
     >
-      <DialogPopup className="top-1/2 left-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-card border border-line-soft bg-paper-raised p-6 shadow-lift">
+      <DialogPopup className="top-1/2 left-1/2 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-tile border border-line bg-paper-raised p-6 shadow-float">
         <DialogTitle className="font-display text-xl font-semibold text-ink">Delete {profile.name}?</DialogTitle>
 
         {noteCount === null ? (

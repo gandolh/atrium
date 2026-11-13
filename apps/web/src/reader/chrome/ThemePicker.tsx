@@ -91,7 +91,7 @@ function PickerItem({ value, label, children }: { value: Theme; label: string; c
       className="group flex flex-1 flex-col items-center gap-1 rounded-card outline-none focus-visible:ring-2 focus-visible:ring-reader-accent"
     >
       {children}
-      <span className="text-[11px] text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
+      <span className="text-micro text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
         {label}
       </span>
     </ToggleItem>

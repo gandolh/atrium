@@ -5,6 +5,8 @@ import type { CatalogSearchResponse } from "@ebook-reader/shared";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { useLibrary } from "../lib/use-library";
 import { AppHeader } from "../components/AppHeader";
+import { BUTTON } from "../components/button-styles";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
 import { QuietSelect } from "../components/QuietSelect";
 import { CatalogResultCard } from "../discover/CatalogResultCard";
 import { useCatalogSearch } from "../discover/use-catalog";
@@ -117,23 +119,20 @@ export function Discover() {
   const heading = isLanding ? "Popular on Project Gutenberg" : "Catalog results";
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
+    <main className={`${PAGE_FRAME} gap-6 text-ink`}>
       {/* The shared app shell (wordmark home link + theme toggle) persists here
           — /discover used to drop it entirely, stranding the user without nav
           or the theme control. */}
       <AppHeader
         actions={
-          <Link
-            to="/"
-            className="rounded-sm border border-line-soft/70 px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-          >
+          <Link to="/" className={BUTTON}>
             ‹ Back to library
           </Link>
         }
       />
 
       <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl font-semibold text-ink">Discover</h1>
+        <h1 className={PAGE_TITLE}>Discover</h1>
         <p className="text-sm text-ink-variant">Browse and import books from Project Gutenberg.</p>
       </header>
 
@@ -153,13 +152,13 @@ export function Discover() {
           className="flex flex-1 items-end gap-3 sm:max-w-md"
         >
           <label className="flex flex-1 flex-col gap-1.5">
-            <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">Search</span>
+            <span className="font-ui text-xs font-semibold text-ink-variant ">Search</span>
             <input
               type="search"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Title or author…"
-              className="border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink transition outline-none hover:border-line focus:border-b-2 focus:border-accent"
+              className="h-11 rounded-card border border-outline bg-paper-raised px-3 font-ui text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
           </label>
           <button

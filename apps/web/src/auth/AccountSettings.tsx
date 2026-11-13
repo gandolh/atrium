@@ -11,6 +11,7 @@ import {
   useWardUnlink,
 } from "../../vendor/ward/ward-auth-react.js";
 import { AppHeader } from "../components/AppHeader";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
 import { useAuthStore } from "../lib/auth";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
 import { authMessage } from "./messages";
@@ -42,11 +43,11 @@ export function AccountSettings() {
   }, [session.status, signedOut]);
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-3xl flex-col gap-8 px-5 py-8 text-ink md:px-16">
+    <main className={`${PAGE_FRAME} gap-6 text-ink [&>*]:max-w-3xl`}>
       <AppHeader />
 
       <div className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl font-semibold text-ink">Account</h1>
+        <h1 className={PAGE_TITLE}>Account</h1>
         {session.status === "signed_in" && (
           <p className="font-ui text-sm text-ink-variant">
             Signed in as <span className="font-semibold text-ink">{session.user.username}</span>
@@ -82,7 +83,7 @@ function Section({ title, description, children }: { title: string; description?
 }
 
 const INPUT =
-  "w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-sm text-ink outline-none transition focus:border-b-2 focus:border-accent";
+  "w-full h-11 rounded-card border border-outline bg-paper-raised px-3 font-ui text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const PRIMARY =
   "self-start rounded bg-ink-fill px-4 py-1.5 font-ui text-sm font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50";
 const SECONDARY =

@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { LibraryBook } from "@ebook-reader/shared";
 
 import { AppHeader } from "../components/AppHeader";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
 import { QuietSelect } from "../components/QuietSelect";
 import { useDeleteBook, useUploadQueue } from "../lib/use-library";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
@@ -71,12 +72,12 @@ export function JukeboxPage() {
       : "Uploading…";
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-page py-8 text-ink">
+    <main className={`${PAGE_FRAME} gap-6 text-ink`}>
       <AppHeader />
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-display text-3xl font-semibold text-ink">Jukebox</h2>
+          <h1 className={PAGE_TITLE}>Jukebox</h1>
           {list.length > 1 && player && (
             <QuietSelect
               label="Server"

@@ -92,7 +92,7 @@ export function LoginPage() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink transition outline-none focus:border-b-2 focus:border-accent"
+              className="h-11 w-full rounded-card border border-outline bg-paper-raised px-3 font-ui text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
           </label>
           <label className="flex flex-col gap-1.5">
@@ -104,7 +104,7 @@ export function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border-b border-line-soft bg-transparent px-1 py-1.5 font-ui text-base text-ink transition outline-none focus:border-b-2 focus:border-accent"
+              className="h-11 w-full rounded-card border border-outline bg-paper-raised px-3 font-ui text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
           </label>
           <button

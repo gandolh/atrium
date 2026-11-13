@@ -4,6 +4,8 @@ import type { LatexFile } from "@ebook-reader/shared";
 
 import { useSession } from "../../vendor/ward/ward-auth-react.js";
 import { AppHeader } from "../components/AppHeader";
+import { BUTTON } from "../components/button-styles";
+import { PAGE_TITLE } from "../components/page-frame";
 import { RecoveredBanner } from "../components/RecoveredBanner";
 import { useActiveProfileId } from "../lib/auth";
 import { ReaderChunkErrorBoundary } from "../reader/ReaderChunkErrorBoundary";
@@ -582,12 +584,9 @@ export function LatexEditor({ id }: { id: string }) {
   if (project.isError || !project.data) {
     return (
       <Shell>
-        <h1 className="font-display text-2xl font-semibold text-ink">Project not found</h1>
+        <h1 className={PAGE_TITLE}>Project not found</h1>
         <p className="max-w-md text-ink-variant">It may have been deleted, or it belongs to another profile.</p>
-        <Link
-          to="/latex"
-          className="w-fit rounded-card border border-line-soft px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-        >
+        <Link to="/latex" className={`${BUTTON} w-fit`}>
           All projects
         </Link>
       </Shell>
@@ -595,7 +594,7 @@ export function LatexEditor({ id }: { id: string }) {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-var(--dock-height,0px))] flex-col bg-reader-bg text-ink">
+    <div className="flex h-[calc(100dvh-var(--dock-height,0px)-var(--bar-offset,0px))] flex-col bg-reader-bg text-ink">
       {/* Header block: back, title, save state, and the two later chunks' slots. */}
       <div className="flex shrink-0 flex-col border-b border-line-soft/50 bg-paper/95 backdrop-blur-sm">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-page py-2.5">
@@ -873,7 +872,7 @@ function PaneTab({ active, onClick, children }: { active: boolean; onClick: () =
 /** Page shell for the loading / not-found states, matching the other destinations. */
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-4 px-5 py-8 text-ink md:px-16">
+    <main className="flex min-h-[calc(100dvh-var(--dock-height,0px))] flex-1 flex-col gap-3 px-4 pt-4 pb-4 text-ink min-[821px]:px-6">
       <AppHeader />
       {children}
     </main>

@@ -82,7 +82,7 @@ export function EpubSettings() {
               >
                 Aa
               </span>
-              <span className="text-[11px] text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
+              <span className="text-micro text-reader-fg/60 group-data-pressed:font-medium group-data-pressed:text-reader-fg">
                 {f.label}
               </span>
             </ToggleItem>

@@ -5,7 +5,7 @@ import { ConfirmStep, RemoteButton, TrackArt, trackByline } from "./controls";
 import { CloseIcon, DownIcon, UpIcon } from "./icons";
 
 /** The section head every Jukebox panel uses: Newsreader `section` (design.md). */
-export const SECTION_HEAD = "font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink";
+export const SECTION_HEAD = "font-display text-wordmark font-medium text-ink";
 
 /**
  * A Player's Queue: the songs that play before the Playlist
@@ -69,15 +69,15 @@ export function QueuePanel({
             <li key={entry.id} className="flex items-center gap-3 px-3 py-2.5">
               <TrackArt book={booksById.get(entry.track.id)} className="w-10" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-ui text-sm font-semibold tracking-[-0.01em] text-ink">
+                <p className="font-ui text-sm font-semibold tracking-[-0.01em] wrap-anywhere text-ink">
                   {entry.track.title}
                 </p>
                 {trackByline(entry.track.artist, entry.track.album) && (
-                  <p className="truncate font-ui text-xs text-ink-variant">
+                  <p className="font-ui text-xs wrap-anywhere text-ink-variant">
                     {trackByline(entry.track.artist, entry.track.album)}
                   </p>
                 )}
-                <p className="truncate font-ui text-xs text-ink-variant">Added by {entry.addedBy.name}</p>
+                <p className="font-ui text-xs wrap-anywhere text-ink-variant">Added by {entry.addedBy.name}</p>
               </div>
               <div className="flex shrink-0 items-center">
                 <RemoteButton

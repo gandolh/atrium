@@ -136,7 +136,7 @@ export function TimeReadout({ className = "", split }: { className?: string; spl
   return (
     <span className={`shrink-0 text-xs text-ink-variant ${className}`}>
       {formatTime(currentTime)}
-      <span className="px-1 opacity-55">/</span>
+      <span className="px-1">/</span>
       {total}
     </span>
   );

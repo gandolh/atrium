@@ -211,9 +211,9 @@ export function VersionPicker({ book }: { book: LibraryBook }) {
         </PopoverTrigger>
         <PopoverPopup
           align="end"
-          className="w-72 rounded-card border border-reader-border bg-reader-bg p-3 text-reader-fg shadow-l1 transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none"
+          className="w-72 rounded-card border border-reader-border bg-reader-bg p-3 text-reader-fg shadow-float transition data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 motion-reduce:transition-none"
         >
-          <PopoverTitle className="mb-2 px-1 font-ui text-[11px] font-semibold tracking-[0.15em] text-reader-fg/55 uppercase">
+          <PopoverTitle className="mb-2 px-1 font-ui text-micro font-semibold text-reader-fg/55 ">
             Versions
           </PopoverTitle>
           <ul className="flex flex-col gap-0.5">
@@ -334,7 +334,7 @@ function VersionRow({
             type="button"
             onClick={onConfirmDelete}
             disabled={busy}
-            className="rounded-card px-1.5 py-1 font-ui text-[11px] font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-reader-accent"
+            className="rounded-card px-1.5 py-1 font-ui text-micro font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-reader-accent"
           >
             Delete?
           </button>
@@ -342,7 +342,7 @@ function VersionRow({
             type="button"
             onClick={onCancelDelete}
             disabled={busy}
-            className="rounded-card px-1.5 py-1 font-ui text-[11px] text-reader-fg/70 transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent"
+            className="rounded-card px-1.5 py-1 font-ui text-micro text-reader-fg/70 transition hover:text-reader-fg focus-visible:outline-2 focus-visible:outline-reader-accent"
           >
             No
           </button>

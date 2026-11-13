@@ -148,13 +148,13 @@ function DiagnosticRow({ diagnostic, onJump }: { diagnostic: Diagnostic; onJump:
           isError ? "border-l-danger" : "border-l-line"
         }`}
       >
-        <span className="flex flex-wrap items-center gap-1.5 font-ui text-[11px] text-ink-variant">
+        <span className="flex flex-wrap items-center gap-1.5 font-ui text-micro text-ink-variant">
           <span className="tabular-nums">
             {diagnostic.file}
             {diagnostic.line > 0 ? `:${diagnostic.line}` : ""}
           </span>
           {badge && (
-            <span className="rounded-card bg-paper-container px-1.5 py-0.5 font-ui text-[10px] font-semibold tracking-[0.1em] text-ink-variant uppercase">
+            <span className="rounded-card bg-paper-container px-1.5 py-0.5 font-ui text-micro font-semibold text-ink-variant ">
               {badge}
             </span>
           )}

@@ -83,7 +83,7 @@ function ConvertedBookSwitch({ book, sourceId }: { book: LibraryBook; sourceId: 
   );
 }
 
-/** Human label for a format — just the uppercase extension; pulled out so the
+/** Human label for a format — just the  extension; pulled out so the
  *  wording can't drift between the two components above. */
 function labelFor(format: FileType): string {
   return format.toUpperCase();

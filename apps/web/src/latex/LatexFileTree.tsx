@@ -55,7 +55,7 @@ export function LatexFileTree({
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
-        <h3 className="font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">Files</h3>
+        <h3 className="font-ui text-micro font-semibold text-ink-variant ">Files</h3>
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -109,7 +109,7 @@ export function LatexFileTree({
         )}
       </ul>
 
-      <p className="px-3 py-2 font-ui text-[11px] text-ink-variant">
+      <p className="px-3 py-2 font-ui text-micro text-ink-variant">
         {files.length} {files.length === 1 ? "file" : "files"} · {formatBytes(totalBytes)}
       </p>
     </div>
@@ -260,11 +260,7 @@ function FileRow({
         >
           {node.name}
         </span>
-        {isEntrypoint && (
-          <span className="shrink-0 font-ui text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
-            main
-          </span>
-        )}
+        {isEntrypoint && <span className="shrink-0 font-ui text-micro font-semibold text-ink-variant ">main</span>}
       </button>
 
       {mode === "confirming" ? (
@@ -275,14 +271,14 @@ function FileRow({
               setMode("idle");
               onDelete(node.path);
             }}
-            className="rounded-card px-1.5 py-1 font-ui text-[11px] font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-card px-1.5 py-1 font-ui text-micro font-semibold text-danger transition hover:opacity-80 focus-visible:outline-2 focus-visible:outline-accent"
           >
             Delete?
           </button>
           <button
             type="button"
             onClick={() => setMode("idle")}
-            className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="rounded-card px-1.5 py-1 font-ui text-micro text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           >
             No
           </button>
@@ -332,7 +328,7 @@ function RowAction({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+      className="rounded-card px-1.5 py-1 font-ui text-micro text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
     >
       {children}
     </button>
@@ -400,19 +396,19 @@ function PathInput({
             onCancel();
           }
         }}
-        className="min-w-0 flex-1 rounded-card border border-line bg-paper-raised px-2 py-1 font-ui text-xs text-ink outline-none focus:border-accent"
+        className="h-9 min-w-0 flex-1 rounded-card border border-outline bg-paper-raised px-3 font-ui text-ui  text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       />
       <button
         type="submit"
         disabled={!valid}
-        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-[11px] font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
+        className="rounded-card bg-ink-fill px-2 py-1 font-ui text-micro font-semibold text-on-ink-fill transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40"
       >
         {confirmLabel}
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-card px-1.5 py-1 font-ui text-[11px] text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+        className="rounded-card px-1.5 py-1 font-ui text-micro text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
       >
         Cancel
       </button>

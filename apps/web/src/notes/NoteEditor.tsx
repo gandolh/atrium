@@ -1310,7 +1310,7 @@ function NibSlot({
           anchor={slotRef}
           aria-label="Nib"
           finalFocus={slotRef}
-          className="flex w-56 flex-col gap-0.5 rounded-card border border-line-soft bg-paper-raised p-1 shadow-l1"
+          className="flex w-56 flex-col gap-0.5 rounded-card border border-line-soft bg-paper-raised p-1 shadow-float"
           sideOffset={6}
         >
           {/* The chosen nib is announced as checked; a pick runs from the item's click, so choosing the one already
@@ -1533,7 +1533,7 @@ function ExportControl({
       role="group"
       aria-label="Export"
     >
-      <span aria-hidden="true" className="pr-0.5 pl-1.5 font-ui text-xs text-ink-variant/70">
+      <span aria-hidden="true" className="pr-0.5 pl-1.5 font-ui text-xs text-ink-variant">
         ↓
       </span>
       <button

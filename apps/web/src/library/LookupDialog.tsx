@@ -37,9 +37,9 @@ const FIELD_LABELS: Record<"audio" | "book", Record<LookupField, string>> = {
   book: { title: "Title", author: "Author", series: "Series", seriesIndex: "Number in series", cover: "Cover" },
 };
 
-const CAPS = "font-ui text-[10px] leading-[1.6] font-semibold tracking-[0.15em] text-ink-variant uppercase";
+const CAPS = "font-ui text-micro font-semibold text-ink-variant ";
 const INPUT =
-  "h-9 w-full min-w-0 rounded-card border border-line bg-paper px-3 font-ui text-sm text-ink outline-none transition-colors placeholder:text-ink-variant/70 focus:border-accent";
+  "h-9 w-full min-w-0 rounded-card border border-outline bg-paper-raised px-3 font-ui text-sm text-ink transition-colors placeholder:text-ink-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const SECONDARY =
   "h-9 shrink-0 rounded-card border border-line px-3 font-ui text-sm font-medium text-ink transition-colors hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50";
 const PRIMARY =
@@ -140,11 +140,11 @@ export function LookupDialog({
       <DialogPopup
         finalFocus={returnFocus}
         backdropClassName="motion-safe:duration-200"
-        className="top-1/2 left-1/2 flex max-h-[min(88vh,46rem)] w-[min(calc(100vw-2rem),36rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card border border-line-soft bg-paper-raised text-ink shadow-lift data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-paper"
+        className="top-1/2 left-1/2 flex max-h-[min(88vh,46rem)] w-[min(calc(100vw-2rem),36rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-tile border border-line bg-paper-raised text-ink shadow-float data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0 motion-safe:transition-[opacity,scale] motion-safe:duration-200 motion-safe:ease-paper"
       >
         <header className="flex flex-col gap-1 px-5 pt-5 pb-3">
           <p className={CAPS}>Look up on {sourceName}</p>
-          <DialogTitle className="line-clamp-2 font-display text-[27px] leading-[1.2] font-medium tracking-[-0.02em] text-ink">
+          <DialogTitle className="font-display text-wordmark font-medium wrap-anywhere text-ink">
             {book.title}
           </DialogTitle>
           <DialogDescription className="font-ui text-sm text-ink-variant">
@@ -195,10 +195,10 @@ export function LookupDialog({
                           onError={() => candidate.coverRef && markNoCover(candidate.coverRef)}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-ui text-sm leading-snug font-semibold tracking-[-0.01em] text-ink">
+                          <span className="block font-ui text-sm leading-snug font-semibold tracking-[-0.01em] wrap-anywhere text-ink">
                             {candidate.title}
                           </span>
-                          <span className="block truncate text-sm text-ink-variant tabular-nums">
+                          <span className="block text-sm wrap-anywhere text-ink-variant tabular-nums">
                             {describe(candidate, kind)}
                           </span>
                         </span>
@@ -360,7 +360,7 @@ function FieldValue({
       {image ? (
         <Thumb kind={kind} src={image} onError={onImageError} large />
       ) : (
-        (text ?? <span className="text-ink-variant/70">Empty</span>)
+        (text ?? <span className="text-ink-variant">Empty</span>)
       )}
     </span>
   );

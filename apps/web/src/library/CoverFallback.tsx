@@ -28,7 +28,7 @@ import { coverInitial, coverInitialVariant } from "../lib/cover-initial-variant"
 export function CoverFallback({ title, kind = "book" }: { title: string; kind?: MediaKind }) {
   const Glyph = kind === "audio" ? NoteGlyph : kind === "video" ? PlayGlyph : BookGlyph;
   return (
-    <span className="relative flex h-full w-full flex-col items-center justify-center gap-3 overflow-hidden px-4 text-center">
+    <span className="relative flex h-full w-full flex-col items-center justify-center gap-2 overflow-hidden px-3 pb-8 text-center">
       {/* The decorative title initial (design.md Typography, `tile-initial`).
           `aria-hidden`: it is pure texture, and the real title sits right
           below it for assistive tech. `text-ink/10` is the same "barely
@@ -43,12 +43,12 @@ export function CoverFallback({ title, kind = "book" }: { title: string; kind?: 
           them painting over it without pushing this one behind the ground. */}
       <span
         aria-hidden
-        className={`pointer-events-none absolute font-display leading-none font-medium text-ink/10 select-none ${coverInitialVariant(title)}`}
+        className={`pointer-events-none absolute font-display leading-none font-medium text-tile-initial select-none ${coverInitialVariant(title)}`}
       >
         {coverInitial(title)}
       </span>
-      <Glyph className="relative h-8 w-8 text-ink-variant/60" />
-      <span className="relative font-display text-lg leading-tight font-semibold text-ink">{title}</span>
+      <Glyph className="relative h-8 w-8 text-ink-variant" />
+      <span className="relative font-display text-title font-medium wrap-anywhere text-ink">{title}</span>
     </span>
   );
 }

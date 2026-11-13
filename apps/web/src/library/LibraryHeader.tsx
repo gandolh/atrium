@@ -22,10 +22,10 @@ export interface KindChoice {
 }
 
 /**
- * The kind filter chips (design.md "Components" → Filter chips): 20px radius —
- * the single pill in the system — a `line` border on `paper-raised`, and the
- * **active chip inverts to `ink-fill`**. The count sets in Archivo tabular at
- * 55% opacity (`body` already carries `tabular-nums`).
+ * The kind filter chips (design.md "Components" → Filter chips): a pill, an
+ * `outline` border on `paper-raised`, and the **active chip inverts to
+ * `ink-fill`**. The count sets in Archivo tabular at full strength, `ink-variant`
+ * on an idle chip (`body` already carries `tabular-nums`).
  *
  * Each chip is a real `<Link>` to `/` with its own `?kind`, not a button: the
  * filter lives in the URL, so Back / refresh / share / middle-click-into-a-new-
@@ -40,7 +40,7 @@ export interface KindChoice {
  */
 export function KindChips({ active, choices }: { active?: MediaKind; choices: KindChoice[] }) {
   return (
-    <nav aria-label="Filter by kind" className="flex flex-wrap items-center gap-2">
+    <nav aria-label="Filter by kind" className="flex flex-wrap items-center gap-2 max-[379px]:gap-1.5">
       {choices.map((choice) => {
         const isActive = choice.kind === active;
         return (
@@ -58,14 +58,16 @@ export function KindChips({ active, choices }: { active?: MediaKind; choices: Ki
             // makes its activeness (and therefore the `aria-current` it emits)
             // agree with `isActive` below.
             activeOptions={{ exact: true, includeSearch: true }}
-            className={`flex items-center gap-1.5 rounded-chip border px-3.5 py-1.5 font-ui text-sm font-medium transition-colors duration-200 ease-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+            className={`flex h-9 items-center gap-2 rounded-chip border px-4 font-ui text-ui font-medium whitespace-nowrap transition-colors duration-200 ease-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-[820px]:h-11 max-[379px]:px-3 ${
               isActive
                 ? "border-ink-fill bg-ink-fill text-on-ink-fill"
-                : "border-line bg-paper-raised text-ink-variant hover:text-ink"
+                : "border-outline bg-paper-raised text-ink hover:bg-paper-low"
             }`}
           >
             {choice.label}
-            <span className="font-ui text-xs font-medium opacity-55">{choice.count}</span>
+            <span className={`font-ui font-normal ${isActive ? "text-on-ink-fill" : "text-ink-variant"}`}>
+              {choice.count}
+            </span>
           </Link>
         );
       })}
@@ -90,7 +92,7 @@ export function StorageCaption({
   const pct = Math.min(100, Math.round((storage.usage / storage.quota) * 100));
   return (
     <p
-      className="text-xs text-ink-variant"
+      className="text-micro text-ink-variant"
       title={`${formatBytes(storage.usage)} used of ${formatBytes(storage.quota)} available on this device`}
     >
       {formatBytes(storage.usage)} offline &middot; {pct}% of device storage

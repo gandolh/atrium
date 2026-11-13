@@ -27,7 +27,7 @@ export function QuietSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="quiet-select appearance-none border-b border-line-soft bg-transparent py-1.5 pr-6 pl-1 font-ui text-sm font-medium tracking-normal text-ink normal-case transition outline-none hover:border-line focus:border-b-2 focus:border-accent"
+        className="quiet-select flex h-9 appearance-none items-center rounded-card border border-outline bg-paper-raised pr-8 pl-3 font-ui text-ui font-medium text-ink transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-[820px]:h-11"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -35,14 +35,14 @@ export function QuietSelect<T extends string>({
           </option>
         ))}
       </select>
-      <ChevronGlyph className="pointer-events-none absolute right-1 h-3.5 w-3.5 text-ink-variant" />
+      <ChevronGlyph className="pointer-events-none absolute right-2.5 h-4 w-4 text-ink-variant" />
     </span>
   );
 
   if (stacked) {
     return (
       <label className="flex flex-col gap-1.5">
-        <span className="font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">{label}</span>
+        <span className="font-ui text-ui font-medium text-ink-variant">{label}</span>
         {control}
       </label>
     );
@@ -51,7 +51,7 @@ export function QuietSelect<T extends string>({
   // Inline: caps label, matching the segmented controls it shares a row with
   // (label-caps is the one label voice on that toolbar line).
   return (
-    <label className="flex items-center gap-2 font-ui text-xs font-semibold tracking-[0.08em] text-ink-variant uppercase">
+    <label className="flex items-center gap-2 font-ui text-ui font-medium text-ink-variant">
       {label}
       {control}
     </label>

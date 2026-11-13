@@ -8,6 +8,9 @@ import { useDeleteBook, useLibraryList, useOfflineDownload, useUploadQueue } fro
 import { useReconnectProgressSync } from "../lib/use-progress-sync";
 import { STAGGER_MS, motionTransition, usePrefersReducedMotion } from "../lib/motion";
 import { AppHeader } from "../components/AppHeader";
+import { BUTTON, BUTTON_SOLID } from "../components/button-styles";
+import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
+import { PlusIcon } from "../components/places";
 import { QuietSelect } from "../components/QuietSelect";
 import { KindChips, StorageCaption, type KindChoice } from "./LibraryHeader";
 import { LibrarySearchField } from "./LibrarySearchField";
@@ -53,11 +56,12 @@ const KIND_LABELS: Record<MediaKind, string> = {
  * `grid-flow-row-dense` + a **two-column span for video** is what keeps rows
  * from going ragged: a 16:9 tile is about as wide as two portrait tiles, so it
  * consumes two column slots instead of stretching one and leaving a hole, and
- * dense placement back-fills any slot a wide tile skips past. Column counts are
- * even numbers at every breakpoint so a two-slot tile can never orphan a
- * single-slot column at the end of a row.
+ * dense placement back-fills any slot a wide tile skips past. The columns fill
+ * the width: six 154 px tiles at 1280 (inside the 1152 px cap), two at 360 and
+ * 390, four at 768, so a phone never hides a cover behind a fixed count.
  */
-const GRID = "grid grid-flow-row-dense grid-cols-2 items-start gap-x-gutter gap-y-8 sm:grid-cols-4 xl:grid-cols-6";
+const GRID =
+  "grid grid-flow-row-dense grid-cols-[repeat(auto-fill,minmax(150px,1fr))] items-start gap-x-3 gap-y-3 min-[821px]:grid-cols-[repeat(auto-fill,minmax(152px,1fr))] min-[821px]:gap-y-4";
 
 /** Video tiles are landscape — two column slots wide (see `GRID`). */
 function cellSpan(book: LibraryBook): string | undefined {
@@ -222,9 +226,30 @@ export function LibraryHome() {
   );
 
   const browse = () => uploadHandle.current?.browse();
+  // The Add button: in the band at 1280, and as half of the matched pair under the title on a phone.
+  const addButton = (
+    <button
+      type="button"
+      onClick={browse}
+      disabled={uploading || isOffline}
+      title={isOffline ? "Requires connection" : undefined}
+      className={`${BUTTON_SOLID} max-[820px]:h-12 max-[820px]:w-full`}
+    >
+      <PlusIcon />
+      {uploading ? uploadLabel : "Add"}
+    </button>
+  );
+  const sortSelect = !libraryEmpty && (
+    <QuietSelect
+      label="Sort by"
+      value={sort}
+      onChange={setSort}
+      options={LIBRARY_SORTS.map((s) => ({ value: s, label: SORT_LABELS[s] }))}
+    />
+  );
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-var(--dock-height,0px))] max-w-6xl flex-col gap-8 px-page py-8 text-ink">
+    <main className={`${PAGE_FRAME} gap-5 text-ink`}>
       <AppHeader
         caption={
           <StorageCaption storage={offlineDownload.storage} downloadedCount={offlineDownload.downloaded.length} />
@@ -244,30 +269,7 @@ export function LibraryHome() {
             />
           )
         }
-        actions={
-          <>
-            {/* Discover is reached from the Add flow now, not
-                from a Books area: importing from a catalog is the other half of
-                "add something", so it sits beside Add rather than in a nav. */}
-            <Link
-              to="/discover"
-              className="rounded-card border border-line-soft/70 px-4 py-2 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              Browse catalogs
-            </Link>
-            {!libraryEmpty && (
-              <button
-                type="button"
-                onClick={browse}
-                disabled={uploading || isOffline}
-                title={isOffline ? "Requires connection" : undefined}
-                className="rounded-card bg-ink-fill px-4 py-2 font-ui text-sm font-semibold text-on-ink-fill tabular-nums transition hover:opacity-90 disabled:bg-paper-container disabled:text-ink-variant"
-              >
-                {uploading ? uploadLabel : "+ Add"}
-              </button>
-            )}
-          </>
-        }
+        actions={!libraryEmpty && addButton}
       />
 
       {isOffline && <OfflineBanner />}
@@ -292,7 +294,7 @@ export function LibraryHome() {
       {uploads.failed.length > 0 && (
         <p
           role="alert"
-          className="-mt-4 rounded-card border border-danger/40 bg-danger-soft/50 px-4 py-2.5 text-sm text-danger"
+          className="rounded-card border border-danger bg-danger-soft px-4 py-2.5 text-ui font-normal text-danger"
         >
           {uploads.failed.length === 1
             ? `Upload failed: ${uploads.failed[0]}. Is the API running? Please try again.`
@@ -302,22 +304,27 @@ export function LibraryHome() {
 
       <ContinueReading books={resumeBooks} onOpen={openBook} />
 
-      <section aria-label="Library" className="flex flex-col gap-5">
-        <h1 className="font-display text-4xl leading-[1.05] font-medium tracking-[-0.03em] text-ink md:text-[2.75rem]">
-          Your library
-        </h1>
+      <section aria-label="Library" className="flex flex-col gap-5 max-[820px]:gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className={PAGE_TITLE}>Your library</h1>
+          {/* On a phone Sort by sits at the title row's right end; at 1280 it ends the chips row below. */}
+          <div className="min-[821px]:hidden">{sortSelect}</div>
+        </div>
 
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        {/* A matched 48 px pair on a phone: Browse catalogs is the rail's at 1280. */}
+        {!libraryEmpty && (
+          <div className="grid grid-cols-2 gap-3 min-[821px]:hidden">
+            <Link to="/discover" className={`${BUTTON} h-12 w-full`}>
+              Browse catalogs
+            </Link>
+            {addButton}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-4">
           {/* Chips replace the nav tabs AND the Group by / view controls. */}
           <KindChips active={kind} choices={chips} />
-          {!libraryEmpty && (
-            <QuietSelect
-              label="Sort by"
-              value={sort}
-              onChange={setSort}
-              options={LIBRARY_SORTS.map((s) => ({ value: s, label: SORT_LABELS[s] }))}
-            />
-          )}
+          <div className="max-[820px]:hidden">{sortSelect}</div>
         </div>
 
         {/* Count + clear: only while a search is active — the
@@ -325,13 +332,13 @@ export function LibraryHome() {
             about the query on top of them. */}
         {trimmedQuery && !isLoading && !isError && (
           <div className="-mt-2 flex items-center justify-between gap-3">
-            <p className="font-ui text-sm text-ink-variant">
+            <p className="font-ui text-ui font-normal text-ink-variant">
               {visible.length} {visible.length === 1 ? "result" : "results"} for “{trimmedQuery}”
             </p>
             <button
               type="button"
               onClick={() => setSearchInput("")}
-              className="rounded-sm font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+              className="rounded-sm font-ui text-ui font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
             >
               Clear search
             </button>
@@ -345,11 +352,7 @@ export function LibraryHome() {
             title="Couldn't load your library"
             body="The API may be offline. Start it with npm run dev and refresh."
             action={
-              <button
-                type="button"
-                onClick={refetch}
-                className="rounded-card border border-line-soft px-4 py-1.5 text-sm font-medium text-ink-variant transition hover:text-ink"
-              >
+              <button type="button" onClick={refetch} className={BUTTON}>
                 Try again
               </button>
             }
@@ -363,7 +366,7 @@ export function LibraryHome() {
           // drag yet.
           <div className="flex flex-col items-center gap-5 py-4 text-center">
             <div className="flex flex-col gap-1.5">
-              <p className="font-display text-2xl font-medium text-ink">Nothing here yet</p>
+              <p className="font-display text-display-phone font-medium text-ink">Nothing here yet</p>
               <p className="max-w-md text-ink-variant">
                 Add a book, a track or a video and it shows up here as a cover — or import a free classic from Project
                 Gutenberg.
@@ -379,10 +382,7 @@ export function LibraryHome() {
                 browseRef={uploadHandle}
               />
             </div>
-            <Link
-              to="/discover"
-              className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
-            >
+            <Link to="/discover" className={BUTTON}>
               Browse Gutenberg
             </Link>
           </div>
@@ -408,7 +408,7 @@ export function LibraryHome() {
                 // and this is the one action guaranteed to show something
                 // (the library itself isn't empty, per the branch above).
                 search={{ kind: undefined, q: undefined }}
-                className="rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                className={BUTTON}
               >
                 Show everything
               </Link>
@@ -459,8 +459,8 @@ export function LibraryHome() {
  */
 function EmptyState({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-card border border-line-soft/50 bg-paper-low/40 px-6 py-16 text-center">
-      <p className="font-display text-xl font-semibold text-ink">{title}</p>
+    <div className="flex flex-col items-center gap-3 rounded-tile border border-line bg-paper-raised px-6 py-16 text-center shadow-l1">
+      <p className="font-display text-title font-medium text-ink">{title}</p>
       <p className="max-w-md text-ink-variant">{body}</p>
       {action}
     </div>
@@ -473,8 +473,8 @@ function GallerySkeleton() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-3">
           <div className="aspect-[2/3] w-full rounded-cover bg-paper-container motion-safe:animate-pulse" />
-          <div className="h-4 w-3/4 rounded-card bg-paper-container motion-safe:animate-pulse" />
-          <div className="h-3 w-1/2 rounded-card bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-4 w-3/4 rounded-sm bg-paper-container motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded-sm bg-paper-container motion-safe:animate-pulse" />
         </div>
       ))}
     </div>

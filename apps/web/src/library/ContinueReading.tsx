@@ -36,7 +36,7 @@ export function ContinueReading({ books, onOpen }: { books: LibraryBook[]; onOpe
 
   return (
     <section aria-label="Continue" className="flex flex-col gap-3">
-      <h2 className="font-ui text-xs font-semibold tracking-[0.15em] text-ink-variant uppercase">Continue</h2>
+      <h2 className="font-ui text-ui font-semibold text-ink-variant">Continue</h2>
       <div className="grid grid-cols-1 gap-gutter sm:grid-cols-3">
         {books.map((book) => (
           <ResumeCard key={book.id} book={book} onOpen={onOpen} />
@@ -60,10 +60,10 @@ function ResumeCard({ book, onOpen }: { book: LibraryBook; onOpen: (book: Librar
       type="button"
       onClick={() => onOpen(book)}
       aria-label={`Resume ${book.title}${remaining ? `, ${remaining}` : ""}`}
-      className="group flex w-full items-center gap-4 rounded-card border border-line-soft bg-paper-raised p-3 text-left shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper focus-visible:outline-2 focus-visible:outline-accent motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift"
+      className="group flex w-full items-center gap-4 rounded-tile border border-line bg-paper-raised p-3 text-left shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper focus-visible:outline-2 focus-visible:outline-accent motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift"
     >
       <span
-        className={`relative block ${thumbAspect} w-16 shrink-0 overflow-hidden rounded-cover bg-paper-container shadow-[0_8px_16px_-6px_rgba(28,27,27,0.18)] ring-1 ring-line-soft/40`}
+        className={`relative block ${thumbAspect} w-16 shrink-0 overflow-hidden rounded-cover bg-paper-container shadow-l1 ring-1 ring-line`}
       >
         <CoverArt book={book} imgFailed={imgFailed} onImgError={() => setImgFailed(true)} />
       </span>
@@ -71,18 +71,16 @@ function ResumeCard({ book, onOpen }: { book: LibraryBook; onOpen: (book: Librar
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         {/* Card title role (design.md "Typography"): Archivo 600 — see
             CoverCard for why the reading-pane Newsreader doesn't apply here. */}
-        <span className="line-clamp-1 font-ui text-base leading-snug font-semibold tracking-[-0.01em] text-ink">
-          {book.title}
-        </span>
-        {book.author && <span className="truncate text-sm text-ink-variant">{book.author}</span>}
+        <span className="font-ui text-body font-semibold wrap-anywhere text-ink">{book.title}</span>
+        {book.author && <span className="text-ui font-normal wrap-anywhere text-ink-variant">{book.author}</span>}
 
         <span className="mt-1 flex items-center gap-2.5">
-          <span className="h-[3px] max-w-40 flex-1 overflow-hidden rounded-full bg-ink/10">
-            <span className="block h-full bg-accent" style={{ width: `${pct}%` }} />
+          <span className="h-[3px] max-w-40 flex-1 overflow-hidden rounded-full bg-line">
+            <span className="block h-full bg-progress" style={{ width: `${pct}%` }} />
           </span>
           {/* Time remaining, not percent (D33 grilled decision) — `tabular-nums`
               is already on `body`, so the figure lines up with no extra work. */}
-          <span className="shrink-0 font-ui text-xs text-ink-variant">{remaining}</span>
+          <span className="shrink-0 font-ui text-micro text-ink-variant">{remaining}</span>
         </span>
       </span>
     </button>

@@ -141,7 +141,7 @@ export function CoverCard({
 
   return (
     <div
-      className={`group flex flex-col gap-2 rounded-card border border-line-soft ${tintClass} p-2 shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift`}
+      className={`group flex min-w-0 flex-col rounded-tile border border-line ${tintClass} px-2 pt-2 pb-1 shadow-l1 transition-[transform,box-shadow] duration-300 ease-paper motion-safe:hover:-translate-y-1 motion-safe:hover:shadow-lift`}
     >
       <div className={`relative ${mediaAspect} w-full`}>
         <button
@@ -159,7 +159,7 @@ export function CoverCard({
             layoutId={kind === "book" ? coverLayoutId(book.id) : undefined}
             layout
             transition={expandTransition}
-            className="h-full w-full overflow-hidden rounded-cover"
+            className={`h-full w-full overflow-hidden rounded-cover ${book.format === "pdf" ? "border border-line bg-pdf-page" : ""}`}
           >
             <CoverArt book={book} imgFailed={imgFailed} onImgError={() => setImgFailed(true)} />
           </motion.div>
@@ -169,7 +169,7 @@ export function CoverCard({
               offline toggle (top-left) or the reading-progress bar (bottom
               edge). */}
           {durationLabel && (
-            <span className="absolute bottom-2 left-2 rounded-cover bg-ink/55 px-2 py-1 font-ui text-[11px] leading-none text-on-ink-fill backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-cover bg-ink-fill/75 px-2 py-1 font-ui text-micro leading-none text-on-ink-fill backdrop-blur-sm">
               {durationLabel}
             </span>
           )}
@@ -177,8 +177,8 @@ export function CoverCard({
           {/* Reading progress: 3px accent bar at the bottom edge (design.md
               "Structure": Progress = 3px). */}
           {progressPct > 0 && (
-            <span className="absolute inset-x-0 bottom-0 h-[3px] bg-ink/10">
-              <span className="block h-full bg-accent" style={{ width: `${progressPct}%` }} />
+            <span className="absolute inset-x-0 bottom-0 h-[3px] bg-line">
+              <span className="block h-full bg-progress" style={{ width: `${progressPct}%` }} />
             </span>
           )}
         </button>
@@ -198,22 +198,20 @@ export function CoverCard({
         )}
       </div>
 
-      <div className="flex items-start justify-between gap-2 px-0.5 pb-0.5">
-        <div className="min-w-0">
+      <div className="flex min-h-16 items-start gap-1 pt-2 pl-1">
+        <div className="min-w-0 flex-1">
           {/* Card title role (design.md "Typography"): Archivo 600, not the
               reading-pane Newsreader — "card + row titles" are interface
               chrome even though the words themselves came from the book. */}
-          <p
-            title={book.title}
-            className="line-clamp-2 font-ui text-sm leading-snug font-semibold tracking-[-0.01em] text-ink"
-          >
+          <p title={book.title} className="font-ui text-ui font-semibold wrap-anywhere text-ink">
             {book.title}
           </p>
           {/* Source line, `ink-variant` (design.md "Components" → Tiles): the
               format label rides along here instead of a corner badge — this
               plus the tint is what now carries kind. */}
-          <p className="truncate text-sm text-ink-variant">
-            {book.author ? `${book.author} · ${formatLabel}` : formatLabel}
+          <p className="flex flex-wrap gap-x-3 text-ui font-normal wrap-anywhere text-ink-variant">
+            {book.author && <span>{book.author}</span>}
+            <span>{formatLabel}</span>
           </p>
           {queued && (
             <p role="status" className={`text-xs ${queued.ok ? "text-ink-variant" : "text-danger"}`}>
@@ -231,13 +229,13 @@ export function CoverCard({
           <MenuTrigger
             ref={menuTrigger}
             aria-label={`More actions for ${book.title}`}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-card text-ink-variant opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-paper-raised/60 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent data-[popup-open]:opacity-100 max-md:opacity-100"
+            className="-mt-1 -mr-1 grid h-10 w-10 shrink-0 place-items-center rounded-card text-ink transition hover:bg-paper-raised focus-visible:outline-2 focus-visible:outline-accent max-[820px]:-mt-2 max-[820px]:-mr-2 max-[820px]:h-11 max-[820px]:w-11"
           >
-            <DotsGlyph className="h-4 w-4" />
+            <DotsGlyph className="h-[18px] w-[18px]" />
           </MenuTrigger>
           <MenuPopup
             align="end"
-            className="w-48 overflow-hidden rounded-card border border-line-soft bg-paper-raised font-ui shadow-lift"
+            className="w-48 overflow-hidden rounded-card border border-line bg-paper-raised font-ui shadow-float"
           >
             {/* The metadata lookup: the on-request lookup, music and books only. */}
             {lookupSource && (
@@ -249,7 +247,7 @@ export function CoverCard({
                 }}
                 title={lookupDisabled ? "Looking up requires a connection" : undefined}
                 className={`block w-full cursor-default px-3 py-2 text-left text-sm outline-none ${
-                  lookupDisabled ? "cursor-not-allowed text-ink-variant/60" : "text-ink data-[highlighted]:bg-paper-low"
+                  lookupDisabled ? "cursor-not-allowed text-ink-variant" : "text-ink data-[highlighted]:bg-paper-low"
                 }`}
               >
                 {lookupDisabled ? "Look up (requires connection)" : "Look up…"}
@@ -267,14 +265,14 @@ export function CoverCard({
             )}
             {discordPlayers.length > 1 && (
               <MenuGroup className="border-b border-line-soft py-1">
-                <MenuGroupLabel className="px-3 pt-1 pb-0.5 text-[10px] font-semibold tracking-[0.15em] text-ink-variant uppercase">
+                <MenuGroupLabel className="px-3 pt-1 pb-0.5 text-micro font-semibold text-ink-variant">
                   Add to Discord queue
                 </MenuGroupLabel>
                 {discordPlayers.map((player) => (
                   <MenuItem
                     key={player.guildId}
                     onClick={() => addToDiscord(player.guildId, player.guildName)}
-                    className="block w-full cursor-default truncate px-3 py-1.5 text-left text-sm text-ink outline-none data-[highlighted]:bg-paper-low"
+                    className="block w-full cursor-default px-3 py-1.5 text-left text-sm wrap-anywhere text-ink outline-none data-[highlighted]:bg-paper-low"
                   >
                     {player.guildName}
                   </MenuItem>
@@ -287,7 +285,7 @@ export function CoverCard({
               title={deleteDisabled ? "Removing requires a connection" : undefined}
               className={`block w-full cursor-default px-3 py-2 text-left text-sm outline-none ${
                 deleteDisabled
-                  ? "cursor-not-allowed text-ink-variant/60"
+                  ? "cursor-not-allowed text-ink-variant"
                   : "text-danger data-[highlighted]:bg-danger-soft/50"
               }`}
             >

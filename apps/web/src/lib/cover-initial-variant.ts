@@ -37,17 +37,17 @@
  * `` `text-${size}` `` would silently ship unstyled — the same trap
  * `TINT_CLASS` in `CoverCard.tsx` documents.
  *
- * Every variant bleeds past an edge so the letterform reads as ground texture
- * rather than as a second, competing piece of text; the tile's own
- * `overflow-hidden` does the clipping.
+ * Every variant sits in a bottom corner and bleeds past the foot edge, smaller than it was (D63), so the letterform
+ * stays clear of the title above it and reads as ground texture rather than as a second, competing piece of text;
+ * the tile's own `overflow-hidden` does the clipping.
  */
 const INITIAL_VARIANTS: readonly string[] = [
-  "text-8xl -right-3 -bottom-8",
-  "text-9xl -right-5 -bottom-10",
-  "text-7xl -right-2 -bottom-6",
-  "text-8xl -left-3 -bottom-8",
-  "text-9xl -left-5 -bottom-10",
-  "text-7xl -left-2 -bottom-6",
+  "text-7xl left-2 -bottom-3",
+  "text-6xl left-2 -bottom-2",
+  "text-8xl left-1 -bottom-4",
+  "text-7xl right-2 -bottom-3",
+  "text-6xl right-2 -bottom-2",
+  "text-8xl right-1 -bottom-4",
 ];
 
 /**

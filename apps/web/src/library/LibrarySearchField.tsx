@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { SearchIcon } from "../components/places";
+
 /**
  * Cross-library search field — rendered into `AppHeader`'s search
  * slot from `LibraryHome`. Chrome matches the slot the one-home layout left: a 1px
@@ -55,6 +57,9 @@ export function LibrarySearchField({
 
   return (
     <div className="relative">
+      <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-variant">
+        <SearchIcon />
+      </span>
       <input
         ref={inputRef}
         type="text"
@@ -66,9 +71,9 @@ export function LibrarySearchField({
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={onKeyDownInput}
-        className="w-full rounded-card border border-line bg-paper py-2 pr-10 pl-3 font-ui text-sm text-ink transition-colors duration-200 ease-paper placeholder:text-ink-variant/70 focus:outline-none focus-visible:border-accent"
+        className="h-11 w-full rounded-card border border-outline bg-paper-raised pr-12 pl-10 font-ui text-ui font-normal text-ink transition-colors duration-200 ease-paper placeholder:text-ink-variant focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-[820px]:h-12 max-[820px]:text-body"
       />
-      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+      <div className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center">
         {showClear ? (
           <button
             type="button"
@@ -77,14 +82,14 @@ export function LibrarySearchField({
               inputRef.current?.focus();
             }}
             aria-label="Clear search"
-            className="pointer-events-auto rounded-sm px-1 py-0.5 font-ui text-xs font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+            className="pointer-events-auto rounded-sm px-1 py-0.5 font-ui text-micro font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
           >
             Clear
           </button>
         ) : showHint ? (
           <span
             aria-hidden
-            className="rounded-sm border border-line-soft px-1.5 py-0.5 font-ui text-xs text-ink-variant"
+            className="grid h-[22px] min-w-6 place-items-center rounded-sm border border-line bg-paper-low px-2 font-ui text-micro text-ink-variant max-[820px]:hidden"
           >
             /
           </span>

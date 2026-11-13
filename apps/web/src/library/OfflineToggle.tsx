@@ -35,7 +35,7 @@ export function OfflineToggle({
   onRemove: () => void;
 }) {
   const base =
-    "absolute top-2.5 left-2.5 grid h-7 w-7 place-items-center rounded-(--radius-cover) bg-ink/55 backdrop-blur-sm";
+    "absolute top-2 left-2 z-raised grid h-9 w-9 place-items-center rounded-cover border border-line bg-paper-raised text-ink shadow-l1 max-[820px]:h-11 max-[820px]:w-11";
 
   if (state === "downloading") {
     const pct = progress == null ? null : Math.round(progress * 100);
@@ -44,7 +44,7 @@ export function OfflineToggle({
         role="status"
         aria-label={pct == null ? `Downloading ${bookTitle} for offline reading` : `Downloading ${bookTitle}: ${pct}%`}
         title={pct == null ? "Downloading…" : `Downloading… ${pct}%`}
-        className={`${base} text-on-ink-fill`}
+        className={base}
       >
         <ProgressRing progress={progress ?? null} />
       </span>
@@ -58,9 +58,9 @@ export function OfflineToggle({
         onClick={onRemove}
         aria-label={`Remove ${bookTitle} from offline downloads`}
         title="Downloaded for offline reading — tap to remove"
-        className={`${base} text-on-ink-fill opacity-70 transition hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent`}
+        className={`${base} text-accent transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent`}
       >
-        <CheckGlyph className="h-3.5 w-3.5" />
+        <CheckGlyph className="h-[18px] w-[18px]" />
       </button>
     );
   }
@@ -75,9 +75,9 @@ export function OfflineToggle({
           canDownload ? `Retry offline download for ${bookTitle}` : "Offline download failed — requires connection"
         }
         title={canDownload ? "Download failed — tap to retry" : "Download failed — requires connection"}
-        className={`${base} text-danger transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50`}
+        className={`${base} text-danger transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50`}
       >
-        <RetryGlyph className="h-3.5 w-3.5" />
+        <RetryGlyph className="h-[18px] w-[18px]" />
       </button>
     );
   }
@@ -92,9 +92,9 @@ export function OfflineToggle({
         canDownload ? `Save ${bookTitle} for offline reading` : "Save for offline reading — requires connection"
       }
       title={canDownload ? "Save for offline reading" : "Requires connection"}
-      className={`${base} text-on-ink-fill opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 max-md:opacity-100`}
+      className={`${base} transition hover:bg-paper-low focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50`}
     >
-      <DownloadGlyph className="h-3.5 w-3.5" />
+      <DownloadGlyph className="h-[18px] w-[18px]" />
     </button>
   );
 }

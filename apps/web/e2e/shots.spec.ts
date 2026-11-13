@@ -47,6 +47,38 @@ for (const theme of THEMES) {
         });
       }
 
+      test("latex editor", async ({ page, baseURL }) => {
+        const projects = await apiJson<{ id: string }[]>(page, baseURL ?? "", "/latex");
+        await page.goto(`latex?project=${projects[0]?.id}`);
+        await page.waitForLoadState("networkidle");
+        await page.waitForTimeout(1500);
+        await shoot(page, "latex-editor");
+      });
+
+      test("pdf reader", async ({ page, baseURL }) => {
+        const books = await apiJson<Book[]>(page, baseURL ?? "", "/library");
+        const pdf = books.find((b) => b.format === "pdf");
+        if (!pdf) throw new Error("The scratch library has no PDF.");
+        await page.goto(`read?format=pdf&book=${pdf.id}`);
+        await page.waitForLoadState("networkidle");
+        await page.waitForTimeout(2000);
+        await shoot(page, "pdf-reader");
+      });
+
+      test("profile picker", async ({ page }) => {
+        await page.addInitScript(() => localStorage.removeItem("ebook-reader.profile"));
+        await page.goto("");
+        await page.waitForLoadState("networkidle");
+        await shoot(page, "profile-picker");
+      });
+
+      test("login", async ({ page }) => {
+        await page.context().clearCookies();
+        await page.goto("");
+        await page.waitForLoadState("networkidle");
+        await shoot(page, "login");
+      });
+
       test("reader", async ({ page, baseURL }) => {
         const books = await apiJson<Book[]>(page, baseURL ?? "", "/library");
         const tale = books.find((b) => b.title === "A Small Tale");

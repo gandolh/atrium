@@ -1,10 +1,10 @@
-# ward-auth 0.3.1 (vendored)
+# ward-auth 1.1.0 (vendored)
 
 This directory is a built copy of ward-auth, the shared library for the
 estate's apps: local accounts, and "Sign in with Ward". It is generated: do not edit these files. To upgrade,
 build a newer version and copy it over this one, then follow the upgrade notes.
 
-- **Version:** 0.3.1
+- **Version:** 1.1.0
 - **Source:** the `ward-auth` repository, folder `shared-library/`
 - **Upgrade notes:** `shared-library/CHANGELOG.md` in the same repository
 

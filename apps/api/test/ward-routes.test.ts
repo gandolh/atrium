@@ -152,10 +152,80 @@ describe("Sign in with Ward", () => {
     }
   });
 
-  it("linking answers a URL on Ward for a signed-in local user", async () => {
-    const cookie = await t.signIn("local-linker");
-    const res = await t.app.inject({ method: "POST", url: "/auth/ward/link", headers: { cookie, origin: ORIGIN } });
+  /** A signed-in local user who has a password, and the cookie of its session. */
+  async function withPassword(id: string, password = "correct horse battery") {
+    await t.accounts.createUser({ id, username: id, password, role: "member" });
+    const { token } = await t.accounts.startSession(id);
+    return { cookie: `${SESSION_COOKIE}=${token}`, password };
+  }
+
+  const post = (url: string, cookie: string, payload?: Record<string, unknown>) =>
+    t.app.inject({ method: "POST", url, headers: { cookie, origin: ORIGIN }, payload: payload ?? {} });
+
+  it("linking and unlinking ask for the current password", async () => {
+    const { cookie, password } = await withPassword("local-linker");
+
+    const missing = await post("/auth/ward/link", cookie);
+    assert.equal(missing.statusCode, 400, missing.body);
+    assert.equal(missing.json().error, "invalid_request");
+
+    const wrong = await post("/auth/ward/link", cookie, { currentPassword: "not the password" });
+    assert.equal(wrong.statusCode, 401, wrong.body);
+    assert.equal(wrong.json().error, "invalid_credentials");
+
+    const right = await post("/auth/ward/link", cookie, { currentPassword: password });
+    assert.equal(right.statusCode, 200, right.body);
+    assert.ok(String(right.json().url).startsWith(`${ISSUER}/auth?`));
+
+    // Not linked yet, so unlink is a 409 before the body is read.
+    const notLinked = await post("/auth/ward/unlink", cookie, { currentPassword: password });
+    assert.equal(notLinked.statusCode, 409, notLinked.body);
+    assert.equal(notLinked.json().error, "not_linked");
+  });
+
+  it("a linked user unlinks with the password, and still signs in with Ward until then", async () => {
+    const { cookie, password } = await withPassword("local-unlinker");
+    const identities = createWardIdentities({ accounts: t.accounts });
+    await identities.link("local-unlinker", "subject-unlinker");
+    assert.equal((await identities.findUserBySubject("subject-unlinker"))?.id, "local-unlinker");
+
+    const missing = await post("/auth/ward/unlink", cookie);
+    assert.equal(missing.statusCode, 400, missing.body);
+    const wrong = await post("/auth/ward/unlink", cookie, { currentPassword: "nope nope nope" });
+    assert.equal(wrong.statusCode, 401, wrong.body);
+    assert.equal(wrong.json().error, "invalid_credentials");
+    assert.equal(await identities.subjectOf("local-unlinker"), "subject-unlinker");
+
+    const right = await post("/auth/ward/unlink", cookie, { currentPassword: password });
+    assert.equal(right.statusCode, 200, right.body);
+    assert.equal(await identities.subjectOf("local-unlinker"), undefined);
+  });
+
+  it("a Ward-only user cannot unlink, whatever is sent", async () => {
+    const cookie = await wardSession("subject-ward-only");
+    const res = await post("/auth/ward/unlink", cookie, { currentPassword: "anything at all" });
+    assert.equal(res.statusCode, 409, res.body);
+    assert.equal(res.json().error, "no_local_password");
+  });
+
+  it("renaming works and the account signs in under the new name", async () => {
+    const { cookie, password } = await withPassword("rename-me");
+    const res = await post("/auth/username", cookie, { username: "Renamed-Reader" });
     assert.equal(res.statusCode, 200, res.body);
-    assert.ok(String(res.json().url).startsWith(`${ISSUER}/auth?`));
+    assert.equal(res.json().user.username, "Renamed-Reader");
+    assert.equal((await t.accounts.findUserById("rename-me"))?.username, "Renamed-Reader");
+    assert.ok(await t.accounts.verifyCredentials("Renamed-Reader", password));
+    assert.equal(await t.accounts.verifyCredentials("rename-me", password), undefined);
+  });
+
+  it("a taken name and a look-alike are both username_taken", async () => {
+    await t.accounts.createUser({ id: "alice-id", username: "alice", password: "alice password 1", role: "member" });
+    const { cookie } = await withPassword("rename-clash");
+    for (const name of ["alice", "ALICE", "AIice"]) {
+      const res = await post("/auth/username", cookie, { username: name });
+      assert.equal(res.statusCode, 409, `${name}: ${res.body}`);
+      assert.equal(res.json().error, "username_taken", name);
+    }
+    assert.equal((await t.accounts.findUserById("rename-clash"))?.username, "rename-clash");
   });
 });

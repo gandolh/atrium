@@ -1,4 +1,4 @@
-// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 1.1.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { FastifyRequest, preHandlerAsyncHookHandler, FastifyPluginAsync } from 'fastify';
 
@@ -22,7 +22,7 @@ import { FastifyRequest, preHandlerAsyncHookHandler, FastifyPluginAsync } from '
 type Awaitable<T> = T | Promise<T>;
 /**
  * Where a session began. `"local"` is a password sign-in in the app;
- * `"ward"` is a "Sign in with Ward" flow (brief 21), the only kind that is
+ * `"ward"` is a "Sign in with Ward" flow, the only kind that is
  * checked against Ward every 30 seconds.
  */
 type SessionOrigin = "local" | "ward";
@@ -36,7 +36,7 @@ interface UserRecord {
     usernameFolded: string;
     /**
      * scrypt `saltHex:hashHex`, or `null` for a user with no local password —
-     * one created by a first Ward sign-in (brief 21). Login against a `null`
+     * one created by a first Ward sign-in. Login against a `null`
      * hash spends the dummy hash and fails, exactly like an unknown username.
      */
     passwordHash: string | null;
@@ -44,6 +44,11 @@ interface UserRecord {
     role: string;
     createdAt: number;
     updatedAt: number;
+    /**
+     * When the app switched the user off (0.6.0), or `null` for an active user.
+     * A disabled user is refused everywhere a user gets in.
+     */
+    disabledAt: number | null;
 }
 /** A session row. The token itself is never stored, only its hash. */
 interface SessionRecord {
@@ -53,7 +58,7 @@ interface SessionRecord {
     origin: SessionOrigin;
     /**
      * Ward's session id (the refresh family `sid`) for a Ward-originated
-     * session; `null` for a local one. Written by brief 21.
+     * session; `null` for a local one. Written by the Ward sign-in.
      */
     wardSid: string | null;
     createdAt: number;
@@ -66,11 +71,19 @@ interface NewUserRecord {
     id: string;
     username: string;
     usernameFolded: string;
+    /**
+     * `usernameSkeleton(username)` (1.1.0): what the name looks like. Another
+     * user holding it makes the name taken.
+     */
+    usernameSkeleton: string;
     passwordHash: string | null;
     role: string;
     createdAt: number;
 }
-/** Thrown by `createUser` when the folded username is already held. */
+/**
+ * Thrown by `createUser` and `setUsername` when another user holds the folded
+ * username, or a name that reads the same (the same `usernameSkeleton`, 1.1.0).
+ */
 declare class UsernameTakenError extends Error {
     readonly code: "username_taken";
     constructor();
@@ -81,14 +94,39 @@ declare class UserIdTakenError extends Error {
     constructor();
 }
 interface AuthStore {
-    /** Insert a user. Throws `UsernameTakenError` or `UserIdTakenError`. */
+    /**
+     * Insert a user. Throws `UserIdTakenError`, or `UsernameTakenError` when
+     * another user holds `usernameFolded` or `usernameSkeleton`. The check and
+     * the insert are one step: no other write lands between them.
+     */
     createUser(user: NewUserRecord): Awaitable<UserRecord>;
     findUserById(id: string): Awaitable<UserRecord | undefined>;
     /** Looks up by the **folded** name; the core folds before calling. */
     findUserByFoldedUsername(usernameFolded: string): Awaitable<UserRecord | undefined>;
-    /** `null` removes the local password (brief 21 never does; it is here for symmetry). */
+    /**
+     * Every user whose name has this key (`usernameSkeleton`, 1.1.0), oldest
+     * first: the lookup the look-alike rule is defined by. Usually none or one.
+     * More than one only where users already shared a key when the key arrived
+     * (migration 5 keeps them all).
+     */
+    findUsersByUsernameSkeleton(usernameSkeleton: string): Awaitable<UserRecord[]>;
+    /** `null` removes the local password (the Ward sign-in never does; it is here for symmetry). */
     setPasswordHash(userId: string, passwordHash: string | null, now: number): Awaitable<void>;
     setRole(userId: string, role: string, now: number): Awaitable<void>;
+    /**
+     * Rename a user (0.4.0). Throws `UsernameTakenError` when another user holds
+     * the folded name or, since 1.1.0, the key. The user's own folded name is not
+     * taken, nor is a key no other user holds, so a new case of the name, or a
+     * name that reads the same as it, goes through. A user in a group migration 5
+     * kept shares the key with the others, so each rename of theirs that keeps it
+     * is taken. The check and the write are one step, as in `createUser`.
+     */
+    setUsername(userId: string, username: string, usernameFolded: string, usernameSkeleton: string, now: number): Awaitable<void>;
+    /**
+     * Switch a user off (`disabledAt`, epoch ms) or back on (`null`) (0.6.0).
+     * Only the column; ending the user's sessions is the core's job.
+     */
+    setDisabled(userId: string, disabledAt: number | null, now: number): Awaitable<void>;
     createSession(session: SessionRecord): Awaitable<void>;
     findSession(idHash: string): Awaitable<SessionRecord | undefined>;
     /** Push the sliding expiry out. */
@@ -190,6 +228,12 @@ interface AuthUser {
     role: string;
     /** False for a user created by a Ward sign-in who has not set a local password. */
     hasPassword: boolean;
+    /**
+     * True once the app has switched the user off (`disableUser`, 0.6.0). Such a
+     * user never has a live session, so a signed-in user always reads false;
+     * it is for the app's own screens that list users.
+     */
+    disabled: boolean;
 }
 /** A live, resolved session. */
 interface ResolvedSession {
@@ -207,33 +251,71 @@ interface NewUserInput {
     password?: string | null;
     role: string;
     /**
-     * Only when migrating rows that already have keys — briefs 22 and 24 pass
-     * each user's Ward subject. Ordinary creation omits it.
+     * Only when migrating rows that already have keys — atrium's and prm's
+     * migrations pass each user's Ward subject. Ordinary creation omits it.
      */
     id?: string;
 }
 interface StartSessionOptions {
     /** Defaults to `"local"`. */
     origin?: SessionOrigin;
-    /** Required exactly when `origin` is `"ward"`. Brief 21 passes it. */
+    /** Required exactly when `origin` is `"ward"`. The Ward sign-in passes it. */
     wardSid?: string | null;
 }
 interface Accounts {
     readonly store: AuthStore;
     /**
      * Create a user. Throws `UsernamePolicyError`, `PasswordPolicyError`,
-     * `UsernameTakenError`, `UserIdTakenError`, or `InvalidUserIdError`.
+     * `UserIdTakenError`, `InvalidUserIdError`, or `UsernameTakenError` when
+     * another user holds the name in any case, or a name that reads the same
+     * (`usernameSkeleton`, 1.1.0): `AIice` while `alice` exists, `b0b` while
+     * `bob` does.
      */
     createUser(input: NewUserInput): Promise<AuthUser>;
     findUserById(id: string): Promise<AuthUser | undefined>;
     findUserByUsername(username: string): Promise<AuthUser | undefined>;
     setRole(userId: string, role: string): Promise<void>;
     /**
+     * Rename a user (0.4.0). The name is trimmed and checked as a new one is
+     * (`UsernamePolicyError`), and is taken (`UsernameTakenError`) when another
+     * user holds it in any case or holds a name that reads the same, as in
+     * `createUser`. The user's own name in another case, or one that reads the
+     * same as it, is free unless another user shares its key (a group migration
+     * 5 kept). The id stays, and so does every session: a rename is not a
+     * credential change. `undefined` when there is no such user.
+     */
+    renameUser(userId: string, username: string): Promise<AuthUser | undefined>;
+    /**
+     * Switch a user off (0.6.0): stamp the time and end every session they
+     * hold. From then on the user is refused wherever a user gets in, with the
+     * answer an unknown user gets: the password check fails, a session stops
+     * resolving, `startSession` throws, and a Ward sign-in for the linked
+     * subject is refused. Disabling a disabled user keeps the first stamp.
+     * Nothing is deleted. `undefined` when there is no such user.
+     */
+    disableUser(userId: string): Promise<AuthUser | undefined>;
+    /**
+     * Switch a user back on (0.6.0). The old password, role and Ward link work
+     * again; the sessions `disableUser` ended stay ended. A no-op for an active
+     * user. `undefined` when there is no such user.
+     */
+    enableUser(userId: string): Promise<AuthUser | undefined>;
+    /**
      * The password check. `undefined` for an unknown username, a user with no
-     * local password, or a wrong password — **one answer, one cost**: every path
-     * runs scrypt once, so timing does not reveal which accounts exist.
+     * local password, a disabled user, or a wrong password — **one answer, one
+     * cost**: every path runs scrypt once, so timing does not reveal which
+     * accounts exist or which are switched off.
      */
     verifyCredentials(username: string, password: string): Promise<AuthUser | undefined>;
+    /**
+     * The password check by user id, for a signed-in user asked for their
+     * password again before a change that is not a password change: linking or
+     * unlinking Ward (1.0.0). Changes nothing: no session ends, nothing is
+     * written. `false` for an unknown id, a user with no local password, a
+     * disabled user, or a wrong password, at one scrypt cost each, as
+     * `verifyCredentials` answers.
+     */
+    checkPassword(userId: string, password: string): Promise<boolean>;
     /**
      * Change a password given the current one. Returns `false` for a wrong
      * current password (including a user with none). On success **ends every
@@ -244,19 +326,22 @@ interface Accounts {
     changePassword(userId: string, currentPassword: string, newPassword: string, keepSessionIdHash?: string): Promise<boolean>;
     /**
      * Set a password with no current-password check, ending every other
-     * session. For the seed script and brief 21's "set a local password"; a
+     * session. For the seed script and the Ward half's "set a local password"; a
      * route must establish who is asking before calling it.
      */
     setPassword(userId: string, newPassword: string, keepSessionIdHash?: string): Promise<void>;
-    /** Mint a session. The token is the cookie value and is not stored. */
+    /**
+     * Mint a session. The token is the cookie value and is not stored. Throws
+     * `UserDisabledError` for a disabled user; no caller should ask for one.
+     */
     startSession(userId: string, options?: StartSessionOptions): Promise<{
         token: string;
         session: SessionRecord;
     }>;
     /**
      * The session a cookie value names, renewing its sliding expiry when due.
-     * `undefined` when there is none, it expired, or its user is gone. An
-     * expired row is deleted on sight.
+     * `undefined` when there is none, it expired, or its user is gone or
+     * disabled. Such a row is deleted on sight.
      */
     resolveSession(token: string | undefined): Promise<ResolvedSession | undefined>;
     /** End one session by its cookie value. Unknown tokens are a no-op. */
@@ -274,6 +359,15 @@ interface AccountsOptions {
 /** Thrown for an app-supplied user id the library will not store. */
 declare class InvalidUserIdError extends Error {
     readonly code: "invalid_user_id";
+    constructor();
+}
+/**
+ * Thrown by `startSession` for a disabled user, and by a Ward sign-in for a
+ * linked subject whose user is disabled (0.6.0). The HTTP layer answers it as
+ * it answers any refusal; it never names the reason to the browser.
+ */
+declare class UserDisabledError extends Error {
+    readonly code: "user_disabled";
     constructor();
 }
 declare function toAuthUser(user: UserRecord): AuthUser;
@@ -317,7 +411,7 @@ declare function seedUsers(accounts: Accounts, users: readonly SeedUser[]): Prom
  * - **`SameSite=Lax`**, unconditional, and it is also the CSRF defence. The
  *   browser withholds the cookie from any cross-site `POST`, so a form on
  *   another site cannot act with it. `Strict` would also withhold it on the
- *   top-level navigation back from Ward's login page (brief 21), which breaks
+ *   top-level navigation back from Ward's login page, which breaks
  *   the return hop.
  * - **`Secure`** unless the app's public origin is plain HTTP on loopback —
  *   see `secureCookiesFor`.
@@ -327,6 +421,27 @@ declare function seedUsers(accounts: Accounts, users: readonly SeedUser[]): Prom
  *   must live under that path. It is the *browser's* path: when the reverse
  *   proxy strips a prefix before Fastify sees the request, the cookie must
  *   still carry the public one, or the browser never sends it.
+ *
+ * ## One value per name, or the library acts on none
+ *
+ * The library sets each of its cookies once, at one path, so it expects one
+ * value per name. When a request carries the session cookie, or the Ward flow
+ * cookie, more than once, the browser's order says nothing about which value
+ * is the library's (RFC 6265 only recommends an order), so the request is
+ * acted on as if it carried none, as Ward does with its own cookies:
+ *
+ * - the guard and `GET <prefix>/session` treat it as signed out, and clear
+ *   nothing: the library cannot tell which copy is its own;
+ * - a sign-in (`POST <prefix>/login`, a Ward sign-in) finds no earlier session
+ *   to replace, and a link or reauthentication callback finds no session to
+ *   finish for;
+ * - the Ward callback finds no flow, and lands as `invalid_callback`;
+ * - `POST <prefix>/logout` ends the session of **every** value it carries,
+ *   then clears the cookie, so signing out ends the person's own session
+ *   whichever copy is theirs.
+ *
+ * `readCookie` is the one reader of that rule; `readCookies` returns every
+ * value, for logout.
  */
 /** What `serializeCookie` emits. Not general-purpose; this library's set only. */
 interface CookieOptions {
@@ -354,12 +469,14 @@ declare function serializeCookie(options: CookieOptions): string;
  */
 declare function clearedCookie(name: string, path: string, secure: boolean): string;
 /**
- * Read one cookie out of a `Cookie` request header.
+ * The value a `Cookie` request header carries for `name` when it carries
+ * exactly one, otherwise `undefined`.
  *
- * Returns the **first** occurrence. A duplicate name is a client bug or a
- * shadowing attempt (a cookie of the same name set at a broader path to sit in
- * front of the real one); the browser sends the more specific path first, and
- * taking the first match is the safer of the two readings.
+ * The library sets each of its cookies once, at one path, so it expects one
+ * value; with more than one, the header's order says nothing about which is
+ * the library's. Taking none is the rule every reader of the session and flow
+ * cookies follows (see the header). A caller that has to tell "none" from
+ * "several" apart reads `readCookies`.
  */
 declare function readCookie(header: string | string[] | undefined, name: string): string | undefined;
 /**
@@ -381,8 +498,8 @@ declare function secureCookiesFor(publicOrigin: string): boolean;
  */
 /**
  * The longest username accepted, in UTF-16 code units. Ward's own limit, so
- * that every migrated Ward account fits (briefs 22 and 24 carry usernames
- * over).
+ * that every migrated Ward account fits (atrium's and prm's migrations
+ * carried usernames over).
  */
 declare const MAX_USERNAME_LENGTH = 256;
 /** Thrown for a username that must never reach the database. */
@@ -419,6 +536,41 @@ declare function generateSessionToken(): string;
 declare function hashSessionToken(token: string): string;
 
 /**
+ * The key `auth_users.username_skeleton` holds: two names with the same key
+ * read the same in an app's list of users, so a new name or a rename onto
+ * another account's key is taken (`AuthStore.createUser`, `setUsername`).
+ *
+ * Three steps, each on the output of the one before:
+ *
+ *  1. Unicode's skeleton (UTS #39) of the name **as typed**, because apps show
+ *     the name as typed: a capital `I` reads as `l`, and a digit `0` as `O`,
+ *     so `AIice` reads as `alice` and `b0b` as `bOb`.
+ *  2. The fold (`foldUsername`), because case alone never makes two names:
+ *     `bOb` becomes `bob`, so `b0b` and `bob` meet.
+ *  3. The skeleton again, because lower-casing can make a new look-alike: a
+ *     capital `M` becomes `m`, which reads as `rn`, so `MODERN` and `rnodern`
+ *     meet.
+ *
+ * A skeleton is NFD, the invisible characters above removed, each character
+ * replaced by its prototype from Unicode's confusables table, then NFD again.
+ * A Cyrillic `аlice`, an `alice` with a combining grapheme joiner after it and
+ * a full-width `ａlice` all come out as `alice`. In plain ASCII, `I`, `l`, `1`
+ * and `|` read the same, `0` reads as `o`, `m` as `rn`, a backtick as `'` and
+ * `"` as `''`.
+ *
+ * Because step 1 sees the capitals, the same name in two cases can have two
+ * keys: `Ivan` has `lvan`, and `ivan` has `ivan`. A new `lvan` is taken while
+ * `Ivan` exists and not while `ivan` does, which is what each list shows. The
+ * two cases themselves are one name either way, through `username_folded`.
+ *
+ * Pass the stored form of the name (`normaliseUsername`'s answer). The key is
+ * never shown to anyone and never compared with anything but another key. The
+ * table's version decides some keys, so a new version ships with a migration
+ * that recomputes the column.
+ */
+declare function usernameSkeleton(username: string): string;
+
+/**
  * Failed-attempt lockout, keyed on the client address.
  *
  * Ported from Ward's `api/src/auth/lockout.ts`. The rules are Ward's and each
@@ -447,12 +599,20 @@ declare function hashSessionToken(token: string): string;
  * login as yourself and the address never reaches the limit. Ward measured
  * that at ~35 guesses a second before fixing it.
  *
+ * ## Attempts still in flight count
+ *
+ * The budget is recorded failures **plus attempts still running**. A route
+ * whose verdict waits on a password hash or a store call takes one of the
+ * address's five slots at the gate (`reserveAttempt`) and holds it until the
+ * attempt ends, so twenty requests sent at once from one address get five
+ * verdicts and fifteen `429`s, not twenty verdicts.
+ *
  * ## Per-surface budgets
  *
- * Login, registration and password change hold **independent** budgets.
- * Spending the password-change budget (which needs a session first) must never
- * lock the same address out of login, which is how the person would recover,
- * and a registration flood must not stop existing users signing in.
+ * Login, registration, password change and rename hold **independent**
+ * budgets. Spending the password-change budget (which needs a session first)
+ * must never lock the same address out of login, which is how the person would
+ * recover, and a registration flood must not stop existing users signing in.
  *
  * ## No artificial delay
  *
@@ -466,6 +626,9 @@ declare function hashSessionToken(token: string): string;
  * and a restart is not something an attacker can cause. Do not grow this into
  * a table without thinking — a write per failed login on an app's only
  * anonymous endpoint is a better amplification target than a bounded map.
+ *
+ * Its two imports, `node:net`'s `isIP` and `node:crypto`'s `createHash`, have
+ * no side effects.
  */
 /**
  * Failures tolerated before the next attempt is refused. Attempts 1–5 get a
@@ -487,11 +650,15 @@ declare const LOCKOUT_WINDOW_SECONDS: number;
  * one. The union is closed so that borrowing is a compile error rather than a
  * quiet coupling nobody notices until the two interfere.
  */
-type LockoutSurface = "login" | "register" | "change_password";
+type LockoutSurface = "login" | "register" | "change_password" | "rename";
 /** Who is attempting what, from where. */
 interface LockoutTarget {
     surface: LockoutSurface;
-    /** From `lockoutKeyFor(...)`. The counter the `429` decision is keyed on. */
+    /**
+     * From `lockoutKeyFor(...)`, the full address. The counter the `429`
+     * decision reads is keyed on it grouped: an IPv4 address whole, an IPv6
+     * address by its /64 (`addressGroup`).
+     */
     address: string;
     /**
      * The account the attempt was aimed at, **folded** (`foldUsername`), so
@@ -507,10 +674,79 @@ interface LockoutDecision {
     /** Whole seconds, at least 1, and set **only** when `allowed === false`. */
     retryAfterSeconds?: number;
 }
+/**
+ * An attempt `reserveAttempt` let through, holding one in-flight slot until it
+ * ends. Exactly one of the three ends it; the other two, and a second call of
+ * the same one, do nothing after that.
+ */
+interface LockoutAttempt {
+    /**
+     * The credential was wrong: the slot becomes one counted failure, attributed
+     * to `account` (folded) exactly as `recordFailure` attributes it.
+     */
+    fail(account?: string): void;
+    /**
+     * The credential was right: forgive `account`'s failures as `clearFailures`
+     * does, and free the slot. Only for a surface that forgives on success
+     * (login, password change): with no `account` it would forgive every failure
+     * recorded without one.
+     */
+    succeed(account?: string): void;
+    /**
+     * The attempt ended without a verdict that counts (a malformed body, a
+     * policy refusal, a thrown error, a success on a surface that forgives
+     * nothing): free the slot, count nothing. Every caller calls it in a
+     * `finally`, so a slot is never left behind; after `fail` or `succeed` it
+     * does nothing.
+     */
+    release(): void;
+}
+/** What `reserveAttempt` answers: a slot, or the refusal `check` would give. */
+type LockoutGate = {
+    allowed: true;
+    attempt: LockoutAttempt;
+} | {
+    allowed: false;
+    retryAfterSeconds: number;
+};
 /** A lockout counter. One per app process is the expected shape. */
 interface Lockout {
-    /** Whether `target`'s address may attempt now. Records nothing. */
+    /**
+     * Whether `target`'s address may attempt now. Records nothing. The budget
+     * is recorded failures plus attempts still in flight (`reserveAttempt`).
+     *
+     * A route whose verdict comes after an `await` must gate with
+     * `reserveAttempt`, not with this: between this check and a later
+     * `recordFailure` the event loop runs other requests' checks, and none of
+     * them would see this attempt. `POST <prefix>/register` uses this directly
+     * because it records before its first `await`.
+     */
     check(target: LockoutTarget): LockoutDecision;
+    /**
+     * `check` and the count, as one synchronous step: if the attempt is
+     * allowed, it takes one of the address's slots before this returns, and
+     * holds it until the attempt ends through `fail`, `succeed` or `release`.
+     *
+     * This is what keeps the budget at five when requests arrive together. A
+     * check that reserved nothing lets every request that reaches it before the
+     * fifth failure is **recorded** through, and recording waits on a password
+     * hash. With a slot taken at the gate, the sixth concurrent request is
+     * refused at once and the five already admitted finish.
+     *
+     * @example
+     * const gate = lockout.reserveAttempt({ surface: "login", address });
+     * if (!gate.allowed) return tooManyAttempts(reply, gate.retryAfterSeconds);
+     * try {
+     *   if (!(await verify())) {
+     *     gate.attempt.fail(account);
+     *     return reply.code(401).send(...);
+     *   }
+     *   gate.attempt.succeed(account);
+     * } finally {
+     *   gate.attempt.release();
+     * }
+     */
+    reserveAttempt(target: LockoutTarget): LockoutGate;
     /**
      * Count one failed attempt. Call it for **any** credential rejection, and not
      * for a malformed body: that is a client bug, not a guess. Pass `account`
@@ -604,7 +840,7 @@ interface LockoutKeyOptions {
  * In a container that publishes `127.0.0.1:<port>`, host Caddy reaches the app
  * through Docker's proxy and the peer is a bridge address, never loopback.
  * Loopback-only trust (0.1.0 and 0.2.0) then ignored the header for every
- * request and the whole internet shared one counter — Ward's brief 28.
+ * request and the whole internet shared one counter — Ward's outage of 2026-10-13.
  * `trustedProxies` names the bridge ranges; loopback is trusted without being
  * listed.
  *
@@ -702,65 +938,10 @@ declare function verifyPassword(password: string, stored: string): Promise<boole
 declare function spendDummyHash(password: string): Promise<false>;
 
 /**
- * The library's own schema, as an ordered list of migrations.
- *
- * The tables are the library's, not the app's: every name carries the `auth_`
- * prefix and the applied versions live in `auth_migrations`, so they sit
- * beside an app's own Knex, Drizzle or hand-rolled migrations without either
- * system seeing the other's rows.
- *
- * ## Appending a migration
- *
- * Add an entry at the **end** with the next `version`. Never edit or reorder
- * one that has shipped: a vendored copy in some app has already applied it,
- * and the runner records versions, not contents. Version 2 (0.2.0) added the
- * Ward link table this way, and version 3 (0.3.1) a session column.
- *
- * ## The SQL is the intersection of two drivers
- *
- * Apps hand over either a better-sqlite3 handle or a `node:sqlite`
- * `DatabaseSync`. Both are SQLite underneath, so plain DDL is portable; what
- * differs is the driver surface, and that is handled in `sqlite.ts`.
- */
-interface Migration {
-    /** Strictly increasing, starting at 1. Recorded in `auth_migrations`. */
-    version: number;
-    /** For the migrations table and for error messages. */
-    name: string;
-    /** One or more statements, run with `exec` inside one transaction. */
-    sql: string;
-}
-declare const SQLITE_MIGRATIONS: readonly Migration[];
-
-/**
- * The built-in store, over a **synchronous** SQLite handle the app already has.
- *
- * ## One handle type for two drivers
- *
- * `SqliteHandle` is the intersection of better-sqlite3's `Database` and
- * `node:sqlite`'s `DatabaseSync`, written structurally so this file imports
- * neither driver and the bundle carries no native code. Both pass as-is:
- *
- * ```ts
- * createSqliteStore(new Database("app.db"));     // better-sqlite3
- * createSqliteStore(new DatabaseSync("app.db")); // node:sqlite
- * ```
- *
- * An app on Knex or Drizzle hands over the better-sqlite3 handle underneath.
- *
- * Living in the intersection means a few rules, each of which one of the two
- * drivers enforces:
- *
- * - **Positional `?` parameters only.** The two disagree about named-parameter
- *   prefixes.
- * - **`null`, never `undefined`,** for a missing value; better-sqlite3 throws on
- *   `undefined`.
- * - **No booleans** — numbers only. Neither driver binds a JS boolean the same
- *   way.
- * - **Transactions by SQL**, not `db.transaction()`, which only better-sqlite3
- *   has. A `SAVEPOINT` rather than `BEGIN`, so the store also works when the
- *   app calls it from inside a transaction of its own.
- * - **No reliance on `lastInsertRowid`.** Every key is chosen before the insert.
+ * The SQLite surface the store and its migrations use: the intersection of
+ * better-sqlite3's `Database` and `node:sqlite`'s `DatabaseSync`, written
+ * structurally so the library imports neither driver. `sqlite.ts` says which
+ * rules living in the intersection brings.
  */
 /** A value either driver binds. */
 type SqlValue = string | number | bigint | null;
@@ -777,6 +958,47 @@ interface SqliteHandle {
     prepare(sql: string): SqliteStatement;
     exec(sql: string): unknown;
 }
+
+/**
+ * The library's own schema, as an ordered list of migrations.
+ *
+ * The tables are the library's, not the app's: every name carries the `auth_`
+ * prefix and the applied versions live in `auth_migrations`, so they sit
+ * beside an app's own Knex, Drizzle or hand-rolled migrations without either
+ * system seeing the other's rows.
+ *
+ * ## Appending a migration
+ *
+ * Add an entry at the **end** with the next `version`. Never edit or reorder
+ * one that has shipped: a vendored copy in some app has already applied it,
+ * and the runner records versions, not contents. Version 2 (0.2.0) added the
+ * Ward link table this way, version 3 (0.3.1) a session column, and version 5
+ * (1.1.0) a column its `run` step fills.
+ *
+ * ## The SQL is the intersection of two drivers
+ *
+ * Apps hand over either a better-sqlite3 handle or a `node:sqlite`
+ * `DatabaseSync`. Both are SQLite underneath, so plain DDL is portable; what
+ * differs is the driver surface, and that is handled in `sqlite.ts`. A `run`
+ * step uses the same surface (`SqliteHandle`): `prepare` and `exec`,
+ * positional `?` parameters only.
+ */
+interface Migration {
+    /** Strictly increasing, starting at 1. Recorded in `auth_migrations`. */
+    version: number;
+    /** For the migrations table and for error messages. */
+    name: string;
+    /** One or more statements, run with `exec` inside one transaction. */
+    sql: string;
+    /**
+     * A step that SQL alone can't express, run after `sql` in the same
+     * transaction: version 5 computes each user's username key in JavaScript.
+     * A throw rolls the whole migration back, `sql` included.
+     */
+    run?: (db: SqliteHandle) => void;
+}
+declare const SQLITE_MIGRATIONS: readonly Migration[];
+
 /**
  * A store whose methods answer synchronously — what the SQLite store is,
  * since both drivers are synchronous. Still assignable to `AuthStore`.
@@ -803,7 +1025,8 @@ declare class SchemaTooNewError extends Error {
 }
 /**
  * Apply every migration newer than what `auth_migrations` records, each in its
- * own savepoint, in order. Idempotent: a second call applies nothing.
+ * own savepoint, in order: its SQL, then its `run` step if it has one.
+ * Idempotent: a second call applies nothing.
  *
  * Returns the versions it applied, for a boot log line.
  */
@@ -1049,8 +1272,8 @@ declare function wardClientOptionsFromEnv(env?: Record<string, string | undefine
  * 2. otherwise, in link mode, the signed-in user who started the flow from
  *    their settings gets linked (the plugin does this, with `link`);
  * 3. otherwise a **new** local user is created, linked to the subject, named
- *    from `preferred_username` (suffixed if the name is taken) and holding the
- *    role the grant names.
+ *    from `preferred_username` (shaped by the app's `usernameFor`, suffixed if
+ *    the name is taken) and holding the role the grant names.
  *
  * **Never by username.** A local `alice` and a Ward `alice` are strangers
  * until alice links them herself. On a shared origin anything else is account
@@ -1059,6 +1282,10 @@ declare function wardClientOptionsFromEnv(env?: Record<string, string | undefine
  *
  * After creation the local row owns the role. Ward's grant decides whether a
  * Ward account may get in at all; what it may do inside is the app's.
+ *
+ * A linked user the app has disabled (0.6.0) is refused at rule 1, and the
+ * sign-in stops there: it never falls through to rule 3, which would hand the
+ * same Ward account a fresh user the app never switched off.
  */
 /** Thrown by `unlink` for a user with no local password: unlinking would lock them out. */
 declare class NoLocalPasswordError extends Error {
@@ -1099,8 +1326,16 @@ interface WardIdentities {
     /**
      * The user a verified Ward sign-in is: the linked one, or a new one (rule
      * 3). Never matches by username.
+     *
+     * For a new user, `roleFor` turns the grant's role into the first local
+     * role, and `usernameFor` shapes the name before it is suffixed. Both
+     * default to identity. `usernameMaxLength` caps every name tried, suffixes
+     * included (see `candidateUsernames`). A hook that throws throws here, and
+     * no user is created. Throws a `TypeError` for a `usernameMaxLength` that
+     * `isUsernameMaxLength` refuses, and `UserDisabledError` when the subject's
+     * linked user is disabled.
      */
-    userForSignIn(identity: WardIdentity, roleFor?: (wardRole: string) => string): Promise<{
+    userForSignIn(identity: WardIdentity, roleFor?: (wardRole: string) => string, usernameFor?: UsernameFor, usernameMaxLength?: number): Promise<{
         user: AuthUser;
         created: boolean;
     }>;
@@ -1138,12 +1373,45 @@ interface WardIdentitiesOptions {
     /** Epoch milliseconds. Must match the one `accounts` uses. */
     now?: () => number;
 }
+/**
+ * An app's own shape for a new Ward user's username, from Ward's
+ * `preferred_username` (`username`) and the subject. The result is the base
+ * that gets suffixed when taken.
+ */
+type UsernameFor = (claims: {
+    username: string;
+    subject: string;
+}) => string;
+/** Whether `value` can be a `usernameMaxLength`: a whole number from 10 to 256. */
+declare function isUsernameMaxLength(value: unknown): value is number;
 declare function createWardIdentities(options: WardIdentitiesOptions): WardIdentities;
 
 /** Thrown at boot for a `WARD_OIDC_CLIENT_KEY` that is not an Ed25519 private JWK. */
 declare class InvalidClientKeyError extends Error {
     constructor(detail: string);
 }
+
+/** A session check's answer. */
+type SessionVerdict = {
+    ok: true;
+} | {
+    ok: false;
+    /** A stable code, sent to the browser as `reason` (e.g. `ward_unavailable`). */
+    reason: string;
+    /** Delete the session row and clear the cookie, rather than refusing only this request. */
+    endSession?: boolean;
+};
+/**
+ * **The guard's extension hook.** Runs on every request that carries a live
+ * session — guarded routes and `GET <routePrefix>/session` alike — after the
+ * row is found and before the request proceeds. The Ward half hooks the 30-second
+ * Ward check in here for Ward-originated sessions; a local session should
+ * return `{ ok: true }` without doing any I/O.
+ *
+ * A validator that **throws** is treated as `{ ok: false, reason:
+ * "session_check_failed" }`: failing closed is the rule.
+ */
+type SessionValidator = (resolved: ResolvedSession, request: FastifyRequest) => SessionVerdict | Promise<SessionVerdict>;
 
 /**
  * "Sign in with Ward", linking, and the 30-second check, as Fastify routes.
@@ -1155,9 +1423,9 @@ declare class InvalidClientKeyError extends Error {
  * |---|---|---|
  * | `POST /ward/start` | public | sign-in: answers `{ url }` to send the browser to |
  * | `GET /ward/callback` | public | the redirect URI; ends in a `303` to an app page |
- * | `POST /ward/link` | session | link Ward from settings: `{ url }` |
+ * | `POST /ward/link` | session | link Ward from settings: `{ currentPassword }` → `{ url }`; `409 already_linked` / `no_local_password` |
  * | `POST /ward/reauthenticate` | session | Ward asks for the password again (`prompt=login`): `{ url }` |
- * | `POST /ward/unlink` | session | `{ signedOut }`; `409 no_local_password` / `not_linked` |
+ * | `POST /ward/unlink` | session | `{ currentPassword }` → `{ signedOut }`; `409 not_linked` / `no_local_password` |
  * | `POST /ward/set-password` | session | `204`; `403 reauthentication_required` |
  * | `POST /ward/logout` | session | ends the session here: `{ url }` of Ward's end-session, or `null` |
  *
@@ -1176,22 +1444,43 @@ declare class InvalidClientKeyError extends Error {
  * path so no other request carries it, ten minutes, and cleared by the
  * callback whatever the outcome. One flow at a time per browser: starting a
  * second overwrites the first, whose callback then fails as
- * `invalid_callback`.
+ * `invalid_callback`. A callback carrying the flow cookie more than once
+ * reads no flow and fails the same way: the browser's order cannot say which
+ * copy is the library's (`core/cookie.ts`).
  *
  * A link callback must arrive with **the same session** that started it.
  * Without that, an attacker could start a link on their own account and get
  * the victim's browser to finish it, linking the victim's Ward account to the
  * attacker's local user.
  *
+ * ## Linking and unlinking ask for the password (1.0.0)
+ *
+ * A link is a lasting way into the account, and an unlink takes one away, so
+ * both ask for the account's current local password, as a password change
+ * does: `{ currentPassword }`, `400 invalid_request` without it,
+ * `401 invalid_credentials` when it is wrong, under the same password-change
+ * budget as `POST <prefix>/password` and `POST /ward/set-password`. A user
+ * with no local password has none to give: link answers `409 already_linked`
+ * for a user created from Ward (who is linked) and `409 no_local_password`
+ * otherwise, unlink `409 no_local_password`, before any body is read.
+ *
+ * The link callback finishes a link only for a start that `POST /ward/link`
+ * holds in memory after the password: for the same session, once, within ten
+ * minutes. Any other link callback lands as `invalid_callback`.
+ *
  * ## Where the callback sends the browser
  *
  * - sign-in: `returnTo` (a same-origin path the start named) or
- *   `afterSignInPath`; on failure `loginPath?ward_error=<code>`;
+ *   `afterSignInPath`; on failure `loginPath?ward_error=<code>`, plus
+ *   `&ward_return_to=<returnTo>` when the start named one (0.7.0), so the
+ *   login page can try again to the same place. The path is checked with
+ *   `isLocalPath` again on the way out, and a callback without a readable flow
+ *   cookie has none to carry;
  * - link: `settingsPath?ward=linked`, or `settingsPath?ward_error=<code>`;
  * - reauthenticate: `settingsPath?ward=reauthenticated`, or the error.
  *
  * Anything unexpected after the code exchange (the store failing, an app's
- * `roleFor` throwing) is logged and lands on the same error page with
+ * `roleFor` or `usernameFor` throwing) is logged and lands on the same error page with
  * `ward_error=sign_in_failed`, never a raw `500` on a top-level navigation.
  *
  * The codes are stable and the React hooks expose them; the app writes the
@@ -1235,6 +1524,22 @@ interface WardSignInOptions {
      * row is the only truth; Ward's role is never written back.
      */
     roleFor?: (wardRole: string) => string;
+    /**
+     * The username a user created by a first Ward sign-in starts with, shaped
+     * by the app from Ward's `preferred_username` (`username`) and the subject:
+     * lower-cased, say, for an app that stores names in lower case. Identity by
+     * default. A taken result is suffixed (`-2`, `-3`, …); one that fails the
+     * library's own username policy becomes `ward-user`. A hook that throws
+     * lands the sign-in on `loginPath?ward_error=sign_in_failed`. Runs only when
+     * a user is created, never for one already linked.
+     */
+    usernameFor?: UsernameFor;
+    /**
+     * The longest username the app stores, 10 to 256 (the default). Every name
+     * a first Ward sign-in tries fits it, suffixes included: a hook that cuts
+     * to 16 needs `usernameMaxLength: 16`, or `name-2` comes out 18 long.
+     */
+    usernameMaxLength?: number;
     /** Defaults to `createWardIdentities({ accounts })`. */
     identities?: WardIdentities;
 }
@@ -1289,11 +1594,11 @@ declare const FRESH_SIGN_IN_SECONDS: number;
  * | status | `error` | when |
  * |---|---|---|
  * | 400 | `invalid_request` | the body is not the expected shape |
- * | 400 | `invalid_username`, `password_too_short`, `password_too_long` | registration or a new password fails the policy |
+ * | 400 | `invalid_username`, `password_too_short`, `password_too_long` | registration, a rename or a new password fails the policy |
  * | 401 | `unauthorized` (+ `reason` when a session check rejected it) | the guard found no live session |
  * | 401 | `invalid_credentials` | wrong username or password, or wrong current password |
  * | 403 | `cross_site` | a browser said the request came from another origin |
- * | 409 | `username_taken` | registration |
+ * | 409 | `username_taken` | registration, a rename |
  * | 429 | `too_many_attempts` (+ `retryAfterSeconds`, and `Retry-After`) | lockout |
  *
  * The session `reason`s the library itself sets: `ward_unavailable` (Ward
@@ -1328,27 +1633,6 @@ declare module "fastify" {
         auth: AuthContext | null;
     }
 }
-/** A session check's answer. */
-type SessionVerdict = {
-    ok: true;
-} | {
-    ok: false;
-    /** A stable code, sent to the browser as `reason` (brief 21: `ward_unavailable`). */
-    reason: string;
-    /** Delete the session row and clear the cookie, rather than refusing only this request. */
-    endSession?: boolean;
-};
-/**
- * **The guard's extension hook.** Runs on every request that carries a live
- * session — guarded routes and `GET <routePrefix>/session` alike — after the
- * row is found and before the request proceeds. Brief 21 hooks the 30-second
- * Ward check in here for Ward-originated sessions; a local session should
- * return `{ ok: true }` without doing any I/O.
- *
- * A validator that **throws** is treated as `{ ok: false, reason:
- * "session_check_failed" }`: failing closed is the rule.
- */
-type SessionValidator = (resolved: ResolvedSession, request: FastifyRequest) => SessionVerdict | Promise<SessionVerdict>;
 interface WardAuthOptions {
     /** From `createAccounts({ store })`. */
     accounts: Accounts;
@@ -1375,6 +1659,12 @@ interface WardAuthOptions {
     registration?: {
         role: string;
     };
+    /**
+     * `POST <routePrefix>/username`, where a signed-in user renames themselves.
+     * On by default (0.4.0); `false` turns it off for an app that keys anything
+     * on the name rather than the id, or names its users itself.
+     */
+    allowRename?: boolean;
     /**
      * Routes reachable with no session, as `"METHOD /pattern"` or `"/pattern"`
      * (any method), matched against the **route pattern** Fastify resolved —
@@ -1427,5 +1717,5 @@ declare const wardAuth: FastifyPluginAsync<WardAuthOptions>;
  */
 declare function requireRole(...roles: string[]): preHandlerAsyncHookHandler;
 
-export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, parseTrustedProxies, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, verifyPassword, wardAuth, wardClientOptionsFromEnv };
-export type { Accounts, AccountsOptions, AuthContext, AuthStore, AuthUser, Awaitable, CookieOptions, Lockout, LockoutDecision, LockoutKeyOptions, LockoutOptions, LockoutSurface, LockoutTarget, Migration, NewLinkedUserInput, NewUserInput, NewUserRecord, ResolvedSession, SeedResult, SeedUser, SessionOrigin, SessionRecord, SessionValidator, SessionVerdict, SqlValue, SqliteAuthStore, SqliteHandle, SqliteStatement, SqliteStoreOptions, StartSessionOptions, SyncStore, TrustedProxies, TrustedProxyRange, UserRecord, WardAuthOptions, WardAuthStore, WardClient, WardClientOptions, WardFlowSecrets, WardIdentities, WardIdentitiesOptions, WardIdentity, WardLinkRecord, WardNotification, WardSessionStatus, WardSignInOptions };
+export { AlreadyLinkedError, DEFAULT_NOTIFY_TIMEOUT_MS, DEFAULT_WARD_TIMEOUT_MS, FRESH_SIGN_IN_SECONDS, InvalidClientKeyError, InvalidUserIdError, LOCKOUT_MAX_FAILURES, LOCKOUT_WINDOW_SECONDS, MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, NoLocalPasswordError, NotLinkedError, PasswordPolicyError, SESSION_ABSOLUTE_SECONDS, SESSION_IDLE_SECONDS, SESSION_RENEW_INTERVAL_SECONDS, SESSION_STATUS_CACHE_SECONDS, SQLITE_MIGRATIONS, SchemaTooNewError, UserDisabledError, UserIdTakenError, UsernamePolicyError, UsernameTakenError, WardConfigurationError, WardSignInError, WardSubjectTakenError, WardUnavailableError, clearedCookie, createAccounts, createLockout, createSqliteStore, createWardClient, createWardIdentities, foldUsername, generateSessionToken, hashPassword, hashSessionToken, isUsernameMaxLength, isWardAuthStore, lockoutKeyFor, migrateSqlite, normaliseUsername, parseTrustedProxies, readCookie, requireRole, secureCookiesFor, seedUsers, serializeCookie, spendDummyHash, toAuthUser, usernameSkeleton, verifyPassword, wardAuth, wardClientOptionsFromEnv };
+export type { Accounts, AccountsOptions, AuthContext, AuthStore, AuthUser, Awaitable, CookieOptions, Lockout, LockoutAttempt, LockoutDecision, LockoutGate, LockoutKeyOptions, LockoutOptions, LockoutSurface, LockoutTarget, Migration, NewLinkedUserInput, NewUserInput, NewUserRecord, ResolvedSession, SeedResult, SeedUser, SessionOrigin, SessionRecord, SessionValidator, SessionVerdict, SqlValue, SqliteAuthStore, SqliteHandle, SqliteStatement, SqliteStoreOptions, StartSessionOptions, SyncStore, TrustedProxies, TrustedProxyRange, UserRecord, UsernameFor, WardAuthOptions, WardAuthStore, WardClient, WardClientOptions, WardFlowSecrets, WardIdentities, WardIdentitiesOptions, WardIdentity, WardLinkRecord, WardNotification, WardSessionStatus, WardSignInOptions };

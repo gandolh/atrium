@@ -10,6 +10,7 @@ const MESSAGES: Record<string, string> = {
   invalid_request: "Something in that form was missing. Try again.",
   password_too_short: "The new password is too short.",
   password_too_long: "The new password is too long.",
+  username_taken: "That username is taken, or looks too much like one that is.",
   invalid_username: "That username can't be used.",
   network: "Atrium can't be reached. Check your connection and try again.",
   cross_site: "That request came from another site, so it was refused.",

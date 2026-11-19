@@ -1,6 +1,28 @@
-// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 1.1.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 import { useState, useCallback, useSyncExternalStore, useEffect } from 'react';
+
+/**
+ * The one rule for a path the library sends a browser to: the configured
+ * pages, `returnTo`, and since 0.7.0 the `ward_return_to` a refused sign-in
+ * carries back. Framework-free, so the browser bundle checks a path from the
+ * address bar with the same rule the server checked it with.
+ */
+/**
+ * A path on the app's own origin: starts with one `/`, no `//` or `/\`
+ * (which browsers read as another host), no control characters, short.
+ * What `returnTo` and the configured pages must be — never an open redirect.
+ */
+function isLocalPath(value) {
+    return (value.length > 0 &&
+        value.length <= 512 &&
+        value.startsWith("/") &&
+        !value.startsWith("//") &&
+        !value.startsWith("/\\") &&
+        !value.includes("\\") &&
+        // eslint-disable-next-line no-control-regex
+        !/[\u0000-\u001f\u007f]/.test(value));
+}
 
 /**
  * The browser half, without React: a small client for the plugin's routes and
@@ -8,12 +30,16 @@ import { useState, useCallback, useSyncExternalStore, useEffect } from 'react';
  *
  * Kept free of React so it can be tested in Node with a fake `fetch`, and so
  * the hooks stay thin enough to read at a glance. Nothing here imports the
- * server bundle: `ward-auth-react.js` must load in a browser.
+ * server bundle: `ward-auth-react.js` must load in a browser. `core/paths.ts`
+ * is framework-free, so the rule it holds is bundled in here too.
  */
 const NO_WARD = { enabled: false, linked: false };
 /**
- * Read `?ward_error=` / `?ward=` from a URL. Returns the result and the URL
- * without those parameters (or `undefined` when there was nothing to remove).
+ * Read `?ward_error=` / `?ward=` / `?ward_return_to=` from a URL. Returns the
+ * result and the URL without those parameters (or `undefined` when there was
+ * nothing to remove). `ward_return_to` is believed only beside a `ward_error`
+ * and only when it passes `isLocalPath`, the rule the server's `returnTo`
+ * passed: the address bar is anyone's to write.
  */
 function readWardResult(href) {
     let url;
@@ -25,15 +51,20 @@ function readWardResult(href) {
     }
     const error = url.searchParams.get("ward_error");
     const outcome = url.searchParams.get("ward");
+    const returnTo = url.searchParams.get("ward_return_to");
     const result = {};
     if (error !== null && /^[a-z_]{1,64}$/.test(error))
         result.error = { code: error };
     if (outcome === "linked" || outcome === "reauthenticated")
         result.result = outcome;
-    if (error === null && outcome === null)
+    if (result.error !== undefined && returnTo !== null && isLocalPath(returnTo)) {
+        result.returnTo = returnTo;
+    }
+    if (error === null && outcome === null && returnTo === null)
         return { result };
     url.searchParams.delete("ward_error");
     url.searchParams.delete("ward");
+    url.searchParams.delete("ward_return_to");
     return { result, cleaned: url.href };
 }
 function browser() {
@@ -230,11 +261,19 @@ function createAuthClient(options) {
             }
             return { ok: true };
         },
+        async renameUser(username) {
+            const result = await act("/username", { username });
+            if (!result.ok)
+                return result;
+            // The answer is the session under the new name: no second request.
+            setState(stateFromBody((await result.response.json())));
+            return { ok: true };
+        },
         startWardSignIn: (startOptions = {}) => goToWard("/ward/start", startOptions.returnTo === undefined ? {} : { returnTo: startOptions.returnTo }),
-        startWardLink: () => goToWard("/ward/link"),
+        startWardLink: (currentPassword) => goToWard("/ward/link", { currentPassword }),
         startWardReauthentication: () => goToWard("/ward/reauthenticate"),
-        async unlinkWard() {
-            const result = await act("/ward/unlink");
+        async unlinkWard(currentPassword) {
+            const result = await act("/ward/unlink", { currentPassword });
             if (!result.ok)
                 return result;
             const { signedOut: ended } = (await result.response.json());
@@ -266,7 +305,7 @@ function createAuthClient(options) {
         clearWardResult() {
             if (wardResult.error === undefined && wardResult.result === undefined)
                 return;
-            wardResult = {};
+            wardResult = wardResult.returnTo === undefined ? {} : { returnTo: wardResult.returnTo };
             for (const listener of listeners)
                 listener();
         },
@@ -366,6 +405,24 @@ function useChangePassword(options) {
     return { ...state, changePassword: perform, done };
 }
 /**
+ * `renameUser(username)` (0.4.0). On success every `useSession` shows the new
+ * name and no session ends. Errors: `invalid_username`, `username_taken`,
+ * `too_many_attempts`, `unauthorized`.
+ */
+function useRenameUser(options) {
+    const client = useClient(options);
+    const [done, setDone] = useState(false);
+    const run = useCallback(async (username) => {
+        setDone(false);
+        const result = await client.renameUser(username);
+        if (result.ok)
+            setDone(true);
+        return result;
+    }, [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, renameUser: perform, done };
+}
+/**
  * `register(username, password)`, for the app that enables registration.
  * Signs the new user in on success. Errors: `username_taken`,
  * `invalid_username`, `password_too_short`, `password_too_long`,
@@ -380,7 +437,10 @@ function useRegister(options) {
 // ---------------------------------------------------------------------------
 // Sign in with Ward
 // ---------------------------------------------------------------------------
-/** The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a way to dismiss it. */
+/**
+ * The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a
+ * way to dismiss it. `returnTo` survives `clear()`.
+ */
 function useWardResult(options) {
     const client = useClient(options);
     const result = useSyncExternalStore(client.subscribe, client.getWardResult, client.getWardResult);
@@ -398,6 +458,10 @@ function useWardResult(options) {
  * a disabled account, or they pressed "Back to the app"), `invalid_callback`,
  * `ward_unavailable`, `sign_in_failed`. `reset()` dismisses it. Show the button only when
  * `useSession().ward.enabled`.
+ *
+ * `returnTo` (0.7.0) is the `returnTo` that failed attempt was started with,
+ * or `null`. `signIn({ returnTo })` with it tries again to the same place;
+ * `signIn()` without one still goes to `afterSignInPath`. `reset()` keeps it.
  */
 function useWardSignIn(options) {
     const client = useClient(options);
@@ -409,19 +473,30 @@ function useWardSignIn(options) {
         reset();
         clear();
     }, [reset, clear]);
-    return { pending, error: error ?? landed.error ?? null, reset: resetAll, signIn: perform };
+    return {
+        pending,
+        error: error ?? landed.error ?? null,
+        reset: resetAll,
+        signIn: perform,
+        returnTo: landed.returnTo ?? null,
+    };
 }
 /**
- * Settings: "Link Ward". `link()` sends the browser to Ward; the settings
- * page then loads with `linked` true, or with `error` set to
+ * Settings: "Link Ward". `link(currentPassword)`, with the account's local
+ * password (1.0.0), sends the browser to Ward. It resolves `false` without
+ * leaving the page, `error` set to `invalid_credentials`,
+ * `too_many_attempts` (with `retryAfterSeconds`), `already_linked` or
+ * `no_local_password`, when the server refuses the start. After Ward the
+ * settings page loads with `linked` true, or with `error` set to
  * `already_linked`, `ward_account_in_use`, `access_denied`,
  * `invalid_callback`, `sign_in_failed` or `unauthorized` (the session that
- * started the link had ended). Show it when `useSession().ward.enabled && !ward.linked`.
+ * started the link had ended). Show it, with a password field, when
+ * `useSession().ward.enabled && !ward.linked`.
  */
 function useWardLink(options) {
     const client = useClient(options);
     const landed = useWardResult(options);
-    const run = useCallback(() => client.startWardLink(), [client]);
+    const run = useCallback((currentPassword) => client.startWardLink(currentPassword), [client]);
     const { perform, error, reset, pending } = useAction(run);
     const { clear } = landed;
     const resetAll = useCallback(() => {
@@ -437,17 +512,19 @@ function useWardLink(options) {
     };
 }
 /**
- * Settings: "Unlink Ward". Refused with `no_local_password` while the user
+ * Settings: "Unlink Ward". `unlink(currentPassword)`, with the account's
+ * local password (1.0.0). Refused with `no_local_password` while the user
  * has none (offer `useSetLocalPassword` first), `not_linked` when there is
- * nothing to unlink. If the current session began with Ward it ends too, and
- * the session state becomes signed out.
+ * nothing to unlink, `invalid_credentials` for a wrong password and
+ * `too_many_attempts` (with `retryAfterSeconds`). If the current session
+ * began with Ward it ends too, and the session state becomes signed out.
  */
 function useWardUnlink(options) {
     const client = useClient(options);
     const [done, setDone] = useState(false);
-    const run = useCallback(async () => {
+    const run = useCallback(async (currentPassword) => {
         setDone(false);
-        const result = await client.unlinkWard();
+        const result = await client.unlinkWard(currentPassword);
         if (result.ok)
             setDone(true);
         return result;
@@ -507,4 +584,4 @@ function useWardSignOut(options) {
     return { ...state, signOut: perform };
 }
 
-export { configureAuth, createAuthClient, getAuthClient, useChangePassword, useLogin, useLogout, useRegister, useSession, useSetLocalPassword, useWardLink, useWardResult, useWardSignIn, useWardSignOut, useWardUnlink };
+export { configureAuth, createAuthClient, getAuthClient, useChangePassword, useLogin, useLogout, useRegister, useRenameUser, useSession, useSetLocalPassword, useWardLink, useWardResult, useWardSignIn, useWardSignOut, useWardUnlink };

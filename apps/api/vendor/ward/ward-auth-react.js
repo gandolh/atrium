@@ -1,6 +1,28 @@
-// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 1.1.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
-import { useState, useCallback, useSyncExternalStore, useEffect } from "react";
+import { useState, useCallback, useSyncExternalStore, useEffect } from 'react';
+
+/**
+ * The one rule for a path the library sends a browser to: the configured
+ * pages, `returnTo`, and since 0.7.0 the `ward_return_to` a refused sign-in
+ * carries back. Framework-free, so the browser bundle checks a path from the
+ * address bar with the same rule the server checked it with.
+ */
+/**
+ * A path on the app's own origin: starts with one `/`, no `//` or `/\`
+ * (which browsers read as another host), no control characters, short.
+ * What `returnTo` and the configured pages must be — never an open redirect.
+ */
+function isLocalPath(value) {
+    return (value.length > 0 &&
+        value.length <= 512 &&
+        value.startsWith("/") &&
+        !value.startsWith("//") &&
+        !value.startsWith("/\\") &&
+        !value.includes("\\") &&
+        // eslint-disable-next-line no-control-regex
+        !/[\u0000-\u001f\u007f]/.test(value));
+}
 
 /**
  * The browser half, without React: a small client for the plugin's routes and
@@ -8,242 +30,286 @@ import { useState, useCallback, useSyncExternalStore, useEffect } from "react";
  *
  * Kept free of React so it can be tested in Node with a fake `fetch`, and so
  * the hooks stay thin enough to read at a glance. Nothing here imports the
- * server bundle: `ward-auth-react.js` must load in a browser.
+ * server bundle: `ward-auth-react.js` must load in a browser. `core/paths.ts`
+ * is framework-free, so the rule it holds is bundled in here too.
  */
 const NO_WARD = { enabled: false, linked: false };
 /**
- * Read `?ward_error=` / `?ward=` from a URL. Returns the result and the URL
- * without those parameters (or `undefined` when there was nothing to remove).
+ * Read `?ward_error=` / `?ward=` / `?ward_return_to=` from a URL. Returns the
+ * result and the URL without those parameters (or `undefined` when there was
+ * nothing to remove). `ward_return_to` is believed only beside a `ward_error`
+ * and only when it passes `isLocalPath`, the rule the server's `returnTo`
+ * passed: the address bar is anyone's to write.
  */
 function readWardResult(href) {
-  let url;
-  try {
-    url = new URL(href);
-  } catch {
-    return { result: {} };
-  }
-  const error = url.searchParams.get("ward_error");
-  const outcome = url.searchParams.get("ward");
-  const result = {};
-  if (error !== null && /^[a-z_]{1,64}$/.test(error)) result.error = { code: error };
-  if (outcome === "linked" || outcome === "reauthenticated") result.result = outcome;
-  if (error === null && outcome === null) return { result };
-  url.searchParams.delete("ward_error");
-  url.searchParams.delete("ward");
-  return { result, cleaned: url.href };
+    let url;
+    try {
+        url = new URL(href);
+    }
+    catch {
+        return { result: {} };
+    }
+    const error = url.searchParams.get("ward_error");
+    const outcome = url.searchParams.get("ward");
+    const returnTo = url.searchParams.get("ward_return_to");
+    const result = {};
+    if (error !== null && /^[a-z_]{1,64}$/.test(error))
+        result.error = { code: error };
+    if (outcome === "linked" || outcome === "reauthenticated")
+        result.result = outcome;
+    if (result.error !== undefined && returnTo !== null && isLocalPath(returnTo)) {
+        result.returnTo = returnTo;
+    }
+    if (error === null && outcome === null && returnTo === null)
+        return { result };
+    url.searchParams.delete("ward_error");
+    url.searchParams.delete("ward");
+    url.searchParams.delete("ward_return_to");
+    return { result, cleaned: url.href };
 }
 function browser() {
-  const candidate = globalThis;
-  return candidate.location !== undefined &&
-    typeof candidate.location.assign === "function" &&
-    candidate.history !== undefined
-    ? candidate
-    : undefined;
+    const candidate = globalThis;
+    return candidate.location !== undefined &&
+        typeof candidate.location.assign === "function" &&
+        candidate.history !== undefined
+        ? candidate
+        : undefined;
 }
 function browserLocation() {
-  const page = browser();
-  if (page === undefined) return undefined;
-  return {
-    href: page.location.href,
-    replace: (url) => page.history.replaceState(page.history.state, "", url),
-  };
+    const page = browser();
+    if (page === undefined)
+        return undefined;
+    return {
+        href: page.location.href,
+        replace: (url) => page.history.replaceState(page.history.state, "", url),
+    };
 }
 function createAuthClient(options) {
-  const basePath = options.basePath.replace(/\/+$/, "");
-  const doFetch = options.fetch ?? ((input, init) => fetch(input, init));
-  const listeners = new Set();
-  const navigate =
-    options.navigate ??
-    ((url) => {
-      const page = browser();
-      if (page === undefined) throw new Error("ward-auth: no browser to navigate; pass navigate");
-      page.location.assign(url);
-    });
-  let state = { status: "loading" };
-  let loaded = false;
-  let inflight;
-  // A Ward round trip ends with a redirect to one of the app's pages carrying
-  // the outcome in the query. Read it once, here, and take it out of the
-  // address bar so a reload or a shared link does not replay it.
-  const location = options.location ?? browserLocation();
-  let wardResult = {};
-  if (location !== undefined) {
-    const read = readWardResult(location.href);
-    wardResult = read.result;
-    if (read.cleaned !== undefined) location.replace(read.cleaned);
-  }
-  function setState(next) {
-    state = next;
-    loaded = true;
-    for (const listener of listeners) listener();
-  }
-  function stateFromBody(body) {
-    const ward = body.ward ?? NO_WARD;
-    if (body.user !== null && body.session !== null) {
-      return { status: "signed_in", user: body.user, session: body.session, ward };
+    const basePath = options.basePath.replace(/\/+$/, "");
+    const doFetch = options.fetch ?? ((input, init) => fetch(input, init));
+    const listeners = new Set();
+    const navigate = options.navigate ??
+        ((url) => {
+            const page = browser();
+            if (page === undefined)
+                throw new Error("ward-auth: no browser to navigate; pass navigate");
+            page.location.assign(url);
+        });
+    let state = { status: "loading" };
+    let loaded = false;
+    let inflight;
+    // A Ward round trip ends with a redirect to one of the app's pages carrying
+    // the outcome in the query. Read it once, here, and take it out of the
+    // address bar so a reload or a shared link does not replay it.
+    const location = options.location ?? browserLocation();
+    let wardResult = {};
+    if (location !== undefined) {
+        const read = readWardResult(location.href);
+        wardResult = read.result;
+        if (read.cleaned !== undefined)
+            location.replace(read.cleaned);
     }
-    return body.reason === undefined
-      ? { status: "signed_out", ward }
-      : { status: "signed_out", reason: body.reason, ward };
-  }
-  /** What signing out here leaves: signed out, and Ward still offered if it was. */
-  function signedOut() {
-    const enabled = state.status === "signed_in" || state.status === "signed_out" ? state.ward.enabled : false;
-    return { status: "signed_out", ward: { enabled, linked: false } };
-  }
-  /**
-   * One request. `credentials: "same-origin"` so the cookie goes with it; a
-   * JSON body only when there is one, because Fastify refuses an empty body
-   * sent as `application/json`.
-   */
-  async function request(method, path, body) {
-    try {
-      return await doFetch(`${basePath}${path}`, {
-        method,
-        credentials: "same-origin",
-        headers:
-          body === undefined
-            ? { accept: "application/json" }
-            : { accept: "application/json", "content-type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-    } catch {
-      return { code: "network" };
+    function setState(next) {
+        state = next;
+        loaded = true;
+        for (const listener of listeners)
+            listener();
     }
-  }
-  async function errorFrom(response) {
-    let payload;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = undefined;
-    }
-    const record = typeof payload === "object" && payload !== null ? payload : {};
-    const error = {
-      code: typeof record.error === "string" ? record.error : "unknown",
-      status: response.status,
-    };
-    if (typeof record.retryAfterSeconds === "number") error.retryAfterSeconds = record.retryAfterSeconds;
-    return error;
-  }
-  async function refresh() {
-    inflight ??= (async () => {
-      try {
-        const response = await request("GET", "/session");
-        if (!(response instanceof Response)) {
-          setState({ status: "error", error: response });
-        } else if (!response.ok) {
-          setState({ status: "error", error: await errorFrom(response) });
-        } else {
-          setState(stateFromBody(await response.json()));
+    function stateFromBody(body) {
+        const ward = body.ward ?? NO_WARD;
+        if (body.user !== null && body.session !== null) {
+            return { status: "signed_in", user: body.user, session: body.session, ward };
         }
-        return state;
-      } finally {
-        inflight = undefined;
-      }
-    })();
-    return inflight;
-  }
-  /** Ask the server for a Ward URL and send the browser there. */
-  async function goToWard(path, body) {
-    const response = await request("POST", path, body);
-    if (!(response instanceof Response)) return { ok: false, error: response };
-    if (!response.ok) {
-      const error = await errorFrom(response);
-      if (response.status === 401 && error.code === "unauthorized") setState(signedOut());
-      return { ok: false, error };
+        return body.reason === undefined
+            ? { status: "signed_out", ward }
+            : { status: "signed_out", reason: body.reason, ward };
     }
-    const { url } = await response.json();
-    navigate(url);
-    return { ok: true };
-  }
-  /** A guarded action answered with no session body; refresh to pick up its effect. */
-  async function act(path, body) {
-    const response = await request("POST", path, body);
-    if (!(response instanceof Response)) return { ok: false, error: response };
-    if (!response.ok) {
-      const error = await errorFrom(response);
-      if (response.status === 401 && error.code === "unauthorized") setState(signedOut());
-      return { ok: false, error };
+    /** What signing out here leaves: signed out, and Ward still offered if it was. */
+    function signedOut() {
+        const enabled = state.status === "signed_in" || state.status === "signed_out" ? state.ward.enabled : false;
+        return { status: "signed_out", ward: { enabled, linked: false } };
     }
-    return { ok: true, response };
-  }
-  /** A credential action that, on success, answers with the new session. */
-  async function signIn(path, body) {
-    const response = await request("POST", path, body);
-    if (!(response instanceof Response)) return { ok: false, error: response };
-    if (!response.ok) return { ok: false, error: await errorFrom(response) };
-    setState(stateFromBody(await response.json()));
-    return { ok: true };
-  }
-  return {
-    basePath,
-    getState: () => state,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    refresh,
-    ensureLoaded() {
-      if (!loaded && inflight === undefined) void refresh();
-    },
-    login: (username, password) => signIn("/login", { username, password }),
-    register: (username, password) => signIn("/register", { username, password }),
-    async logout() {
-      const response = await request("POST", "/logout");
-      if (!(response instanceof Response)) return { ok: false, error: response };
-      if (!response.ok) return { ok: false, error: await errorFrom(response) };
-      setState(signedOut());
-      return { ok: true };
-    },
-    async changePassword(currentPassword, newPassword) {
-      const response = await request("POST", "/password", { currentPassword, newPassword });
-      if (!(response instanceof Response)) return { ok: false, error: response };
-      if (!response.ok) {
-        const error = await errorFrom(response);
-        // The session ended under us (expired, or ended elsewhere): say so.
-        if (response.status === 401 && error.code === "unauthorized") setState(signedOut());
-        return { ok: false, error };
-      }
-      return { ok: true };
-    },
-    startWardSignIn: (startOptions = {}) =>
-      goToWard("/ward/start", startOptions.returnTo === undefined ? {} : { returnTo: startOptions.returnTo }),
-    startWardLink: () => goToWard("/ward/link"),
-    startWardReauthentication: () => goToWard("/ward/reauthenticate"),
-    async unlinkWard() {
-      const result = await act("/ward/unlink");
-      if (!result.ok) return result;
-      const { signedOut: ended } = await result.response.json();
-      if (ended) setState(signedOut());
-      else await refresh();
-      return { ok: true };
-    },
-    async setLocalPassword(newPassword, currentPassword) {
-      const result = await act(
-        "/ward/set-password",
-        currentPassword === undefined ? { newPassword } : { newPassword, currentPassword },
-      );
-      if (!result.ok) return result;
-      // `hasPassword` is now true; ask so every `useSession` sees it.
-      await refresh();
-      return { ok: true };
-    },
-    async signOutOfWard() {
-      const result = await act("/ward/logout");
-      if (!result.ok) return result;
-      const { url } = await result.response.json();
-      setState(signedOut());
-      if (url !== null) navigate(url);
-      return { ok: true };
-    },
-    getWardResult: () => wardResult,
-    clearWardResult() {
-      if (wardResult.error === undefined && wardResult.result === undefined) return;
-      wardResult = {};
-      for (const listener of listeners) listener();
-    },
-  };
+    /**
+     * One request. `credentials: "same-origin"` so the cookie goes with it; a
+     * JSON body only when there is one, because Fastify refuses an empty body
+     * sent as `application/json`.
+     */
+    async function request(method, path, body) {
+        try {
+            return await doFetch(`${basePath}${path}`, {
+                method,
+                credentials: "same-origin",
+                headers: body === undefined
+                    ? { accept: "application/json" }
+                    : { accept: "application/json", "content-type": "application/json" },
+                body: body === undefined ? undefined : JSON.stringify(body),
+            });
+        }
+        catch {
+            return { code: "network" };
+        }
+    }
+    async function errorFrom(response) {
+        let payload;
+        try {
+            payload = await response.json();
+        }
+        catch {
+            payload = undefined;
+        }
+        const record = typeof payload === "object" && payload !== null ? payload : {};
+        const error = {
+            code: typeof record.error === "string" ? record.error : "unknown",
+            status: response.status,
+        };
+        if (typeof record.retryAfterSeconds === "number")
+            error.retryAfterSeconds = record.retryAfterSeconds;
+        return error;
+    }
+    async function refresh() {
+        inflight ??= (async () => {
+            try {
+                const response = await request("GET", "/session");
+                if (!(response instanceof Response)) {
+                    setState({ status: "error", error: response });
+                }
+                else if (!response.ok) {
+                    setState({ status: "error", error: await errorFrom(response) });
+                }
+                else {
+                    setState(stateFromBody((await response.json())));
+                }
+                return state;
+            }
+            finally {
+                inflight = undefined;
+            }
+        })();
+        return inflight;
+    }
+    /** Ask the server for a Ward URL and send the browser there. */
+    async function goToWard(path, body) {
+        const response = await request("POST", path, body);
+        if (!(response instanceof Response))
+            return { ok: false, error: response };
+        if (!response.ok) {
+            const error = await errorFrom(response);
+            if (response.status === 401 && error.code === "unauthorized")
+                setState(signedOut());
+            return { ok: false, error };
+        }
+        const { url } = (await response.json());
+        navigate(url);
+        return { ok: true };
+    }
+    /** A guarded action answered with no session body; refresh to pick up its effect. */
+    async function act(path, body) {
+        const response = await request("POST", path, body);
+        if (!(response instanceof Response))
+            return { ok: false, error: response };
+        if (!response.ok) {
+            const error = await errorFrom(response);
+            if (response.status === 401 && error.code === "unauthorized")
+                setState(signedOut());
+            return { ok: false, error };
+        }
+        return { ok: true, response };
+    }
+    /** A credential action that, on success, answers with the new session. */
+    async function signIn(path, body) {
+        const response = await request("POST", path, body);
+        if (!(response instanceof Response))
+            return { ok: false, error: response };
+        if (!response.ok)
+            return { ok: false, error: await errorFrom(response) };
+        setState(stateFromBody((await response.json())));
+        return { ok: true };
+    }
+    return {
+        basePath,
+        getState: () => state,
+        subscribe(listener) {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+        },
+        refresh,
+        ensureLoaded() {
+            if (!loaded && inflight === undefined)
+                void refresh();
+        },
+        login: (username, password) => signIn("/login", { username, password }),
+        register: (username, password) => signIn("/register", { username, password }),
+        async logout() {
+            const response = await request("POST", "/logout");
+            if (!(response instanceof Response))
+                return { ok: false, error: response };
+            if (!response.ok)
+                return { ok: false, error: await errorFrom(response) };
+            setState(signedOut());
+            return { ok: true };
+        },
+        async changePassword(currentPassword, newPassword) {
+            const response = await request("POST", "/password", { currentPassword, newPassword });
+            if (!(response instanceof Response))
+                return { ok: false, error: response };
+            if (!response.ok) {
+                const error = await errorFrom(response);
+                // The session ended under us (expired, or ended elsewhere): say so.
+                if (response.status === 401 && error.code === "unauthorized")
+                    setState(signedOut());
+                return { ok: false, error };
+            }
+            return { ok: true };
+        },
+        async renameUser(username) {
+            const result = await act("/username", { username });
+            if (!result.ok)
+                return result;
+            // The answer is the session under the new name: no second request.
+            setState(stateFromBody((await result.response.json())));
+            return { ok: true };
+        },
+        startWardSignIn: (startOptions = {}) => goToWard("/ward/start", startOptions.returnTo === undefined ? {} : { returnTo: startOptions.returnTo }),
+        startWardLink: (currentPassword) => goToWard("/ward/link", { currentPassword }),
+        startWardReauthentication: () => goToWard("/ward/reauthenticate"),
+        async unlinkWard(currentPassword) {
+            const result = await act("/ward/unlink", { currentPassword });
+            if (!result.ok)
+                return result;
+            const { signedOut: ended } = (await result.response.json());
+            if (ended)
+                setState(signedOut());
+            else
+                await refresh();
+            return { ok: true };
+        },
+        async setLocalPassword(newPassword, currentPassword) {
+            const result = await act("/ward/set-password", currentPassword === undefined ? { newPassword } : { newPassword, currentPassword });
+            if (!result.ok)
+                return result;
+            // `hasPassword` is now true; ask so every `useSession` sees it.
+            await refresh();
+            return { ok: true };
+        },
+        async signOutOfWard() {
+            const result = await act("/ward/logout");
+            if (!result.ok)
+                return result;
+            const { url } = (await result.response.json());
+            setState(signedOut());
+            if (url !== null)
+                navigate(url);
+            return { ok: true };
+        },
+        getWardResult: () => wardResult,
+        clearWardResult() {
+            if (wardResult.error === undefined && wardResult.result === undefined)
+                return;
+            wardResult = wardResult.returnTo === undefined ? {} : { returnTo: wardResult.returnTo };
+            for (const listener of listeners)
+                listener();
+        },
+    };
 }
 let defaultClient;
 /**
@@ -255,51 +321,50 @@ let defaultClient;
  * ```
  */
 function configureAuth(options) {
-  defaultClient = createAuthClient(options);
-  return defaultClient;
+    defaultClient = createAuthClient(options);
+    return defaultClient;
 }
 /** The configured client. Throws if `configureAuth` has not run. */
 function getAuthClient() {
-  if (defaultClient === undefined) {
-    throw new Error("ward-auth: call configureAuth({ basePath }) before using the hooks");
-  }
-  return defaultClient;
+    if (defaultClient === undefined) {
+        throw new Error("ward-auth: call configureAuth({ basePath }) before using the hooks");
+    }
+    return defaultClient;
 }
 
 function useClient(options) {
-  return options?.client ?? getAuthClient();
+    return options?.client ?? getAuthClient();
 }
 /** The session, loaded on first use, plus a way to ask again. */
 function useSession(options) {
-  const client = useClient(options);
-  const state = useSyncExternalStore(client.subscribe, client.getState, client.getState);
-  useEffect(() => {
-    client.ensureLoaded();
-  }, [client]);
-  const refresh = useCallback(async () => {
-    await client.refresh();
-  }, [client]);
-  return { ...state, refresh };
+    const client = useClient(options);
+    const state = useSyncExternalStore(client.subscribe, client.getState, client.getState);
+    useEffect(() => {
+        client.ensureLoaded();
+    }, [client]);
+    const refresh = useCallback(async () => {
+        await client.refresh();
+    }, [client]);
+    return { ...state, refresh };
 }
 function useAction(run) {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState(null);
-  const perform = useCallback(
-    async (...args) => {
-      setPending(true);
-      setError(null);
-      try {
-        const result = await run(...args);
-        if (!result.ok) setError(result.error);
-        return result.ok;
-      } finally {
-        setPending(false);
-      }
-    },
-    [run],
-  );
-  const reset = useCallback(() => setError(null), []);
-  return { pending, error, reset, perform };
+    const [pending, setPending] = useState(false);
+    const [error, setError] = useState(null);
+    const perform = useCallback(async (...args) => {
+        setPending(true);
+        setError(null);
+        try {
+            const result = await run(...args);
+            if (!result.ok)
+                setError(result.error);
+            return result.ok;
+        }
+        finally {
+            setPending(false);
+        }
+    }, [run]);
+    const reset = useCallback(() => setError(null), []);
+    return { pending, error, reset, perform };
 }
 /**
  * `login(username, password)` resolves `true` on success, when the session
@@ -308,17 +373,17 @@ function useAction(run) {
  * `network`; the app writes the message.
  */
 function useLogin(options) {
-  const client = useClient(options);
-  const run = useCallback((username, password) => client.login(username, password), [client]);
-  const { perform, ...state } = useAction(run);
-  return { ...state, login: perform };
+    const client = useClient(options);
+    const run = useCallback((username, password) => client.login(username, password), [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, login: perform };
 }
 /** `logout()` ends the session here; the state becomes signed out. */
 function useLogout(options) {
-  const client = useClient(options);
-  const run = useCallback(() => client.logout(), [client]);
-  const { perform, ...state } = useAction(run);
-  return { ...state, logout: perform };
+    const client = useClient(options);
+    const run = useCallback(() => client.logout(), [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, logout: perform };
 }
 /**
  * `changePassword(current, next)`. On success every *other* session the user
@@ -327,19 +392,35 @@ function useLogout(options) {
  * `too_many_attempts`, `unauthorized`.
  */
 function useChangePassword(options) {
-  const client = useClient(options);
-  const [done, setDone] = useState(false);
-  const run = useCallback(
-    async (currentPassword, newPassword) => {
-      setDone(false);
-      const result = await client.changePassword(currentPassword, newPassword);
-      if (result.ok) setDone(true);
-      return result;
-    },
-    [client],
-  );
-  const { perform, ...state } = useAction(run);
-  return { ...state, changePassword: perform, done };
+    const client = useClient(options);
+    const [done, setDone] = useState(false);
+    const run = useCallback(async (currentPassword, newPassword) => {
+        setDone(false);
+        const result = await client.changePassword(currentPassword, newPassword);
+        if (result.ok)
+            setDone(true);
+        return result;
+    }, [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, changePassword: perform, done };
+}
+/**
+ * `renameUser(username)` (0.4.0). On success every `useSession` shows the new
+ * name and no session ends. Errors: `invalid_username`, `username_taken`,
+ * `too_many_attempts`, `unauthorized`.
+ */
+function useRenameUser(options) {
+    const client = useClient(options);
+    const [done, setDone] = useState(false);
+    const run = useCallback(async (username) => {
+        setDone(false);
+        const result = await client.renameUser(username);
+        if (result.ok)
+            setDone(true);
+        return result;
+    }, [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, renameUser: perform, done };
 }
 /**
  * `register(username, password)`, for the app that enables registration.
@@ -348,20 +429,23 @@ function useChangePassword(options) {
  * `too_many_attempts`.
  */
 function useRegister(options) {
-  const client = useClient(options);
-  const run = useCallback((username, password) => client.register(username, password), [client]);
-  const { perform, ...state } = useAction(run);
-  return { ...state, register: perform };
+    const client = useClient(options);
+    const run = useCallback((username, password) => client.register(username, password), [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, register: perform };
 }
 // ---------------------------------------------------------------------------
 // Sign in with Ward
 // ---------------------------------------------------------------------------
-/** The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a way to dismiss it. */
+/**
+ * The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a
+ * way to dismiss it. `returnTo` survives `clear()`.
+ */
 function useWardResult(options) {
-  const client = useClient(options);
-  const result = useSyncExternalStore(client.subscribe, client.getWardResult, client.getWardResult);
-  const clear = useCallback(() => client.clearWardResult(), [client]);
-  return { ...result, clear };
+    const client = useClient(options);
+    const result = useSyncExternalStore(client.subscribe, client.getWardResult, client.getWardResult);
+    const clear = useCallback(() => client.clearWardResult(), [client]);
+    return { ...result, clear };
 }
 /**
  * The login page's "Sign in with Ward" button. `signIn()` (optionally with a
@@ -374,61 +458,79 @@ function useWardResult(options) {
  * a disabled account, or they pressed "Back to the app"), `invalid_callback`,
  * `ward_unavailable`, `sign_in_failed`. `reset()` dismisses it. Show the button only when
  * `useSession().ward.enabled`.
+ *
+ * `returnTo` (0.7.0) is the `returnTo` that failed attempt was started with,
+ * or `null`. `signIn({ returnTo })` with it tries again to the same place;
+ * `signIn()` without one still goes to `afterSignInPath`. `reset()` keeps it.
  */
 function useWardSignIn(options) {
-  const client = useClient(options);
-  const landed = useWardResult(options);
-  const run = useCallback((signInOptions) => client.startWardSignIn(signInOptions), [client]);
-  const { perform, error, reset, pending } = useAction(run);
-  const { clear } = landed;
-  const resetAll = useCallback(() => {
-    reset();
-    clear();
-  }, [reset, clear]);
-  return { pending, error: error ?? landed.error ?? null, reset: resetAll, signIn: perform };
+    const client = useClient(options);
+    const landed = useWardResult(options);
+    const run = useCallback((signInOptions) => client.startWardSignIn(signInOptions), [client]);
+    const { perform, error, reset, pending } = useAction(run);
+    const { clear } = landed;
+    const resetAll = useCallback(() => {
+        reset();
+        clear();
+    }, [reset, clear]);
+    return {
+        pending,
+        error: error ?? landed.error ?? null,
+        reset: resetAll,
+        signIn: perform,
+        returnTo: landed.returnTo ?? null,
+    };
 }
 /**
- * Settings: "Link Ward". `link()` sends the browser to Ward; the settings
- * page then loads with `linked` true, or with `error` set to
+ * Settings: "Link Ward". `link(currentPassword)`, with the account's local
+ * password (1.0.0), sends the browser to Ward. It resolves `false` without
+ * leaving the page, `error` set to `invalid_credentials`,
+ * `too_many_attempts` (with `retryAfterSeconds`), `already_linked` or
+ * `no_local_password`, when the server refuses the start. After Ward the
+ * settings page loads with `linked` true, or with `error` set to
  * `already_linked`, `ward_account_in_use`, `access_denied`,
  * `invalid_callback`, `sign_in_failed` or `unauthorized` (the session that
- * started the link had ended). Show it when `useSession().ward.enabled && !ward.linked`.
+ * started the link had ended). Show it, with a password field, when
+ * `useSession().ward.enabled && !ward.linked`.
  */
 function useWardLink(options) {
-  const client = useClient(options);
-  const landed = useWardResult(options);
-  const run = useCallback(() => client.startWardLink(), [client]);
-  const { perform, error, reset, pending } = useAction(run);
-  const { clear } = landed;
-  const resetAll = useCallback(() => {
-    reset();
-    clear();
-  }, [reset, clear]);
-  return {
-    pending,
-    error: error ?? landed.error ?? null,
-    reset: resetAll,
-    link: perform,
-    linked: landed.result === "linked",
-  };
+    const client = useClient(options);
+    const landed = useWardResult(options);
+    const run = useCallback((currentPassword) => client.startWardLink(currentPassword), [client]);
+    const { perform, error, reset, pending } = useAction(run);
+    const { clear } = landed;
+    const resetAll = useCallback(() => {
+        reset();
+        clear();
+    }, [reset, clear]);
+    return {
+        pending,
+        error: error ?? landed.error ?? null,
+        reset: resetAll,
+        link: perform,
+        linked: landed.result === "linked",
+    };
 }
 /**
- * Settings: "Unlink Ward". Refused with `no_local_password` while the user
+ * Settings: "Unlink Ward". `unlink(currentPassword)`, with the account's
+ * local password (1.0.0). Refused with `no_local_password` while the user
  * has none (offer `useSetLocalPassword` first), `not_linked` when there is
- * nothing to unlink. If the current session began with Ward it ends too, and
- * the session state becomes signed out.
+ * nothing to unlink, `invalid_credentials` for a wrong password and
+ * `too_many_attempts` (with `retryAfterSeconds`). If the current session
+ * began with Ward it ends too, and the session state becomes signed out.
  */
 function useWardUnlink(options) {
-  const client = useClient(options);
-  const [done, setDone] = useState(false);
-  const run = useCallback(async () => {
-    setDone(false);
-    const result = await client.unlinkWard();
-    if (result.ok) setDone(true);
-    return result;
-  }, [client]);
-  const { perform, ...state } = useAction(run);
-  return { ...state, unlink: perform, done };
+    const client = useClient(options);
+    const [done, setDone] = useState(false);
+    const run = useCallback(async (currentPassword) => {
+        setDone(false);
+        const result = await client.unlinkWard(currentPassword);
+        if (result.ok)
+            setDone(true);
+        return result;
+    }, [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, unlink: perform, done };
 }
 /**
  * Settings: "Set a local password", so a user created from Ward can still
@@ -445,30 +547,28 @@ function useWardUnlink(options) {
  * `password_too_short`, `password_too_long`, `too_many_attempts`.
  */
 function useSetLocalPassword(options) {
-  const client = useClient(options);
-  const landed = useWardResult(options);
-  const [done, setDone] = useState(false);
-  const run = useCallback(
-    async (newPassword, currentPassword) => {
-      setDone(false);
-      const result = await client.setLocalPassword(newPassword, currentPassword);
-      if (result.ok) setDone(true);
-      return result;
-    },
-    [client],
-  );
-  const { perform, ...state } = useAction(run);
-  const reauthenticateRun = useCallback(() => client.startWardReauthentication(), [client]);
-  const reauth = useAction(reauthenticateRun);
-  return {
-    ...state,
-    pending: state.pending || reauth.pending,
-    error: state.error ?? reauth.error,
-    setPassword: perform,
-    reauthenticate: reauth.perform,
-    reauthenticated: landed.result === "reauthenticated",
-    done,
-  };
+    const client = useClient(options);
+    const landed = useWardResult(options);
+    const [done, setDone] = useState(false);
+    const run = useCallback(async (newPassword, currentPassword) => {
+        setDone(false);
+        const result = await client.setLocalPassword(newPassword, currentPassword);
+        if (result.ok)
+            setDone(true);
+        return result;
+    }, [client]);
+    const { perform, ...state } = useAction(run);
+    const reauthenticateRun = useCallback(() => client.startWardReauthentication(), [client]);
+    const reauth = useAction(reauthenticateRun);
+    return {
+        ...state,
+        pending: state.pending || reauth.pending,
+        error: state.error ?? reauth.error,
+        setPassword: perform,
+        reauthenticate: reauth.perform,
+        reauthenticated: landed.result === "reauthenticated",
+        done,
+    };
 }
 /**
  * "Sign out of Ward too": ends the session here, then sends the browser to
@@ -478,25 +578,10 @@ function useSetLocalPassword(options) {
  * offer the ordinary `useLogout`).
  */
 function useWardSignOut(options) {
-  const client = useClient(options);
-  const run = useCallback(() => client.signOutOfWard(), [client]);
-  const { perform, ...state } = useAction(run);
-  return { ...state, signOut: perform };
+    const client = useClient(options);
+    const run = useCallback(() => client.signOutOfWard(), [client]);
+    const { perform, ...state } = useAction(run);
+    return { ...state, signOut: perform };
 }
 
-export {
-  configureAuth,
-  createAuthClient,
-  getAuthClient,
-  useChangePassword,
-  useLogin,
-  useLogout,
-  useRegister,
-  useSession,
-  useSetLocalPassword,
-  useWardLink,
-  useWardResult,
-  useWardSignIn,
-  useWardSignOut,
-  useWardUnlink,
-};
+export { configureAuth, createAuthClient, getAuthClient, useChangePassword, useLogin, useLogout, useRegister, useRenameUser, useSession, useSetLocalPassword, useWardLink, useWardResult, useWardSignIn, useWardSignOut, useWardUnlink };

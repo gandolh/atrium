@@ -1,4 +1,4 @@
-// ward-auth 0.3.1 — built from https://github.com/gandolh/ward-auth (shared-library/).
+// ward-auth 1.1.0 — built from https://github.com/gandolh/ward-auth (shared-library/).
 // MIT licensed; see LICENSE beside this file. Do not edit a vendored copy: copy a newer build in.
 /**
  * The browser half, without React: a small client for the plugin's routes and
@@ -6,28 +6,29 @@
  *
  * Kept free of React so it can be tested in Node with a fake `fetch`, and so
  * the hooks stay thin enough to read at a glance. Nothing here imports the
- * server bundle: `ward-auth-react.js` must load in a browser.
+ * server bundle: `ward-auth-react.js` must load in a browser. `core/paths.ts`
+ * is framework-free, so the rule it holds is bundled in here too.
  */
 /** The user the server reports. Mirrors the server's `AuthUser`. */
 interface SessionUser {
-  id: string;
-  username: string;
-  role: string;
-  /** False for a user created by a Ward sign-in who has no local password yet. */
-  hasPassword: boolean;
+    id: string;
+    username: string;
+    role: string;
+    /** False for a user created by a Ward sign-in who has no local password yet. */
+    hasPassword: boolean;
 }
 /** What the browser is told about its session. */
 interface SessionInfo {
-  origin: "local" | "ward";
-  /** Epoch milliseconds. */
-  expiresAt: number;
+    origin: "local" | "ward";
+    /** Epoch milliseconds. */
+    expiresAt: number;
 }
 /** What the server says about Ward for this app and this user. */
 interface WardStatus {
-  /** The app offers "Sign in with Ward" (its server has Ward configured). */
-  enabled: boolean;
-  /** The signed-in user has a Ward account linked. Always false when signed out. */
-  linked: boolean;
+    /** The app offers "Sign in with Ward" (its server has Ward configured). */
+    enabled: boolean;
+    /** The signed-in user has a Ward account linked. Always false when signed out. */
+    linked: boolean;
 }
 /**
  * The server's stable error codes, plus two of the client's own: `network`
@@ -55,146 +56,146 @@ interface WardStatus {
  *   if it persists, it is an operator problem.
  * - `already_linked`, `ward_account_in_use` — linking: this user already has
  *   a Ward account, or that Ward account belongs to another user here.
+ *   Linking and unlinking also answer `invalid_credentials` (a wrong current
+ *   password) and `too_many_attempts`, as a password change does (1.0.0).
  * - `ward_account_mismatch` — reauthentication came back as another Ward
  *   account.
- * - `not_linked`, `no_local_password` — unlinking.
+ * - `not_linked`, `no_local_password` — unlinking; `no_local_password` also
+ *   linking, for a user with no local password to give.
  * - `reauthentication_required` — setting a first local password needs a
  *   reauthentication (`reauthenticate()`) from the last ten minutes. A plain
  *   Ward sign-in does not count, however recent.
  */
-type AuthErrorCode =
-  | "invalid_request"
-  | "invalid_credentials"
-  | "invalid_username"
-  | "password_too_short"
-  | "password_too_long"
-  | "username_taken"
-  | "too_many_attempts"
-  | "unauthorized"
-  | "forbidden"
-  | "cross_site"
-  | "network"
-  | "unknown"
-  | "access_denied"
-  | "ward_unavailable"
-  | "ward_misconfigured"
-  | "ward_session_ended"
-  | "invalid_callback"
-  | "sign_in_failed"
-  | "already_linked"
-  | "ward_account_in_use"
-  | "ward_account_mismatch"
-  | "not_linked"
-  | "no_local_password"
-  | "reauthentication_required"
-  | (string & {});
+type AuthErrorCode = "invalid_request" | "invalid_credentials" | "invalid_username" | "password_too_short" | "password_too_long" | "username_taken" | "too_many_attempts" | "unauthorized" | "forbidden" | "cross_site" | "network" | "unknown" | "access_denied" | "ward_unavailable" | "ward_misconfigured" | "ward_session_ended" | "invalid_callback" | "sign_in_failed" | "already_linked" | "ward_account_in_use" | "ward_account_mismatch" | "not_linked" | "no_local_password" | "reauthentication_required" | (string & {});
 interface AuthError {
-  code: AuthErrorCode;
-  /** The HTTP status, when there was a response. */
-  status?: number;
-  /** Set with `too_many_attempts`: how long until the next attempt is allowed. */
-  retryAfterSeconds?: number;
+    code: AuthErrorCode;
+    /** The HTTP status, when there was a response. */
+    status?: number;
+    /** Set with `too_many_attempts`: how long until the next attempt is allowed. */
+    retryAfterSeconds?: number;
 }
-type SessionState =
-  | {
-      status: "loading";
-    }
-  | {
-      status: "signed_in";
-      user: SessionUser;
-      session: SessionInfo;
-      ward: WardStatus;
-    }
-  /**
-   * `reason` is set when a cookie was presented and a session check refused
-   * it — `ward_unavailable` and `ward_session_ended` among them.
-   */
-  | {
-      status: "signed_out";
-      reason?: string;
-      ward: WardStatus;
-    }
-  | {
-      status: "error";
-      error: AuthError;
-    };
+type SessionState = {
+    status: "loading";
+} | {
+    status: "signed_in";
+    user: SessionUser;
+    session: SessionInfo;
+    ward: WardStatus;
+}
+/**
+ * `reason` is set when a cookie was presented and a session check refused
+ * it — `ward_unavailable` and `ward_session_ended` among them.
+ */
+ | {
+    status: "signed_out";
+    reason?: string;
+    ward: WardStatus;
+} | {
+    status: "error";
+    error: AuthError;
+};
 /**
  * What the last Ward round trip came back with, read once from the page's URL
- * (`?ward_error=` or `?ward=`) when the client is created, and removed from
- * the address bar so a reload does not show it again.
+ * (`?ward_error=`, `?ward=`, `?ward_return_to=`) when the client is created,
+ * and removed from the address bar so a reload does not show it again.
  */
 interface WardResult {
-  /** `linked` after a link, `reauthenticated` after a verified reauthentication. */
-  result?: "linked" | "reauthenticated";
-  error?: AuthError;
+    /** `linked` after a link, `reauthenticated` after a verified reauthentication. */
+    result?: "linked" | "reauthenticated";
+    error?: AuthError;
+    /**
+     * The `returnTo` a refused sign-in was started with (0.7.0): pass it to
+     * `startWardSignIn({ returnTo })` to try again to the same place. Only with
+     * an `error`, and only a path on this origin. `clearWardResult()` keeps it.
+     */
+    returnTo?: string;
 }
-type ActionResult =
-  | {
-      ok: true;
-    }
-  | {
-      ok: false;
-      error: AuthError;
-    };
+type ActionResult = {
+    ok: true;
+} | {
+    ok: false;
+    error: AuthError;
+};
 interface AuthClientOptions {
-  /**
-   * The browser-visible path of the plugin's routes: the app's API prefix plus
-   * the plugin's `routePrefix`, e.g. `/atrium/api/auth`.
-   */
-  basePath: string;
-  /** Injected by tests. The global `fetch` otherwise. */
-  fetch?: typeof fetch;
-  /**
-   * Send the browser to a URL (Ward's pages). Injected by tests;
-   * `window.location.assign` otherwise.
-   */
-  navigate?: (url: string) => void;
-  /**
-   * The page's current URL, read once for a Ward result, and how to replace
-   * it without one. Injected by tests; `window.location` and
-   * `history.replaceState` otherwise, and nothing at all outside a browser.
-   */
-  location?: {
-    href: string;
-    replace(url: string): void;
-  };
+    /**
+     * The browser-visible path of the plugin's routes: the app's API prefix plus
+     * the plugin's `routePrefix`, e.g. `/atrium/api/auth`.
+     */
+    basePath: string;
+    /** Injected by tests. The global `fetch` otherwise. */
+    fetch?: typeof fetch;
+    /**
+     * Send the browser to a URL (Ward's pages). Injected by tests;
+     * `window.location.assign` otherwise.
+     */
+    navigate?: (url: string) => void;
+    /**
+     * The page's current URL, read once for a Ward result, and how to replace
+     * it without one. Injected by tests; `window.location` and
+     * `history.replaceState` otherwise, and nothing at all outside a browser.
+     */
+    location?: {
+        href: string;
+        replace(url: string): void;
+    };
 }
 interface AuthClient {
-  readonly basePath: string;
-  getState(): SessionState;
-  subscribe(listener: () => void): () => void;
-  /** Ask the server who is signed in. Concurrent calls share one request. */
-  refresh(): Promise<SessionState>;
-  /** `refresh()` once, if nothing has loaded the state yet. */
-  ensureLoaded(): void;
-  login(username: string, password: string): Promise<ActionResult>;
-  logout(): Promise<ActionResult>;
-  changePassword(currentPassword: string, newPassword: string): Promise<ActionResult>;
-  register(username: string, password: string): Promise<ActionResult>;
-  /**
-   * "Sign in with Ward": ask the server for Ward's URL and go there. On
-   * success the page is navigating away. `returnTo` is a path on this origin
-   * to land on afterwards.
-   */
-  startWardSignIn(options?: { returnTo?: string }): Promise<ActionResult>;
-  /** "Link Ward", from settings while signed in. Navigates to Ward. */
-  startWardLink(): Promise<ActionResult>;
-  /** Reauthenticate with Ward (Ward asks for the password again). Navigates to Ward. */
-  startWardReauthentication(): Promise<ActionResult>;
-  /** Unlink Ward. The state becomes signed out if this session began with Ward. */
-  unlinkWard(): Promise<ActionResult>;
-  /**
-   * Set a local password: give the current one if there is one; a user with
-   * none needs `startWardReauthentication()` in the last ten minutes
-   * (`reauthentication_required` otherwise; a Ward sign-in does not count).
-   */
-  setLocalPassword(newPassword: string, currentPassword?: string): Promise<ActionResult>;
-  /** Sign out here and at Ward. Navigates to Ward's end-session page when there is one. */
-  signOutOfWard(): Promise<ActionResult>;
-  /** The Ward result the page was loaded with, if any. */
-  getWardResult(): WardResult;
-  /** Forget it (after the app has shown it). */
-  clearWardResult(): void;
+    readonly basePath: string;
+    getState(): SessionState;
+    subscribe(listener: () => void): () => void;
+    /** Ask the server who is signed in. Concurrent calls share one request. */
+    refresh(): Promise<SessionState>;
+    /** `refresh()` once, if nothing has loaded the state yet. */
+    ensureLoaded(): void;
+    login(username: string, password: string): Promise<ActionResult>;
+    logout(): Promise<ActionResult>;
+    changePassword(currentPassword: string, newPassword: string): Promise<ActionResult>;
+    /**
+     * Rename the signed-in user (0.4.0). On success the state already carries
+     * the new name. Errors: `invalid_username`, `username_taken`,
+     * `too_many_attempts`, `unauthorized`.
+     */
+    renameUser(username: string): Promise<ActionResult>;
+    register(username: string, password: string): Promise<ActionResult>;
+    /**
+     * "Sign in with Ward": ask the server for Ward's URL and go there. On
+     * success the page is navigating away. `returnTo` is a path on this origin
+     * to land on afterwards.
+     */
+    startWardSignIn(options?: {
+        returnTo?: string;
+    }): Promise<ActionResult>;
+    /**
+     * "Link Ward", from settings while signed in, with the account's current
+     * local password (1.0.0). Navigates to Ward. Stays on the page with
+     * `invalid_credentials`, `invalid_request` (an empty password),
+     * `too_many_attempts`, `already_linked` or `no_local_password`.
+     */
+    startWardLink(currentPassword: string): Promise<ActionResult>;
+    /** Reauthenticate with Ward (Ward asks for the password again). Navigates to Ward. */
+    startWardReauthentication(): Promise<ActionResult>;
+    /**
+     * Unlink Ward, with the account's current local password (1.0.0). The
+     * state becomes signed out if this session began with Ward. Errors:
+     * `invalid_credentials`, `invalid_request` (an empty password),
+     * `too_many_attempts`, `no_local_password`, `not_linked`.
+     */
+    unlinkWard(currentPassword: string): Promise<ActionResult>;
+    /**
+     * Set a local password: give the current one if there is one; a user with
+     * none needs `startWardReauthentication()` in the last ten minutes
+     * (`reauthentication_required` otherwise; a Ward sign-in does not count).
+     */
+    setLocalPassword(newPassword: string, currentPassword?: string): Promise<ActionResult>;
+    /** Sign out here and at Ward. Navigates to Ward's end-session page when there is one. */
+    signOutOfWard(): Promise<ActionResult>;
+    /** The Ward result the page was loaded with, if any. */
+    getWardResult(): WardResult;
+    /**
+     * Forget the outcome (after the app has shown it). A carried `returnTo`
+     * stays: dismissing the message does not change where a retry should go.
+     */
+    clearWardResult(): void;
 }
 declare function createAuthClient(options: AuthClientOptions): AuthClient;
 /**
@@ -222,17 +223,17 @@ declare function getAuthClient(): AuthClient;
  * `configureAuth` set up.
  */
 interface HookOptions {
-  client?: AuthClient;
+    client?: AuthClient;
 }
 /** The session, loaded on first use, plus a way to ask again. */
 declare function useSession(options?: HookOptions): SessionState & {
-  refresh: () => Promise<void>;
+    refresh: () => Promise<void>;
 };
 /** The shared shape of a one-shot action: pending, the last error, and a reset. */
 interface ActionState {
-  pending: boolean;
-  error: AuthError | null;
-  reset: () => void;
+    pending: boolean;
+    error: AuthError | null;
+    reset: () => void;
 }
 /**
  * `login(username, password)` resolves `true` on success, when the session
@@ -241,11 +242,11 @@ interface ActionState {
  * `network`; the app writes the message.
  */
 declare function useLogin(options?: HookOptions): ActionState & {
-  login: (username: string, password: string) => Promise<boolean>;
+    login: (username: string, password: string) => Promise<boolean>;
 };
 /** `logout()` ends the session here; the state becomes signed out. */
 declare function useLogout(options?: HookOptions): ActionState & {
-  logout: () => Promise<boolean>;
+    logout: () => Promise<boolean>;
 };
 /**
  * `changePassword(current, next)`. On success every *other* session the user
@@ -254,8 +255,17 @@ declare function useLogout(options?: HookOptions): ActionState & {
  * `too_many_attempts`, `unauthorized`.
  */
 declare function useChangePassword(options?: HookOptions): ActionState & {
-  changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
-  done: boolean;
+    changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+    done: boolean;
+};
+/**
+ * `renameUser(username)` (0.4.0). On success every `useSession` shows the new
+ * name and no session ends. Errors: `invalid_username`, `username_taken`,
+ * `too_many_attempts`, `unauthorized`.
+ */
+declare function useRenameUser(options?: HookOptions): ActionState & {
+    renameUser: (username: string) => Promise<boolean>;
+    done: boolean;
 };
 /**
  * `register(username, password)`, for the app that enables registration.
@@ -264,11 +274,14 @@ declare function useChangePassword(options?: HookOptions): ActionState & {
  * `too_many_attempts`.
  */
 declare function useRegister(options?: HookOptions): ActionState & {
-  register: (username: string, password: string) => Promise<boolean>;
+    register: (username: string, password: string) => Promise<boolean>;
 };
-/** The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a way to dismiss it. */
+/**
+ * The Ward result the page was loaded with (`?ward_error=` / `?ward=`), and a
+ * way to dismiss it. `returnTo` survives `clear()`.
+ */
 declare function useWardResult(options?: HookOptions): WardResult & {
-  clear: () => void;
+    clear: () => void;
 };
 /**
  * The login page's "Sign in with Ward" button. `signIn()` (optionally with a
@@ -281,30 +294,44 @@ declare function useWardResult(options?: HookOptions): WardResult & {
  * a disabled account, or they pressed "Back to the app"), `invalid_callback`,
  * `ward_unavailable`, `sign_in_failed`. `reset()` dismisses it. Show the button only when
  * `useSession().ward.enabled`.
+ *
+ * `returnTo` (0.7.0) is the `returnTo` that failed attempt was started with,
+ * or `null`. `signIn({ returnTo })` with it tries again to the same place;
+ * `signIn()` without one still goes to `afterSignInPath`. `reset()` keeps it.
  */
 declare function useWardSignIn(options?: HookOptions): ActionState & {
-  signIn: (signInOptions?: { returnTo?: string }) => Promise<boolean>;
+    signIn: (signInOptions?: {
+        returnTo?: string;
+    }) => Promise<boolean>;
+    returnTo: string | null;
 };
 /**
- * Settings: "Link Ward". `link()` sends the browser to Ward; the settings
- * page then loads with `linked` true, or with `error` set to
+ * Settings: "Link Ward". `link(currentPassword)`, with the account's local
+ * password (1.0.0), sends the browser to Ward. It resolves `false` without
+ * leaving the page, `error` set to `invalid_credentials`,
+ * `too_many_attempts` (with `retryAfterSeconds`), `already_linked` or
+ * `no_local_password`, when the server refuses the start. After Ward the
+ * settings page loads with `linked` true, or with `error` set to
  * `already_linked`, `ward_account_in_use`, `access_denied`,
  * `invalid_callback`, `sign_in_failed` or `unauthorized` (the session that
- * started the link had ended). Show it when `useSession().ward.enabled && !ward.linked`.
+ * started the link had ended). Show it, with a password field, when
+ * `useSession().ward.enabled && !ward.linked`.
  */
 declare function useWardLink(options?: HookOptions): ActionState & {
-  link: () => Promise<boolean>;
-  linked: boolean;
+    link: (currentPassword: string) => Promise<boolean>;
+    linked: boolean;
 };
 /**
- * Settings: "Unlink Ward". Refused with `no_local_password` while the user
+ * Settings: "Unlink Ward". `unlink(currentPassword)`, with the account's
+ * local password (1.0.0). Refused with `no_local_password` while the user
  * has none (offer `useSetLocalPassword` first), `not_linked` when there is
- * nothing to unlink. If the current session began with Ward it ends too, and
- * the session state becomes signed out.
+ * nothing to unlink, `invalid_credentials` for a wrong password and
+ * `too_many_attempts` (with `retryAfterSeconds`). If the current session
+ * began with Ward it ends too, and the session state becomes signed out.
  */
 declare function useWardUnlink(options?: HookOptions): ActionState & {
-  unlink: () => Promise<boolean>;
-  done: boolean;
+    unlink: (currentPassword: string) => Promise<boolean>;
+    done: boolean;
 };
 /**
  * Settings: "Set a local password", so a user created from Ward can still
@@ -321,10 +348,10 @@ declare function useWardUnlink(options?: HookOptions): ActionState & {
  * `password_too_short`, `password_too_long`, `too_many_attempts`.
  */
 declare function useSetLocalPassword(options?: HookOptions): ActionState & {
-  setPassword: (newPassword: string, currentPassword?: string) => Promise<boolean>;
-  reauthenticate: () => Promise<boolean>;
-  reauthenticated: boolean;
-  done: boolean;
+    setPassword: (newPassword: string, currentPassword?: string) => Promise<boolean>;
+    reauthenticate: () => Promise<boolean>;
+    reauthenticated: boolean;
+    done: boolean;
 };
 /**
  * "Sign out of Ward too": ends the session here, then sends the browser to
@@ -334,35 +361,8 @@ declare function useSetLocalPassword(options?: HookOptions): ActionState & {
  * offer the ordinary `useLogout`).
  */
 declare function useWardSignOut(options?: HookOptions): ActionState & {
-  signOut: () => Promise<boolean>;
+    signOut: () => Promise<boolean>;
 };
 
-export {
-  configureAuth,
-  createAuthClient,
-  getAuthClient,
-  useChangePassword,
-  useLogin,
-  useLogout,
-  useRegister,
-  useSession,
-  useSetLocalPassword,
-  useWardLink,
-  useWardResult,
-  useWardSignIn,
-  useWardSignOut,
-  useWardUnlink,
-};
-export type {
-  ActionResult,
-  AuthClient,
-  AuthClientOptions,
-  AuthError,
-  AuthErrorCode,
-  HookOptions,
-  SessionInfo,
-  SessionState,
-  SessionUser,
-  WardResult,
-  WardStatus,
-};
+export { configureAuth, createAuthClient, getAuthClient, useChangePassword, useLogin, useLogout, useRegister, useRenameUser, useSession, useSetLocalPassword, useWardLink, useWardResult, useWardSignIn, useWardSignOut, useWardUnlink };
+export type { ActionResult, AuthClient, AuthClientOptions, AuthError, AuthErrorCode, HookOptions, SessionInfo, SessionState, SessionUser, WardResult, WardStatus };

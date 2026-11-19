@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { forwardRef, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import {
   useChangePassword,
   useLogout,
+  useRenameUser,
   useSession,
   useSetLocalPassword,
   useWardLink,
@@ -59,6 +60,7 @@ export function AccountSettings() {
       {session.status === "signed_in" ? (
         <>
           <WardResult />
+          <ChangeUsername current={session.user.username} />
           {session.user.hasPassword ? <ChangePassword /> : <FirstPassword />}
           {session.ward.enabled && <WardLink linked={session.ward.linked} hasPassword={session.user.hasPassword} />}
           <SignOut wardSession={session.session.origin === "ward"} />
@@ -89,21 +91,20 @@ const PRIMARY =
 const SECONDARY =
   "self-start rounded-card border border-line-soft px-4 py-1.5 font-ui text-sm font-medium text-ink-variant transition hover:text-ink focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60";
 
-function PasswordField({
-  label,
-  autoComplete,
-  value,
-  onChange,
-}: {
-  label: string;
-  autoComplete: "current-password" | "new-password";
-  value: string;
-  onChange: (value: string) => void;
-}) {
+const PasswordField = forwardRef<
+  HTMLInputElement,
+  {
+    label: string;
+    autoComplete: "current-password" | "new-password";
+    value: string;
+    onChange: (value: string) => void;
+  }
+>(function PasswordField({ label, autoComplete, value, onChange }, ref) {
   return (
     <label className="flex max-w-sm flex-col gap-1.5">
       <span className="font-ui text-sm font-medium text-ink-variant">{label}</span>
       <input
+        ref={ref}
         type="password"
         autoComplete={autoComplete}
         required
@@ -113,7 +114,7 @@ function PasswordField({
       />
     </label>
   );
-}
+});
 
 function Alert({ children }: { children: ReactNode }) {
   return (
@@ -229,37 +230,119 @@ function FirstPassword() {
   );
 }
 
-/** Link a Ward account to this one, or unlink it. Never matched by name: you link your own. */
+/**
+ * Link a Ward account to this one, or unlink it. Never matched by name: you
+ * link your own. Both ask for the account's password again, typed beside the
+ * button; a refusal stays here, with the field focused.
+ */
 function WardLink({ linked, hasPassword }: { linked: boolean; hasPassword: boolean }) {
   const link = useWardLink();
   // Unlinking ends every session that began with Ward, this one included if
   // it did; the page's effect then hands over to the login page.
   const unlink = useWardUnlink();
+  const [password, setPassword] = useState("");
+  const field = useRef<HTMLInputElement>(null);
 
-  if (!linked) {
-    return (
-      <Section title="Ward" description="Link your Ward account to sign in here with Ward as well as your password.">
-        {link.error && <Alert>{authMessage(link.error)}</Alert>}
-        <button type="button" disabled={link.pending} onClick={() => void link.link()} className={SECONDARY}>
-          {link.pending ? "Going to Ward…" : "Link Ward account"}
-        </button>
-      </Section>
-    );
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const ok = linked ? await unlink.unlink(password) : await link.link(password);
+    if (!ok) field.current?.focus();
   }
+
+  const action = linked ? unlink : link;
+  const pending = linked ? unlink.pending : link.pending;
+  const label = linked
+    ? unlink.pending
+      ? "Unlinking…"
+      : "Unlink Ward"
+    : link.pending
+      ? "Going to Ward…"
+      : "Link Ward account";
+  const needsPassword = linked && !hasPassword;
 
   return (
     <Section
       title="Ward"
       description={
-        hasPassword
-          ? "Linked. You can sign in with Ward or with your password."
-          : "Linked, and it's your only way in. Set a password above before unlinking."
+        !linked
+          ? "Link your Ward account to sign in here with Ward as well as your password. Type your password to confirm it's you."
+          : hasPassword
+            ? "Linked. You can sign in with Ward or with your password. Type your password to unlink."
+            : "Linked, and it's your only way in. Set a password above before unlinking."
       }
     >
-      {unlink.error && <Alert>{authMessage(unlink.error)}</Alert>}
-      <button type="button" disabled={unlink.pending} onClick={() => void unlink.unlink()} className={SECONDARY}>
-        {unlink.pending ? "Unlinking…" : "Unlink Ward"}
-      </button>
+      {!needsPassword && (
+        <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+          <PasswordField
+            ref={field}
+            label="Current password"
+            autoComplete="current-password"
+            value={password}
+            onChange={setPassword}
+          />
+          {action.error && <Alert>{authMessage(action.error)}</Alert>}
+          <button type="submit" disabled={pending} className={SECONDARY}>
+            {label}
+          </button>
+        </form>
+      )}
+    </Section>
+  );
+}
+
+/**
+ * Change the account's username. The id stays, so profiles, progress and
+ * sessions stay with the account; only the name changes. A name another
+ * account holds, or one that looks like it (`AIice` against `alice`), comes
+ * back as `username_taken`.
+ */
+function ChangeUsername({ current }: { current: string }) {
+  const rename = useRenameUser();
+  const [name, setName] = useState(current);
+  const [empty, setEmpty] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (rename.pending) return;
+    const next = name.trim();
+    if (next === "") {
+      setEmpty(true);
+      field.current?.focus();
+      return;
+    }
+    if (next === current) return;
+    if (!(await rename.renameUser(next))) field.current?.focus();
+  }
+
+  const error = empty ? "Enter a username." : rename.error ? authMessage(rename.error) : null;
+  return (
+    <Section title="Username" description="What you sign in with. Your profiles and library stay as they are.">
+      <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
+        <label className="flex max-w-sm flex-col gap-1.5">
+          <span className="font-ui text-sm font-medium text-ink-variant">Username</span>
+          <input
+            ref={field}
+            type="text"
+            name="username"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setEmpty(false);
+              rename.reset();
+            }}
+            className={INPUT}
+          />
+        </label>
+        {error && <Alert>{error}</Alert>}
+        {rename.done && !error && <Done>Username changed. Sign in with {current} from now on.</Done>}
+        <button type="submit" disabled={rename.pending} className={PRIMARY}>
+          {rename.pending ? "Saving…" : "Change username"}
+        </button>
+      </form>
     </Section>
   );
 }

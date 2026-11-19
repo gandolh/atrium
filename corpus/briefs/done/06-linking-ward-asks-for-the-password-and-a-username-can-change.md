@@ -49,3 +49,28 @@ What the update changes here:
 - [ ] Both vendored copies at the new version; the tests above pass; `npm run check` exit 0; `bash corpus/lint.sh` OK.
 - [ ] The outcome note lists each CHANGELOG entry this app crossed and what it needed, and the username check's finding.
 - [ ] End move `ready_for_deploy` with the app's deploy step (server and web both change).
+
+## Outcome (2026-11-19)
+
+Both vendored copies are ward-auth 1.1.0 (six files each, `sha256sum -c` against the staged copy's `SHA256SUMS` passes in both), copied from the controller's staged build of wzd_auth 66998b7. Code commit 3ef2d54.
+
+**What a person notices.** Account settings gain a Username section (a field with the current name, "Change username"; a taken name or a look-alike such as `AIice` reads "That username is taken, or looks too much like one that is."). Link Ward and Unlink Ward each show a "Current password" field beside the button; a wrong password reads "That username and password don't match." (the app's existing sentence for `invalid_credentials`), too many tries show the wait, and the field keeps focus. A Ward-only account sees no field, only the line telling it to set a password first.
+
+**Versions crossed from 0.3.1.**
+- 0.4.0, the rename route (on by default): kept on, with the Username section (`useRenameUser`); `username_taken` added to the words. No migration.
+- 0.5.0 `usernameFor`: nothing to do, unused.
+- 0.6.0 migration 4 and disabling: ran by itself; atrium never disables a user, nothing to do. 0.6.1 exports: nothing.
+- 0.7.0 `returnTo`: nothing; the login page keeps its own retry.
+- 1.0.0: password on link and unlink (done); the 409s unchanged; the link start is held in memory for ten minutes (a start lost to a restart lands as `invalid_callback`, whose words exist). No `Accounts`/`Lockout` built by hand here.
+- 1.1.0: migration 5 (`username_skeleton`) runs by itself. Nothing to change in app code; atrium inserts no `auth_users` rows by hand.
+
+**Username check.** Stored data is keyed by the account id, never by the name: profiles use `profiles.subject` (the account id), sessions and progress hang off that, and the Ward subject map is by subject. The only name matches are `seed:user` (a script that finds an account by name to set a password, which a rename changes the name it must be given) and a one-off log line at start about migrated accounts. So `allowRename` stays on and the screen is built; no todo filed.
+
+**Migration log.** A fresh dev database on 1.1.0 applied migrations 1 to 5 (`username_skeleton` among them); the library logs no line for a clean run, and no "usernames that read the same" warning appeared (none exist). The production database's first boot on 1.1.0 is the real run: an older copy refuses it afterwards (`SchemaTooNewError`), so back it up first if a step back matters.
+
+**Tests.** `apps/api/test/ward-routes.test.ts`: link and unlink without the password (400), with a wrong one (401) and the right one (200 / unlinked); a Ward-only user gets 409 `no_local_password` whatever is sent; a rename works and signs in under the new name (the old one no longer does); `alice` taken, `ALICE` and `AIice` all answer 409 `username_taken`. The web app has no component test runner (tests run on `node:test` in the API and typeset); the UI call was checked in a browser instead, with Ward's routes stubbed: the link call carried `{"currentPassword":"wrong pass"}`, the rename carried `{"username":"AIice"}`, both refusals showed beside their fields. Shots at 1280 light and 390 dark read: no clipping.
+
+**Checks.** `npm run check` exit 0 (162 API tests). `bash corpus/lint.sh` run at closeout.
+
+**Owner steps.** From the vps-deploy checkout: `node cli.ts atrium all` (server and web both change). Back up the production database first if a step back to 0.3.1 should stay possible. Then sign in, open Account, try a wrong password on Link Ward and a look-alike name in Username.
+

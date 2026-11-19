@@ -38,7 +38,10 @@ numbering restarted at 01 on 2026-11-02 (see [`../log.md`](../log.md),
 - **Accounts** (2026-10-13, in production). Atrium's own accounts again (D58):
   a local password, with "Sign in with Ward" as a second way in, on Ward's
   vendored library. Ward's record of the cutover says production atrium serves
-  its own `/auth/session` with Ward enabled since 2026-10-13.
+  its own `/auth/session` with Ward enabled since 2026-10-13. Since 2026-11-19 (built,
+  not deployed) on ward-auth 1.1.0: linking and unlinking Ward ask for the password again,
+  and Account settings let a person change their username (a look-alike of another name is
+  refused). Profiles are keyed by the account id, so a rename cuts nothing off.
 - **The Jukebox** (2026-10-08 to 2026-10-09, fixes 2026-10-27). Atrium owns
   every Player and its Queue (D57); the Discord bot is a speaker limited to the
   `jukebox` role (D55) ([jukebox.md](jukebox.md)).

@@ -2869,3 +2869,8 @@ The owner approved the redesign direction "Rail and reading table" on the estate
 ## [2026-11-13] done | Brief 05 — the redesign, "Rail and reading table"
 
 The web app now follows the approved direction (D63; D33 (a), D42's tint clause and D61's theme placement carry `REVISED 2026-11-13 → D63` markers, and PRODUCT.md principle 1 a dated note). A persistent shell (a 232 px rail at 1280, a 64 px bottom bar and raised top bar on a phone, the theme group at the rail's foot or in a popover on the top bar's button), the new light, sepia and dark tokens with stronger kind tints, sentence-case labels at 12 px or more, tinted tile cards on a six-column grid, Notes as one raised list card, a lifted reader pill with corner running heads, and the new tokens on every undrawn screen. `wiki/design.md` is rewritten from what shipped (its components and motion moved to `design-components.md`), with a revised checklist. Playwright (focus ring, reduced motion, 390 overflow, the theme group, the page-turn swipe) and `npm run check:contrast` are new. No API change: a web deploy.
+
+## [2026-11-19] done | Brief 06 — Linking Ward asks for the password, and a username can change
+
+Both vendored copies moved from ward-auth 0.3.1 to 1.1.0. Link and Unlink Ward take the account's password, typed beside the button; Account settings gain a Username section (the rename route, on since 0.4.0, kept because nothing is keyed by the name: profiles use the account id). A taken name and a look-alike answer `username_taken`. Migration 5 runs by itself at the first boot. Needs `all`. Details: [briefs/done/06-linking-ward-asks-for-the-password-and-a-username-can-change.md](briefs/done/06-linking-ward-asks-for-the-password-and-a-username-can-change.md).
+

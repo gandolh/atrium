@@ -15,7 +15,7 @@ import { AppHeader } from "../components/AppHeader";
 import { PAGE_FRAME, PAGE_TITLE } from "../components/page-frame";
 import { useAuthStore } from "../lib/auth";
 import { useApplyTheme } from "../reader/chrome/use-apply-theme";
-import { authMessage } from "./messages";
+import { authMessage, currentPasswordMessage } from "./messages";
 
 /**
  * `/settings` — the account (D58): its password, its Ward link, signing out.
@@ -179,7 +179,7 @@ function ChangePassword() {
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         <PasswordField label="Current password" autoComplete="current-password" value={current} onChange={setCurrent} />
         <PasswordField label="New password" autoComplete="new-password" value={next} onChange={setNext} />
-        {error && <Alert>{authMessage(error)}</Alert>}
+        {error && <Alert>{currentPasswordMessage(error)}</Alert>}
         {done && !error && <Done>Password changed.</Done>}
         <button type="submit" disabled={pending} className={PRIMARY}>
           {pending ? "Saving…" : "Change password"}
@@ -280,7 +280,7 @@ function WardLink({ linked, hasPassword }: { linked: boolean; hasPassword: boole
             value={password}
             onChange={setPassword}
           />
-          {action.error && <Alert>{authMessage(action.error)}</Alert>}
+          {action.error && <Alert>{currentPasswordMessage(action.error)}</Alert>}
           <button type="submit" disabled={pending} className={SECONDARY}>
             {label}
           </button>

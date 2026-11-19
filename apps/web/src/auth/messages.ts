@@ -29,6 +29,14 @@ const MESSAGES: Record<string, string> = {
   unknown: "Something went wrong. Try again.",
 };
 
+/**
+ * The sentence for `error` on a form that asks only for the current password
+ * (changing it, linking or unlinking Ward): there is no username to blame.
+ */
+export function currentPasswordMessage(error: AuthError): string {
+  return error.code === "invalid_credentials" ? "That isn't your current password." : authMessage(error);
+}
+
 /** The sentence for `error`, with the lockout's wait spelled out. */
 export function authMessage(error: AuthError): string {
   if (error.code === "too_many_attempts") {

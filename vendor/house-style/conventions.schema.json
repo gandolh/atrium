@@ -37,7 +37,7 @@
       "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^*?\\[\\]{}]+$"
     },
     "env": {
-      "description": "The files that read process.env (the structure's rule 3), as globs from the repo root: * matches within a folder name, ** any depth. They replace the default (any config.ts or config.js) the same way ESLint's env option replaces its default, so keep the two lists the same. NODE_ENV stays a finding in them. Default: any config.ts or config.js.",
+      "description": "The files that read process.env (the structure's rule 3), as globs from the repo root: * matches within a folder name, ** any depth. They replace the default (the config.ts or config.js at the top of each server and shared root) the same way ESLint's env option replaces its default, so keep the two lists the same. NODE_ENV stays a finding in them. Default: the config.ts or config.js at the top of each server and shared root.",
       "type": "array",
       "items": {
         "type": "string",
@@ -82,7 +82,7 @@
           "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!(.*/)?\\.\\.(/|$))[^?\\[\\]{}]+$"
         },
         "match": {
-          "description": "Optional: text the finding's line or message contains, to accept one finding in a file rather than all of its findings for the rule (a route's path, a call).",
+          "description": "Optional: a substring of the finding's source line or of its message, to accept one finding in a file rather than all of its findings for the rule. Write the whole message, or a part of the line no other finding shares: GET / matches every GET route's message.",
           "type": "string",
           "pattern": "\\S"
         },

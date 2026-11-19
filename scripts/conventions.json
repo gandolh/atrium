@@ -15,13 +15,6 @@
       "check": "structure",
       "rule": 6,
       "path": "apps/api/src/features/library/routes.ts",
-      "match": "parseRange(",
-      "reason": "The Range header is read against the file's size, which only the handler knows once it has stat'd the file, so no schema can check it."
-    },
-    {
-      "check": "structure",
-      "rule": 6,
-      "path": "apps/api/src/features/library/routes.ts",
       "match": "GET /library/:id/file",
       "reason": "Streams the book, audio or video file, or a version's PDF, with ranges: a binary reply has no response schema (Q53). It declares its params and query."
     },

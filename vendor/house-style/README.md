@@ -1,4 +1,4 @@
-# house-style 1.2.0 (vendored)
+# house-style 1.3.0 (vendored)
 
 This directory is a copy of house-style, the shared ESLint, Prettier, TypeScript,
 knip and dependency-cruiser configs of the house repos. It is generated: do not
@@ -6,9 +6,9 @@ edit these files. To upgrade, run `npm run house-style:sync -- <tag>`, then foll
 the upgrade notes. `npm run house-style:sync -- --check` says whether the copy
 still matches its commit.
 
-- **Version:** 1.2.0
+- **Version:** 1.3.0
 - **Source:** the `my-personal-skills` repository, folder `house-style/`
-- **Commit:** `f731979aa11632aca43c23fe0be9848f059ddf2f`
+- **Commit:** `24f5df36d02c7ef58f5789fa4f84fef6d65becb9`
 - **Upgrade notes:** `house-style/CHANGELOG.md` in the same repository (copied here as `CHANGELOG.md`)
 
 | File | What it is |

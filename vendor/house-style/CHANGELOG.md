@@ -4,6 +4,127 @@ house-style's versions, newest first. Each section is the upgrade note for a
 repo moving to that version: what changed, and what to fix before syncing it.
 Tags are `house-style-v<version>`.
 
+## 1.3.0 (2026-11-13)
+
+The owner's `domain/` root (2026-11-13) and the findings of the server and UI
+waves that were defects. Two new preset rules and three checker changes can
+add findings; everything else loosens a false positive, adds an opt-in option
+or documents. No pin, plugin, `houseStyle()` default or `tsconfig.base.json`
+flag changed, and no existing finding's message changed, so an exception's
+`match` keeps matching. A read-only dry-run of the 1.3.0 checkers on 21
+adopters, and of the preset on 20 of them with each repo's own rules and
+options (game-engine's didn't run from a scratch config), found what the list
+below names.
+
+- **`domain/`, and two preset rules** (wzd_auth). The code structure gains
+  `domain/<name>/` beside `features/`, `plugins/`, `db/` and `lib/`, for code
+  several features share that isn't pure (wzd_auth's tokens, grants and OIDC
+  provider). `.dependency-cruiser.cjs` adds, as errors:
+  - `domain-not-to-features`: a module under the root's `domain/` never
+    imports a feature.
+  - `app-through-feature-index`: `app.ts` (any of `.ts`, `.mts`, `.cts`,
+    `.js`, `.mjs`, `.cjs`) reaches a feature through its `index` only;
+    `feature-through-index` starts inside `features/` and didn't see it.
+
+  Both leave a feature's own `domain/` folder and `app.ts` alone
+  (`from.pathNot: "(^|/)features/"`). **May fire:** imbatranim-apps'
+  `server/src/app.ts` imports `features/dwg/convert.ts`,
+  `features/dwg/routes.ts` and `features/health/routes.ts`: three
+  `app-through-feature-index` errors until it imports them from each
+  feature's `index.ts`. No other adopter's `app.*` reaches past an index, and
+  sports-app's `client/src/domain` imports no feature. **Can delete:** a
+  repo's own rule with the same name merges into the preset's, and its `from`
+  and `to` replace the preset's, so wzd_auth's two rules keep working as they
+  are; wzd_auth deletes its `app-through-feature-index` (the preset's is the
+  same rule) and keeps its `domain-not-to-features` until its domain folders
+  move under `api/src/domain/`. sports-app keeps `plugins-without-features`:
+  the preset has no plugin rule.
+- **`check-structure` rule 3, `NODE_ENV` in a string** (SocialEvents 17,
+  public-resource-map 05, comercial-website 13). A message that names
+  `NODE_ENV` (`"NODE_ENV is not read: set LOG_PRETTY"`, or `"unset 'NODE_ENV'
+  first"`) is no longer a finding; a string that is the name alone (`process.env["NODE_ENV"]`,
+  `env("NODE_ENV")`) still is. `config.ts` still may not read it (the
+  code-structure skill's rule 3). In comercial-website's `config.ts` the
+  exception still covers the real read; the refusal message on the next line
+  is no longer a finding. An exception that covered only such a message now
+  covers nothing (no warning, its path exists): delete it.
+- **`check-structure` rule 3, the default env reader** (newspapper 11). Without
+  `"env"` in `conventions.json`, the reader was any `config.*` at any depth, so
+  a second `config.ts` read `process.env` unflagged. It is now the `config.*`
+  at the top of each server and shared root; one further down gets a new
+  message, "reads process.env in a config file below the root: <root>/config.ts
+  is the one reader, so take the setting from it". **May fire:** no adopter
+  has one today. ESLint's `env` default (`**/config.ts`) is unchanged:
+  `check-structure` is the stricter gate.
+- **`check-structure` rule 6, a computed path** (satchel 04, imbatranim-apps
+  10). A route whose path isn't a literal (`app.get(routes.x.path, handler)`,
+  `app.get(SOCKET_PATH, { websocket: true }, handler)`, a template starting
+  with `${`) is read on `app`, `fastify`, `instance`, `server`, `scope`,
+  `router`, or a name the file registers a literal route on, never on
+  `cache.get(key, fallback)`. A quoted string that isn't a path, and a class or
+  token (NestJS's `app.get(ConfigService<Env, true>)`), are no route. The
+  message names the expression: `GET routes.x.path declares no schema: …`.
+  **May fire:** wzd_auth's `api/src/oidc/interaction.ts:115, 182 and 197`,
+  three GET routes on `` `${INTERACTION_INTERNAL_PREFIX}/…` `` with no schema;
+  they hand the uid to `uidParams.safeParse` on purpose, so wzd_auth adds an
+  exception per route with the message's start as `match`, or declares
+  `params`. imbatranim-apps' WebSocket route was already excepted.
+- **`check-structure` rule 6, a helper given validated input** (atrium 04,
+  wzd_auth 06). A `parse…` or `validate…` helper of the route's own given a
+  property of the input (`parseRange(request.headers.range, size)`) is no
+  longer a hand parse. Still findings: any request input given to a `parse`,
+  `safeParse` or `validate` (a schema's own, `X.parse(request.body.x)`, or a
+  bare one, with `Async` too), and a whole `request.body`, `query`, `params`
+  or `headers` given to any `parse…` or `validate…` helper. **Can delete:**
+  atrium's `parseRange(` exception; imbatranimOS's
+  `files.controller.ts:137` finding is gone.
+- **`check-base-ui` rule 9, an icon child** (postern 02 and 03). A trigger's
+  first child that the file imports from `lucide-react`, `react-icons/*`,
+  `@phosphor-icons/react`, `@heroicons/react/*`, `@tabler/icons-react` or
+  `@radix-ui/react-icons`, or one named `Icon` or `…Icon`, is skipped.
+  postern's two rule-9 warnings go.
+- **`houseStyle({ tailwind: { ignore } })`** (comercial-website 12): regex
+  patterns passed to `better-tailwindcss/no-unknown-classes`' `ignore`, for a
+  hook-only class, an icon font's classes or a dead plugin's. Without it the
+  rule is unchanged. **Can delete:** comercial-website's `frontend` block that
+  overrides the rule (`ignore: ["material-symbols-outlined"]`) moves into
+  `tailwind.ignore`. The rule stays an error in
+  test files: a fixture's class is a real one.
+- **`check-structure`'s banner** names the preset's new rules; its rule numbers
+  and output format are unchanged.
+- **Documentation:** `match` is a substring of the finding's source line or of
+  its message, so write the whole message or a part of the line no other
+  finding shares (lantern's and brief-board's `"match": "GET /"` matches every
+  GET route without a schema in its file); the code-structure skill's example
+  had the trap. A preset rule scoped to one folder (`no-circular` a warning in
+  `web/` only, Shelfmark 08), tested; a classic script in `web/public`
+  (Postern 03); a stylesheet test with Tailwind and Playwright in a repo
+  without it (Wicket 12, Lantern 17); `"stylesheet": "index.css"` in a harness
+  brief's `conventions.json`.
+- **Declined or left for the owner,** with the reason in the library's brief
+  31: a co-location rule for tests; `NODE_ENV` in `config.ts`; matching the
+  source line by default (it would silently un-except existing entries);
+  per-root `ui` and `stylesheet` (a format change); a two-token `color-mix`
+  (a blend is a token); a rule 7 motion warning (a new check); a per-rule count
+  for rule 5 (the summary has one); Tailwind's unseen strings and a
+  conflicting-class rule; failing on knip's unused exports (the owner,
+  2026-11-13: they stay warnings); a check for `prefers-color-scheme`; and
+  sports-app's plugin rule in the preset.
+
+To move a repo from 1.2.0:
+
+1. `npm run house-style:sync -- house-style-v1.3.0` (from the app's folder in a
+   multi-project repo), and commit the copy with steps 2 and 3, so no commit is
+   red.
+2. `npm run check:conventions`, then answer each new finding the list above
+   names for the repo: wzd_auth's three interaction routes, imbatranim-apps'
+   three `app.ts` imports.
+3. Delete what the list says the repo can: wzd_auth's own
+   `app-through-feature-index`, atrium's `parseRange(` exception, an exception
+   that covered only a message naming `NODE_ENV`, comercial-website's
+   `no-unknown-classes` block (into `tailwind.ignore`).
+4. `npm run check`.
+
 ## 1.2.0 (2026-11-11)
 
 Folds in what the 23 repos that adopted 1.1.0 reported. It loosens, adds

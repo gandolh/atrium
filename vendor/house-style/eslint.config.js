@@ -82,7 +82,7 @@ const KNOWN_OPTIONS = new Set([
  * @param {string[]} [options.console] Globs of app files allowed to print: a CLI entry, or a module that logs before the logger exists. Their `process.env` reads are still errors.
  * @param {string[]} [options.env] Globs of the files that read `process.env`, where `n/no-process-env` is off (default `["**\/config.ts"]`). A repo whose reader is `config/env.ts` passes its path instead.
  * @param {string[]} [options.assertFunctionNames] The names `vitest/expect-expect` counts as assertions (default `["expect", "expectTypeOf"]`); a repo adds its own helpers.
- * @param {{ css: string, order?: boolean }} [options.tailwind] The Tailwind CSS entry, and whether the class order is enforced yet.
+ * @param {{ css: string, order?: boolean, ignore?: string[] }} [options.tailwind] The Tailwind CSS entry, whether the class order is enforced yet, and regex patterns of classes `no-unknown-classes` lets through (a hook-only class, an icon font's).
  * @param {boolean} [options.vitest] Whether tests run on vitest (default true); a `node:test` repo passes false.
  * @param {{ project?: true | string | string[], allowDefaultProject?: string[] }} [options.typed] Typed-lint parser settings: `projectService` unless `project` is given.
  * @param {string[]} [options.untyped] TypeScript globs that no tsconfig covers, linted without type information.
@@ -245,8 +245,11 @@ export function houseStyle(options = {}) {
       plugins: { "better-tailwindcss": betterTailwindcss },
       settings: { "better-tailwindcss": { entryPoint: css, cwd: dirname(css) } },
       rules: {
-        // A class Tailwind does not generate styles nothing, and is usually a typo.
-        "better-tailwindcss/no-unknown-classes": "error",
+        // A class Tailwind does not generate styles nothing, and is usually a typo. A repo names the
+        // classes that are real but not Tailwind's (a hook-only class, an icon font's) in `tailwind.ignore`.
+        "better-tailwindcss/no-unknown-classes": options.tailwind.ignore
+          ? ["error", { ignore: options.tailwind.ignore }]
+          : "error",
         // A deprecated class still works today and breaks on the next major version.
         "better-tailwindcss/no-deprecated-classes": "error",
         // One class order makes diffs of class strings readable; on once a repo has migrated.

@@ -1,6 +1,6 @@
 {
   "name": "house-style",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "The estate's shared lint, format and type-check configs, vendored into each repo by a sync script.",
   "private": true,
   "type": "module",

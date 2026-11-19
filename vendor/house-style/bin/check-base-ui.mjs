@@ -16,7 +16,8 @@
  *            the one stylesheet without @import "tailwindcss"
  *   rule 6   an arbitrary colour in a class name: bg-[#…], text-[rgb(…)], …
  *   rule 9   a <X.Trigger> whose first child is a component and that has no render
- *            prop, or whose render wraps its content in a span or div (a warning)
+ *            prop, or whose render wraps its content in a span or div (a warning).
+ *            An icon child (from an icon package, or named Icon or …Icon) is skipped
  *   rule 10  a <Select.Root> without items (a warning)
  *   rule 11  a native dialog: window.confirm, alert or prompt, bare or not
  *
@@ -201,7 +202,8 @@ function checkSource(repo, file, { inUi, uiNames, test }, report) {
     });
   }
 
-  // Rule 9: triggers that wrap a component.
+  // Rule 9: triggers that wrap a component. An icon is decoration inside the button, not a control.
+  const icons = iconImports(code);
   for (const match of bare.matchAll(TRIGGER)) {
     const tag = openingTag(bare, match.index + match[0].length);
     if (tag === null) continue;
@@ -223,7 +225,7 @@ function checkSource(repo, file, { inUi, uiNames, test }, report) {
     if (tag.selfClosing) continue;
     const child = firstChild(bare, tag.end);
     // A part of the trigger's own component (<Select.Value> in <Select.Trigger>) is its anatomy, not a wrapped control.
-    if (child !== null && /^[A-Z]/.test(child) && !child.startsWith(`${match[1]}.`)) {
+    if (child !== null && /^[A-Z]/.test(child) && !child.startsWith(`${match[1]}.`) && !isIcon(child, icons)) {
       report.add({
         file,
         line,
@@ -323,6 +325,35 @@ function firstChild(bare, from) {
     const match = /^<([A-Za-z_$][\w$.]*)/.exec(bare.slice(i, i + 200));
     return match ? match[1] : null;
   }
+}
+
+/** The icon packages the estate uses, and the common others; an element imported from one is an icon. */
+const ICON_PACKAGE =
+  /^(?:lucide-react|react-icons(?:\/[\w-]+)?|@phosphor-icons\/react(?:\/[\w-]+)?|@heroicons\/react(?:\/[\w/-]+)?|@tabler\/icons-react|@radix-ui\/react-icons)$/;
+
+/** The names, and namespace prefixes, a file imports from an icon package. */
+function iconImports(code) {
+  const names = new Set();
+  const namespaces = new Set();
+  for (const match of code.matchAll(
+    /import\s+(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\}|\*\s+as\s+([\w$]+))?\s*from\s*["']([^"']+)["']/g,
+  )) {
+    const [, fallback, named, namespace, source] = match;
+    if (!ICON_PACKAGE.test(source)) continue;
+    if (fallback) names.add(fallback);
+    if (namespace) namespaces.add(namespace);
+    for (const spec of (named ?? "").split(",")) {
+      const name = /^\s*(?:type\s+)?([\w$]+)(?:\s+as\s+([\w$]+))?\s*$/.exec(spec);
+      if (name) names.add(name[2] ?? name[1]);
+    }
+  }
+  return { names, namespaces };
+}
+
+function isIcon(child, { names, namespaces }) {
+  if (names.has(child) || /(?:^|\.)[\w$]*Icon$/.test(child)) return true;
+  const dot = child.indexOf(".");
+  return dot !== -1 && namespaces.has(child.slice(0, dot));
 }
 
 /** Patterns for Select's Root under every name the file gives Base UI's Select. */

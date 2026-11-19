@@ -38,6 +38,25 @@ module.exports = {
       },
     },
     {
+      name: "app-through-feature-index",
+      severity: "error",
+      comment:
+        "app.ts registers each feature through its index, as another feature would use it; feature-through-index starts inside features/ and doesn't see app.ts. A feature's own app.ts is its insides.",
+      from: { path: "(^|/)app\\.(ts|mts|cts|js|mjs|cjs)$", pathNot: "(^|/)features/" },
+      to: {
+        path: "(^|/)features/[^/]+/",
+        pathNot: "(^|/)features/[^/]+/index\\.(ts|tsx|js|mjs)$",
+      },
+    },
+    {
+      name: "domain-not-to-features",
+      severity: "error",
+      comment:
+        "domain/ holds the code several features share that isn't pure (tokens, grants, an OIDC provider): the features import it, and it never imports a feature. A feature's own domain/ folder is its insides.",
+      from: { path: "(^|/)domain/", pathNot: "(^|/)features/" },
+      to: { path: "(^|/)features/" },
+    },
+    {
       name: "lib-without-fastify",
       severity: "error",
       comment: "lib/ holds pure helpers, so it is tested and reused without a server.",

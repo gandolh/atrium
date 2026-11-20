@@ -3,6 +3,7 @@ node_modules
 **/dist
 .git
 corpus
+design
 *.md
 .env
 infrastructure/.env

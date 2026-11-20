@@ -2874,3 +2874,7 @@ The web app now follows the approved direction (D63; D33 (a), D42's tint clause 
 
 Both vendored copies moved from ward-auth 0.3.1 to 1.1.0. Link and Unlink Ward take the account's password, typed beside the button; Account settings gain a Username section (the rename route, on since 0.4.0, kept because nothing is keyed by the name: profiles use the account id). A taken name and a look-alike answer `username_taken`. Migration 5 runs by itself at the first boot. Needs `all`. Details: [briefs/done/06-linking-ward-asks-for-the-password-and-a-username-can-change.md](briefs/done/06-linking-ward-asks-for-the-password-and-a-username-can-change.md).
 
+
+## [2026-11-20] maintenance | The redesign's board page copied into the repo
+
+The estate redesign board is a private canvas, so `design/estate-redesign/` now holds a copy of this app's page on it and the build behind it: the directions, the judges' and the controller's rulings, the critique, the token hand-off, the board's notes, the owner's decisions, the proposed screens (as HTML with renders, or as the board's own artboard sources), and today's shots from before the redesign. It is the design record of brief 05, which built it; its README says what each file is. Prettier and the Docker build skip the folder.

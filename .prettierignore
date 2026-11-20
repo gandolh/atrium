@@ -22,3 +22,6 @@ packages/typeset/assets/
 package-lock.json
 dist/
 coverage/
+
+# The estate redesign board's copy, kept as exported.
+design/

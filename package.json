@@ -17,13 +17,13 @@
     "pretest": "npm run build:packages",
     "test": "npm run test --workspaces --if-present",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --check . --cache --cache-location node_modules/.cache/prettier-check/.prettier-cache",
     "house-style:sync": "node vendor/house-style/bin/sync.mjs",
     "lint": "eslint .",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run check:conventions && npm test",
+    "check": "node scripts/check.mjs typecheck lint format:check check:conventions test",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:fast": "npm run typecheck && node scripts/check-fast.mjs",
-    "check:conventions": "knip && depcruise apps/web/src apps/api/src packages/shared/src packages/typeset/src && node vendor/house-style/bin/check-base-ui.mjs && node vendor/house-style/bin/check-structure.mjs"
+    "check:conventions": "knip && depcruise apps/web/src apps/api/src packages/shared/src packages/typeset/src --cache node_modules/.cache/dependency-cruiser && node vendor/house-style/bin/check-base-ui.mjs && node vendor/house-style/bin/check-structure.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

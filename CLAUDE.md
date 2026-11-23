@@ -8,6 +8,9 @@ Vite on the web, Fastify and SQLite behind it, and its own typesetting engine fo
 
 - `npm run dev`: builds `shared` and `typeset`, then the web app, the API and the typeset watcher.
 - `npm run check`: typecheck, lint, format check, conventions, tests. Run it before every hand-back.
+- `npm run check` keeps going after a failing step and prints one line per step, then the end of each failure. The whole
+  output stays in `node_modules/.cache/check/last.log`, so read that log rather than running the gate again. While you
+  work, `npm run check:fast` and any test file you touched are enough; run the full gate once, after your last change.
 - `npm run check:fast`: the typecheck, then ESLint on the changed files. The Stop hook runs it.
 - One API test: `npm exec -w @ebook-reader/api -- node --import tsx --import ./test/setup.ts --test test/<file>`.
 - One typeset test: `npm exec -w @ebook-reader/typeset -- node --test test/<file>`.

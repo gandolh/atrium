@@ -52,7 +52,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY --parents apps/*/package.json ./
 COPY --parents packages/*/package.json ./
-RUN npm ci --omit=dev
+# Only the three workspaces the API runs. A bare `npm ci --omit=dev` installs the
+# production dependencies of every workspace, apps/docs and apps/web included.
+RUN npm ci --omit=dev \
+      --workspace @ebook-reader/api \
+      --workspace @ebook-reader/shared \
+      --workspace @ebook-reader/typeset
 # Keep every linux prebuild; delete only what this image can never be. (A
 # whitelist here deletes everything — see Ward's Dockerfile for the incident.)
 RUN cd node_modules \
@@ -71,6 +76,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=proddeps /app/node_modules ./node_modules
+# The scoped install also leaves a node_modules inside the API workspace (a
+# second fastify-plugin version); the root tree alone would build clean and
+# fail at require time. Re-list this when `find /app -name node_modules -type d`
+# in the proddeps stage shows another one.
+COPY --from=proddeps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/typeset/dist ./packages/typeset/dist
 # The typesetter loads its fonts from here at run time (the package ships

@@ -2902,3 +2902,11 @@ against 767 MB for the apt layer in today's image. It is about 175 MB larger, no
 so the spike stopped at the cheap check: no image built, Dockerfile unchanged. Hand-trimming the
 tarball (grammar checker, translations) projects to about 110 MB under today's layer, still short.
 Measurements and the pin that would have been used are in `wiki/conversion.md`.
+
+## [2026-11-24] todo | Briefs 10 and 11 from the infra review of 2026-11-24
+
+Filed from the estate's infra review. Brief 10: the image's `deps` stage installs only the three workspaces the
+API compiles (about 609 MB less per cold build on the box), the base is pinned to `node:24.22.1-bookworm-slim`,
+the syntax line to an exact frontend version, the toolchain line takes the other Debian images' text so the box
+caches it once, and the runtime gets `MALLOC_ARENA_MAX=2`. Brief 11: `pdf-to-img` loads on first use and sharp
+keeps no cache and one thread, measured before and after. Both ship with `node cli.ts atrium server`.

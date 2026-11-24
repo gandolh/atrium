@@ -77,19 +77,26 @@ What the API writes at run time: the five storage roots (`data`, `library`,
 `/tmp`, and Calibre's config and cache under node's `HOME` (`/home/node`). The
 image creates the roots owned by `node`, but a bind mount takes its owner from the
 host folder, so on the VPS (rootless daemon, where container root is the deploy
-account and uid 1000 is a subuid) the folders must be handed to uid 1000 from
-inside the running container, once, BEFORE any deploy of an image with `USER node`.
-A `node cli.ts atrium server` or a full rollout without it leaves the API unable to
-write its database. The container running today is root inside its namespace, so
-it should keep reading and writing after the change, and so would a rollback. Nothing
-has tested that on the box yet, so start with the smallest folder:
+account and uid 1000 is a subuid) the folders must be handed to uid 1000 once.
+Without it, an image with `USER node` can't write its database: the API
+crash-loops on `SQLITE_READONLY_DIRECTORY`. That happened in the 2026-11-24
+rollout, and vps-deploy's server phase still reported ok.
+
+`docker exec` can't reach a container that keeps restarting, and the step needs
+no container name: compose starts a one-off container from the service, with the
+same bind mounts, as user 0. As the service account on the box, in the API's
+server directory:
 
 ```
-# Open the live site first: the container sleeps behind Sablier, and exec needs it awake.
-ssh <service account> 'docker exec -u 0 atrium-api chown -R 1000:1000 /app/apps/api/versions'
-# Check the live site (open a book, save a note), then the rest:
-ssh <service account> 'docker exec -u 0 atrium-api chown -R 1000:1000 /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/api/latex'
+export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock
+docker compose -f infrastructure/docker-compose.yml stop atrium-api
+docker compose -f infrastructure/docker-compose.yml run --rm --no-deps -u 0 --entrypoint chown atrium-api \
+  -R 1000:1000 /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/api/latex /app/apps/api/versions
+docker compose -f infrastructure/docker-compose.yml start atrium-api
 ```
+
+Then open the live site, open a book and save a note. The step does nothing
+harmful when the folders already belong to uid 1000.
 
 A plain host `chown -R 1000:1000` is wrong under a rootless daemon: it would not
 map to container uid 1000. Nothing on the host writes into these folders (the

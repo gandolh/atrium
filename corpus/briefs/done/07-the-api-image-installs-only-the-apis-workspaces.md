@@ -83,4 +83,45 @@ repo's checks, and hand back with steps 1, 4 and 5 for the controller.
 - `npm run check` passes.
 - The outcome note has both `docker history` readings, taken on one machine,
   and the node_modules size before and after.
-- The deploy is the owner's step: `node cli.ts atrium deploy` from vps-deploy.
+- The deploy is the owner's step: `node cli.ts atrium server` from vps-deploy (corrected from `deploy`, see the outcome).
+
+## Outcome (2026-11-24)
+
+Built. `proddeps` runs `npm ci --omit=dev --workspace @ebook-reader/api --workspace @ebook-reader/shared --workspace @ebook-reader/typeset` (the image's npm 11.19.1 honours `--workspace` on `ci`; the prebuild trimming stays). The scoped install leaves one extra folder outside the root tree, `apps/api/node_modules` (a second `fastify-plugin`), and `prod` now copies it. Both images were built and measured on one machine on one day (the `before` image from the tree one commit earlier).
+
+**Sizes, before to after**
+
+| | before | after |
+|---|---|---|
+| image | 1.69 GB | 1.25 GB |
+| `COPY /app/node_modules` layer | 690 MB | 252 MB |
+| `du -sm /app/node_modules` | 834 MB | 275 MB |
+| `@docusaurus`, `webpack`, `@rspack`, `react-dom`, `@codemirror` | present | none |
+
+Largest folders after: `pdf-to-img` 71, `@mathjax` 50, `typescript` 24, `pdf-lib` 24, `mathjax` 20, `@img` 19, `zod` 9, `fontkit` 6, `fastify` 6. Before, the top of the list was `pdf-to-img` 71, `@napi-rs` 61, `@rspack` 52, `@mathjax` 50, `pdfjs-dist` 37, `typescript` 24, `@docusaurus` 23, `@base-ui` 23.
+
+**`docker history`, layers that matter (same machine)**
+
+| Layer | before | after |
+|---|---|---|
+| `COPY /app/apps/api/node_modules` | none | 47 kB |
+| `COPY /app/node_modules` | 690 MB | 252 MB |
+| `apt-get install calibre wget ca-certificates` | 767 MB | 767 MB |
+| our files (dist, assets, vendor, manifests) | about 5 MB | about 5 MB |
+| node:24-bookworm-slim base | unchanged | unchanged |
+
+Full readings: both `docker history` outputs were saved from the builds; the table lists every layer over 1 MB.
+
+**Walk (both images, same fixtures, scratch folders at the five storage roots)**
+
+Identical on both: `/health` 200; login 200; EPUB, PDF and MP3 uploads; PDF cover 200 `image/jpeg` (rendered through pdf-to-img and its canvas); EPUB and MP3 covers 404 on both because the samples carry no cover art (`hasCover:false`, expected); one PDF thumbnail on disk; pdf to epub converts (status `poor`, same file layout, text files byte-sized the same); LaTeX create, save, publish and PDF download (typeset, fontkit, mathjax) 200 with a 14590-byte PDF on both; no error lines in the logs.
+
+- `@napi-rs`: the root copy (61 MB) was the web app's, not the API's. `pdf-to-img` keeps its own nested `@napi-rs` (36 MB) and `pdfjs-dist` (35 MB), which is why they are not in the root top 15 now. The PDF cover, thumbnail and pdf to epub paths work on the new image, so no native module the API loads was dropped.
+- `typescript` (24 MB) stays in the tree, but it is not a runtime dependency: in all three workspaces it is a `devDependency`, and no installed package requires it. The lockfile marks the root copy as non-dev because `apps/docs` reaches it (`cosmiconfig`, an optional peer of `@docusaurus`), and the scoped `npm ci` keeps nodes the lockfile does not flag as dev. Removing it needs a `package.json` or lockfile change, out of scope here.
+- Converted-EPUB sizes differ from run to run on both images (46 to 174 kB): only `cover_image.jpg` changes, the rest of the file is the same. A size is no basis for comparing the images.
+
+**Found, not caused by this brief (same on both images):** EPUB to PDF fails in Calibre with `Running as root without --no-sandbox is not supported` (Qt WebEngine as root in the container). The old image fails the same way, so the walk matches, but the convert button for EPUB to PDF does not work from this image as built here. Worth a follow-up (brief 08's Calibre question is the natural home); not checked on the box.
+
+**Deploy phase corrected:** the brief's last Acceptance line said `node cli.ts atrium deploy`. That ships only the static web client; a Dockerfile change needs the container rebuilt, so the owner step is `node cli.ts atrium server` from vps-deploy.
+
+**Checks:** `npm run check` exit 0 (typecheck, lint, format:check, check:conventions, test).

@@ -77,6 +77,10 @@ container (`infrastructure/Dockerfile`, `infrastructure/docker-compose.yml`)
 that vps-deploy builds on the VPS. **Calibre lives in that image**, not on the
 host. The same image carries the native build tools for `better-sqlite3` and
 `sharp`.
+The image is 1.25 GB (1.69 GB before brief 07, 2026-11-24): the production install
+is scoped to the API's three workspaces (`@ebook-reader/api`, `shared`, `typeset`),
+so its `node_modules` layer is 252 MB instead of 690 MB, and Docusaurus, webpack
+and the web app's packages are not in it. Calibre is the other 767 MB.
 
 **Locally**, `npm run dev` runs web + api on one origin (D54). Sign in with an
 account from `npm run seed:user`; "Sign in with Ward" needs the local Ward

@@ -2878,3 +2878,7 @@ Both vendored copies moved from ward-auth 0.3.1 to 1.1.0. Link and Unlink Ward t
 ## [2026-11-20] maintenance | The redesign's board page copied into the repo
 
 The estate redesign board is a private canvas, so `design/estate-redesign/` now holds a copy of this app's page on it and the build behind it: the directions, the judges' and the controller's rulings, the critique, the token hand-off, the board's notes, the owner's decisions, the proposed screens (as HTML with renders, or as the board's own artboard sources), and today's shots from before the redesign. It is the design record of brief 05, which built it; its README says what each file is. Prettier and the Docker build skip the folder.
+
+## [2026-11-24] done | Brief 07 — the API image installs only the API's workspaces
+
+`proddeps` installs the production dependencies of `@ebook-reader/api`, `shared` and `typeset` only, and `prod` copies the extra `apps/api/node_modules` that leaves. The image goes from 1.69 GB to 1.25 GB (the node_modules layer from 690 MB to 252 MB); no Docusaurus, webpack, rspack, react-dom or codemirror. The upload, cover, thumbnail, convert and LaTeX walk gives the same results on both images. EPUB to PDF fails in Calibre as root on both (no `--no-sandbox`), a separate follow-up. Needs `server`, not `deploy`. Details: [briefs/done/07-the-api-image-installs-only-the-apis-workspaces.md](briefs/done/07-the-api-image-installs-only-the-apis-workspaces.md).

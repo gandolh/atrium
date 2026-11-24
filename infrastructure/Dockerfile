@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1-labs
+# syntax=docker/dockerfile:1.20.0
 # Atrium — the ebook reader's API.
 #
 # The one image in the estate on DEBIAN rather than Alpine, and the reason is
@@ -21,18 +21,21 @@
 # writable by uid 1000: see the chown step in wiki/conversion.md (on the VPS's
 # rootless daemon it is applied from inside a container).
 
-FROM node:24-bookworm-slim AS deps
+FROM node:24.22.1-bookworm-slim AS deps
 # better-sqlite3 and sharp are native. Both ship prebuilds for linux-x64, so
 # this is the fallback path rather than the normal one.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ ca-certificates \
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json tsconfig.base.json ./
 # Every workspace manifest: npm ci validates the lockfile against all of them.
 COPY --parents apps/*/package.json ./
 COPY --parents packages/*/package.json ./
-RUN npm ci
+# Scoped to the three workspaces the builder stage compiles. A bare `npm ci`
+# also installs apps/web and apps/docs (Vite, React, Docusaurus), about 600 MB
+# of build cache nothing here uses.
+RUN npm ci -w @ebook-reader/api -w @ebook-reader/shared -w @ebook-reader/typeset --include-workspace-root
 
 FROM deps AS builder
 COPY packages ./packages
@@ -48,9 +51,9 @@ RUN npm run build -w @ebook-reader/shared \
  && npm run build -w @ebook-reader/typeset \
  && npm run build -w @ebook-reader/api
 
-FROM node:24-bookworm-slim AS proddeps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ ca-certificates \
+FROM node:24.22.1-bookworm-slim AS proddeps
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -71,7 +74,7 @@ RUN cd node_modules \
  && find . -type d -name prebuilds -exec sh -c \
       'rm -f "$1"/darwin-*.node "$1"/win32-*.node "$1"/android-*.node' _ {} \;
 
-FROM node:24-bookworm-slim AS prod
+FROM node:24.22.1-bookworm-slim AS prod
 LABEL org.opencontainers.image.title="Atrium API"
 # `ebook-convert`, the whole reason this image is Debian. --no-install-recommends
 # keeps out the desktop pieces Calibre suggests but the CLI never uses.
@@ -96,9 +99,13 @@ COPY apps/api/vendor ./apps/api/vendor
 COPY package.json ./
 COPY --parents apps/*/package.json ./
 COPY --parents packages/*/package.json ./
+# MALLOC_ARENA_MAX: glibc gives each thread that allocates its own malloc arena
+# and keeps it, so a Node process on Debian grows with bursts of thread work
+# (sharp, better-sqlite3, libuv). Two arenas cost almost no speed here.
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
-    PORT=8788
+    PORT=8788 \
+    MALLOC_ARENA_MAX=2
 # The app files stay root-owned and world-readable; the API never writes to
 # them. What it does write is the five storage roots below (thumbnails sit under
 # images/), /tmp, and Calibre's config and cache under node's HOME. Creating the

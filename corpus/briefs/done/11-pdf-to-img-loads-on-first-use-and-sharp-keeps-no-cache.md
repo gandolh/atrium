@@ -59,3 +59,26 @@ box rather than cap its memory (the box has 3.7 GiB and no upgrade). `atrium-api
 ## Owner steps
 
 - `node cli.ts atrium server` from vps-deploy. It can ship in the same deploy as brief 10.
+
+## Outcome (2026-11-24)
+
+Built in `8c054e4`. `pdf-to-img` is loaded with `await import()` inside `gradeEpub` (`convert.service.ts`) and `extractPdf` (`extract.service.ts`). A new `apps/api/src/lib/sharp.ts` sets `sharp.cache(false)` and `sharp.concurrency(1)` once and exports `sharp`; both services import from it.
+
+**Deviation:** the brief names only `convert.service.ts`, but `extract.service.ts` also imported `pdf-to-img` statically, so pdfjs would still have loaded at boot. Both are lazy now.
+
+**Measurements** (built API from `dist`, scratch data folder, 30 s idle, median of 3 runs; resident memory in MiB, times in ms; one PDF upload, then a batch of 10 uploads):
+
+| | before | after (run 1) | after (run 2) |
+|---|---|---|---|
+| idle after boot | 163.3 | 139.8 | 139.9 |
+| after 1 + 10 PDF uploads | 244.1 | 240.3 | 240.0 |
+| first PDF upload | 209 | 575 | 314 |
+| cover fetch | 9 | 21 | 16 |
+| batch of 10 uploads | 666 | 794 | 568 |
+
+Idle memory drops by about 23 MiB. After a PDF has been seen it drops by about 4 MiB, because pdfjs loads then anyway: the saving is for a process that has not yet seen a PDF. The box was under load (load average 8 to 11, other builders), so single timings swing 2x to 3x between runs (before: 159 to 379 ms for the first upload; after: 293 to 857). The first upload after boot pays the one-off import of pdfjs. The batch median is inside the 20% limit in the second run and 19% over in the first, with the noise larger than that; cover fetch times are single-digit to tens of ms in both. Both halves kept.
+
+**Covered by tests:** `test/library.test.ts` (PDF upload through `extractPdf`) and `test/convert-status-write.test.ts` (the converted status only `gradeEpub` sets). Both pass.
+
+**Checks:** `npm run check` exit 0 (two timing-based tests, the jukebox long-poll and the MusicBrainz one-second spacing, failed once under machine load and passed alone and on the rerun); `bash corpus/lint.sh` passes. A lint error on a default export was fixed before the commit.
+

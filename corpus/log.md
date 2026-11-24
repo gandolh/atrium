@@ -2914,3 +2914,7 @@ keeps no cache and one thread, measured before and after. Both ship with `node c
 ## [2026-11-24] done | Brief 10: the image's build stage installs only what the API compiles
 
 The `deps` stage installs the three workspaces the API builds (`node_modules` 1043 MB to 408 MB; the stage 1.74 GB to 1.02 GB, final image unchanged at 1.25 GB). Base pinned to `node:24.22.1-bookworm-slim` (the floating tag had moved to 24.22.3), syntax line to `1.20.0`, toolchain line matches the other Debian images, `MALLOC_ARENA_MAX=2` set. Walk on the new image matches. Owner step: brief 09's chown if not yet run, then `node cli.ts atrium server`.
+
+## [2026-11-24] done | Brief 11: pdf-to-img loads on first use, sharp keeps no cache
+
+`pdf-to-img` is imported on first use in `gradeEpub` and `extractPdf`; sharp runs with no cache and one thread (`lib/sharp.ts`). Idle memory after boot 163.3 to 139.8 MiB; after PDF uploads 244.1 to 240.3 MiB (pdfjs loads then anyway). Latency within noise. Owner step: `node cli.ts atrium server`, with brief 10.

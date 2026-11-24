@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import { sharp } from "../../lib/sharp.js";
 import {
   LOOKUP_MAX_CANDIDATES,
   isLookupCoverRef,

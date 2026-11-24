@@ -1,7 +1,6 @@
 import { basename, posix } from "node:path";
 import AdmZip from "adm-zip";
-import sharp from "sharp";
-import { pdf } from "pdf-to-img";
+import { sharp } from "../../lib/sharp.js";
 import { parseBuffer } from "music-metadata";
 import { kindForFormat, type FileType } from "@ebook-reader/shared";
 
@@ -369,6 +368,8 @@ async function extractPdf(fileBytes: Buffer, fallbackTitle: string): Promise<Ext
   try {
     // `pdf-to-img` wants a Uint8Array/Buffer; it exposes flat Info metadata
     // and lazy per-page rasters (bundled pdfjs + canvas, no system deps).
+    // Loaded on the first PDF, not at boot: pdfjs and its canvas stay out of a process that never sees one.
+    const { pdf } = await import("pdf-to-img");
     const doc = await pdf(fileBytes, { scale: 1.5 });
     try {
       // The typed shape covers Title/Author only; Subject/Keywords pass through

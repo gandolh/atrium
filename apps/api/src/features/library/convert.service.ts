@@ -3,7 +3,6 @@ import { mkdirSync } from "node:fs";
 import { readdir, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import AdmZip from "adm-zip";
-import { pdf } from "pdf-to-img";
 import { convertTargetForFormat, type ConvertStatus, type FileType } from "@ebook-reader/shared";
 import { startEbookConvert, type RunningConvert } from "./calibre.service.js";
 import { CONVERT_JOB_TIMEOUT_MS, LIBRARY_FILES_DIR } from "../../config.js";
@@ -627,6 +626,8 @@ async function gradeEpub(sourcePdfPath: string, epubPath: string): Promise<Conve
     // Path input, not bytes: this only parses the document structure for a page
     // count, so there is no reason to pull a large PDF into memory (unlike
     // extract.ts, which already has the buffer and renders a page from it).
+    // Loaded here, not at boot: pdfjs and its canvas are only needed when a PDF is converted.
+    const { pdf } = await import("pdf-to-img");
     const doc = await pdf(sourcePdfPath);
     let pages: number;
     try {

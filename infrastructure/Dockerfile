@@ -14,8 +14,12 @@
 #
 # Build context is the REPO ROOT (workspaces "apps/*" and "packages/*").
 #
-# Runs as root, which under the VPS's ROOTLESS daemon is the unprivileged
-# account owning it — required because the library is bind-mounted.
+# Runs as the image's unprivileged `node` user (uid 1000), not root. Calibre
+# writes PDF through Qt WebEngine, and WebEngine refuses to start as root
+# unless its sandbox is switched off; a non-root user keeps the sandbox on for
+# books anyone uploaded. The five bind-mounted storage roots must therefore be
+# writable by uid 1000: see the chown step in wiki/conversion.md (on the VPS's
+# rootless daemon it is applied from inside a container).
 
 FROM node:24-bookworm-slim AS deps
 # better-sqlite3 and sharp are native. Both ship prebuilds for linux-x64, so
@@ -95,6 +99,15 @@ COPY --parents packages/*/package.json ./
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8788
+# The app files stay root-owned and world-readable; the API never writes to
+# them. What it does write is the five storage roots below (thumbnails sit under
+# images/), /tmp, and Calibre's config and cache under node's HOME. Creating the
+# roots here, before VOLUME, gives a fresh volume or an unmounted run the right
+# owner; a bind mount takes its owner from the host folder instead.
+RUN mkdir -p /app/apps/api/data /app/apps/api/library /app/apps/api/images/thumbnails \
+      /app/apps/api/latex /app/apps/api/versions \
+ && chown -R node:node /app/apps/api/data /app/apps/api/library /app/apps/api/images \
+      /app/apps/api/latex /app/apps/api/versions
 # All five storage roots (D39), named here rather than inherited from where
 # config.ts happens to sit in the source tree: a file move once re-pointed every
 # default root. The paths are the ones the first three mounts already
@@ -112,4 +125,5 @@ VOLUME /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/a
 EXPOSE 8788
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health" || exit 1
+USER node
 CMD ["node", "apps/api/dist/server.js"]

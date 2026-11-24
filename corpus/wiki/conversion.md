@@ -89,6 +89,8 @@ server directory:
 
 ```
 export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock
+# Container root can chown only what has an owner AND a group it can map; the roots kept the admin account's group.
+find apps/api/data apps/api/library apps/api/images apps/api/latex apps/api/versions -user "$(id -u)" ! -group "$(id -g)" -exec chgrp "$(id -g)" {} +
 docker compose -f infrastructure/docker-compose.yml stop atrium-api
 docker compose -f infrastructure/docker-compose.yml run --rm --no-deps -u 0 --entrypoint chown atrium-api \
   -R 1000:1000 /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/api/latex /app/apps/api/versions
@@ -96,7 +98,9 @@ docker compose -f infrastructure/docker-compose.yml start atrium-api
 ```
 
 Then open the live site, open a book and save a note. The step does nothing
-harmful when the folders already belong to uid 1000.
+harmful when the folders already belong to uid 1000. Without the `chgrp` line the
+chown fails with "Operation not permitted" (the 2026-11-24 deploy). vps-deploy's
+atrium stack now runs both before every start.
 
 A plain host `chown -R 1000:1000` is wrong under a rootless daemon: it would not
 map to container uid 1000. Nothing on the host writes into these folders (the

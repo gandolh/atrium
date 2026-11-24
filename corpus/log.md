@@ -2886,3 +2886,11 @@ The estate redesign board is a private canvas, so `design/estate-redesign/` now 
 ## [2026-11-24] done | Brief 09 — EPUB to PDF works: the API runs as a non-root user
 
 The `prod` stage ends in `USER node` and creates the five storage roots owned by node. Calibre's WebEngine keeps its sandbox, so EPUB to PDF finishes in a local container where it failed as root; the rest of brief 07's walk is unchanged. The box's bind-mounted roots need handing to uid 1000 from inside a container before the deploy (rootless daemon). Needs `server`. Details: [briefs/done/09-epub-to-pdf-runs-as-a-non-root-user.md](briefs/done/09-epub-to-pdf-runs-as-a-non-root-user.md).
+
+## [2026-11-24] fix | The chown before brief 09's deploy is staged and runs in the live container
+
+The controller's review of brief 09 rewrote the owner step in `wiki/conversion.md`. The step now
+runs `docker exec -u 0 atrium-api` on the running container, so it doesn't depend on an image tag.
+It starts with `versions`, the smallest folder, and goes on to the rest only after a live check.
+The page also says outright that the step comes BEFORE any deploy or rollout that carries `USER
+node`. Brief 07's deploy now carries it too, because both briefs sit on main.

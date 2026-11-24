@@ -78,17 +78,24 @@ What the API writes at run time: the five storage roots (`data`, `library`,
 image creates the roots owned by `node`, but a bind mount takes its owner from the
 host folder, so on the VPS (rootless daemon, where container root is the deploy
 account and uid 1000 is a subuid) the folders must be handed to uid 1000 from
-inside a container, once, before the deploy:
+inside the running container, once, BEFORE any deploy of an image with `USER node`.
+A `node cli.ts atrium server` or a full rollout without it leaves the API unable to
+write its database. The container running today is root inside its namespace, so
+it should keep reading and writing after the change, and so would a rollback. Nothing
+has tested that on the box yet, so start with the smallest folder:
 
 ```
-ssh <service account> 'docker run --rm --user 0 --entrypoint chown \
-  -v /srv/atrium-api/apps/api:/t atrium-api:1.0 -R 1000:1000 \
-  /t/data /t/library /t/images /t/latex /t/versions'
+# Open the live site first: the container sleeps behind Sablier, and exec needs it awake.
+ssh <service account> 'docker exec -u 0 atrium-api chown -R 1000:1000 /app/apps/api/versions'
+# Check the live site (open a book, save a note), then the rest:
+ssh <service account> 'docker exec -u 0 atrium-api chown -R 1000:1000 /app/apps/api/data /app/apps/api/library /app/apps/api/images /app/apps/api/latex'
 ```
 
 A plain host `chown -R 1000:1000` is wrong under a rootless daemon: it would not
-map to container uid 1000. The same command is a follow-up for vps-deploy's atrium
-stack to run itself.
+map to container uid 1000. Nothing on the host writes into these folders (the
+deploy's rsync excludes them, and the stack's service-directory `chown` is not
+recursive). A fresh box would still need the step: having vps-deploy's atrium stack
+apply the ownership itself is a follow-up there.
 
 ## The quality problem — why "show original" is the feature
 

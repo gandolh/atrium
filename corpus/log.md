@@ -2882,3 +2882,7 @@ The estate redesign board is a private canvas, so `design/estate-redesign/` now 
 ## [2026-11-24] done | Brief 07 — the API image installs only the API's workspaces
 
 `proddeps` installs the production dependencies of `@ebook-reader/api`, `shared` and `typeset` only, and `prod` copies the extra `apps/api/node_modules` that leaves. The image goes from 1.69 GB to 1.25 GB (the node_modules layer from 690 MB to 252 MB); no Docusaurus, webpack, rspack, react-dom or codemirror. The upload, cover, thumbnail, convert and LaTeX walk gives the same results on both images. EPUB to PDF fails in Calibre as root on both (no `--no-sandbox`), a separate follow-up. Needs `server`, not `deploy`. Details: [briefs/done/07-the-api-image-installs-only-the-apis-workspaces.md](briefs/done/07-the-api-image-installs-only-the-apis-workspaces.md).
+
+## [2026-11-24] done | Brief 09 — EPUB to PDF works: the API runs as a non-root user
+
+The `prod` stage ends in `USER node` and creates the five storage roots owned by node. Calibre's WebEngine keeps its sandbox, so EPUB to PDF finishes in a local container where it failed as root; the rest of brief 07's walk is unchanged. The box's bind-mounted roots need handing to uid 1000 from inside a container before the deploy (rootless daemon). Needs `server`. Details: [briefs/done/09-epub-to-pdf-runs-as-a-non-root-user.md](briefs/done/09-epub-to-pdf-runs-as-a-non-root-user.md).

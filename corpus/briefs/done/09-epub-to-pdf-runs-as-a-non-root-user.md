@@ -66,3 +66,11 @@ likely fails there too.
    That tells whether the live box has the bug.
 2. The `chown` from step 4, then `node cli.ts atrium server`.
 3. Try EPUB→PDF again on the live site.
+
+## Outcome (2026-11-24)
+
+The image ends in `USER node` (uid 1000); the five storage roots are created owned by `node` before `VOLUME`. EPUB to PDF now works in a local container: the job finishes and the PDF downloads (28686 bytes, `%PDF-`), `docker exec ... id` gives uid 1000, and no flag or capability was needed, so the sandbox stays on. The same image built from the unchanged Dockerfile reproduced the bug first (uid 0, "Running as root without --no-sandbox is not supported").
+
+The rest of brief 07's walk gives the same results: health, sign-in, uploads, PDF cover and thumbnail, PDF to EPUB (graded poor as before), LaTeX publish and PDF (14590 bytes), the library list. Beyond the storage roots the API writes `/tmp` and Calibre's config under `/home/node`; both are writable for node, so no `apps/api/src` change was needed. Test images removed.
+
+Owner steps, in order: (1) try one EPUB to PDF on the live site and note whether it fails; (2) hand the five folders to uid 1000 from inside a container on the box's rootless daemon (the command is in [conversion.md](../../wiki/conversion.md); a host `chown` would not map correctly under rootless Docker), with `/srv/atrium-api/apps/api` as the base the stack uses; (3) `node cli.ts atrium server` from vps-deploy; (4) try EPUB to PDF again. Follow-up: vps-deploy's atrium stack could apply that ownership itself.

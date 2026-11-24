@@ -61,6 +61,35 @@ what turns fixed-page line breaks back into paragraphs, and it is off by
 default. `--unwrap-factor` stays at its default — that is per-document tuning,
 and guessing it globally makes things worse.
 
+## Runs as a non-root user
+
+EPUB→PDF goes through Calibre's Qt WebEngine (Chromium), which will not start as
+root unless its sandbox is switched off. Until brief 09 (2026-11-24) the image had
+no `USER` line, so every EPUB→PDF failed with "Running as root without
+--no-sandbox is not supported" (PDF→EPUB never touches WebEngine and worked). The
+image now ends in `USER node` (uid 1000) and the sandbox stays on:
+`QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox` was rejected, because it would render
+uploaded books in Chromium with the sandbox off. A local run confirmed EPUB→PDF
+finishes and downloads a PDF with no extra flag or capability.
+
+What the API writes at run time: the five storage roots (`data`, `library`,
+`images` with `thumbnails/`, `latex`, `versions`, all under `/app/apps/api`),
+`/tmp`, and Calibre's config and cache under node's `HOME` (`/home/node`). The
+image creates the roots owned by `node`, but a bind mount takes its owner from the
+host folder, so on the VPS (rootless daemon, where container root is the deploy
+account and uid 1000 is a subuid) the folders must be handed to uid 1000 from
+inside a container, once, before the deploy:
+
+```
+ssh <service account> 'docker run --rm --user 0 --entrypoint chown \
+  -v /srv/atrium-api/apps/api:/t atrium-api:1.0 -R 1000:1000 \
+  /t/data /t/library /t/images /t/latex /t/versions'
+```
+
+A plain host `chown -R 1000:1000` is wrong under a rootless daemon: it would not
+map to container uid 1000. The same command is a follow-up for vps-deploy's atrium
+stack to run itself.
+
 ## The quality problem — why "show original" is the feature
 
 Calibre's own manual calls PDF *"a really, really bad format to use as input"*.

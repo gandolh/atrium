@@ -81,6 +81,11 @@ The image is 1.25 GB (1.69 GB before brief 07, 2026-11-24): the production insta
 is scoped to the API's three workspaces (`@ebook-reader/api`, `shared`, `typeset`),
 so its `node_modules` layer is 252 MB instead of 690 MB, and Docusaurus, webpack
 and the web app's packages are not in it. Calibre is the other 767 MB.
+The API runs as the image's unprivileged `node` user (uid 1000), not root, since
+brief 09 (2026-11-24): Calibre's Qt WebEngine, which writes EPUB→PDF, refuses to
+start as root without `--no-sandbox`, and the flag was rejected. The five storage
+roots must be writable by uid 1000; see [conversion.md](conversion.md) for the
+`chown` the box's bind mounts need.
 
 **Locally**, `npm run dev` runs web + api on one origin (D54). Sign in with an
 account from `npm run seed:user`; "Sign in with Ward" needs the local Ward

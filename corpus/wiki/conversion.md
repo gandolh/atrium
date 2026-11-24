@@ -1,6 +1,6 @@
 ---
 summary: Convert — the same book in either format, as linked library rows produced by an async Calibre job. Both directions, cancellable, quality-graded, and read in-app.
-updated: 2026-11-02
+updated: 2026-11-24
 ---
 
 # Convert (PDF ⇄ EPUB)
@@ -96,6 +96,40 @@ map to container uid 1000. Nothing on the host writes into these folders (the
 deploy's rsync excludes them, and the stack's service-directory `chown` is not
 recursive). A fresh box would still need the step: having vps-deploy's atrium stack
 apply the ownership itself is a follow-up there.
+
+## Calibre packaging: the tarball is not smaller (2026-11-24)
+
+A spike (brief 08) compared Debian's `calibre` package with Calibre's own Linux
+tarball. The cheap check failed the bar, so no image was built and the Dockerfile
+is unchanged. The bar was: the image shrinks by at least 150 MB, and both
+directions convert every sample at the same page or chapter count.
+
+| Packaging | Calibre | Calibre layer | Image | Conversions |
+| --- | --- | --- | --- | --- |
+| Debian bookworm `calibre`, `--no-install-recommends` (today) | bookworm's | 767 MB (`docker history`) | 1.25 GB | the walk passes, EPUB to PDF as uid 1000 since brief 09 |
+| Calibre's tarball, unpacked untrimmed | 9.19.0 | 912 MB folder plus about 30 MB of system libraries | not built | not run |
+
+- The tarball is 241 MB packed (`.txz`) and unpacks to 912 MB: `lib` 526 MB (Qt
+  WebEngine core alone is 193 MB, `calibre-extensions` 136 MB), `resources` 318 MB
+  (245 MB of it the grammar checker's `langtool`), `translations` 40 MB, `share` 20 MB.
+- The libraries Calibre's download page names (X11-XCB, EGL and OpenGL, plus the Qt
+  WebEngine set of nss, fontconfig, xkb and friends) add about 30 MB over
+  bookworm-slim, measured by installing them with `--no-install-recommends`.
+- So the tarball layer is about 175 MB larger than the apt layer, where the bar needs
+  it 150 MB smaller. Deleting `langtool`, `translations` and the devtools pak
+  (all unneeded by the CLI) is a projection, not a measurement: it lands near 650 MB,
+  about 110 MB under today's layer, still short, and the rest of the tree (Qt, ICU,
+  the extensions, onnxruntime) is what the conversion runs on. Trimming a vendor
+  tarball by hand would also be a fragile fork of the build.
+- Failed part of the bar: the size. The conversion half, and whether Qt WebEngine's
+  sandbox starts as uid 1000 from the tarball, were not reached.
+- The pin, had it passed: version 9.19.0, SHA-256
+  `35c1cbda1a2548aceeb89cb0a4be47a36025b5dc102ac046f7eaf98ba46a452d` for
+  `calibre-9.19.0-x86_64.txz`, taken from a download over HTTPS because the download
+  site publishes no checksum file (its `.sha512` URL returns an HTML page). The
+  `code.calibre-ebook.com` host failed certificate verification and was not used.
+- Revisit if the box's disk pressure changes or Debian's package grows; the numbers
+  above are the baseline.
 
 ## The quality problem — why "show original" is the feature
 

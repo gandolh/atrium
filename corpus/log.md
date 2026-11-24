@@ -2894,3 +2894,11 @@ runs `docker exec -u 0 atrium-api` on the running container, so it doesn't depen
 It starts with `versions`, the smallest folder, and goes on to the rest only after a live check.
 The page also says outright that the step comes BEFORE any deploy or rollout that carries `USER
 node`. Brief 07's deploy now carries it too, because both briefs sit on main.
+
+## [2026-11-24] done | Brief 08 — spike: a smaller Calibre for ebook-convert
+
+Calibre's own Linux tarball (9.19.0) unpacks to 912 MB, plus about 30 MB of system libraries,
+against 767 MB for the apt layer in today's image. It is about 175 MB larger, not 150 MB smaller,
+so the spike stopped at the cheap check: no image built, Dockerfile unchanged. Hand-trimming the
+tarball (grammar checker, translations) projects to about 110 MB under today's layer, still short.
+Measurements and the pin that would have been used are in `wiki/conversion.md`.

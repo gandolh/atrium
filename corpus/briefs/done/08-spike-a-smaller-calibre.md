@@ -81,3 +81,9 @@ measuring script, and hand back for the controller to run them.
 - `npm run check` passes.
 - If the Dockerfile changed, the deploy is the owner's step:
   `node cli.ts atrium deploy` from vps-deploy.
+
+## Outcome (2026-11-24)
+
+The cheap check failed the bar, so the spike stopped there and changed nothing in the repo's code. Calibre 9.19.0's Linux tarball is 241 MB packed and unpacks to 912 MB; the libraries its download page names add about 30 MB over bookworm-slim. Today's apt layer measures 767 MB, so the tarball layer is about 175 MB larger, where the bar needs it 150 MB smaller. Deleting the grammar checker, translations and devtools pak projects to about 650 MB, about 110 MB under today's layer: still short, and a hand-trimmed vendor tarball is fragile. No image was built; the conversion half of the bar and the uid 1000 WebEngine sandbox were not reached. The Dockerfile is unchanged and stays on the apt package. Table and the pin that would have been used: [conversion.md](../../wiki/conversion.md).
+
+Correction to this brief: the deploy step for a Dockerfile change would have been `node cli.ts atrium server`, not `deploy` (which ships only the web client). Nothing changed, so there is no deploy.

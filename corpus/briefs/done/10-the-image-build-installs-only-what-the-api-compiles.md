@@ -96,3 +96,24 @@ the controller.
 
 - `node cli.ts atrium server` from vps-deploy. Brief 09's chown step comes first if it hasn't run yet
   ([conversion.md](../../wiki/conversion.md)).
+
+## Outcome (2026-11-24)
+
+Built. The `deps` stage runs `npm ci -w @ebook-reader/api -w @ebook-reader/shared -w @ebook-reader/typeset --include-workspace-root`; all three stages use `node:24.22.1-bookworm-slim`; the syntax line is `# syntax=docker/dockerfile:1.20.0` (the first stable frontend with `COPY --parents`, per the reference's availability table; the image built with it); both toolchain lines carry the other Debian images' text; `prod`'s first `ENV` block has `MALLOC_ARENA_MAX=2` with its reason.
+
+**Step 1 (no Docker, `git archive` export):** full `npm ci` gives `node_modules` 1043 MB; the scoped command gives 408 MB. The three builds (shared, typeset, api) pass in order. Nothing had to be added to the command.
+
+**Images, one machine, same day** (before is the tree one commit earlier):
+
+| | before | after |
+|---|---|---|
+| `deps` stage (`--target deps`) | 1.74 GB | 1.02 GB |
+| final image (`prod`) | 1.25 GB | 1.25 GB |
+| node patch in the base | 24.22.3 (the tag floated) | 24.22.1 |
+| cold build of `prod` here | 5 min 7 s | 1 min 30 s |
+
+`docker history` of the two final images differs only in the node layer's `NODE_VERSION` and a few KB. The 252 MB `node_modules` layer, the 767 MB Calibre layer and the app layers are the same size.
+
+**Walk on the new image** (scratch folders, image runs as uid 1000): `/health` 200; PDF upload returns a cover (200 `image/jpeg`) and one thumbnail on disk; PDF to EPUB converts (file written); an EPUB made with Calibre uploads and converts to PDF (a 76863-byte PDF); LaTeX create, save, publish (201) and PDF download (`%PDF-`, 5240 bytes); no error lines in the log. The old image was walked the same way in brief 09 with the same results; it was not walked again here. The walk script's status poll read the wrong field, so conversion completion was confirmed from the files on disk.
+
+**Checks:** `npm run check` exit 0; `bash corpus/lint.sh` passes. Test images and containers (`atrium10-*`) removed.

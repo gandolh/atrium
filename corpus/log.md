@@ -2910,3 +2910,7 @@ API compiles (about 609 MB less per cold build on the box), the base is pinned t
 the syntax line to an exact frontend version, the toolchain line takes the other Debian images' text so the box
 caches it once, and the runtime gets `MALLOC_ARENA_MAX=2`. Brief 11: `pdf-to-img` loads on first use and sharp
 keeps no cache and one thread, measured before and after. Both ship with `node cli.ts atrium server`.
+
+## [2026-11-24] done | Brief 10: the image's build stage installs only what the API compiles
+
+The `deps` stage installs the three workspaces the API builds (`node_modules` 1043 MB to 408 MB; the stage 1.74 GB to 1.02 GB, final image unchanged at 1.25 GB). Base pinned to `node:24.22.1-bookworm-slim` (the floating tag had moved to 24.22.3), syntax line to `1.20.0`, toolchain line matches the other Debian images, `MALLOC_ARENA_MAX=2` set. Walk on the new image matches. Owner step: brief 09's chown if not yet run, then `node cli.ts atrium server`.

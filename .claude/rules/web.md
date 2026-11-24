@@ -7,6 +7,9 @@ paths:
 
 - The Reading Room conformance checklist at the bottom of
   [corpus/wiki/design.md](../../corpus/wiki/design.md) is the design gate. Run it before any web change is done.
+- Browsers: Chrome on Android decides what to build; Safari on iPhone,
+  Firefox and desktop Safari must keep working. Before you use a platform
+  feature newer than Baseline Widely available, read the `web-platform` skill.
 - Read the `base-ui` skill before you add or change a component.
 - Base UI is imported only through the wrappers in `components/ui/`. Pages import the wrapper, never
   `@base-ui/react`. `check-base-ui` runs strict in `npm run check:conventions`; an exception goes in

@@ -2918,3 +2918,8 @@ The `deps` stage installs the three workspaces the API builds (`node_modules` 10
 ## [2026-11-24] done | Brief 11: pdf-to-img loads on first use, sharp keeps no cache
 
 `pdf-to-img` is imported on first use in `gradeEpub` and `extractPdf`; sharp runs with no cache and one thread (`lib/sharp.ts`). Idle memory after boot 163.3 to 139.8 MiB; after PDF uploads 244.1 to 240.3 MiB (pdfjs loads then anyway). Latency within noise. Owner step: `node cli.ts atrium server`, with brief 10.
+
+## [2026-11-25] todo | Brief 12: The web build prints no warnings
+
+Filed from the owner's ask to fix the build warnings in the most active repos (more than 10 commits outside the corpus
+in two days). The web build prints three warnings: the 1,080 kB entry chunk, and two Rollup annotation warnings from zod 4.6.7 that Vite 6 reports. The entry chunk is split with lazy routes and features until no chunk of Atrium's own is over 500 kB; the zod warning is filtered for zod only. Ships with node cli.ts atrium all.

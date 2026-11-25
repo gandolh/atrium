@@ -42,8 +42,8 @@ All settled. None of them is open.
 
 ## Steps
 
-1. Run `npx vite-bundle-visualizer` (or Rollup's `--bundleConfigAsCjs` stats) on the web app to see what fills the
-   entry chunk; note the top contributors in the outcome.
+1. Run `npx vite-bundle-visualizer` in `apps/web` (nothing added to the repo) to see what fills the entry chunk; note
+   the top contributors in the outcome.
 2. Make the big, not-first-screen parts lazy, each behind the loading state the app already uses.
 3. Add the zod filter.
 4. Rebuild until `npm run build` prints no warning.
@@ -57,7 +57,7 @@ All settled. None of them is open.
 
 ## Owner steps
 
-- `node cli.ts atrium all` from vps-deploy.
+- `node cli.ts atrium deploy` from vps-deploy (the web build only; the API doesn't change).
 
 ## Owner decisions
 

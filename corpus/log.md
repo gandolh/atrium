@@ -2922,4 +2922,4 @@ The `deps` stage installs the three workspaces the API builds (`node_modules` 10
 ## [2026-11-25] todo | Brief 12: The web build prints no warnings
 
 Filed from the owner's ask to fix the build warnings in the most active repos (more than 10 commits outside the corpus
-in two days). The web build prints three warnings: the 1,080 kB entry chunk, and two Rollup annotation warnings from zod 4.6.7 that Vite 6 reports. The entry chunk is split with lazy routes and features until no chunk of Atrium's own is over 500 kB; the zod warning is filtered for zod only. Ships with node cli.ts atrium all.
+in two days). The web build prints three warnings: the 1,080 kB entry chunk, and two Rollup annotation warnings from zod 4.6.7 that Vite 6 reports. The entry chunk is split with lazy routes and features until no chunk of Atrium's own is over 500 kB; the zod warning is filtered for zod only. Ships with `node cli.ts atrium deploy`.

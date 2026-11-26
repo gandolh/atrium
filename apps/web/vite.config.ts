@@ -9,6 +9,26 @@ import { VitePWA } from "vite-plugin-pwa";
 // env loading there instead of the default per-app dir.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
+const VENDOR_CHUNKS: Record<string, readonly string[]> = {
+  react: ["react", "react-dom", "scheduler"],
+  "base-ui": ["@base-ui/react", "@base-ui/utils"],
+  motion: ["motion", "motion-dom", "motion-utils", "framer-motion"],
+  zod: ["zod"],
+};
+
+/** The vendor chunk a module belongs to, by its npm package; app code and unlisted packages stay where they land. */
+function vendorChunk(id: string): string | undefined {
+  const marker = "node_modules/";
+  const at = id.replaceAll("\\", "/").lastIndexOf(marker);
+  if (at === -1) return undefined;
+  const [scopeOrName, scoped] = id
+    .replaceAll("\\", "/")
+    .slice(at + marker.length)
+    .split("/");
+  const pkg = scopeOrName?.startsWith("@") ? `${scopeOrName}/${scoped}` : scopeOrName;
+  return Object.entries(VENDOR_CHUNKS).find(([, pkgs]) => pkg !== undefined && pkgs.includes(pkg))?.[0];
+}
+
 /**
  * Local dev on one origin, the way Caddy serves the deploy (D54, revising D14):
  * `/atrium-api` is the API with the prefix stripped. With VITE_API_URL pointed
@@ -65,6 +85,25 @@ export default defineConfig(({ mode }) => {
     base,
     envDir: REPO_ROOT,
     server: { proxy: devProxy(env) },
+    build: {
+      rollupOptions: {
+        // The shell's libraries are each big enough to matter on their own, so they get their own chunks instead of
+        // one entry chunk over the 500 kB limit. Each also caches across deploys when only app code changes.
+        // Package-level groups only: splitting inside a package is what produces circular chunk imports.
+        output: { manualChunks: vendorChunk },
+        onwarn(warning, defaultHandler) {
+          // zod 4 puts a `@__PURE__` comment where Rollup cannot read it and Rollup warns once per spot. The comment
+          // is only a tree-shaking hint, so dropping it is harmless. Scoped to zod so any other annotation warning,
+          // and every other warning, still prints.
+          if (
+            warning.code === "INVALID_ANNOTATION" &&
+            (warning.id ?? "").replaceAll("\\", "/").includes("/node_modules/zod/")
+          )
+            return;
+          defaultHandler(warning);
+        },
+      },
+    },
     plugins: [
       react(),
       tailwindcss(),

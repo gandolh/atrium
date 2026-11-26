@@ -1,6 +1,6 @@
 ---
 summary: Recorded live + build-time performance baseline of the current (post-code-split) build — initial JS transfer, chunk sizes, cover→first-page for PDF and EPUB, and EPUB open phases — plus how to reproduce the numbers.
-updated: 2026-11-02
+updated: 2026-11-26
 ---
 
 # Performance baseline
@@ -43,6 +43,11 @@ exact steps live there.
 Readers are **code-split**: the entry chunk no longer bundles react-pdf /
 epub.js. That is the headline win vs. the pre-split build (was a single **1.42 MB**
 entry chunk — see the 2026-07-13 log entry / status.md).
+
+> **Since 2026-11-26** the entry chunk is 291 kB (90 kB gzip): every route but the library home is lazy, and `react`
+> (194 kB), `base-ui` (242 kB), `motion` (129 kB) and `zod` (95 kB) are separate vendor chunks (`manualChunks` in
+> `apps/web/vite.config.ts`). The first screen loads all five, so its total is close to what it was; no file is over
+> 500 kB and `npm run build` prints no warning. The rows above predate this.
 
 ## Live: initial app load (login screen)
 

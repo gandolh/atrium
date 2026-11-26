@@ -63,3 +63,32 @@ All settled. None of them is open.
 
 - Settled 2026-11-25 (owner): "run build and fix all the warnings for the most active projects". Which repos count
   (more than 10 commits outside the corpus in two days) and how each warning is fixed are the controller's calls.
+
+## Outcome
+
+Done 2026-11-26. `npm run build` prints no warning. The entry chunk went from 1,080 kB (338 kB gzip) to 291 kB (90 kB
+gzip); the largest chunk of Atrium's own is now the PDF reader's at 476 kB. `chunkSizeWarningLimit` is untouched.
+
+- **What filled the entry chunk** (source sizes from a sourcemap pass; `vite-bundle-visualizer` could not be run in the
+  build container, so the sourcemaps stood in): `@base-ui/react` 639k, `react-dom` 545k, `zod` 370k, `motion-dom` 345k,
+  Atrium's `lib` 206k, `@tanstack/router-core` 144k, the LaTeX screens 125k, `framer-motion` 122k, `tailwind-merge`
+  106k, the notes screens 105k, the library screens 103k. The readers, PDF, epub.js and CodeMirror were already lazy.
+- **Routes are lazy.** `apps/web/src/router.tsx` loads `/notes`, `/latex`, `/jukebox`, `/read`, `/discover`,
+  `/profiles` and `/settings` through TanStack's `lazyRouteComponent`, which also preloads on link intent. The library
+  home stays in the entry. That alone left the entry at 908 kB, because the rest was libraries.
+- **Four libraries get their own chunks** through `manualChunks` in `vite.config.ts`: `react` (194 kB), `base-ui`
+  (242 kB), `motion` (129 kB), `zod` (95 kB). Whole packages only. The first screen still loads all of them, so its
+  total is about the same; what changed is that no file is over the limit and a deploy that only touches app code
+  leaves four chunks cached.
+- **The zod warning** is dropped by an `onwarn` handler for `INVALID_ANNOTATION` under `node_modules/zod/`; any
+  other warning prints.
+- **Runtime check** on `vite preview` with the real API (throwaway data directory and account): every lazy route
+  opened, a PDF and an epub rendered in their readers, a new LaTeX project opened in the CodeMirror editor. No chunk
+  request failed or returned an error status. The console showed only the 401 before sign-in, 502s from the Jukebox
+  and Discover pages (no Discord bot or Gutenberg reachable in the container), cover 404s and epub.js's `unload`
+  permissions-policy notice.
+- **Gate:** typecheck, lint, format and conventions pass. `npm run test` fails in the API's LaTeX publish and cover
+  tests ("typesetting worker crashed: Cannot find module apps/api/src/config.js"), a worker path problem in this
+  container that has nothing to do with the web app.
+- Board not updated: brief-board was not available in this session.
+

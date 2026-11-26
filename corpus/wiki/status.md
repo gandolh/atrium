@@ -1,6 +1,6 @@
 ---
 summary: Dated snapshot (2026-11-02) of Atrium, per area — the media library (books, music, video) and its readers, Notes, the LaTeX editor on its own typesetting engine, profiles, accounts (local plus "Sign in with Ward", in production since 2026-10-13), the Jukebox, the two improvement sweeps (done 2026-10-03 and 2026-10-27), the metadata lookup (2026-10-28); what is deployed, what the owner still owes, and where the older history lives. The web app wears the "Rail and reading table" redesign (D63, 2026-11-13): a rail and bottom bar shell, stronger tints, sentence-case labels; it needs the web deploy.
-updated: 2026-11-13
+updated: 2026-11-26
 ---
 
 # Status — 2026-11-02
@@ -71,6 +71,9 @@ numbering restarted at 01 on 2026-11-02 (see [`../log.md`](../log.md),
   every small page take the new tokens. Playwright checks (focus ring, reduced motion, 390 overflow, the
   theme group, the page-turn swipe) and `npm run check:contrast` cover it. Web deploy only; the API is
   unchanged.
+- **The web build** (2026-11-26). `npm run build` prints no warning: routes other than the library home are lazy, `react`,
+  `base-ui`, `motion` and `zod` are their own chunks, and the entry chunk is 291 kB (was 1,080 kB). Needs the web deploy
+  (`node cli.ts atrium deploy`); the API is unchanged ([performance.md](performance.md)).
 - **Docs site** (2026-10-19). Docusaurus at `/atrium/docs`, same URLs.
 
 ## Next (owner)

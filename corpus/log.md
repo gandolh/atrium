@@ -2923,3 +2923,8 @@ The `deps` stage installs the three workspaces the API builds (`node_modules` 10
 
 Filed from the owner's ask to fix the build warnings in the most active repos (more than 10 commits outside the corpus
 in two days). The web build prints three warnings: the 1,080 kB entry chunk, and two Rollup annotation warnings from zod 4.6.7 that Vite 6 reports. The entry chunk is split with lazy routes and features until no chunk of Atrium's own is over 500 kB; the zod warning is filtered for zod only. Ships with `node cli.ts atrium deploy`.
+
+## [2026-11-26] done | Brief 12: the web build prints no warnings
+
+The routes other than the library home load lazily, and `react`, `base-ui`, `motion` and `zod` each get their own chunk, so the entry chunk drops from 1,080 kB (338 kB gzip) to 291 kB (90 kB gzip) and no chunk is over 500 kB. An `onwarn` handler drops the zod `INVALID_ANNOTATION` warning at its source. Checked on a preview build against the real API: every lazy route, a PDF, an epub and the LaTeX editor open with no failed chunk request. The API's LaTeX tests fail in the build container on a worker path (`config.js`), unrelated. The board was not updated because brief-board was not available in this session. Needs `deploy`. Details: [briefs/done/12-the-web-build-prints-no-warnings.md](briefs/done/12-the-web-build-prints-no-warnings.md).
+

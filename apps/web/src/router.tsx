@@ -1,17 +1,12 @@
-import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 import { fileTypeSchema, mediaKindSchema } from "@ebook-reader/shared";
 
 import { RootLayout } from "./routes/root-layout";
 import { LibraryHome } from "./library/LibraryHome";
-import { Read } from "./routes/read";
-import { Discover } from "./routes/discover";
-import { Notes } from "./routes/notes";
-import { LatexRoute } from "./routes/latex";
-import { JukeboxPage } from "./jukebox/JukeboxPage";
-import { ManageProfiles } from "./profiles/ManageProfiles";
-import { AccountSettings } from "./auth/AccountSettings";
 
+// Every route but the home loads on first visit, so the entry chunk carries the shell and the library home only.
+// `lazyRouteComponent` also preloads on link intent, so the chunk is usually in by the click.
 /**
  * Code-based route tree (no file-based plugin — keeps the shell dependency-
  * light; see the frontend shell). Two routes for now: `/` (home/upload) and `/read`
@@ -72,7 +67,7 @@ const notesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/notes",
   validateSearch: notesSearchSchema,
-  component: Notes,
+  component: lazyRouteComponent(() => import("./routes/notes"), "Notes"),
 });
 
 // `/latex` — one route, two views: the project list, or
@@ -87,7 +82,7 @@ const latexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/latex",
   validateSearch: latexSearchSchema,
-  component: LatexRoute,
+  component: lazyRouteComponent(() => import("./routes/latex"), "LatexRoute"),
 });
 
 // `/jukebox` — the remote for the Discord bot's music (D56, D57).
@@ -96,7 +91,7 @@ const latexRoute = createRoute({
 const jukeboxRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/jukebox",
-  component: JukeboxPage,
+  component: lazyRouteComponent(() => import("./jukebox/JukeboxPage"), "JukeboxPage"),
 });
 
 // `format` is optional + type-safe (validated against the shared Zod enum) so
@@ -119,7 +114,7 @@ const readRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/read",
   validateSearch: readSearchSchema,
-  component: Read,
+  component: lazyRouteComponent(() => import("./routes/read"), "Read"),
 });
 
 // `/discover` — browse + import Project Gutenberg books. Copies the
@@ -137,7 +132,7 @@ const discoverRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/discover",
   validateSearch: discoverSearchSchema,
-  component: Discover,
+  component: lazyRouteComponent(() => import("./routes/discover"), "Discover"),
 });
 
 // `/profiles` (the profiles work Part C) — the manage screen reached from the header
@@ -146,7 +141,7 @@ const discoverRoute = createRoute({
 const profilesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/profiles",
-  component: ManageProfiles,
+  component: lazyRouteComponent(() => import("./profiles/ManageProfiles"), "ManageProfiles"),
 });
 
 // `/login` (D58) — where a refused "Sign in with Ward" lands
@@ -168,7 +163,7 @@ const loginRoute = createRoute({
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
-  component: AccountSettings,
+  component: lazyRouteComponent(() => import("./auth/AccountSettings"), "AccountSettings"),
 });
 
 const routeTree = rootRoute.addChildren([
